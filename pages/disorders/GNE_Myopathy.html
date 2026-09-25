@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4666,6 +4719,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-gne-variants-and-enzymatic-block" data-dismech-node="Biallelic Hypomorphic GNE Variants and Enzymatic Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic GNE Variants and Enzymatic Block</div>
 
+
                 <div class="item-desc">GNE encodes one polypeptide carrying two enzyme activities, UDP-GlcNAc 2-epimerase and N-acetylmannosamine kinase, which together run the first committed and rate-limiting steps of sialic acid synthesis. Biallelic hypomorphic variants, predominantly missense and distributed across both catalytic domains, reduce that throughput. The variants must be hypomorphic rather than null: Gne knockout is embryonic lethal in mouse, so every surviving human genotype retains residual enzyme activity, and that is why curating these alleles as complete loss of function overstates the lesion.</div>
 
 
@@ -4761,6 +4815,8 @@ This genetic context concerns GNE (hgnc:23657). hgnc:23657 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4771,6 +4827,9 @@ This genetic context concerns GNE (hgnc:23657). hgnc:23657 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic GNE alleles, homozygous (founder p.Met743Thr in Middle Eastern families) or compound heterozygous. Recorded as PARTIAL_LOSS_OF_FUNCTION: disease alleles are hypomorphic missense changes that retain residual epimerase/kinase activity, and complete loss of GNE is embryonic lethal in mice.</div>
 
@@ -4968,6 +5027,7 @@ This pathophysiological event involves decreased N-acetylmannosamine kinase acti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-free-sialic-acid-depletion" data-dismech-node="Free Sialic Acid Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Free Sialic Acid Depletion</div>
 
+
                 <div class="item-desc">The best-quantified node in the disease, and the one that also explains its most distinctive clinical sign. Serum free sialic acid is 18% below age-matched controls, but muscle free sialic acid is down 72 to 85%, so the deficit is far more severe in the tissue that gets sick. The quadriceps sparing rule falls out of the same measurements: normal quadriceps already runs on 39% less free sialic acid than normal gastrocnemius, so it has less to lose when supply is throttled.</div>
 
 
@@ -5152,6 +5212,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyposialylation-of-muscle-glycoproteins" data-dismech-node="Hyposialylation of Muscle Glycoproteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyposialylation of Muscle Glycoproteins</div>
+
 
                 <div class="item-desc">Muscle glycoproteins carry less sialic acid than they should. Two things should be said carefully here. First, the specific glycoprotein target or targets whose undersialylation is actually pathogenic have not been definitively identified, and the sialic acid measurements themselves hint that the set is small: total sialic acid differences between patients and controls were less distinct and more variable than the free pool differences. Second, that hyposialylation is causal rather than incidental was established by rescue in the mouse, and the authors of that rescue were careful to call it one of the key factors rather than the whole story.</div>
 
@@ -5379,6 +5440,7 @@ This pathophysiological event involves decreased protein sialylation (GO:1990743
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagic-block-and-proteostasis-failure" data-dismech-node="Autophagic Block and Proteostasis Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagic Block and Proteostasis Failure</div>
 
+
                 <div class="item-desc">Rimmed vacuoles are not vacuoles in the naive sense; they are accumulated autophagic material, and recent isogenic-model work supplies an actual signaling chain for why the material accumulates. Excessive extracellular matrix production drives aberrant activation of a noncanonical AKT-mTORC1 pathway, which phosphorylates and inhibits ULK1 and so suppresses autophagy initiation. Reactivating autophagy by PI3K inhibition restores ULK1 activity in patient-derived neuromuscular organoids, which is what makes this a causal chain rather than a correlation.</div>
 
 
@@ -5577,6 +5639,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-amyloid-and-misfolded-protein-accumulation" data-dismech-node="Amyloid and Misfolded Protein Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Amyloid and Misfolded Protein Accumulation</div>
 
+
                 <div class="item-desc">Myofibers accumulate congophilic material immunoreactive to beta-amyloid, lysosomal proteins, ubiquitin, and tau. The mouse model established the temporal ordering, which is the mechanistically interesting part: beta-amyloid deposition appears at 32 weeks and clearly precedes rimmed vacuole formation at 42 weeks. Whether the amyloid is mechanistically upstream of the atrophy or a downstream marker of failed clearance remains unsettled, and this entry does not decide it.</div>
 
 
@@ -5739,6 +5802,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myofiber-atrophy-and-degeneration" data-dismech-node="Myofiber Atrophy and Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Myofiber Atrophy and Degeneration</div>
+
 
                 <div class="item-desc">The tissue endpoint: progressive myofiber atrophy and degeneration with angular fibers and increased fiber-size variability, without inflammation. Distribution is the diagnostic signature. Weakness starts in the anterior compartment of the lower leg, progresses to the posterior compartment, then hamstrings, then hip girdle, and the quadriceps is relatively spared until late. End-stage tissue outcomes are fibrosis and fatty replacement.</div>
 
@@ -6050,6 +6114,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6143,6 +6210,9 @@ This clinical feature is Foot dorsiflexor weakness (HP:0009027), qualified as co
 
 
                     </div>
+
+
+
 
 
 
@@ -6262,6 +6332,9 @@ This clinical feature is Distal lower limb muscle weakness (HP:0009053), qualifi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6323,6 +6396,8 @@ This clinical feature is Distal lower limb muscle weakness (HP:0009053), qualifi
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
+
 
 
 
@@ -6331,10 +6406,13 @@ This clinical feature is Distal lower limb muscle weakness (HP:0009053), qualifi
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6436,6 +6514,9 @@ This clinical feature is Distal amyotrophy (HP:0003693), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6523,6 +6604,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6592,6 +6676,9 @@ This clinical feature is Rimmed vacuoles (HP:0003805). HP:0003805 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6656,6 +6743,9 @@ This clinical feature is Deposits immunoreactive to beta-amyloid protein (HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6750,6 +6840,9 @@ This clinical feature is Increased variability in muscle fiber diameter (HP:0003
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6867,6 +6960,9 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6940,6 +7036,9 @@ This clinical feature is Steppage gait (HP:0003376). HP:0003376 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7032,6 +7131,9 @@ This clinical feature is Loss of ambulation (HP:0002505), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7098,6 +7200,9 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7214,6 +7319,9 @@ This disease-associated gene is GNE (hgnc:23657). hgnc:23657 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7365,6 +7473,9 @@ This treatment uses N-acetylneuraminic acid (CHEBI:17012). CHEBI:17012 is a ther
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7375,6 +7486,9 @@ This treatment uses N-acetylneuraminic acid (CHEBI:17012). CHEBI:17012 is a ther
 
 
     </div>
+
+
+
 
 
 
@@ -7561,6 +7675,9 @@ This treatment uses N-acetyl-D-mannosamine (CHEBI:63153). CHEBI:63153 is a thera
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7571,6 +7688,9 @@ This treatment uses N-acetyl-D-mannosamine (CHEBI:63153). CHEBI:63153 is a thera
 
 
     </div>
+
+
+
 
 
 
@@ -7730,6 +7850,9 @@ This treatment uses 6&#39;-sialyllactose, annotated with 5-acetamido-3,5-dideoxy
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7740,6 +7863,9 @@ This treatment uses 6&#39;-sialyllactose, annotated with 5-acetamido-3,5-dideoxy
 
 
     </div>
+
+
+
 
 
 
@@ -7904,6 +8030,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7914,6 +8043,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -8008,6 +8140,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8018,6 +8153,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10259,10 +10397,10 @@ phenotypes:
     discriminating: markedly high creatine kinase points instead to
     dysferlinopathy.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:30338442
     reference_title: &#34;GNE Myopathy: Etiology, Diagnosis, and Therapeutic Challenges.&#34;
@@ -11658,6 +11796,29 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Nomenclature. Two independently described diseases, Nonaka distal myopathy in Japan and quadriceps-sparing hereditary inclusion body myopathy in Iranian Jewish families, turned out to be one entity, and the unified name GNE myopathy was formalized in 2014. The synonym list is long for that reason. Do not confuse this with sporadic inclusion body myositis, which shares the phrase inclusion body and nothing else that matters.
+Variant numbering. GNE has two commonly cited transcripts and the pre-2014 literature uses the shorter one, so every legacy variant name is offset by 31 residues. This entry uses current NM_001128227 numbering and records the legacy names where the model-organism literature depends on them, which is why the mouse genotype field carries both.
+Thrombocytopenia scoping. A separate MONDO entity exists for thrombocytopenia 12 with or without myopathy, also GNE-caused and driven by a platelet sialylation defect with accelerated platelet clearance. This entry curates thrombocytopenia as an extramuscular manifestation with the registry frequency, and does not attempt to model the platelet-predominant presentation, which belongs in its own entry.
+Deliberately not curated. The Japanese registry also reported psychiatric disease in 14.7% of participants. That is a self-reported diagnosis in a chronic disabling myopathy and is heavily confounded by reactive depression, so it is not curated as a phenotype of this disease. Dietary sialoglycoprotein loading is likewise not curated as a protective factor: the one head-on test in a model system was negative, and only pharmacological monosaccharide dosing moved the readout.
+Sialuria. The same locus carries a dominant gain-of-function allelic disorder: variants in the CMP-sialic-acid allosteric site of the GNE epimerase domain escape feedback inhibition and cause sialic acid overproduction rather than deficiency. It is the mechanistic inverse of this disease and is not a subtype of it, which is why GAIN_OF_FUNCTION should never be curated on a myopathy allele here.
+Deep research. Curated from a claude_code deep-research report (research/GNE_Myopathy-deep-research-claude_code.md), whose own reference validation reported 41/41 references verified, 7/7 quotes valid, and a confabulation rate of 0.0. The GeneReviews chapter PMID:20301439 was fetched, tagged, and used as the phenotype baseline. Every snippet used here was independently re-verified against the cached PubMed record before it was written.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: GNE Myopathy</strong> · 2026-08-15T16:00:08Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/GNE_Myopathy/2026-08-15T160008Z-claude-code-88cc54.yaml">View source</a></p>
+                        <p class="research-review-text">New KB entry for GNE myopathy (MONDO:0011603), curated from a claude_code deep-research report (research/GNE_Myopathy-deep-research-claude_code.md), whose own reference validation reported 41/41 references verified, 7/7 quotes valid, confabulation rate 0.0. GeneReviews chapter PMID:20301439 fetched, tagged, and used as the phenotype baseline, including its Agents/Circumstances to Avoid section which is curated as its own treatment entry. Six pathophysiology nodes: biallelic hypomorphic GNE variants and enzymatic block, free sialic acid depletion, hyposialylation of muscle glycoproteins, autophagic block and proteostasis failure, amyloid and misfolded protein accumulation, and myofiber atrophy and degeneration. Two mechanistic points are carried carefully. The quadriceps-sparing sign, the disease&#39;s most useful diagnostic discriminator, is given its biochemical explanation from measured free sialic acid differences in NORMAL muscle rather than in disease. And hyposialylation is asserted as causal on the strength of the mouse rescue, quoted with the authors&#39; own hedge that it is one of the key factors rather than the whole story. Fourteen phenotypes, two subtypes by catalytic domain (recorded because the domain distinction is therapeutically consequential for ManNAc), four treatments, one animal model and one iPSC-derived experimental model each with modeled_mechanisms and readouts, four discussions. The central curation decision is the sialic acid trial discordance: an international phase 3 gave Class I evidence of no benefit while Japanese trials were equivocal-to-positive enough to support 2024 approval, and the entry records both directions with REFUTE and PARTIAL evidence side by side rather than picking one. Deliberately not curated: the registry&#39;s 14.7% psychiatric disease figure, which is self-reported and confounded by reactive depression, and dietary sialoglycoprotein loading as a protective factor, which tested negative. Validated: just validate passed (schema, terms, and references) and just count-verified-snippets reported 64/64 verified against cached references. All 35 planned snippets were pre-verified against the cache before any YAML was written, which caught four that did not match; five reference_title values were corrected against the cached records after the reference validator flagged them, and a programmatic audit of all 18 title values now reports zero mismatches.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12990,7 +13151,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "GNE Myopathy", "mondoId": "MONDO:0011603", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GNE_Myopathy", "yamlRevision": "d7f09861aec6"};
+        const OS_CONFIG = {"diseaseName": "GNE Myopathy", "mondoId": "MONDO:0011603", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GNE_Myopathy", "yamlRevision": "9200d5c30f55"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

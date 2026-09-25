@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Neutrophil%20Immunodeficiency%20Syndrome"
@@ -4000,7 +4053,7 @@ SCOPE: this entry covers the DOMINANT-NEGATIVE arm only. RAC2 disease is a four-
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4477,6 +4530,7 @@ This entry is the AD loss-of-function / dominant-negative arm (MONDO:0011988, IM
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rac2-p-asp57asn-dominant-negative-allele" data-dismech-node="RAC2 p.Asp57Asn Dominant-Negative Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">RAC2 p.Asp57Asn Dominant-Negative Allele</div>
 
+
                 <div class="item-desc">The initiating lesion. Asp57 is invariant across GTP-binding proteins and participates directly in nucleotide binding. The mutant protein binds GDP but not GTP, so it is locked in the inactive conformation, and it acts dominant-negatively rather than as a simple null: it sequesters guanine nucleotide exchange factors and effectors away from the wild-type protein. That is why one allele is enough.</div>
 
 
@@ -4537,6 +4591,8 @@ This pathophysiological event involves RAC2 (hgnc:9802). hgnc:9802 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4549,6 +4605,9 @@ This pathophysiological event involves RAC2 (hgnc:9802). hgnc:9802 is a gene fro
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline p.Asp57Asn. The functional impact is recorded as DOMINANT_NEGATIVE rather than LOSS_OF_FUNCTION because the mutant actively inhibits the wild-type allele&#39;s product; a heterozygous null at this locus does not produce the disease.</div>
 
@@ -4693,6 +4752,7 @@ This pathophysiological event involves GTPase activity (GO:0003924), qualified a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-nox2-oxidase-activation-and-superoxide-production" data-dismech-node="Failed NOX2 Oxidase Activation and Superoxide Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed NOX2 Oxidase Activation and Superoxide Production</div>
 
+
                 <div class="item-desc">The first of the two effector arms. RAC2 is required for activation of the NOX2 NADPH oxidase, and the D57N protein inhibits oxidase activation in vitro. The defect is at the level of the ACTIVATOR, not the catalytic complex, which is what distinguishes this from chronic granulomatous disease even though the downstream consequence - failed respiratory burst - is shared. The decisive reconstitution experiment is that adding recombinant Rac to patient neutrophil extracts restores superoxide production.</div>
 
 
@@ -4788,6 +4848,14 @@ This pathophysiological event involves decreased superoxide anion generation (GO
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Decreased Neutrophil Oxidative Burst</span>
+
+	                            <span class="crosslink-desc">The assay measurement of this node, and the finding that makes this disease look like CGD on a DHR test despite a different lesion.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neutrophils Released but Unable to Reach or Kill in Tissue</span>
 
 	                            <span class="crosslink-desc">Loss of the respiratory burst removes oxidative microbial killing.</span>
@@ -4865,6 +4933,7 @@ This pathophysiological event involves decreased superoxide anion generation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-chemoattractant-driven-actin-assembly-and-directed-migration" data-dismech-node="Failed Chemoattractant-Driven Actin Assembly and Directed Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Chemoattractant-Driven Actin Assembly and Directed Migration</div>
+
 
                 <div class="item-desc">The second effector arm, and the one chronic granulomatous disease does not have. Patient neutrophils show decreased chemotaxis, polarization and azurophilic granule secretion. In the Rac2-null mouse the same arm fails through defective F-actin generation, impaired p38 and p42/p44 MAP kinase activation, and loss of shear-dependent L-selectin-mediated capture, so the defect spans capture, polarization and migration rather than any single step. This is curated as a separate node from the oxidase arm rather than bundled into one &#34;neutrophil dysfunction&#34; node, because the two are independent effector routes from the same GTPase.</div>
 
@@ -5028,6 +5097,14 @@ This pathophysiological event involves decreased actin filament polymerization (
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired Neutrophil Chemotaxis</span>
+
+	                            <span class="crosslink-desc">The assay measurement of this node.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neutrophils Released but Unable to Reach or Kill in Tissue</span>
 
 	                            <span class="crosslink-desc">Loss of directed migration prevents neutrophils reaching the site of infection.</span>
@@ -5105,6 +5182,7 @@ This pathophysiological event involves decreased actin filament polymerization (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophils-released-but-unable-to-reach-or-kill-in-tissue" data-dismech-node="Neutrophils Released but Unable to Reach or Kill in Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophils Released but Unable to Reach or Kill in Tissue</div>
+
 
                 <div class="item-desc">The two arms converge here, and the convergence explains the syndrome&#39;s most distinctive feature: peripheral neutrophilia coexisting with an absence of neutrophils where they are needed. Neutrophils are produced and released normally but do not accumulate at infected sites, so infections proceed without pus formation and wounds heal poorly. The Rac2-null mouse reproduces exactly this pairing - baseline neutrophilia in the blood alongside reduced inflammatory peritoneal exudate.</div>
 
@@ -5196,6 +5274,14 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Normal or Elevated Neutrophil Count</span>
+
+	                            <span class="crosslink-desc">The count is normal or high precisely because release is intact and function is not — the finding that distinguishes this disease from congenital neutropenia and the one most likely to mislead.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Severe Early-Onset Bacterial Infection and Poor Wound Healing</span>
 
 	                            <span class="crosslink-desc">Failure of tissue neutrophil function permits uncontrolled bacterial infection.</span>
@@ -5249,6 +5335,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-early-onset-bacterial-infection-and-poor-wound-healing" data-dismech-node="Severe Early-Onset Bacterial Infection and Poor Wound Healing" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Early-Onset Bacterial Infection and Poor Wound Healing</div>
 
+
                 <div class="item-desc">The clinical presentation, in the index case at five weeks of age. Routine screening tests are normal, so the diagnosis is easily missed: the neutrophil count is high rather than low, CD11b is normal, and the defect is functional rather than numerical.</div>
 
 
@@ -5266,6 +5353,21 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent Severe Bacterial Infection</span>
+
+	                            <span class="crosslink-desc">The clinical expression of neutrophils that reach neither the site nor the kill.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5384,7 +5486,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second effector arm, and the one chronic granulomatous disease does not have. Patient neutrophils show decreased chemotaxis, polarization and azurophilic granule secretion. In the Rac2-null mouse the same arm fails through defective F-actin generation, impaired p38 and p42/p44 MAP kinase activation, and loss of shear-dependent L-selectin-mediated capture, so the defect spans capture, polarization and migration rather than any single step. This is curated as a separate node from the oxidase arm rather than bundled into one \\\"neutrophil dysfunction\\\" node, because the two are independent effector routes from the same GTPase.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\", \"actin filament polymerization\"], \"animal_models\": [{\"name\": \"Rac2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Rac2 knockout, homozygous (rac2-/-)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Defective chemotaxis, shear-dependent L-selectin capture, F-actin generation, and p38 and p42/p44 MAP kinase activation.\"}, {\"name\": \"Rac2D57N transgenic zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"Neutrophil-restricted expression of the human inhibitory Rac2 D57N allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Live imaging shows loss of three-dimensional motility and of the polarization of F-actin dynamics and PI3K signalling in vivo, in neutrophils expressing the human D57N allele.\"}]}}, {\"id\": \"Failed NOX2 Oxidase Activation and Superoxide Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The first of the two effector arms. RAC2 is required for activation of the NOX2 NADPH oxidase, and the D57N protein inhibits oxidase activation in vitro. The defect is at the level of the ACTIVATOR, not the catalytic complex, which is what distinguishes this from chronic granulomatous disease even though the downstream consequence - failed respiratory burst - is shared. The decisive reconstitution experiment is that adding recombinant Rac to patient neutrophil extracts restores superoxide production.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"superoxide anion generation\"]}}, {\"id\": \"Haematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive therapy. RAC2 is expressed only in haematopoietic cells, so replacing the haematopoietic compartment replaces the entire diseased tissue - there is no other organ carrying the lesion. In the RAC2 cohort most patients with dominant-negative disease were transplanted within the first year of life.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The two arms converge here, and the convergence explains the syndrome\u0027s most distinctive feature: peripheral neutrophilia coexisting with an absence of neutrophils where they are needed. Neutrophils are produced and released normally but do not accumulate at infected sites, so infections proceed without pus formation and wounds heal poorly. The Rac2-null mouse reproduces exactly this pairing - baseline neutrophilia in the blood alongside reduced inflammatory peritoneal exudate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"animal_models\": [{\"name\": \"Rac2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Rac2 knockout, homozygous (rac2-/-)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Baseline neutrophilia with reduced inflammatory peritoneal exudate formation, the murine correlate of leukocytosis without pus, together with increased mortality on Aspergillus challenge.\"}, {\"name\": \"Rac2D57N transgenic zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"Neutrophil-restricted expression of the human inhibitory Rac2 D57N allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Supplies a mechanism for the peripheral neutrophilia that the entry otherwise curates only as an observation: RAC2 is required for CXCR4-mediated RETENTION of neutrophils in haematopoietic tissue, so losing it increases mobilization into the circulation. Neutrophilia is therefore not merely a failure to consume neutrophils at tissue sites - it is partly an active over-release.\"}]}}, {\"id\": \"RAC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RAC2\"], \"gene_terms\": [{\"label\": \"RAC2\", \"id\": \"hgnc:9802\"}], \"association\": \"The dominant-negative p.Asp57Asn allele, arising from a G to A change at nucleotide 169 of the coding sequence. Asp57 is invariant in all defined GTP-binding proteins and is directly involved in nucleotide binding.\"}}, {\"id\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Asp57 is invariant across GTP-binding proteins and participates directly in nucleotide binding. The mutant protein binds GDP but not GTP, so it is locked in the inactive conformation, and it acts dominant-negatively rather than as a simple null: it sequesters guanine nucleotide exchange factors and effectors away from the wild-type protein. That is why one allele is enough.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"GTPase activity\"], \"genes\": [\"RAC2\"], \"gene_terms\": [{\"label\": \"RAC2\", \"id\": \"hgnc:9802\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"Heterozygous germline p.Asp57Asn. The functional impact is recorded as DOMINANT_NEGATIVE rather than LOSS_OF_FUNCTION because the mutant actively inhibits the wild-type allele\u0027s product; a heterozygous null at this locus does not produce the disease.\"}}}, {\"id\": \"Rac2-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Reproduces the defining paradox of the human disease - neutrophilia in blood with failure to form a tissue exudate - and resolves the migration arm into capture, actin assembly and MAP kinase components.\"}, {\"id\": \"Rac2D57N transgenic zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only available model carrying the actual human allele this entry is scoped to, rather than a null. That distinction matters: the mouse knockout models absence of the protein, while this model expresses the same dominant-negative protein patients carry, and so speaks to the sequestration mechanism the null cannot address. Expressing D57N in neutrophils alone is sufficient to produce the immunodeficiency phenotype, which localises the disease to the neutrophil rather than to some broader haematopoietic effect.\"}, {\"id\": \"Severe Early-Onset Bacterial Infection and Poor Wound Healing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical presentation, in the index case at five weeks of age. Routine screening tests are normal, so the diagnosis is easily missed: the neutrophil count is high rather than low, CD11b is normal, and the defect is functional rather than numerical.\", \"meta\": {\"evidence_count\": 4}}], \"edges\": [{\"source\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"target\": \"Failed NOX2 Oxidase Activation and Superoxide Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAC2 is the GTPase component required to activate the NADPH oxidase; the GDP-locked mutant cannot deliver that activation and actively inhibits it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"target\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same GTPase drives chemoattractant-induced actin polymerization and polarization, so one allele disables a second, independent effector arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed NOX2 Oxidase Activation and Superoxide Production\", \"target\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the respiratory burst removes oxidative microbial killing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"target\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of directed migration prevents neutrophils reaching the site of infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"target\": \"Severe Early-Onset Bacterial Infection and Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of tissue neutrophil function permits uncontrolled bacterial infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haematopoietic stem cell transplantation\", \"target\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rac2-null mouse\", \"target\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Defective chemotaxis, shear-dependent L-selectin capture, F-actin generation, and p38 and p42/p44 MAP kinase activation.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A complete null, whereas the human disease is caused by a heterozygous dominant-negative allele that poisons the wild-type product. The endpoints converge but the genetic mechanisms differ, so the model cannot speak to dominant-negative sequestration itself. Superoxide production was reduced in bone marrow neutrophils but NORMAL in activated peritoneal exudate neutrophils, so the oxidase arm is only partially reproduced and that node is deliberately not claimed.\"}, {\"source\": \"Rac2-null mouse\", \"target\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Baseline neutrophilia with reduced inflammatory peritoneal exudate formation, the murine correlate of leukocytosis without pus, together with increased mortality on Aspergillus challenge.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Complete null rather than dominant-negative heterozygote, and the exudate readout is a peritonitis model rather than the soft-tissue abscess setting in which the human phenotype is recognised.\"}, {\"source\": \"Rac2D57N transgenic zebrafish\", \"target\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Live imaging shows loss of three-dimensional motility and of the polarization of F-actin dynamics and PI3K signalling in vivo, in neutrophils expressing the human D57N allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Zebrafish neutrophils differ from human in tissue context and the model is transgenic overexpression in a wild-type rac2 background, so it reports the dominant-negative effect rather than the human heterozygous dosage exactly. It also does not address the oxidase arm.\"}, {\"source\": \"Rac2D57N transgenic zebrafish\", \"target\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Supplies a mechanism for the peripheral neutrophilia that the entry otherwise curates only as an observation: RAC2 is required for CXCR4-mediated RETENTION of neutrophils in haematopoietic tissue, so losing it increases mobilization into the circulation. Neutrophilia is therefore not merely a failure to consume neutrophils at tissue sites - it is partly an active over-release.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The retention finding is established in zebrafish haematopoietic tissue, which is not anatomically equivalent to human bone marrow, and the rescue experiment that demonstrates it uses a CXCR4 gain-of-function background from a different disease.\"}, {\"source\": \"RAC2\", \"target\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased Neutrophil Oxidative Burst\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003203\"}}, {\"id\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second effector arm, and the one chronic granulomatous disease does not have. Patient neutrophils show decreased chemotaxis, polarization and azurophilic granule secretion. In the Rac2-null mouse the same arm fails through defective F-actin generation, impaired p38 and p42/p44 MAP kinase activation, and loss of shear-dependent L-selectin-mediated capture, so the defect spans capture, polarization and migration rather than any single step. This is curated as a separate node from the oxidase arm rather than bundled into one \\\"neutrophil dysfunction\\\" node, because the two are independent effector routes from the same GTPase.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\", \"actin filament polymerization\"], \"animal_models\": [{\"name\": \"Rac2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Rac2 knockout, homozygous (rac2-/-)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Defective chemotaxis, shear-dependent L-selectin capture, F-actin generation, and p38 and p42/p44 MAP kinase activation.\"}, {\"name\": \"Rac2D57N transgenic zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"Neutrophil-restricted expression of the human inhibitory Rac2 D57N allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Live imaging shows loss of three-dimensional motility and of the polarization of F-actin dynamics and PI3K signalling in vivo, in neutrophils expressing the human D57N allele.\"}]}}, {\"id\": \"Failed NOX2 Oxidase Activation and Superoxide Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The first of the two effector arms. RAC2 is required for activation of the NOX2 NADPH oxidase, and the D57N protein inhibits oxidase activation in vitro. The defect is at the level of the ACTIVATOR, not the catalytic complex, which is what distinguishes this from chronic granulomatous disease even though the downstream consequence - failed respiratory burst - is shared. The decisive reconstitution experiment is that adding recombinant Rac to patient neutrophil extracts restores superoxide production.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"superoxide anion generation\"]}}, {\"id\": \"Haematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive therapy. RAC2 is expressed only in haematopoietic cells, so replacing the haematopoietic compartment replaces the entire diseased tissue - there is no other organ carrying the lesion. In the RAC2 cohort most patients with dominant-negative disease were transplanted within the first year of life.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Neutrophil Chemotaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040238\"}}, {\"id\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The two arms converge here, and the convergence explains the syndrome\u0027s most distinctive feature: peripheral neutrophilia coexisting with an absence of neutrophils where they are needed. Neutrophils are produced and released normally but do not accumulate at infected sites, so infections proceed without pus formation and wounds heal poorly. The Rac2-null mouse reproduces exactly this pairing - baseline neutrophilia in the blood alongside reduced inflammatory peritoneal exudate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"animal_models\": [{\"name\": \"Rac2-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Rac2 knockout, homozygous (rac2-/-)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Baseline neutrophilia with reduced inflammatory peritoneal exudate formation, the murine correlate of leukocytosis without pus, together with increased mortality on Aspergillus challenge.\"}, {\"name\": \"Rac2D57N transgenic zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"Neutrophil-restricted expression of the human inhibitory Rac2 D57N allele\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Supplies a mechanism for the peripheral neutrophilia that the entry otherwise curates only as an observation: RAC2 is required for CXCR4-mediated RETENTION of neutrophils in haematopoietic tissue, so losing it increases mobilization into the circulation. Neutrophilia is therefore not merely a failure to consume neutrophils at tissue sites - it is partly an active over-release.\"}]}}, {\"id\": \"Normal or Elevated Neutrophil Count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neutrophil counts are not low. That is the diagnostically counterintuitive part and a direct consequence of the mechanism: production and release are intact while tissue recruitment fails, so an infected patient does not present with the neutropenia the clinical picture might suggest. The human cohort describes counts as \\\"normal or elevated\\\" rather than uniformly raised, and this node is worded to that claim rather than to the stronger one the disease name (immunodeficiency 73A with leukocytosis) implies.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011897\"}}, {\"id\": \"RAC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RAC2\"], \"gene_terms\": [{\"label\": \"RAC2\", \"id\": \"hgnc:9802\"}], \"association\": \"The dominant-negative p.Asp57Asn allele, arising from a G to A change at nucleotide 169 of the coding sequence. Asp57 is invariant in all defined GTP-binding proteins and is directly involved in nucleotide binding.\"}}, {\"id\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Asp57 is invariant across GTP-binding proteins and participates directly in nucleotide binding. The mutant protein binds GDP but not GTP, so it is locked in the inactive conformation, and it acts dominant-negatively rather than as a simple null: it sequesters guanine nucleotide exchange factors and effectors away from the wild-type protein. That is why one allele is enough.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"GTPase activity\"], \"genes\": [\"RAC2\"], \"gene_terms\": [{\"label\": \"RAC2\", \"id\": \"hgnc:9802\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"description\": \"Heterozygous germline p.Asp57Asn. The functional impact is recorded as DOMINANT_NEGATIVE rather than LOSS_OF_FUNCTION because the mutant actively inhibits the wild-type allele\u0027s product; a heterozygous null at this locus does not produce the disease.\"}}}, {\"id\": \"Rac2-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Reproduces the defining paradox of the human disease - neutrophilia in blood with failure to form a tissue exudate - and resolves the migration arm into capture, actin assembly and MAP kinase components.\"}, {\"id\": \"Rac2D57N transgenic zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only available model carrying the actual human allele this entry is scoped to, rather than a null. That distinction matters: the mouse knockout models absence of the protein, while this model expresses the same dominant-negative protein patients carry, and so speaks to the sequestration mechanism the null cannot address. Expressing D57N in neutrophils alone is sufficient to produce the immunodeficiency phenotype, which localises the disease to the neutrophil rather than to some broader haematopoietic effect.\"}, {\"id\": \"Recurrent Severe Bacterial Infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002718\"}}, {\"id\": \"Severe Early-Onset Bacterial Infection and Poor Wound Healing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical presentation, in the index case at five weeks of age. Routine screening tests are normal, so the diagnosis is easily missed: the neutrophil count is high rather than low, CD11b is normal, and the defect is functional rather than numerical.\", \"meta\": {\"evidence_count\": 4}}], \"edges\": [{\"source\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"target\": \"Failed NOX2 Oxidase Activation and Superoxide Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAC2 is the GTPase component required to activate the NADPH oxidase; the GDP-locked mutant cannot deliver that activation and actively inhibits it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"target\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same GTPase drives chemoattractant-induced actin polymerization and polarization, so one allele disables a second, independent effector arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed NOX2 Oxidase Activation and Superoxide Production\", \"target\": \"Decreased Neutrophil Oxidative Burst\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The assay measurement of this node, and the finding that makes this disease look like CGD on a DHR test despite a different lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed NOX2 Oxidase Activation and Superoxide Production\", \"target\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the respiratory burst removes oxidative microbial killing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"target\": \"Impaired Neutrophil Chemotaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The assay measurement of this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"target\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of directed migration prevents neutrophils reaching the site of infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"target\": \"Normal or Elevated Neutrophil Count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The count is normal or high precisely because release is intact and function is not \\u2014 the finding that distinguishes this disease from congenital neutropenia and the one most likely to mislead.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"target\": \"Severe Early-Onset Bacterial Infection and Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of tissue neutrophil function permits uncontrolled bacterial infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Early-Onset Bacterial Infection and Poor Wound Healing\", \"target\": \"Recurrent Severe Bacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical expression of neutrophils that reach neither the site nor the kill.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haematopoietic stem cell transplantation\", \"target\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rac2-null mouse\", \"target\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Defective chemotaxis, shear-dependent L-selectin capture, F-actin generation, and p38 and p42/p44 MAP kinase activation.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A complete null, whereas the human disease is caused by a heterozygous dominant-negative allele that poisons the wild-type product. The endpoints converge but the genetic mechanisms differ, so the model cannot speak to dominant-negative sequestration itself. Superoxide production was reduced in bone marrow neutrophils but NORMAL in activated peritoneal exudate neutrophils, so the oxidase arm is only partially reproduced and that node is deliberately not claimed.\"}, {\"source\": \"Rac2-null mouse\", \"target\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Baseline neutrophilia with reduced inflammatory peritoneal exudate formation, the murine correlate of leukocytosis without pus, together with increased mortality on Aspergillus challenge.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Complete null rather than dominant-negative heterozygote, and the exudate readout is a peritonitis model rather than the soft-tissue abscess setting in which the human phenotype is recognised.\"}, {\"source\": \"Rac2D57N transgenic zebrafish\", \"target\": \"Failed Chemoattractant-Driven Actin Assembly and Directed Migration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Live imaging shows loss of three-dimensional motility and of the polarization of F-actin dynamics and PI3K signalling in vivo, in neutrophils expressing the human D57N allele.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Zebrafish neutrophils differ from human in tissue context and the model is transgenic overexpression in a wild-type rac2 background, so it reports the dominant-negative effect rather than the human heterozygous dosage exactly. It also does not address the oxidase arm.\"}, {\"source\": \"Rac2D57N transgenic zebrafish\", \"target\": \"Neutrophils Released but Unable to Reach or Kill in Tissue\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Supplies a mechanism for the peripheral neutrophilia that the entry otherwise curates only as an observation: RAC2 is required for CXCR4-mediated RETENTION of neutrophils in haematopoietic tissue, so losing it increases mobilization into the circulation. Neutrophilia is therefore not merely a failure to consume neutrophils at tissue sites - it is partly an active over-release.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The retention finding is established in zebrafish haematopoietic tissue, which is not anatomically equivalent to human bone marrow, and the rescue experiment that demonstrates it uses a CXCR4 gain-of-function background from a different disease.\"}, {\"source\": \"RAC2\", \"target\": \"RAC2 p.Asp57Asn Dominant-Negative Allele\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5443,6 +5545,9 @@ This clinical feature is Increased total neutrophil count (HP:0011897). HP:00118
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5542,6 +5647,9 @@ This clinical feature is Impaired neutrophil chemotaxis (HP:0040238). HP:0040238
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5606,6 +5714,9 @@ This clinical feature is Decreased neutrophil oxidative burst (HP:0003203). HP:0
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5715,6 +5826,9 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
                     </div>
+
+
+
 
 
 
@@ -5833,6 +5947,9 @@ This disease-associated gene is RAC2 (hgnc:9802). hgnc:9802 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5934,6 +6051,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5944,6 +6064,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -6091,6 +6214,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6101,6 +6227,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7347,6 +7476,10 @@ pathophysiology:
       which raise superoxide instead - so the oxidase failure is specific to
       this arm rather than generic to the gene.
   downstream:
+  - target: Decreased Neutrophil Oxidative Burst
+    causal_link_type: DIRECT
+    description: &gt;-
+      The assay measurement of this node, and the finding that makes this disease look like CGD on a DHR test despite a different lesion.
   - target: Neutrophils Released but Unable to Reach or Kill in Tissue
     causal_link_type: DIRECT
     description: &gt;-
@@ -7408,6 +7541,10 @@ pathophysiology:
       Resolves the migration arm into its component steps - capture, actin
       assembly and MAP kinase signalling - in the knockout mouse.
   downstream:
+  - target: Impaired Neutrophil Chemotaxis
+    causal_link_type: DIRECT
+    description: &gt;-
+      The assay measurement of this node.
   - target: Neutrophils Released but Unable to Reach or Kill in Tissue
     causal_link_type: DIRECT
     description: &gt;-
@@ -7443,6 +7580,10 @@ pathophysiology:
       The mouse correlate of &#34;leukocytosis without pus&#34;: neutrophilia in blood
       with failure to form a tissue exudate, plus a host-defence consequence.
   downstream:
+  - target: Normal or Elevated Neutrophil Count
+    causal_link_type: DIRECT
+    description: &gt;-
+      The count is normal or high precisely because release is intact and function is not — the finding that distinguishes this disease from congenital neutropenia and the one most likely to mislead.
   - target: Severe Early-Onset Bacterial Infection and Poor Wound Healing
     causal_link_type: DIRECT
     description: &gt;-
@@ -7505,6 +7646,11 @@ pathophysiology:
     explanation: &gt;-
       The clinical setting in which the failure of tissue neutrophil function
       shows itself.
+  downstream:
+  - target: Recurrent Severe Bacterial Infection
+    causal_link_type: DIRECT
+    description: &gt;-
+      The clinical expression of neutrophils that reach neither the site nor the kill.
 phenotypes:
 - category: Immunological
   name: Recurrent Severe Bacterial Infection
@@ -8121,6 +8267,85 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Relationship to chronic granulomatous disease: both diseases end in a failed respiratory burst, but the lesion differs in kind. In CGD the catalytic NOX2 complex itself is broken; here the complex is intact and only its RAC2 activator is missing, which is why adding recombinant Rac to patient extracts restores superoxide production. RAC2 disease also has a second, independent arm - failed chemotaxis and actin assembly - that CGD does not, and it is that arm which makes the clinical picture a leukocyte adhesion deficiency mimic rather than a CGD mimic. The shared NOX2 chain is now factored out as the phagocyte_oxidative_burst_failure module, which this entry and CGD both conform to; the module&#39;s trigger node is a lesion-class node, and the substitution this entry makes there is activation failure rather than the subunit-assembly failure CGD makes.
+On the absent references: block. That block is GeneReviews-specific by schema - its tags slot permits exactly one value - and there is no GeneReviews chapter for RAC2 deficiency: a PubMed search of the GeneReviews book index for RAC2 returns no results. The absence is therefore correct rather than an omission, and is recorded here so it does not have to be rechecked.
+The diagnostic content that previously sat in this notes block as free text - normal CD11b as the LAD-I discriminator, the functional rather than numerical nature of the defect, and the normal routine screening - is now curated as a diagnosis: section with its own evidence, and is not duplicated here.
+Curation provenance: a Perplexity deep-research report was generated (research/Neutrophil_Immunodeficiency_Syndrome-deep-research-perplexity.md) and passed the NEC preflight against MONDO:0011988, with RAC2 mentioned 210 times. The gene-level preflight is weak evidence here, because every RAC2 allele class would pass it - the real risk was a report nominally about RAC2 immunodeficiency but substantively about the dominant-activating CID cohort, which accounts for 44 of the 54 patients in the flagship series. That was checked separately at the allele level: the report mentions D57N 58 times and the activating alleles E62K, G12R and Q61 not at all, so it is squarely about the arm curated here. Recording the check because the preflight tool cannot perform it - NEC risk in a gene with an allele-class spectrum lives in the variant, not the gene symbol.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neutrophil Immunodeficiency Syndrome (MONDO:0011988), RAC2 dominant-negative arm</strong> · 2026-08-23T15:43:50Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neutrophil_Immunodeficiency_Syndrome/2026-08-23T154350Z-claude-code-a3191d.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Neutrophil_Immunodeficiency_Syndrome.yaml. entry_type DISEASE; the
+stub is retired by this change.
+
+This claim (#9309) replaced #9301 (AOA1) mid-run, after AOA1 turned out to be an earlier
+claim held by another curator on #8936 that was invisible to just fetch-claims because a
+REVIEW_AGAINST_PARENT retitle had dropped its claim label. That tooling gap is filed as
+#9307.
+
+Scope decision, and it is the substantive one here. RAC2 disease is a four-way
+allele-class spectrum, not a single entity: constitutively active RAS-like alleles cause
+neonatal SCID, dominant-negative alleles cause the LAD-like phagocyte disease curated
+here, and dominant-activating alleles cause a later-onset combined immunodeficiency
+accounting for 44 of 54 patients in the flagship cohort. MONDO:0011988 denotes the
+dominant-negative arm only, so this entry covers only that, and the boundary is stated in
+the entry description and recorded as an OPEN_QUESTION rather than left implicit. The
+IMD73B and IMD73C stubs remain open and belong to the CID arm.
+
+The mechanistic point that makes the entry worth having is that RAC2 sits at one branch
+point controlling two independent effector arms - NOX2 oxidase activation and
+chemoattractant-driven actin assembly - so a single allele disables both killing and
+getting there. Those are curated as two separate nodes converging on a third, rather than
+bundled into one neutrophil-dysfunction node, which also respects the single-value
+biological_scale discipline.
+
+The relationship to chronic granulomatous disease is recorded explicitly because it is
+easy to get backwards. Both end in a failed respiratory burst, but in CGD the catalytic
+NOX2 complex is broken while here it is intact and only its RAC2 activator is missing -
+which is exactly why adding recombinant Rac to patient extracts restores superoxide
+production. The second, chemotaxis arm is what CGD lacks and what makes this a leukocyte
+adhesion deficiency mimic rather than a CGD mimic; normal CD11b is what excludes LAD-I
+itself.
+
+An upstream ontology question is recorded as a KNOWLEDGE_GAP rather than acted on:
+MONDO:0011988&#39;s second parent, T-B- severe combined immunodeficiency, fits the
+constitutively active allele class rather than the dominant-negative one this term
+denotes, and looks like gene-level classification applied to an allele-level term.
+
+NEC handling deserves a note. The gene-level preflight passed with RAC2 mentioned 210
+times, but that check is weak for this disease because every allele class would pass it.
+The real risk was a report nominally about RAC2 and substantively about the CID cohort.
+That was checked separately at the allele level - D57N mentioned 58 times, E62K/G12R/Q61
+not at all - confirming the report is about the correct arm. The preflight tool cannot
+make that distinction, so the check was done and recorded by hand.
+
+The Rac2-null mouse is curated with two ModelMechanismLinks and honest limitations: it is
+a complete null while the human disease is a heterozygous dominant-negative, so it cannot
+speak to sequestration of the wild-type product; and its superoxide defect was present in
+bone marrow neutrophils but ABSENT in activated peritoneal exudate neutrophils, so the
+oxidase node is deliberately NOT claimed as recapitulated.
+
+Validation: just validate passes all three stages, reporting &#34;Snippets checked: 21/21
+verified against cached references&#34;. All six cited PMIDs fetched with just
+fetch-reference; no cache file hand-written. One snippet had been written from memory and
+was corrected against the source - the real PMID:11445809 abstract states that screening
+tests of phagocyte function were normal, which is a more useful claim than the one that
+had been invented, and it is now curated as the diagnostic-trap evidence.
+
+The first deep-research run for this disease failed on a transient Perplexity server
+disconnect and was relaunched; the second succeeded.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8433,7 +8658,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neutrophil Immunodeficiency Syndrome", "mondoId": "MONDO:0011988", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neutrophil_Immunodeficiency_Syndrome", "yamlRevision": "3d208d2c40c2"};
+        const OS_CONFIG = {"diseaseName": "Neutrophil Immunodeficiency Syndrome", "mondoId": "MONDO:0011988", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neutrophil_Immunodeficiency_Syndrome", "yamlRevision": "52b811b1c3b8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

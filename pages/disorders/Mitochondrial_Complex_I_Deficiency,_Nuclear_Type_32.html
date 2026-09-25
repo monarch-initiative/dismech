@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4577,6 +4630,7 @@ There is no disease-modifying treatment. Nothing published reports a therapeutic
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ndufb8-loss-of-function-variants" data-dismech-node="Biallelic NDUFB8 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NDUFB8 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Two damaged copies of NDUFB8, in a compound-heterozygous configuration in both 2018 patients. Patient 1 carried p.Pro76Gln in trans with p.Cys144Trp; Pro76 lies in a highly conserved matrix-side region above the ND5 lateral helix and close to ND4, while Cys144 sits in the membrane domain and appears to form a disulfide with Cys279 of ND5. Patient 2 carried p.Tyr62His, at a residue whose hydroxyl hydrogen-bonds to Asp74 of NDUFB8 and which lies 4 to 5 angstrom from Pro76 in the same conserved patch, in trans with the frameshift p.Glu63Aspfs*35 (c.189delA). ClinGen&#39;s 2024 recuration counted five unique variants across the three published cases and read the mechanism as loss of function.</div>
 
 
@@ -4677,6 +4731,8 @@ This genetic context concerns NDUFB8 (hgnc:7703). hgnc:7703 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense variants in trans with a frameshift or with a splice-disrupting exonic change</span>
 
 
@@ -4692,6 +4748,9 @@ This genetic context concerns NDUFB8 (hgnc:7703). hgnc:7703 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Both index patients are compound heterozygotes. One allele in each patient is a conserved-residue missense change; the second allele destroys the product in a different way in each - a frameshift in one patient, and in the other a nominally missense change that predominantly causes exon skipping.</div>
 
@@ -4824,6 +4883,7 @@ This genetic context concerns NDUFB8 (hgnc:7703). hgnc:7703 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exon-4-skipping-from-a-variant-created-exonic-splicing-silencer" data-dismech-node="Exon 4 Skipping from a Variant-Created Exonic Splicing Silencer" data-dismech-type="pathophysiology">
                 <div class="item-name">Exon 4 Skipping from a Variant-Created Exonic Splicing Silencer</div>
+
 
                 <div class="item-desc">The c.432C&gt;G (p.Cys144Trp) allele behaves mostly as a splicing variant rather than a missense one. It creates a new exonic splicing silencer, and Sanger sequencing of patient cDNA showed skipping of exon 4, which encodes Met105 to Val156 - the segment carrying the transmembrane helix. Skipping is favoured but not complete: about 14 percent of total cDNA still carried the missense sequence, so the allele produces a mixture of a large in-frame-disrupting deletion product and a low level of full-length mutant protein. This is the one place in the entity where the molecular consequence of an allele is not what its protein-level nomenclature suggests.</div>
 
@@ -4966,6 +5026,7 @@ This pathophysiological event involves NDUFB8 (hgnc:7703). hgnc:7703 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-ndufb8-from-the-complex-i-distal-membrane-arm" data-dismech-node="Depletion of NDUFB8 from the Complex I Distal Membrane Arm" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of NDUFB8 from the Complex I Distal Membrane Arm</div>
+
 
                 <div class="item-desc">NDUFB8 sits at the distal, proton-pumping end of complex I in the ND5 module, spanning the inner membrane once with its N-terminus in the matrix and its C-terminus in the intermembrane space. Its defining structural role is to clamp the long lateral helix of the core subunit ND5; on the matrix side it also contacts ND5 and NDUFB4 and, more weakly, ND4 and NDUFB9, and on the intermembrane-space side NDUFB7 and NDUFB10. With NDUFB3 and NDUFB6 it encloses the distal end of the enzyme. Losing it therefore removes a structural brace at a module interface rather than a catalytic component.</div>
 
@@ -5155,6 +5216,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-complex-i-holoenzyme-assembly" data-dismech-node="Failure of Complex I Holoenzyme Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Complex I Holoenzyme Assembly</div>
 
+
                 <div class="item-desc">Without NDUFB8 the enzyme does not assemble. In a human knockout cell line the loss of NDUFB8 leaves no assembled complex I detectable, and NDUFB8 falls among the 25 accessory subunits that a systematic gene-editing survey found to be strictly required for a functional complex. The general rule established by that survey - that losing one subunit destabilises the other subunits of its own structural module - is the mechanism by which a single missing brace propagates into a whole-enzyme failure.
 The knockout evidence is a complete null; the patient alleles are not, which is why this node is written as a failure of assembly rather than an absence of the enzyme, and why patients retain measurable residual activity.</div>
 
@@ -5337,6 +5399,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isolated-complex-i-enzyme-deficiency" data-dismech-node="Isolated Complex I Enzyme Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Isolated Complex I Enzyme Deficiency</div>
 
+
                 <div class="item-desc">The measurable consequence in patient tissue: a decrease in complex I enzymatic activity in both muscle and fibroblasts, with the other respiratory chain complexes spared. The deficiency is isolated, which is what places the entity among the complex I deficiencies rather than among the combined oxidative phosphorylation defects. Residual activity figures for the individual patients are not given in the sources available here.</div>
 
 
@@ -5496,6 +5559,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nadh-linked-oxidative-phosphorylation" data-dismech-node="Impaired NADH-Linked Oxidative Phosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired NADH-Linked Oxidative Phosphorylation</div>
+
 
                 <div class="item-desc">Complex I is the entry point for NADH-derived electrons into the respiratory chain and pumps four protons per NADH oxidised, so a complex I defect cuts both the electron flux into the chain and the proton-motive force that drives ATP synthesis. Cells retain succinate-driven, complex II-dependent respiration, which is why the defect is survivable at all and why severity tracks residual complex I activity and tissue energy demand rather than being uniformly lethal.
 This node is a mechanistic inference from the measured enzyme deficiency above rather than a separately measured quantity in these patients: no respirometry or ATP-synthesis measurement from an NDUFB8 patient is reported in the sources cited here, beyond the statement that complementation restored mitochondrial function.</div>
@@ -5665,6 +5729,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytosolic-redox-shift-and-lactate-overproduction" data-dismech-node="Cytosolic Redox Shift and Lactate Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytosolic Redox Shift and Lactate Overproduction</div>
 
+
                 <div class="item-desc">A complex I defect leaves NADH unoxidised, and the cytosolic NADH/NAD+ ratio is restored instead by lactate dehydrogenase reducing pyruvate to lactate. Raised blood lactate is the routine clinical signature of that shift and was present in both 2018 patients. The step is standard mitochondrial-disease biochemistry rather than something demonstrated in these patients, and is curated as such.</div>
 
 
@@ -5740,6 +5805,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-of-basal-ganglia-and-brainstem-neurons" data-dismech-node="Bioenergetic Failure of Basal Ganglia and Brainstem Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure of Basal Ganglia and Brainstem Neurons</div>
+
 
                 <div class="item-desc">Deep grey matter and brainstem nuclei have among the highest oxidative demands in the body, and in complex I deficiency they are where the lesions appear. Both 2018 patients showed progressive symmetrical basal ganglia change on neuroimaging, extending to the brain stem in one and to the internal capsule in the other - the Leigh-like pattern the paper&#39;s title names. The third reported patient instead had cavitating leukoencephalopathy, so the imaging phenotype of the entity is not confined to a single pattern.
 Why these particular structures fail while others do not is the standing unanswered question of Leigh-syndrome biology generally, and nothing in the NDUFB8 literature addresses it; the node asserts the regional vulnerability, not an explanation for it.</div>
@@ -5893,6 +5959,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-of-cardiomyocytes" data-dismech-node="Bioenergetic Failure of Cardiomyocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure of Cardiomyocytes</div>
 
+
                 <div class="item-desc">Cardiac muscle is oxidative and post-mitotic, and hypertrophy is a recognised cardiac response to a mitochondrial energy deficit. Cardiac hypertrophy is listed among the encephalo(cardio)myopathic features of the entity, and left ventricular hypertrophy was recorded specifically in the patient who died at 15 months. The parenthetical in the source paper&#39;s own phrasing signals that the cardiac component is not universal, and the phenotype below is graded accordingly.</div>
 
 
@@ -6000,6 +6067,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-of-skeletal-muscle" data-dismech-node="Bioenergetic Failure of Skeletal Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure of Skeletal Muscle</div>
+
 
                 <div class="item-desc">Skeletal muscle carries the highest complex I load of any tissue at exercise and is where the enzyme deficiency was measured. Muscular hypotonia was present in both 2018 patients from the earliest months, and respiratory failure - the terminal event in most severe infantile mitochondrial disease - is listed among the features of the entity. No muscle histology, ragged-red fibre count or COX/SDH histochemistry for an NDUFB8 patient is reported in the sources cited here.</div>
 
@@ -6208,6 +6276,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
                     </div>
 
 
+
+
+
                     <div class="item-desc">1 of 2 patients in the 2018 report (Patient 1), which is 50 percent and falls in the FREQUENT band. ClinGen lists left ventricular hypertrophy among additional features across all three cases without giving a count, so the denominator here is the two patients for whom per-patient cardiac data are reported.</div>
 
 
@@ -6313,6 +6384,9 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">2 of 2 patients in the 2018 report; VERY_FREQUENT on a denominator of two.</div>
@@ -6422,6 +6496,9 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
                     </div>
 
 
+
+
+
                     <div class="item-desc">2 of 2 patients in the 2018 report. VERY_FREQUENT rather than OBLIGATE on a denominator of two. preferred_term keeps the source&#39;s wording, &#34;muscular hypotonia&#34;, against the broader HPO label.</div>
 
 
@@ -6529,6 +6606,9 @@ This clinical feature is Developmental delay, annotated with Global developmenta
                     </div>
 
 
+
+
+
                     <div class="item-desc">2 of 2 in the 2018 report and named again in the ClinGen summary of all three cases. VERY_FREQUENT rather than OBLIGATE because the per-patient breakdown behind the ClinGen summary is not given.</div>
 
 
@@ -6625,6 +6705,9 @@ This clinical feature is Symmetrical basal ganglia signal change on MRI, annotat
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">2 of 2 patients in the 2018 report. The third published patient had cavitating leukoencephalopathy, curated separately below, and whether that patient also had basal ganglia change is not stated in the cohort report - so this is 2 of 2, not 2 of 3, and VERY_FREQUENT rather than OBLIGATE.</div>
@@ -6725,6 +6808,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Graded OCCASIONAL. The only source is a feature list across three cases with no count, and seizures are absent from the 2018 abstract&#39;s own list of presenting features - so the conservative reading is that they occurred in a minority. The band is a judgement on incomplete data and should be revised if per-patient detail becomes available.</div>
 
 
@@ -6798,6 +6884,9 @@ This clinical feature is Cavitating leukoencephalopathy, annotated with Cavitati
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">1 of 3 published patients, which falls in the OCCASIONAL band. The denominator is unusual here because that patient was ascertained *by* the imaging phenotype rather than assessed for it - a cavitating-leukoencephalopathy cohort will find cavitating leukoencephalopathy in every case it reports - so the figure describes the composition of the literature, not the risk in a genotype-first patient. Bound to HP:0033369 rather than to the parent Leukoencephalopathy term, following COA8-Related_COX_Deficiency, which binds the same term for the same imaging phenotype; preferred_term keeps the source&#39;s wording.</div>
@@ -6932,6 +7021,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Graded FREQUENT rather than VERY_FREQUENT. The 2018 abstract lists respiratory failure among features of the two patients collectively without saying it occurred in both, and the ClinGen summary likewise lists it as an additional feature across three cases without a count. The honest reading is that it is common in the series without a demonstrated per-patient denominator.</div>
 
 
@@ -7039,6 +7131,9 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
                     </div>
 
 
+
+
+
                     <div class="item-desc">2 of 2 patients in the defining 2018 report, in whom the assay was performed. Graded VERY_FREQUENT rather than OBLIGATE: it is the entity&#39;s defining measurement, but with a denominator of two an OBLIGATE claim would overstate what has been observed. Residual activity percentages are not given in the sources available here.</div>
 
 
@@ -7144,6 +7239,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">2 of 2 patients in the 2018 report; VERY_FREQUENT on a denominator of two.</div>
@@ -7262,6 +7360,9 @@ This disease-associated gene is NDUFB8 (hgnc:7703). hgnc:7703 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7411,6 +7512,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9540,6 +9647,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

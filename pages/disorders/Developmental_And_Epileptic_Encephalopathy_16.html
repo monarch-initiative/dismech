@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4714,6 +4767,7 @@ PME, EPRPDC, DEE, and DFNB)"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-tbc1d24-loss-of-function" data-dismech-node="Biallelic TBC1D24 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic TBC1D24 Loss of Function</div>
 
+
                 <div class="item-desc">Both TBC1D24 alleles carry pathogenic variants, most severely truncating ones, that reduce or abolish protein expression and function. The protein has two separable functional modules that are lost together: a TBC (Rab-GAP) domain containing a cationic phosphoinositide-binding pocket, and a C-terminal TLDc domain implicated in oxidative-stress resistance.</div>
 
 
@@ -4919,6 +4973,7 @@ This pathophysiological event involves decreased GTPase activator activity (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-phosphoinositide-dependent-presynaptic-membrane-anchoring" data-dismech-node="Loss of Phosphoinositide-Dependent Presynaptic Membrane Anchoring" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Phosphoinositide-Dependent Presynaptic Membrane Anchoring</div>
 
+
                 <div class="item-desc">The TBC domain&#39;s cationic pocket binds phosphoinositides phosphorylated at the 4 and 5 positions, and that lipid binding is what tethers the protein within the presynaptic terminal and restricts its diffusion. Pathogenic variants in the pocket abolish binding, releasing the protein from the presynaptic membrane. In Drosophila the resulting synaptic-vesicle trafficking defect and seizure phenotype are rescued by raising synaptic PI(4,5)P2, which makes the lipid interaction causal rather than incidental.</div>
 
 
@@ -5108,6 +5163,7 @@ This pathophysiological event involves Synapse (GO:0045202). GO:0045202 is a cel
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-arf6-dependent-membrane-trafficking" data-dismech-node="Impaired ARF6-Dependent Membrane Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ARF6-Dependent Membrane Trafficking</div>
 
+
                 <div class="item-desc">TBC1D24 normally prevents ARF6 activation. Without it, ARF6-dependent membrane exchange between the plasma membrane and endocytic compartments is dysregulated. This is the developmental arm of the mechanism: the same dysregulation that disturbs mature vesicle traffic also drives the migration and axon-specification defects below, and dominant-negative ARF6 rescues them.</div>
 
 
@@ -5267,6 +5323,7 @@ This pathophysiological event involves abnormal regulation of ARF protein signal
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tldc-domain-dysfunction" data-dismech-node="TLDc Domain Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">TLDc Domain Dysfunction</div>
+
 
                 <div class="item-desc">The C-terminal TLDc domain has at least two identified activities. The domain family (OXR1, NCOA7) confers resistance to oxidative stress, and a humanized Drosophila model of a TLDc missense allele shows activity-induced vesicle-trafficking and locomotor defects that antioxidants reverse, supporting a reactive-oxygen-species sensor that sets synaptic vesicle trafficking rates. Separately, a 2024 screen identified the scaffold protein KIBRA as a specific partner of this domain, with two recessive epilepsy-associated TLDc variants disrupting the binding.
 A note on the v-ATPase, because the literature reads as contradictory if taken out of order. An earlier assay found no interaction between the purified TLDc domain and the v-ATPase that other TLDc proteins regulate, and that negative is still quoted as leaving the domain&#39;s function open. It has since been superseded in vivo: TBC1D24 interacts with the v-ATPase V1 subunits in mammalian brain, and its loss impairs V1/V0 association and organellar acidification. This entry models that as its own node rather than treating the purified-domain result as the settled answer.
@@ -5500,6 +5557,7 @@ This pathophysiological event involves decreased response to oxidative stress (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-radial-migration-and-arrested-neuronal-maturation" data-dismech-node="Delayed Radial Migration and Arrested Neuronal Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Radial Migration and Arrested Neuronal Maturation</div>
 
+
                 <div class="item-desc">TBC1D24-deficient neurons fail the multipolar-to-bipolar transition, migrate late through the developing neocortex, and retain immature morphological and functional properties once they arrive. The cortex that results is populated by neurons that never fully matured, which is the developmental half of &#34;developmental and epileptic encephalopathy&#34;.</div>
 
 
@@ -5682,6 +5740,7 @@ This pathophysiological event involves abnormal cell morphogenesis involved in n
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-cone-endocytosis-failure" data-dismech-node="Growth-Cone Endocytosis Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth-Cone Endocytosis Failure</div>
 
+
                 <div class="item-desc">Membrane trafficking fails at the growth cone: endocytosis there is impaired and the TBC1D24 partner ARF6 is abnormally activated. This is the trafficking lesion in the growing neurite, and it is upstream of the axon-specification failure that follows from it.</div>
 
 
@@ -5812,6 +5871,7 @@ This pathophysiological event involves Growth cone (GO:0030426). GO:0030426 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-axonal-specification-failure" data-dismech-node="Axonal Specification Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Axonal Specification Failure</div>
+
 
                 <div class="item-desc">Cortical neurons lacking TBC1D24 fail to specify an axon, mature the axon initial segment, or fire action potentials normally, and in vivo callosal projections are impaired. Critically for DEE16, the severity of this defect tracks clinical severity in patient-derived neurons: iPSC neurons from a patient with severe developmental encephalopathy show the axon defect, while neurons from a patient with mild early-onset epilepsy do not. That makes it the one cellular readout in this gene shown to separate the severe end of the spectrum from the mild end.</div>
 
@@ -6007,6 +6067,7 @@ This pathophysiological event involves decreased axonogenesis (GO:0007409). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-v-atpase-assembly-and-organellar-acidification" data-dismech-node="Impaired v-ATPase Assembly and Organellar Acidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired v-ATPase Assembly and Organellar Acidification</div>
 
+
                 <div class="item-desc">TBC1D24 interacts with the V1 subunits of the vacuolar ATPase in mammalian brain and behaves as a chaperone for correct v-ATPase reassembly. Without it the V1/V0 association fails, endo-lysosomal compartments and synaptic vesicles do not acidify properly, and autophagy is impaired at both the soma and the terminal. At the synapse the specific consequence is that vesicles retrieved after stimulation are not reacidified, so the reserve pool is not properly regenerated.
 This is the arm the sibling DOORS_Syndrome entry models as a shared endolysosomal axis with ATP6V1B2, and it is why an earlier negative result using the purified TLDc domain alone should not be read as ruling the interaction out.</div>
 
@@ -6201,6 +6262,7 @@ This pathophysiological event involves Lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synaptic-vesicle-endocytosis-and-recycling" data-dismech-node="Impaired Synaptic Vesicle Endocytosis and Recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synaptic Vesicle Endocytosis and Recycling</div>
+
 
                 <div class="item-desc">TBC1D24 is associated with clathrin-coated vesicles and synapses of hippocampal neurons. Losing it impairs presynaptic endocytosis and the regeneration of release-ready vesicles, destabilizing neurotransmission at the terminals of an already malformed cortical network.</div>
 
@@ -6431,6 +6493,7 @@ transmission."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postnatal-micro-exon-isoform-switch" data-dismech-node="Postnatal Micro-Exon Isoform Switch" data-dismech-type="pathophysiology">
                 <div class="item-name">Postnatal Micro-Exon Isoform Switch</div>
 
+
                 <div class="item-desc">A striking, and so far mouse-only, explanation for why DEE16 seizures begin after birth rather than in utero. The S324Tfs*3 truncating variant sits in an alternatively spliced micro-exon that is only incorporated into TBC1D24 postnatally. Before that developmental splicing switch, homozygous mutant mice make predominantly the shorter wild-type isoform that omits the micro-exon and are unaffected; seizures begin abruptly at postnatal day 15, exactly when the switch occurs. Whether this timing mechanism generalizes to human DEE16 variants outside the micro-exon is unknown.</div>
 
 
@@ -6589,6 +6652,7 @@ micro-exon."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postsynaptic-dendritic-spine-loss" data-dismech-node="Postsynaptic Dendritic Spine Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Postsynaptic Dendritic Spine Loss</div>
+
 
                 <div class="item-desc">TBC1D24 is not only presynaptic. It is also present at the postsynaptic side of excitatory synapses, where inhibiting ARF6 is what maintains dendritic spines. Knocking it down in adult mouse hippocampus causes spine loss with contextual fear memory deficits, hyperactivity, and increased anxiety, and a knock-in of the disease-associated F251L substitution produces increased neuronal excitability, spontaneous seizures, and premature death in homozygotes. This arm matters because it makes the cognitive impairment of DEE16 partly independent of the seizures rather than purely their consequence.</div>
 
@@ -6770,6 +6834,7 @@ This pathophysiological event involves Dendritic spine (GO:0043197). GO:0043197 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-cortical-circuit-formation" data-dismech-node="Aberrant Cortical Circuit Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Cortical Circuit Formation</div>
 
+
                 <div class="item-desc">The combined migration, maturation, and axon-specification defects yield a neocortex whose circuitry never assembled correctly. This is the substrate on which the presynaptic release defect acts, and it accounts for the developmental impairment being present from the outset rather than being purely a consequence of seizures.</div>
 
 
@@ -6900,6 +6965,7 @@ This pathophysiological event occurs in Cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability-and-hypersynchrony" data-dismech-node="Neuronal Hyperexcitability and Hypersynchrony" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability and Hypersynchrony</div>
+
 
                 <div class="item-desc">Excitation and inhibition are pushed out of balance by the combination of a malformed cortical network and unstable presynaptic release, producing hypersynchronous discharges. In DEE16 these discharges characteristically fail to stay put: they migrate from one cortical region to another, giving the prolonged unilateral clonic activity that wanders between arm, leg, and face, and the ictal pattern of epilepsy of infancy with migrating focal seizures.</div>
 
@@ -7122,6 +7188,7 @@ This pathophysiological event occurs in Cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebral-and-cerebellar-atrophy" data-dismech-node="Progressive Cerebral and Cerebellar Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebral and Cerebellar Atrophy</div>
+
 
                 <div class="item-desc">Cerebral or cerebellar atrophy, delayed myelination, and in some patients hippocampal sclerosis develop over time. Whether this reflects the underlying neurodevelopmental lesion, cumulative seizure-related injury, loss of TLDc-dependent oxidative stress resistance, or all three is unresolved; the imaging findings did not correlate with phenotype or prognosis in the largest cohort.</div>
 
@@ -7350,6 +7417,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </div>
 
 
+
+
+
                     <div class="item-desc">The 3/48 count covers only patients without DOORS syndrome, so it is neither a DEE16 frequency nor a whole-cohort one. No `frequency:` is recorded.</div>
 
 
@@ -7430,6 +7500,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">The only count available is from the pooled 48-patient TBC1D24 series, so it is a spectrum figure and not a DEE16 frequency. No `frequency:` is recorded for that reason, following the same rule this entry applies to the neuroimaging phenotypes.</div>
 
 
@@ -7508,6 +7581,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No `frequency:` recorded. The cited cohort calls hypotonia &#34;the most frequent neurologic sign&#34; but gives no count for it, and counts the signs it ranks below (ataxia 7/48, extrapyramidal 8/48) low enough that &#34;most frequent&#34; is compatible with OCCASIONAL. A ranking is not a frequency.</div>
@@ -7615,6 +7691,9 @@ This clinical feature is Migrating focal seizure (HP:0032786). HP:0032786 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7740,6 +7819,9 @@ This clinical feature is Focal clonic seizure (HP:0002266). HP:0002266 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7806,6 +7888,9 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7905,6 +7990,9 @@ This clinical feature is Epilepsia partialis continua (HP:0012847). HP:0012847 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7969,6 +8057,9 @@ This clinical feature is Super-refractory status epilepticus (HP:0032868). HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8068,6 +8159,9 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8134,6 +8228,9 @@ This clinical feature is Febrile seizure (within the age range of 3 months to 6 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8232,6 +8329,9 @@ This clinical feature is Drug-resistant epilepsy, annotated with Seizure (HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8358,6 +8458,9 @@ This clinical feature is Multifocal epileptiform discharges (HP:0010841). HP:001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8424,6 +8527,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8520,6 +8626,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Regression is named in the MONDO definition of MONDO:0014133 (&#34;delayed or regression of psychomotor development&#34;) and is documented in an individual patient, but no cohort quantifies it, so no `frequency:` is recorded. The DEE-restricted series reports developmental delay or intellectual disability in all 30 patients without separating regression from delay.</div>
 
 
@@ -8595,6 +8704,9 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8659,6 +8771,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8733,6 +8848,9 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8797,6 +8915,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The only count available is from the pooled 48-patient TBC1D24 series, so it is a spectrum figure and not a DEE16 frequency. No `frequency:` is recorded for that reason, following the same rule this entry applies to the neuroimaging phenotypes.</div>
@@ -8872,6 +8993,9 @@ This clinical feature is Extrapyramidal signs, annotated with Abnormality of ext
                     </div>
 
 
+
+
+
                     <div class="item-desc">The only count available is from the pooled 48-patient TBC1D24 series, so it is a spectrum figure and not a DEE16 frequency. No `frequency:` is recorded for that reason, following the same rule this entry applies to the neuroimaging phenotypes.</div>
 
 
@@ -8935,6 +9059,9 @@ This clinical feature is Extrapyramidal signs, annotated with Abnormality of ext
                     </div>
 
 
+
+
+
                     <div class="item-desc">Left unbound deliberately. HP:0000253 &#34;Progressive microcephaly&#34; was the obvious binding and is wrong: PMID:27502353 describes each patient as normocephalic (for example &#34;She was normocephalic (OFC: 43.0 cm; 20%) with decelerating head growth&#34;), and no cited source reports microcephaly in TBC1D24 disease at all. HPO&#39;s nearest alternatives, HP:0004485 &#34;Cessation of head growth&#34; and HP:0040195 &#34;Decreased head circumference&#34;, both assert more than the source does for a normocephalic child on a falling centile. No term beats a wrong one; an HPO new-term request is the right route.</div>
 
 
@@ -8989,6 +9116,9 @@ This clinical feature is Extrapyramidal signs, annotated with Abnormality of ext
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left unbound deliberately. HP:0003819 &#34;Death in childhood&#34; sits under HP:0012823 Clinical modifier rather than HP:0000118 Phenotypic abnormality, so it is outside the PhenotypeTerm dynamic enum; the same applies to HP:0001522. No phenotypic-abnormality term names early mortality, and binding a substitute would misstate the claim.</div>
@@ -9161,6 +9291,9 @@ This disease-associated gene is TBC1D24 (hgnc:29203). hgnc:29203 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9234,6 +9367,7 @@ This disease-associated gene is TBC1D24 (hgnc:29203). hgnc:29203 is a gene from 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9255,7 +9389,13 @@ This variant is in TBC1D24 (hgnc:29203). hgnc:29203 is a gene from the HUGO Gene
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Predicted loss-of-function alleles concentrate at the severe end of the TBC1D24 spectrum, where DEE16 lies. The correlation is a trend rather than a rule: variant position and in-vitro severity do not cleanly predict the clinical phenotype, and the cohort records one positional exception, truncating variants falling in the last exon, where escape from nonsense-mediated decay leaves a milder course.</div>
@@ -9472,6 +9612,9 @@ This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9482,6 +9625,9 @@ This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -9621,6 +9767,9 @@ This treatment is ketogenic diet therapy, annotated with Dietary Intervention (N
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9631,6 +9780,9 @@ This treatment is ketogenic diet therapy, annotated with Dietary Intervention (N
 
 
     </div>
+
+
+
 
 
 
@@ -9773,6 +9925,9 @@ This treatment is physical, occupational and speech therapy, annotated with Reha
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9783,6 +9938,9 @@ This treatment is physical, occupational and speech therapy, annotated with Reha
 
 
     </div>
+
+
+
 
 
 
@@ -9888,6 +10046,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10011,6 +10175,12 @@ This treatment is neurologic surveillance, annotated with Supportive Care (NCIT:
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -14034,6 +14204,35 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Developmental And Epileptic Encephalopathy 16 (TBC1D24)</strong> · 2026-09-07T04:01:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_And_Epileptic_Encephalopathy_16/2026-09-07T040116Z-claude-code-050e1f.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of DEE16 (MONDO:0014133, OMIM:615338, biallelic TBC1D24).
+
+Deep research: falcon (Edison Scientific), 731s, report at research/Developmental_And_Epileptic_Encephalopathy_16-deep-research-falcon.md plus citations sidecar and one markdown artifact. The run&#39;s own validation reported 11/11 references resolved (confabulation_rate 0.0), 28/28 CURIEs resolved, 0 off-topic. Its needs_review flag was set by a single mislabelled-term entry naming MONDO:0014133 &#39;if available&#39; -- that is the research template&#39;s literal &#39;(MONDO ID) (if available)&#39; text being parsed as a label, not a bad binding, and was disregarded on that basis. The report carried no PMIDs (falcon cites by author-year key), so its 12 DOIs were swept from the body and converted via the PMC ID converter; all resolved except the Nature Reviews primer and a PhD thesis, and 10.1093/brain/awz175 turned out to be a paper already cited (PMID:31257402).
+
+Literature: 16 cited references, all PMID-keyed and cached. Core clinical basis is the GeneReviews TBC1D24 chapter (PMID:25719194, tagged GeneReviews in top-level references) plus the 48-patient pan-TBC1D24 cohort (PMID:27281533), the index MMPSI family report (PMID:23526554), and an independent drug-resistant series (PMID:27502353). Mechanism rests on the ARF6 interaction (PMID:20727515, PMID:24469796), the Skywalker phosphoinositide pocket (PMID:27669036), growth-cone and axonal work including patient iPSC neurons (PMID:30858606), presynaptic endocytosis in mouse (PMID:30335140, PMID:30602030), postsynaptic spine maintenance (PMID:32004315), and the TLDc domain (PMID:26668325, PMID:31257402, PMID:39214300).
+
+Curation decisions worth recording. Spectrum conflation is the main risk for this gene, so every pooled cohort figure is attributed to the pan-TBC1D24 series rather than to DEE16, and where PMID:27281533 reports its loss-of-function subgroup separately that subgroup is cited instead. Prevalence was left absent: no DEE16-specific denominator exists. The falcon artifact table offered a DEE16-specific onset figure (28 of 30 cases by 3 months) that could not be traced to a resolvable citation, so it was not used.
+
+Two evidence items are deliberately REFUTE. PMID:27281533&#39;s neurite-outgrowth result contradicts a simple residual-function model of the genotype-phenotype correlation, and PMID:39214300 reports no V-ATPase interaction for the TBC1D24 TLDc domain, contradicting read-across from OXR1/NCOA7. A third REFUTE on PMID:30335140 records that heterozygous carriers have been reported with seizures, against the GeneReviews statement that carriers are typically asymptomatic; both are cited on the inheritance block rather than one being suppressed.
+
+Death in childhood is curated with an unbound preferred_term. HP:0003819 and HP:0001522 both sit under Clinical modifier rather than Phenotypic abnormality, so they fall outside the PhenotypeTerm dynamic enum; the reason is recorded in the phenotype&#39;s notes. This follows existing KB practice.
+
+Conformance: three nodes declare conforms_to against synaptic_vesicle_cycle (Synaptic Vesicle Cycle Protein Deficiency, Impaired Synaptic Vesicle Endocytosis and Recycling) and epilepsy_excitation_inhibition_imbalance (Neuronal Hyperexcitability and Hypersynchrony).
+
+Validation: just validate-disorders passed (schema, terms, references; 85/85 snippets verified against cached references). Also green: check-entity-refs, check-causal-targets, check-enum-values, check-duplicate-keys, check-qualifier-terms, check-title-snippets, check-snippet-length, check-snippet-grading, check-folded-hyphens, check-stubs. Two self-inflicted gate failures were found and fixed before commit: line-ending hyphens in the folded description scalar, and one PMID:23526554 quote graded both HUMAN_CLINICAL and IN_VITRO, resolved by splitting the snippet so the human-genetics sentence and the functional-assay sentence are separate items. reference_title backfilled with just backfill-reference-titles.
+
+Side effects: fetching refreshed three existing cache files (PMID_25719194, PMID_30602030 cosmetically; PMID_39758816 upgraded from abstract to full text). Content was only added, and DOORS_Syndrome, the other entry citing PMID:39758816, was re-validated and still passes 34/34. The stub stubs/Developmental_And_Epileptic_Encephalopathy_16.yaml was deleted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

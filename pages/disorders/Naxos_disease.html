@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4534,6 +4587,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plakoglobin-loss-of-function" data-dismech-node="Plakoglobin loss-of-function" data-dismech-type="pathophysiology">
                 <div class="item-name">Plakoglobin loss-of-function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Homozygous truncating variants in JUP (plakoglobin/gamma-catenin) produce a C-terminally truncated protein. Plakoglobin is a core armadillo-family protein of the desmosome and adherens junction, so its loss impairs junctional protein assembly at cell-cell contacts in tissues that depend on strong mechanical adhesion, including myocardium, epidermis, and hair follicle.</div>
 
 
@@ -4723,6 +4783,13 @@ This pathophysiological event involves decreased desmosome organization (GO:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intercalated-disc-desmosome-failure" data-dismech-node="Intercalated-disc desmosome failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Intercalated-disc desmosome failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Plakoglobin deficiency destabilizes the cardiomyocyte desmosome at the intercalated disc, causing mechanical cell-cell adhesion failure. Under repetitive mechanical wall stress this leads to cardiomyocyte injury and death.</div>
 
@@ -4933,6 +5000,13 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gap-junction-and-sodium-channel-remodeling" data-dismech-node="Gap-junction and sodium-channel remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Gap-junction and sodium-channel remodeling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Mutant plakoglobin that fails to localize at the intercalated disc causes a significant reduction of connexin43 gap-junction protein in both ventricles, with smaller and fewer gap junctions. Desmosomal dysfunction also secondarily reduces the cardiac sodium channel NaV1.5 (SCN5A) at the intercalated disc. Together this gap-junction and sodium-channel remodeling forms an arrhythmogenic substrate that is present even before overt structural cardiomyopathy.</div>
 
@@ -5234,6 +5308,13 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nuclear-plakoglobin-and-canonical-wnt-suppression" data-dismech-node="Nuclear plakoglobin and canonical Wnt suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Nuclear plakoglobin and canonical Wnt suppression</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Desmosomal disruption can redistribute plakoglobin to the nucleus, where it reduces canonical Wnt/beta-catenin signaling through Tcf/Lef1, activating adipogenic and fibrogenic gene programs that drive the characteristic fibrofatty replacement. Confidence is PROVISIONAL for Naxos disease: the supporting evidence derives from desmoplakin (DSP) knockdown/knockout models rather than plakoglobin (JUP) loss, so its translational validity to the human JUP phenotype remains an open question (see the attached HUMAN_MODEL_MISMATCH discussion).</div>
 
 
@@ -5416,6 +5497,13 @@ This pathophysiological event involves increased fat cell differentiation (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-and-hair-follicle-desmosome-failure" data-dismech-node="Cutaneous and hair-follicle desmosome failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous and hair-follicle desmosome failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Weakened desmosomal adhesion in epidermal keratinocytes and the hair follicle produces the ectodermal phenotype: diffuse non-epidermolytic palmoplantar keratoderma and woolly hair present from infancy.</div>
 
 
@@ -5549,6 +5637,13 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrofatty-myocardial-replacement" data-dismech-node="Fibrofatty myocardial replacement" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrofatty myocardial replacement</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Loss of cardiomyocytes with fibrofatty or fibrous replacement, at subepicardial and mediomural layers and predominantly of the right ventricle, creates an arrhythmogenic substrate and progressive ventricular dysfunction. Left ventricular involvement occurs in a minority.</div>
 
 
@@ -5679,6 +5774,13 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-arrhythmia-and-sudden-death" data-dismech-node="Ventricular arrhythmia and sudden death" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular arrhythmia and sudden death</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The arrhythmogenic substrate produces frequent ventricular ectopy and ventricular tachycardia (often of left bundle branch block morphology), causing syncope and a substantial risk of sudden cardiac death, with progressive structural disease and heart failure over time.</div>
 
@@ -5854,7 +5956,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cutaneous and hair-follicle desmosome failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Weakened desmosomal adhesion in epidermal keratinocytes and the hair follicle produces the ectodermal phenotype: diffuse non-epidermolytic palmoplantar keratoderma and woolly hair present from infancy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin epidermis\", \"hair follicle\"]}}, {\"id\": \"Fibrofatty myocardial replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of cardiomyocytes with fibrofatty or fibrous replacement, at subepicardial and mediomural layers and predominantly of the right ventricle, creates an arrhythmogenic substrate and progressive ventricular dysfunction. Left ventricular involvement occurs in a minority.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"locations\": [\"myocardium\"], \"histopathology_terms\": [{\"name\": \"Fibrofatty myocardial replacement at subepicardial and mediomural layers\", \"preferred_term\": \"fibrofatty myocardial replacement\", \"term_id\": \"NCIT:C3044\", \"term_label\": \"Fibrosis\"}]}}, {\"id\": \"Gap-junction and sodium-channel remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant plakoglobin that fails to localize at the intercalated disc causes a significant reduction of connexin43 gap-junction protein in both ventricles, with smaller and fewer gap junctions. Desmosomal dysfunction also secondarily reduces the cardiac sodium channel NaV1.5 (SCN5A) at the intercalated disc. Together this gap-junction and sodium-channel remodeling forms an arrhythmogenic substrate that is present even before overt structural cardiomyopathy.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"gap junction assembly\"], \"molecular_functions\": [\"voltage-gated sodium channel activity (NaV1.5)\"], \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"locations\": [\"myocardium\"]}}, {\"id\": \"Intercalated-disc desmosome failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plakoglobin deficiency destabilizes the cardiomyocyte desmosome at the intercalated disc, causing mechanical cell-cell adhesion failure. Under repetitive mechanical wall stress this leads to cardiomyocyte injury and death.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell adhesion\"], \"locations\": [\"myocardium\"]}}, {\"id\": \"JUP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"JUP\"], \"gene_terms\": [{\"label\": \"JUP\", \"id\": \"hgnc:6207\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Desmosomal disruption can redistribute plakoglobin to the nucleus, where it reduces canonical Wnt/beta-catenin signaling through Tcf/Lef1, activating adipogenic and fibrogenic gene programs that drive the characteristic fibrofatty replacement. Confidence is PROVISIONAL for Naxos disease: the supporting evidence derives from desmoplakin (DSP) knockdown/knockout models rather than plakoglobin (JUP) loss, so its translational validity to the human JUP phenotype remains an open question (see the attached HUMAN_MODEL_MISMATCH discussion).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"canonical Wnt signaling pathway\", \"fat cell differentiation\"]}}, {\"id\": \"Plakoglobin loss-of-function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous truncating variants in JUP (plakoglobin/gamma-catenin) produce a C-terminally truncated protein. Plakoglobin is a core armadillo-family protein of the desmosome and adherens junction, so its loss impairs junctional protein assembly at cell-cell contacts in tissues that depend on strong mechanical adhesion, including myocardium, epidermis, and hair follicle.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"desmosome organization\"], \"genes\": [\"JUP\"], \"gene_terms\": [{\"label\": \"JUP\", \"id\": \"hgnc:6207\"}]}}, {\"id\": \"Ventricular arrhythmia and sudden death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arrhythmogenic substrate produces frequent ventricular ectopy and ventricular tachycardia (often of left bundle branch block morphology), causing syncope and a substantial risk of sudden cardiac death, with progressive structural disease and heart failure over time.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"]}}, {\"id\": \"c.2157del2 (p.Ser710fs)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous 2-base-pair deletion in plakoglobin causing a frameshift and premature protein truncation; the founder variant in Naxos disease.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Plakoglobin loss-of-function\", \"target\": \"Intercalated-disc desmosome failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncated plakoglobin destabilizes the cardiomyocyte desmosome at the intercalated disc, impairing mechanical cell-cell adhesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Plakoglobin loss-of-function\", \"target\": \"Cutaneous and hair-follicle desmosome failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same plakoglobin defect weakens desmosomal adhesion in epidermal keratinocytes and the hair follicle, producing palmoplantar keratoderma and woolly hair.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intercalated-disc desmosome failure\", \"target\": \"Gap-junction and sodium-channel remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of mutant plakoglobin to localize at the intercalated disc remodels connexin43 gap junctions, creating an early arrhythmogenic substrate that precedes overt structural disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intercalated-disc desmosome failure\", \"target\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmosomal disruption can redistribute plakoglobin to the nucleus, where it suppresses canonical Wnt/beta-catenin signaling and switches on adipogenic and fibrogenic gene programs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release and nuclear redistribution of plakoglobin after desmosomal disruption\"]}, {\"source\": \"Intercalated-disc desmosome failure\", \"target\": \"Fibrofatty myocardial replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cardiomyocyte death is followed by fibrous and fatty replacement of the myocardium.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cardiomyocyte injury and apoptosis under repetitive wall stress\"]}, {\"source\": \"Gap-junction and sodium-channel remodeling\", \"target\": \"Ventricular arrhythmia and sudden death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gap-junction remodeling slows myocardial conduction, contributing to the reentrant arrhythmogenic substrate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced connexin43-mediated electrical coupling and slowed conduction\"]}, {\"source\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"target\": \"Fibrofatty myocardial replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wnt suppression-driven adipogenic and fibrogenic gene programs promote fibrofatty replacement of myocardium.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Adipogenic and fibrogenic transcriptional reprogramming of cardiac cells\"]}, {\"source\": \"Fibrofatty myocardial replacement\", \"target\": \"Ventricular arrhythmia and sudden death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fibrofatty substrate promotes malignant ventricular arrhythmias that can cause syncope and sudden cardiac death.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Scar-related slow-conduction and reentrant arrhythmogenic substrate\"]}, {\"source\": \"JUP\", \"target\": \"Plakoglobin loss-of-function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.2157del2 (p.Ser710fs)\", \"target\": \"JUP\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cutaneous and hair-follicle desmosome failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Weakened desmosomal adhesion in epidermal keratinocytes and the hair follicle produces the ectodermal phenotype: diffuse non-epidermolytic palmoplantar keratoderma and woolly hair present from infancy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin epidermis\", \"hair follicle\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Fibrofatty myocardial replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of cardiomyocytes with fibrofatty or fibrous replacement, at subepicardial and mediomural layers and predominantly of the right ventricle, creates an arrhythmogenic substrate and progressive ventricular dysfunction. Left ventricular involvement occurs in a minority.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"locations\": [\"myocardium\"], \"mechanism_confidence\": \"ESTABLISHED\", \"histopathology_terms\": [{\"name\": \"Fibrofatty myocardial replacement at subepicardial and mediomural layers\", \"preferred_term\": \"fibrofatty myocardial replacement\", \"term_id\": \"NCIT:C3044\", \"term_label\": \"Fibrosis\"}]}}, {\"id\": \"Gap-junction and sodium-channel remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant plakoglobin that fails to localize at the intercalated disc causes a significant reduction of connexin43 gap-junction protein in both ventricles, with smaller and fewer gap junctions. Desmosomal dysfunction also secondarily reduces the cardiac sodium channel NaV1.5 (SCN5A) at the intercalated disc. Together this gap-junction and sodium-channel remodeling forms an arrhythmogenic substrate that is present even before overt structural cardiomyopathy.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"gap junction assembly\"], \"molecular_functions\": [\"voltage-gated sodium channel activity (NaV1.5)\"], \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"locations\": [\"myocardium\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intercalated-disc desmosome failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plakoglobin deficiency destabilizes the cardiomyocyte desmosome at the intercalated disc, causing mechanical cell-cell adhesion failure. Under repetitive mechanical wall stress this leads to cardiomyocyte injury and death.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cell-cell adhesion\"], \"locations\": [\"myocardium\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"JUP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"JUP\"], \"gene_terms\": [{\"label\": \"JUP\", \"id\": \"hgnc:6207\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Desmosomal disruption can redistribute plakoglobin to the nucleus, where it reduces canonical Wnt/beta-catenin signaling through Tcf/Lef1, activating adipogenic and fibrogenic gene programs that drive the characteristic fibrofatty replacement. Confidence is PROVISIONAL for Naxos disease: the supporting evidence derives from desmoplakin (DSP) knockdown/knockout models rather than plakoglobin (JUP) loss, so its translational validity to the human JUP phenotype remains an open question (see the attached HUMAN_MODEL_MISMATCH discussion).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"canonical Wnt signaling pathway\", \"fat cell differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Plakoglobin loss-of-function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous truncating variants in JUP (plakoglobin/gamma-catenin) produce a C-terminally truncated protein. Plakoglobin is a core armadillo-family protein of the desmosome and adherens junction, so its loss impairs junctional protein assembly at cell-cell contacts in tissues that depend on strong mechanical adhesion, including myocardium, epidermis, and hair follicle.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"desmosome organization\"], \"genes\": [\"JUP\"], \"gene_terms\": [{\"label\": \"JUP\", \"id\": \"hgnc:6207\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ventricular arrhythmia and sudden death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arrhythmogenic substrate produces frequent ventricular ectopy and ventricular tachycardia (often of left bundle branch block morphology), causing syncope and a substantial risk of sudden cardiac death, with progressive structural disease and heart failure over time.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"c.2157del2 (p.Ser710fs)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous 2-base-pair deletion in plakoglobin causing a frameshift and premature protein truncation; the founder variant in Naxos disease.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Plakoglobin loss-of-function\", \"target\": \"Intercalated-disc desmosome failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncated plakoglobin destabilizes the cardiomyocyte desmosome at the intercalated disc, impairing mechanical cell-cell adhesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Plakoglobin loss-of-function\", \"target\": \"Cutaneous and hair-follicle desmosome failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same plakoglobin defect weakens desmosomal adhesion in epidermal keratinocytes and the hair follicle, producing palmoplantar keratoderma and woolly hair.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intercalated-disc desmosome failure\", \"target\": \"Gap-junction and sodium-channel remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of mutant plakoglobin to localize at the intercalated disc remodels connexin43 gap junctions, creating an early arrhythmogenic substrate that precedes overt structural disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intercalated-disc desmosome failure\", \"target\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Desmosomal disruption can redistribute plakoglobin to the nucleus, where it suppresses canonical Wnt/beta-catenin signaling and switches on adipogenic and fibrogenic gene programs.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release and nuclear redistribution of plakoglobin after desmosomal disruption\"]}, {\"source\": \"Intercalated-disc desmosome failure\", \"target\": \"Fibrofatty myocardial replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cardiomyocyte death is followed by fibrous and fatty replacement of the myocardium.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cardiomyocyte injury and apoptosis under repetitive wall stress\"]}, {\"source\": \"Gap-junction and sodium-channel remodeling\", \"target\": \"Ventricular arrhythmia and sudden death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gap-junction remodeling slows myocardial conduction, contributing to the reentrant arrhythmogenic substrate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced connexin43-mediated electrical coupling and slowed conduction\"]}, {\"source\": \"Nuclear plakoglobin and canonical Wnt suppression\", \"target\": \"Fibrofatty myocardial replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wnt suppression-driven adipogenic and fibrogenic gene programs promote fibrofatty replacement of myocardium.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Adipogenic and fibrogenic transcriptional reprogramming of cardiac cells\"]}, {\"source\": \"Fibrofatty myocardial replacement\", \"target\": \"Ventricular arrhythmia and sudden death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fibrofatty substrate promotes malignant ventricular arrhythmias that can cause syncope and sudden cardiac death.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Scar-related slow-conduction and reentrant arrhythmogenic substrate\"]}, {\"source\": \"JUP\", \"target\": \"Plakoglobin loss-of-function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.2157del2 (p.Ser710fs)\", \"target\": \"JUP\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5947,6 +6049,9 @@ This clinical feature is Right ventricular cardiomyopathy (HP:0011663), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6013,6 +6118,9 @@ This clinical feature is Ventricular tachycardia (HP:0004756). HP:0004756 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6091,6 +6199,9 @@ This clinical feature is Left ventricular involvement, annotated with Abnormal l
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6155,6 +6266,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6233,6 +6347,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6297,6 +6414,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6406,6 +6526,9 @@ This clinical feature is Woolly hair (HP:0002224), qualified as congenital onset
 
 
                     </div>
+
+
+
 
 
 
@@ -6556,6 +6679,9 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982), qualified as inf
 
 
                     </div>
+
+
+
 
 
 
@@ -6724,6 +6850,9 @@ This disease-associated gene is JUP (hgnc:6207). hgnc:6207 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6823,6 +6952,12 @@ This disease-associated gene is JUP (hgnc:6207). hgnc:6207 is a gene from the HU
         c.2157del2 (p.Ser710fs)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous 2-base-pair deletion in plakoglobin causing a frameshift and premature protein truncation; the founder variant in Naxos disease.</div>
@@ -6941,6 +7076,9 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6951,6 +7089,9 @@ This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435)
 
 
     </div>
+
+
+
 
 
 
@@ -7070,6 +7211,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7080,6 +7224,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7199,6 +7346,9 @@ This treatment is Cardiac Ablation (NCIT:C100068). NCIT:C100068 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7209,6 +7359,9 @@ This treatment is Cardiac Ablation (NCIT:C100068). NCIT:C100068 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7303,6 +7456,9 @@ This treatment is Heart Transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7313,6 +7469,9 @@ This treatment is Heart Transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7407,6 +7566,9 @@ This treatment is Exercise Counseling (NCIT:C101235). NCIT:C101235 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7417,6 +7579,9 @@ This treatment is Exercise Counseling (NCIT:C101235). NCIT:C101235 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -9511,6 +9676,31 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Add OpenScientist-sourced mechanism nodes to Naxos disease</strong> · 2026-07-31T01:41:31Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Naxos_disease/2026-07-31T014131Z-claude-code-0602c4.yaml">View source</a></p>
+                        <p class="research-review-text">OpenScientist deep research (user-selected provider) succeeded on retry after an earlier server-side timeout; artifact committed (research/Naxos_disease-deep-research-openscientist.md, 34 citations, HTML/PDF artifacts). Independently verified new PMIDs/snippets per the DR anti-hallucination SOP and added two established mechanism nodes mirroring the ARVC parent entry: (1) Gap-junction and sodium-channel remodeling, with Naxos-specific human evidence that connexin43 is reduced in both ventricles and gap junctions are smaller/fewer (PMID:15851108, Kaplan/Saffitz Heart Rhythm 2004), feeding the arrhythmogenic substrate; (2) Nuclear plakoglobin and canonical Wnt suppression driving adipogenic/fibrogenic reprogramming and fibrofatty replacement (PMID:16823493, Garcia-Gras JCI 2006, in vitro plus mouse). Wired both into the intercalated-disc downstream edges. Validated: schema/terms/references pass; compliance 98.1 percent weighted 99.0 percent, 40 evidence items, 7 pathophysiology nodes.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Augment Naxos disease with deep-research evidence</strong> · 2026-07-31T01:24:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Naxos_disease/2026-07-31T012423Z-claude-code-9f5334.yaml">View source</a></p>
+                        <p class="research-review-text">Incorporated deep-research findings. OpenScientist (user-selected provider) timed out server-side after 3600s with no report; used the claude_code provider as a reliable fallback to produce the DR artifact (research/Naxos_disease-deep-research-claude_code.md, 15 citations). Independently verified each new PMID/snippet per the DR anti-hallucination SOP: added exact-quote evidence from the authoritative Orphanet J Rare Dis review (PMID:16722579) for mechanical-stress-dependent adhesion failure, congenital woolly-hair and first-year PPK onset, ICD indication, antiarrhythmic/heart-failure pharmacotherapy, and end-stage heart transplantation; added Heart transplantation (MAXO:0010039) and exercise-avoidance (MAXO:0000077) treatments. Discarded two DR-mis-cited PMIDs that failed verification: the report gave MONDO:0009782 (wrong; correct is OAK-verified MONDO:0011017) and PMID:9610534 for a Coonar linkage study (actually an unrelated obesity paper). Validated: schema/terms/references all pass; compliance 97.7% (98.8% weighted), 33 evidence items.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Naxos disease</strong> · 2026-07-31T00:26:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Naxos_disease/2026-07-31T002626Z-claude-code-48708d.yaml">View source</a></p>
+                        <p class="research-review-text">Created Naxos disease (MONDO:0011017), an autosomal recessive JUP/plakoglobin cardiocutaneous syndrome combining ARVC with woolly hair and palmoplantar keratoderma. Deep-research provider: OpenScientist (user-selected in place of Falcon). Evidence built from verified primary literature with exact-quote abstract snippets: McKoy 2000 Lancet (PMID:10902626, founder plakoglobin 2-bp deletion), Protonotarios genotype-phenotype JACC (PMID:11691526, 100% penetrance by adolescence + arrhythmia/mortality data), Cardiovasc Pathol review (PMID:15210133), Indian Pacing EP J review (PMID:16943947), ICD therapy (PMID:10914377). GeneReviews ARVC Overview (PMID:20301310) tagged as baseline. Pathophysiology chain: plakoglobin loss -&gt; intercalated-disc + cutaneous/hair-follicle desmosome failure -&gt; fibrofatty myocardial replacement (conforms_to cardiomyopathy_maladaptive_remodeling#Ventricular Remodeling) -&gt; ventricular arrhythmia/sudden death. Validated: schema/terms/references all pass; compliance 97.4% (98.6% weighted).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

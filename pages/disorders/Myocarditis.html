@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4937,6 +4990,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiotropic-viral-infection-of-the-myocardium" data-dismech-node="Cardiotropic Viral Infection of the Myocardium" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiotropic Viral Infection of the Myocardium</div>
 
+
                 <div class="item-desc">A cardiotropic virus reaches and infects the myocardium. Enteroviruses such as coxsackievirus B enter cardiomyocytes through the coxsackievirus and adenovirus receptor; parvovirus B19 and HHV-6 are recovered most often from contemporary biopsies and are largely endothelial in tropism; SARS-CoV-2 can be detected in myocardium in fatal COVID-19, but usually as very rare infected cells. Direct viral replication is only the opening move - in most cases the burden of injury is delivered by what the host does next.</div>
 
 
@@ -5164,6 +5218,7 @@ This pathophysiological event involves increased Viral entry into the cardiomyoc
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-direct-cardiomyocyte-cytoskeletal-injury" data-dismech-node="Direct Cardiomyocyte Cytoskeletal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Direct Cardiomyocyte Cytoskeletal Injury</div>
 
+
                 <div class="item-desc">Coxsackievirus B3 protease 2A cleaves dystrophin, and the cleaved carboxyl terminus and its associated sarcoglycan complex are lost from the sarcolemma. The result is functional membrane fragility that phenocopies the hereditary sarcoglycanopathies, giving enteroviral myocarditis a mechanism of contractile failure that is independent of immune-mediated killing.</div>
 
 
@@ -5337,6 +5392,7 @@ This pathophysiological event involves abnormal Sarcolemma (GO:0042383). GO:0042
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-sensing-and-cytokine-amplification" data-dismech-node="Innate Immune Sensing and Cytokine Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate Immune Sensing and Cytokine Amplification</div>
+
 
                 <div class="item-desc">Cytosolic and membrane pattern-recognition receptors sense viral RNA and released damage-associated molecules. NOD2 is induced in the myocardium of virus-positive patients and drives NLRP3-caspase-1-IL-1beta signalling and viral uptake; monocytes and macrophages are recruited and generate IL-1, IL-6, TNF and reactive oxygen species. This is the step that converts a focal infection into diffuse myocardial inflammation, and it is the target of IL-1 blockade.</div>
 
@@ -5594,6 +5650,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-cardiac-myosin-autoimmunity" data-dismech-node="Anti-Cardiac Myosin Autoimmunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Anti-Cardiac Myosin Autoimmunity</div>
 
+
                 <div class="item-desc">Antigen release in an inflamed myocardium, together with viral epitopes that cross-react with the cardiac myosin heavy chain, breaks tolerance. The resulting anti-cardiac-myosin response outlives the infection and is itself sufficient to cause myocardial inflammation and necrosis - passive transfer of the antibodies reproduces the lesion in uninfected animals. This node is the mechanistic content of the post-infectious autoimmunity hypothesis and the rationale for immunosuppressing virus-negative inflammatory cardiomyopathy.</div>
 
 
@@ -5775,6 +5832,7 @@ This pathophysiological event involves increased Adaptive immune response agains
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-checkpoint-withdrawal-and-off-target-myocardial-t-cell-reactivity" data-dismech-node="Checkpoint Withdrawal and Off-Target Myocardial T Cell Reactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Checkpoint Withdrawal and Off-Target Myocardial T Cell Reactivity</div>
 
+
                 <div class="item-desc">Blockade of CTLA-4, PD-1 or PD-L1 removes the inhibitory signalling that normally restrains T cell activation, including in the heart. The myocardial infiltrate in checkpoint-inhibitor myocarditis carries the same clonally expanded T cell populations found in the tumour and in skeletal muscle, so this is not hypersensitivity to a drug but a loss of peripheral tolerance that lets a tumour-directed T cell response spill onto a shared cardiac and skeletal-muscle antigen. It explains the frequent myositis and myasthenic overlap.</div>
 
 
@@ -5954,6 +6012,7 @@ This pathophysiological event involves decreased Negative regulation of T cell a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophil-mediated-myocardial-injury" data-dismech-node="Eosinophil-Mediated Myocardial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Eosinophil-Mediated Myocardial Injury</div>
 
+
                 <div class="item-desc">In the eosinophilic and hypersensitivity forms the infiltrate is eosinophil-rich and the injury is driven by eosinophil degranulation products rather than by cytotoxic T cells. It arises either as a drug hypersensitivity reaction or as cardiac involvement of a systemic eosinophilic disorder, and peripheral eosinophilia accompanies about three-quarters of cases.</div>
 
 
@@ -6125,6 +6184,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-giant-cell-destructive-myocardial-necrosis" data-dismech-node="Giant Cell Destructive Myocardial Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Giant Cell Destructive Myocardial Necrosis</div>
 
+
                 <div class="item-desc">In giant cell myocarditis the infiltrate contains multinucleated giant cells and the myocyte necrosis is unusually extensive and rapidly progressive. Clinically it converges on the same endpoints as other forms - heart failure, ventricular arrhythmia and heart block - but at a pace that makes it the histological subtype with the worst prognosis, and it is the one form in which combination immunosuppression clearly prolongs survival.</div>
 
 
@@ -6294,6 +6354,7 @@ This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genetically-susceptible-myocardium" data-dismech-node="Genetically Susceptible Myocardium" data-dismech-type="pathophysiology">
                 <div class="item-name">Genetically Susceptible Myocardium</div>
 
+
                 <div class="item-desc">A minority of patients carry a pathogenic or likely pathogenic variant in an inherited-cardiomyopathy gene, and that background modifies how the myocardium responds to an inflammatory insult. Such variants are found in around 4% of uncomplicated acute myocarditis but in roughly a fifth of adults and nearly half of children whose myocarditis is complicated by heart failure, reduced ejection fraction, or life-threatening ventricular arrhythmia, with desmosomal genes predominating in the milder group and sarcomeric genes in the severe one. This is a susceptibility and severity modifier, not a cause of myocarditis - the inflammatory episode still needs its own trigger.</div>
 
 
@@ -6434,6 +6495,7 @@ This pathophysiological event involves Cardiomyocyte, annotated with cardiac mus
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adaptive-t-cell-mediated-myocardial-injury" data-dismech-node="Adaptive T Cell-Mediated Myocardial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Adaptive T Cell-Mediated Myocardial Injury</div>
+
 
                 <div class="item-desc">The defining lesion of myocarditis: a T cell and macrophage infiltrate in the myocardium accompanied by injury to the adjacent myocytes. This is the node at which all of the aetiological entry points converge, and it is the node the histological definition of myocarditis actually names - an inflammatory infiltrate with myocyte injury, in multiple foci, not explained by another cause. Cytotoxic CD8 T cells kill infected or autoantigen-presenting myocytes; CD4 T cells and macrophages sustain the response.</div>
 
@@ -6741,6 +6803,7 @@ This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-necrosis-and-contractile-failure" data-dismech-node="Cardiomyocyte Necrosis and Contractile Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Necrosis and Contractile Failure</div>
 
+
                 <div class="item-desc">Myocyte death - by immune killing, by eosinophil granule toxicity, or by direct viral cytoskeletal disruption - releases troponin, removes contractile units, and together with interstitial oedema impairs systolic performance. This is the inflammatory instance of the generic primary cardiomyocyte insult that opens the maladaptive remodelling pathway shared with the inherited and toxic cardiomyopathies.</div>
 
 
@@ -7004,6 +7067,7 @@ This pathophysiological event involves abnormal Muscle contraction (GO:0006936).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-contractile-failure-and-cardiogenic-shock" data-dismech-node="Acute Contractile Failure and Cardiogenic Shock" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Contractile Failure and Cardiogenic Shock</div>
 
+
                 <div class="item-desc">When myocyte loss and oedema are extensive and abrupt, ventricular systolic function collapses over hours to days and the patient presents in cardiogenic shock requiring inotropes or mechanical circulatory support. This fulminant presentation is where the acute mortality of myocarditis is concentrated, and it is also the point at which endomyocardial biopsy changes management, because the histological subtype independently predicts outcome.</div>
 
 
@@ -7117,6 +7181,7 @@ This pathophysiological event involves decreased Heart contraction (GO:0060047).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-electrical-instability-and-arrhythmogenesis" data-dismech-node="Electrical Instability and Arrhythmogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Electrical Instability and Arrhythmogenesis</div>
+
 
                 <div class="item-desc">Inflammation, oedema and patchy necrosis disturb conduction and repolarisation directly, and the scar left behind provides a fixed re-entrant substrate. The result is ventricular tachyarrhythmia and high-grade atrioventricular block, and it is this arm rather than pump failure that accounts for myocarditis being a recognised cause of sudden death in young people with previously normal hearts.</div>
 
@@ -7298,6 +7363,7 @@ This pathophysiological event involves abnormal Cardiac conduction (GO:0061337).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-post-inflammatory-ventricular-remodeling" data-dismech-node="Post-Inflammatory Ventricular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Post-Inflammatory Ventricular Remodeling</div>
+
 
                 <div class="item-desc">Where inflammation does not resolve, cardiac fibroblasts are activated and lay down extracellular matrix, replacing lost myocardium with scar. IL-17 from Th17 cells is a direct fibrogenic signal in experimental autoimmune myocarditis, acting through PKC-beta, Erk1/2 and NF-kappaB. This node is the inflammatory entry into the conserved ventricular-remodelling step shared across the cardiomyopathies.</div>
 
@@ -7565,6 +7631,7 @@ This pathophysiological event involves increased Cardiomyocyte death, annotated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammatory-dilated-cardiomyopathy" data-dismech-node="Inflammatory Dilated Cardiomyopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammatory Dilated Cardiomyopathy</div>
+
 
                 <div class="item-desc">The chronic endpoint: a dilated, hypokinetic ventricle with persisting inflammation and established fibrosis, clinically indistinguishable from other dilated cardiomyopathy and carrying the same trajectory to heart failure, transplantation or death. Which patients arrive here rather than recovering is the central open question of the field.</div>
 
@@ -7960,6 +8027,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8040,6 +8110,9 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8111,6 +8184,9 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8177,6 +8253,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8278,6 +8357,9 @@ This clinical feature is Cardiogenic shock (HP:0030149), qualified as temporalit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8344,6 +8426,9 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8427,6 +8512,9 @@ This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8493,6 +8581,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8566,6 +8657,9 @@ This clinical feature is Increased circulating troponin I concentration (HP:0410
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8660,6 +8754,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8733,6 +8830,9 @@ This clinical feature is Myositis (HP:0100614). HP:0100614 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8813,6 +8913,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8916,6 +9019,9 @@ This clinical feature is Chest pain (HP:0100749), qualified as temporality acute
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9011,6 +9117,9 @@ This clinical feature is Chest pain (HP:0100749), qualified as temporality acute
 
 
                 </div>
+
+
+
 
 
 
@@ -9140,6 +9249,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9150,6 +9262,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9314,6 +9429,9 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9324,6 +9442,9 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9552,6 +9673,9 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9562,6 +9686,9 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9731,6 +9858,9 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9741,6 +9871,9 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -9910,6 +10043,9 @@ This treatment uses methylprednisolone (NCIT:C647). NCIT:C647 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9920,6 +10056,9 @@ This treatment uses methylprednisolone (NCIT:C647). NCIT:C647 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -10140,6 +10279,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10150,6 +10292,9 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -10322,6 +10467,9 @@ This treatment is Extracorporeal Membrane Oxygenation (NCIT:C171507). NCIT:C1715
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10332,6 +10480,9 @@ This treatment is Extracorporeal Membrane Oxygenation (NCIT:C171507). NCIT:C1715
 
 
     </div>
+
+
+
 
 
 
@@ -10479,6 +10630,9 @@ This treatment is Heart Transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10489,6 +10643,9 @@ This treatment is Heart Transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -10658,6 +10815,9 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10668,6 +10828,9 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -15290,6 +15453,31 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Myocarditis (MONDO:0004496)</strong> · 2026-08-28T22:36:18Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Myocarditis/2026-08-28T223618Z-claude-code-e8fbec.yaml">View source</a></p>
+                        <p class="research-review-text">Curated the myocarditis root as a CURATE_ROOT_WITH_SUBTYPES Disease entry per issue #9040.
+
+Concept decision: a Disease, not a Grouping. The aetiological forms share one conserved pathograph (insult, innate amplification, adaptive T-cell-mediated myocyte injury, necrosis and contractile failure, fibrotic remodelling to inflammatory dilated cardiomyopathy, plus an arrhythmogenesis arm) and differ mainly at the trigger, so has_subtypes is the right structure. Five subtypes carried: Viral (MONDO:0023161), Lymphocytic (no MONDO term exists), Giant Cell (MONDO:0023232), Eosinophilic (no MONDO term), ICI-Associated (no MONDO term). The subtype set deliberately mixes an aetiological and a histological axis because that is how the biopsy report and the clinical literature are organised; this is recorded in the entry notes.
+
+Deep research: falcon (research/Myocarditis-deep-research-falcon.md), 8 of 8 report references verified, confabulation_rate 0.0, no needs_review flag. The report was used for framing and scope only. Every evidence snippet in the entry was sourced independently via PubMed E-utilities and cached with just fetch-reference, because the falcon report cited mostly DOI keys rather than PMIDs.
+
+Three pathophysiology nodes declare conforms_to against cardiomyopathy_maladaptive_remodeling: Cardiomyocyte Necrosis and Contractile Failure to #Primary Cardiomyocyte Insult, Post-Inflammatory Ventricular Remodeling to #Ventricular Remodeling, and Inflammatory Dilated Cardiomyopathy to #Structural Cardiac Impairment and Heart Failure.
+
+Conformance to immune_checkpoint_blockade was deliberately NOT declared for the checkpoint-inhibitor node, contrary to the suggestion in the issue. That module models anti-tumour efficacy only (neoantigen generation, anti-tumour T cell response, adaptive immune resistance, T cell exhaustion) and carries no immune-related-adverse-event or off-target-toxicity node, so every available anchor would misdescribe what happens in the myocardium. Recorded as a CURATION_TODO discussion (ici_myocarditis_module_gap) proposing that the module gain a shared irAE arm, rather than forcing a bad anchor.
+
+Two competing mechanistic_hypotheses curated with causal edges opting in: postinfectious_autoimmunity (CANONICAL) and viral_persistence (ALTERNATIVE). Also curated a KNOWLEDGE_GAP on why only some patients progress to dilated cardiomyopathy, and a HUMAN_MODEL_MISMATCH on the translational validity of the CVB3 and experimental autoimmune myocarditis rodent models, which carry most of the mechanistic content here.
+
+Validation: just validate passed with 90/90 snippets verified against cached references; just validate-terms passed; check-duplicate-keys, check-entity-refs, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading and check-environmental-evidence all passed; just validate-disorders run as the final batched gate.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4079,6 +4132,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-and-environmental-liability" data-dismech-node="Polygenic and Environmental Liability" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic and Environmental Liability</div>
 
+
                 <div class="item-desc">Bulimia nervosa is modeled as a complex eating disorder arising from interacting genetic, environmental, and psychological factors rather than a single Mendelian cause.</div>
 
 
@@ -4188,6 +4242,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serotonergic-dysregulation" data-dismech-node="Serotonergic Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Serotonergic Dysregulation</div>
 
+
                 <div class="item-desc">Serotonin-linked biology is represented as a treatment-relevant disease mechanism because serotonergic pharmacotherapy reduces core binge-eating and vomiting outcomes in randomized bulimia nervosa trials.</div>
 
 
@@ -4291,7 +4346,7 @@ This pathophysiological event involves abnormal response to serotonin (GO:190401
 
                 </div>
 
-                <div class="evidence-snippet">"Compared with placebo, fluoxetine treatment resulted in significantly greater reductions in vomiting (F [1,360] = 14.73, P&lt; 0.0001) and binge-eating (F [1,360] = 14.39, P=0.0002) episodes per week at endpoint and improvement in other outcome measures."</div>
+                <div class="evidence-snippet">"Compared with placebo, fluoxetine treatment resulted in significantly greater reductions in vomiting ... and binge-eating ... episodes per week at endpoint and improvement in other outcome measures."</div>
 
 
                 <div class="evidence-explanation">Randomized clinical trial evidence supports fluoxetine effects on the core binge-purge episode outcomes.</div>
@@ -4309,6 +4364,7 @@ This pathophysiological event involves abnormal response to serotonin (GO:190401
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reward-and-inhibitory-control-dysregulation" data-dismech-node="Reward and Inhibitory-Control Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reward and Inhibitory-Control Dysregulation</div>
+
 
                 <div class="item-desc">Functional neuroimaging in bulimia nervosa shows altered mesocorticolimbic reward processing to food (notably a hypo-responsive reward response to taste reward) together with impaired recruitment of the fronto-striatal inhibitory-control network during response-inhibition tasks — the &#34;impulsivity model&#34; of binge eating. This reward/impulse-control imbalance is modeled upstream of loss-of-control binge eating.</div>
 
@@ -4424,6 +4480,7 @@ This pathophysiological event involves abnormal Feeding behavior (GO:0007631). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-control-binge-eating" data-dismech-node="Loss-of-Control Binge Eating" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss-of-Control Binge Eating</div>
 
+
                 <div class="item-desc">Bulimia nervosa includes recurrent episodes of excessive food intake, represented as the proximal eating-behavior event in the binge-purge cycle.</div>
 
 
@@ -4508,6 +4565,7 @@ This pathophysiological event involves abnormal Feeding behavior (GO:0007631). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-purging-behavior" data-dismech-node="Compensatory Purging Behavior" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Purging Behavior</div>
 
+
                 <div class="item-desc">Compensatory behaviors such as self-induced vomiting are represented as a distinct event downstream of binge eating and upstream of physical complications.</div>
 
 
@@ -4591,6 +4649,7 @@ This pathophysiological event involves abnormal Feeding behavior (GO:0007631). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purging-related-physiologic-perturbation" data-dismech-node="Purging-Related Physiologic Perturbation" data-dismech-type="pathophysiology">
                 <div class="item-name">Purging-Related Physiologic Perturbation</div>
+
 
                 <div class="item-desc">Recurrent purging is represented upstream of electrolyte, dental, and salivary-gland complications commonly monitored in bulimia nervosa.</div>
 
@@ -4780,6 +4839,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4860,6 +4922,9 @@ This clinical feature is Dental erosion, annotated with Abnormal dental enamel m
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4926,6 +4991,9 @@ This clinical feature is Enlargement of parotid gland (HP:0011801). HP:0011801 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5009,6 +5077,9 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5073,6 +5144,9 @@ This clinical feature is Hypochloremia (HP:0003113). HP:0003113 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5158,6 +5232,9 @@ This clinical feature is Binge eating episodes, annotated with Abnormal eating b
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5224,6 +5301,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5298,6 +5378,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5362,6 +5445,9 @@ This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5454,6 +5540,9 @@ This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype fro
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
 
                 </div>
+
+
+
 
 
 
@@ -5591,6 +5680,12 @@ This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a cli
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">CBT is a psychosocial intervention used in bulimia nervosa treatment and is part of the evidence base for eating-disorder care.</div>
 
 
@@ -5709,6 +5804,12 @@ This treatment is Family Therapy (NCIT:C93347). NCIT:C93347 is a clinical interv
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Family-based treatment for bulimia nervosa is used in adolescents and can improve bulimia nervosa symptoms alongside depressive symptoms and self-esteem.</div>
 
 
@@ -5813,6 +5914,12 @@ This treatment uses fluoxetine (CHEBI:5118). CHEBI:5118 is a therapeutic agent f
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -5964,6 +6071,12 @@ This treatment uses Selective Serotonin Reuptake Inhibitor (NCIT:C94725). NCIT:C
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Pharmacotherapies including SSRIs, TCAs, MAOIs, topiramate, lithium, and fenfluramine have been evaluated for bulimia nervosa, with mixed but symptom-reducing effects across trials.</div>
 
 
@@ -6044,6 +6157,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6473,10 +6592,9 @@ pathophysiology:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Compared with placebo, fluoxetine treatment resulted in significantly
-      greater reductions in vomiting (F [1,360] = 14.73, P&lt; 0.0001) and
-      binge-eating (F [1,360] = 14.39, P=0.0002) episodes per week at endpoint
-      and improvement in other outcome measures.
+      Compared with placebo, fluoxetine treatment resulted in significantly greater reductions in
+      vomiting ... and binge-eating ... episodes per week at endpoint and improvement in other
+      outcome measures.
     explanation: &gt;-
       Randomized clinical trial evidence supports fluoxetine effects on the
       core binge-purge episode outcomes.
@@ -7370,6 +7488,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Enrich Bulimia Nervosa from Falcon deep research (hypochloremia phenotype, trauma risk)</strong> · 2026-07-29T23:34:41Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bulimia_Nervosa/2026-07-29T233441Z-claude-code-5e18c1.yaml">View source</a></p>
+                        <p class="research-review-text">Falcon (Edison) deep-research pass. Added a Hypochloremia phenotype (HP:0003113, PMID:11746288) with a matching downstream edge from the Purging-Related Physiologic Perturbation node, and a childhood trauma/abuse environmental-risk evidence item on the Polygenic and Environmental Liability node (Barakat 2023 rapid review, DOI:10.1186/s40337-022-00717-4). Full-text-only Falcon claims (cardiac arrhythmia/QTc, amenorrhea, metabolic alkalosis) were rejected for lacking abstract-level quotes; neuroimaging/immune leads were corroboration only. just validate passes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8258,7 +8389,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bulimia Nervosa", "mondoId": "MONDO:0005452", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bulimia_Nervosa", "yamlRevision": "e10a63a082de"};
+        const OS_CONFIG = {"diseaseName": "Bulimia Nervosa", "mondoId": "MONDO:0005452", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bulimia_Nervosa", "yamlRevision": "02fbda227075"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

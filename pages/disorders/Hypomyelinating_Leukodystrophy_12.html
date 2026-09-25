@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hypomyelinating%20Leukodystrophy%2012"
@@ -4006,7 +4059,7 @@ There is no disease-modifying therapy; management is supportive and multidiscipl
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4338,6 +4391,7 @@ There is no disease-modifying therapy; management is supportive and multidiscipl
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-vps11-loss-of-function" data-dismech-node="Biallelic VPS11 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic VPS11 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic VPS11 variants reduce the amount or functional competence of vacuolar protein sorting-associated protein 11. The Ashkenazi founder allele p.Cys846Gly lies in the C-terminal cysteine-rich RING-H2 domain; circular dichroism shows it does not misfold the domain, but the mutant protein is aberrantly ubiquitinated and turned over roughly five times faster than wild-type, lowering steady-state VPS11 and weakening its assembly with VPS18 into the shared Class C Vps core. The in-frame deletion p.Leu387_Gly395del reduces protein by a distinct route. Because VPS11 is a common subunit of both HOPS and CORVET, the net effect is a loss of function of both tethering complexes.</div>
 
 
@@ -4390,6 +4444,8 @@ This genetic context concerns VPS11 (hgnc:14583). hgnc:14583 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4402,6 +4458,9 @@ This genetic context concerns VPS11 (hgnc:14583). hgnc:14583 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4497,6 +4556,7 @@ This genetic context concerns VPS11 (hgnc:14583). hgnc:14583 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hops-corvet-mediated-endolysosomal-tethering-and-fusion" data-dismech-node="Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion</div>
+
 
                 <div class="item-desc">HOPS and CORVET tether and fuse vesicles within the endolysosomal and autophagy pathways - CORVET at early endosomes, HOPS at the fusion of late endosomes and autophagosomes with lysosomes. With VPS11 reduced, this tethering and fusion step is impaired. The homologous yeast VPS11 mutant shows moderate impairment of fusion of the late endosome to the vacuole, and the trafficking defect is conserved from yeast to human.</div>
 
@@ -4654,6 +4714,7 @@ This pathophysiological event involves decreased organelle membrane fusion (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-autophagic-flux" data-dismech-node="Impaired Autophagic Flux" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Autophagic Flux</div>
 
+
                 <div class="item-desc">Loss of VPS11-dependent autophagosome-lysosome fusion reduces autophagic flux. In VPS11-depleted human cells the autophagy substrates p62 and LC3 accumulate, immature autophagosomes build up and autolysosome formation falls; inducing autophagy no longer clears the markers, indicating a block at the fusion/flux step rather than at autophagosome biosynthesis.</div>
 
 
@@ -4810,6 +4871,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-storage" data-dismech-node="Lysosomal Storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Storage</div>
 
+
                 <div class="item-desc">VPS11 deficiency produces morphological and biochemical features of lysosomal storage: membranous cytoplasmic bodies in unmyelinated dermal axons, vacuolated eccrine sweat glands, bone-marrow storage macrophages with micro-vacuolated cytoplasm, and urinary glycosphingolipid changes reminiscent of prosaposin deficiency. This places VPS11 disease within the broader lysosomal-storage field and distinguishes it from primary hypomyelinating leukodystrophies with no storage.</div>
 
 
@@ -4908,6 +4970,7 @@ This pathophysiological event involves decreased lysosomal transport (GO:0007041
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendroglial-differentiation-failure" data-dismech-node="Oligodendroglial Differentiation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligodendroglial Differentiation Failure</div>
+
 
                 <div class="item-desc">Myelin is made by oligodendrocytes only after they undergo morphological differentiation into large web-like membrane structures. In an oligodendroglial cell-line model, the C846G mutant VPS11 forms aggregates and downregulates signalling through p70S6K (a kinase that, via mTOR, promotes oligodendroglial differentiation and myelination), and the mutant cells fail to adopt the differentiated web-like phenotype. Blocked oligodendroglial differentiation is a proximate cause of the hypomyelination.</div>
 
@@ -5082,6 +5145,7 @@ This pathophysiological event involves decreased oligodendrocyte differentiation
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-neuronal-death" data-dismech-node="CNS Neuronal Death" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS Neuronal Death</div>
 
+
                 <div class="item-desc">In the zebrafish vps11(plt) mutant, TUNEL labelling shows significant apoptotic neuronal death in the midbrain (and milder death in the hindbrain), and this neuronal death at 3-5 days post-fertilization precedes the reduction in myelination seen at 7 dpf. This ordering argues that a primary neuronal defect contributes to the disease, with myelination failure at least partly secondary - consistent with the microcephaly, seizures and severe cognitive impairment seen in patients.</div>
 
 
@@ -5239,6 +5303,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-hypomyelination" data-dismech-node="CNS Hypomyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS Hypomyelination</div>
+
 
                 <div class="item-desc">The convergent endpoint of the oligodendroglial and neuronal arms is a diffuse deficit of central myelin. Zebrafish vps11 mutants show a significant reduction in myelin basic protein immunolocalisation, and patient MRI shows diffuse hypomyelination with a short, posteriorly thinned corpus callosum, reduced white-matter volume and a VPS11-specific cerebellar signature. This tissue-level hypomyelination is what produces the progressive neurological phenotype.</div>
 
@@ -5453,7 +5518,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Truncal (axial) hypotonia is an early feature, typically coexisting with appendicular spasticity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Biallelic VPS11 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic VPS11 variants reduce the amount or functional competence of vacuolar protein sorting-associated protein 11. The Ashkenazi founder allele p.Cys846Gly lies in the C-terminal cysteine-rich RING-H2 domain; circular dichroism shows it does not misfold the domain, but the mutant protein is aberrantly ubiquitinated and turned over roughly five times faster than wild-type, lowering steady-state VPS11 and weakening its assembly with VPS18 into the shared Class C Vps core. The in-frame deletion p.Leu387_Gly395del reduces protein by a distinct route. Because VPS11 is a common subunit of both HOPS and CORVET, the net effect is a loss of function of both tethering complexes.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"VPS11\", \"id\": \"hgnc:14583\"}]}}}, {\"id\": \"CNS Hypomyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent endpoint of the oligodendroglial and neuronal arms is a diffuse deficit of central myelin. Zebrafish vps11 mutants show a significant reduction in myelin basic protein immunolocalisation, and patient MRI shows diffuse hypomyelination with a short, posteriorly thinned corpus callosum, reduced white-matter volume and a VPS11-specific cerebellar signature. This tissue-level hypomyelination is what produces the progressive neurological phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"myelination\"], \"animal_models\": [{\"name\": \"Zebrafish vps11 mutant\", \"species\": \"Zebrafish\", \"genotype\": \"vps11(plt), truncated RING-H2 domain\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced CNS myelin basic protein immunolocalisation in the mutant larva.\"}]}}, {\"id\": \"CNS Neuronal Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the zebrafish vps11(plt) mutant, TUNEL labelling shows significant apoptotic neuronal death in the midbrain (and milder death in the hindbrain), and this neuronal death at 3-5 days post-fertilization precedes the reduction in myelination seen at 7 dpf. This ordering argues that a primary neuronal defect contributes to the disease, with myelination failure at least partly secondary - consistent with the microcephaly, seizures and severe cognitive impairment seen in patients.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuron apoptotic process\"], \"animal_models\": [{\"name\": \"Zebrafish vps11 mutant\", \"species\": \"Zebrafish\", \"genotype\": \"vps11(plt), truncated RING-H2 domain\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Extensive neuronal death in the hindbrain and midbrain of the mutant larva.\"}]}}, {\"id\": \"CNS hypomyelination on MRI\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI shows diffuse CNS hypomyelination with a short, posteriorly thinned corpus callosum, reduced white-matter volume, and a VPS11-specific cerebellar signature (focal absence of the middle-anterior cerebellar cortex) that distinguishes it from other hypomyelinating leukodystrophies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"CNS Hypomyelination\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Brain MRI reads out the tissue-level hypomyelination as diffuse white-matter signal abnormality and the VPS11-specific cerebellar signature.\"}], \"term_id\": \"HP:0006808\"}}, {\"id\": \"Cerebral visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortical (cerebral) visual impairment, and in some patients optic atrophy, are common; several patients become cortically blind.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100704\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Onset is in the first months of life with developmental stagnation; patients become severely developmentally delayed, typically non-verbal and non-ambulatory.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of VPS11-dependent autophagosome-lysosome fusion reduces autophagic flux. In VPS11-depleted human cells the autophagy substrates p62 and LC3 accumulate, immature autophagosomes build up and autolysosome formation falls; inducing autophagy no longer clears the markers, indicating a block at the fusion/flux step rather than at autophagosome biosynthesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagosome-lysosome fusion\", \"macroautophagy\"]}}, {\"id\": \"Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HOPS and CORVET tether and fuse vesicles within the endolysosomal and autophagy pathways - CORVET at early endosomes, HOPS at the fusion of late endosomes and autophagosomes with lysosomes. With VPS11 reduced, this tethering and fusion step is impaired. The homologous yeast VPS11 mutant shows moderate impairment of fusion of the late endosome to the vacuole, and the trafficking defect is conserved from yeast to human.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"late endosome to lysosome transport\", \"organelle membrane fusion\"]}}, {\"id\": \"Lysosomal Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS11 deficiency produces morphological and biochemical features of lysosomal storage: membranous cytoplasmic bodies in unmyelinated dermal axons, vacuolated eccrine sweat glands, bone-marrow storage macrophages with micro-vacuolated cytoplasm, and urinary glycosphingolipid changes reminiscent of prosaposin deficiency. This places VPS11 disease within the broader lysosomal-storage field and distinguishes it from primary hypomyelinating leukodystrophies with no storage.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lysosomal transport\"]}}, {\"id\": \"Oligodendroglial Differentiation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myelin is made by oligodendrocytes only after they undergo morphological differentiation into large web-like membrane structures. In an oligodendroglial cell-line model, the C846G mutant VPS11 forms aggregates and downregulates signalling through p70S6K (a kinase that, via mTOR, promotes oligodendroglial differentiation and myelination), and the mutant cells fail to adopt the differentiated web-like phenotype. Blocked oligodendroglial differentiation is a proximate cause of the hypomyelination.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"oligodendrocyte differentiation\"]}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head growth is normal or near-normal at birth and then falls off, producing acquired postnatal microcephaly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000253\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are variable and include tonic-clonic, febrile and myoclonic seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is reported in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Spastic tetraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Appendicular spasticity increases over time and evolves to spastic tetraplegia/quadriplegia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002510\"}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The corpus callosum is short and thin, most marked posteriorly, on brain MRI.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"CNS Hypomyelination\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The short, posteriorly thinned corpus callosum on MRI is a structural readout of the white-matter hypomyelination and volume loss.\"}], \"term_id\": \"HP:0033725\"}}, {\"id\": \"Zebrafish vps11 mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The zebrafish vps11(plt) mutant carries a truncated RING-H2 domain and shows extensive CNS neuronal death in the hindbrain and midbrain followed by reduced CNS myelination, supplying the in vivo link from the VPS11 lesion to neuronal death and hypomyelination.\"}], \"edges\": [{\"source\": \"Biallelic VPS11 Loss of Function\", \"target\": \"Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced VPS11 and impaired VPS11-VPS18 core assembly disable the Class C Vps tethering complexes that VPS11 anchors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion\", \"target\": \"Impaired Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked fusion of autophagosomes with lysosomes stalls autophagic degradation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion\", \"target\": \"Lysosomal Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired endosome-lysosome fusion produces intracellular storage material.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Autophagic Flux\", \"target\": \"Oligodendroglial Differentiation Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autophagy-lysosome dysfunction is proposed to underlie the myelination defect, though whether it acts through oligodendrocytes or neurons is not fully resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Autophagic Flux\", \"target\": \"CNS Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of autophagic-lysosomal clearance is the proposed route to CNS neuronal death in the zebrafish vps11 mutant; the intermediates between the flux block and neuronal apoptosis are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oligodendroglial Differentiation Failure\", \"target\": \"CNS Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oligodendrocytes that cannot differentiate cannot elaborate myelin, producing hypomyelination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Neuronal Death\", \"target\": \"CNS Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal activity is required for normal myelination, so primary neuronal dysfunction/death can produce secondary hypomyelination.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Neuronal Death\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neuronal loss and brain atrophy underlie the acquired postnatal microcephaly.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Neuronal Death\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing neuronal loss compounds the hypomyelination-driven failure to acquire developmental milestones, underlying the progressive developmental stagnation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Neuronal Death\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical neuronal dysfunction and injury lower the seizure threshold.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diffuse hypomyelination underlies the failure to acquire developmental milestones.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corticospinal-tract hypomyelination produces the progressive four-limb spasticity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Axial hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central hypomyelination underlies the truncal hypotonia that coexists with appendicular spasticity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Cerebral visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical visual impairment reflects hypomyelination and neuronal injury in the visual pathway and cortex; the precise route is not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss is reported in a subset of patients; whether it is central (auditory-pathway hypomyelination) or peripheral is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Zebrafish vps11 mutant\", \"target\": \"CNS Neuronal Death\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Extensive neuronal death in the hindbrain and midbrain of the mutant larva.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The zebrafish allele is a truncated RING-H2 domain, not the human founder missense p.Cys846Gly, so it models a different and more severe VPS11 lesion; larval neuroanatomy also differs from the human CNS.\"}, {\"source\": \"Zebrafish vps11 mutant\", \"target\": \"CNS Hypomyelination\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reduced CNS myelin basic protein immunolocalisation in the mutant larva.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The truncated RING-H2 allele is not the human founder missense; the larval myelination reduction is a partial correlate of the diffuse human hypomyelination.\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"CNS hypomyelination on MRI\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Brain MRI reads out the tissue-level hypomyelination as diffuse white-matter signal abnormality and the VPS11-specific cerebellar signature.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Thin corpus callosum\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The short, posteriorly thinned corpus callosum on MRI is a structural readout of the white-matter hypomyelination and volume loss.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Truncal (axial) hypotonia is an early feature, typically coexisting with appendicular spasticity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Biallelic VPS11 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic VPS11 variants reduce the amount or functional competence of vacuolar protein sorting-associated protein 11. The Ashkenazi founder allele p.Cys846Gly lies in the C-terminal cysteine-rich RING-H2 domain; circular dichroism shows it does not misfold the domain, but the mutant protein is aberrantly ubiquitinated and turned over roughly five times faster than wild-type, lowering steady-state VPS11 and weakening its assembly with VPS18 into the shared Class C Vps core. The in-frame deletion p.Leu387_Gly395del reduces protein by a distinct route. Because VPS11 is a common subunit of both HOPS and CORVET, the net effect is a loss of function of both tethering complexes.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"VPS11\", \"id\": \"hgnc:14583\"}]}}}, {\"id\": \"CNS Hypomyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent endpoint of the oligodendroglial and neuronal arms is a diffuse deficit of central myelin. Zebrafish vps11 mutants show a significant reduction in myelin basic protein immunolocalisation, and patient MRI shows diffuse hypomyelination with a short, posteriorly thinned corpus callosum, reduced white-matter volume and a VPS11-specific cerebellar signature. This tissue-level hypomyelination is what produces the progressive neurological phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"myelination\"], \"animal_models\": [{\"name\": \"Zebrafish vps11 mutant\", \"species\": \"Zebrafish\", \"genotype\": \"vps11(plt), truncated RING-H2 domain\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced CNS myelin basic protein immunolocalisation in the mutant larva.\"}]}}, {\"id\": \"CNS Neuronal Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the zebrafish vps11(plt) mutant, TUNEL labelling shows significant apoptotic neuronal death in the midbrain (and milder death in the hindbrain), and this neuronal death at 3-5 days post-fertilization precedes the reduction in myelination seen at 7 dpf. This ordering argues that a primary neuronal defect contributes to the disease, with myelination failure at least partly secondary - consistent with the microcephaly, seizures and severe cognitive impairment seen in patients.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuron apoptotic process\"], \"animal_models\": [{\"name\": \"Zebrafish vps11 mutant\", \"species\": \"Zebrafish\", \"genotype\": \"vps11(plt), truncated RING-H2 domain\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Extensive neuronal death in the hindbrain and midbrain of the mutant larva.\"}]}}, {\"id\": \"CNS hypomyelination on MRI\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI shows diffuse CNS hypomyelination with a short, posteriorly thinned corpus callosum, reduced white-matter volume, and a VPS11-specific cerebellar signature (focal absence of the middle-anterior cerebellar cortex) that distinguishes it from other hypomyelinating leukodystrophies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"CNS Hypomyelination\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Brain MRI reads out the tissue-level hypomyelination as diffuse white-matter signal abnormality and the VPS11-specific cerebellar signature.\"}], \"term_id\": \"HP:0006808\"}}, {\"id\": \"Cerebral visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cortical (cerebral) visual impairment, and in some patients optic atrophy, are common; several patients become cortically blind.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100704\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Onset is in the first months of life with developmental stagnation; patients become severely developmentally delayed, typically non-verbal and non-ambulatory.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of VPS11-dependent autophagosome-lysosome fusion reduces autophagic flux. In VPS11-depleted human cells the autophagy substrates p62 and LC3 accumulate, immature autophagosomes build up and autolysosome formation falls; inducing autophagy no longer clears the markers, indicating a block at the fusion/flux step rather than at autophagosome biosynthesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagosome-lysosome fusion\", \"macroautophagy\"]}}, {\"id\": \"Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HOPS and CORVET tether and fuse vesicles within the endolysosomal and autophagy pathways - CORVET at early endosomes, HOPS at the fusion of late endosomes and autophagosomes with lysosomes. With VPS11 reduced, this tethering and fusion step is impaired. The homologous yeast VPS11 mutant shows moderate impairment of fusion of the late endosome to the vacuole, and the trafficking defect is conserved from yeast to human.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"late endosome to lysosome transport\", \"organelle membrane fusion\"]}}, {\"id\": \"Lysosomal Storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS11 deficiency produces morphological and biochemical features of lysosomal storage: membranous cytoplasmic bodies in unmyelinated dermal axons, vacuolated eccrine sweat glands, bone-marrow storage macrophages with micro-vacuolated cytoplasm, and urinary glycosphingolipid changes reminiscent of prosaposin deficiency. This places VPS11 disease within the broader lysosomal-storage field and distinguishes it from primary hypomyelinating leukodystrophies with no storage.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lysosomal transport\"]}}, {\"id\": \"Oligodendroglial Differentiation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myelin is made by oligodendrocytes only after they undergo morphological differentiation into large web-like membrane structures. In an oligodendroglial cell-line model, the C846G mutant VPS11 forms aggregates and downregulates signalling through p70S6K (a kinase that, via mTOR, promotes oligodendroglial differentiation and myelination), and the mutant cells fail to adopt the differentiated web-like phenotype. Blocked oligodendroglial differentiation is a proximate cause of the hypomyelination.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"oligodendrocyte differentiation\"]}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Head growth is normal or near-normal at birth and then falls off, producing acquired postnatal microcephaly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000253\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are variable and include tonic-clonic, febrile and myoclonic seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is reported in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Spastic tetraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Appendicular spasticity increases over time and evolves to spastic tetraplegia/quadriplegia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002510\"}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The corpus callosum is short and thin, most marked posteriorly, on brain MRI.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"CNS Hypomyelination\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The short, posteriorly thinned corpus callosum on MRI is a structural readout of the white-matter hypomyelination and volume loss.\"}], \"term_id\": \"HP:0033725\"}}, {\"id\": \"VPS11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"VPS11\"], \"gene_terms\": [{\"label\": \"VPS11\", \"id\": \"hgnc:14583\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Zebrafish vps11 mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The zebrafish vps11(plt) mutant carries a truncated RING-H2 domain and shows extensive CNS neuronal death in the hindbrain and midbrain followed by reduced CNS myelination, supplying the in vivo link from the VPS11 lesion to neuronal death and hypomyelination.\"}], \"edges\": [{\"source\": \"Biallelic VPS11 Loss of Function\", \"target\": \"Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced VPS11 and impaired VPS11-VPS18 core assembly disable the Class C Vps tethering complexes that VPS11 anchors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion\", \"target\": \"Impaired Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked fusion of autophagosomes with lysosomes stalls autophagic degradation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion\", \"target\": \"Lysosomal Storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired endosome-lysosome fusion produces intracellular storage material.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Autophagic Flux\", \"target\": \"Oligodendroglial Differentiation Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autophagy-lysosome dysfunction is proposed to underlie the myelination defect, though whether it acts through oligodendrocytes or neurons is not fully resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Autophagic Flux\", \"target\": \"CNS Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of autophagic-lysosomal clearance is the proposed route to CNS neuronal death in the zebrafish vps11 mutant; the intermediates between the flux block and neuronal apoptosis are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oligodendroglial Differentiation Failure\", \"target\": \"CNS Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oligodendrocytes that cannot differentiate cannot elaborate myelin, producing hypomyelination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Neuronal Death\", \"target\": \"CNS Hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal activity is required for normal myelination, so primary neuronal dysfunction/death can produce secondary hypomyelination.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Neuronal Death\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neuronal loss and brain atrophy underlie the acquired postnatal microcephaly.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Neuronal Death\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing neuronal loss compounds the hypomyelination-driven failure to acquire developmental milestones, underlying the progressive developmental stagnation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Neuronal Death\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical neuronal dysfunction and injury lower the seizure threshold.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diffuse hypomyelination underlies the failure to acquire developmental milestones.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corticospinal-tract hypomyelination produces the progressive four-limb spasticity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Axial hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central hypomyelination underlies the truncal hypotonia that coexists with appendicular spasticity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Cerebral visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical visual impairment reflects hypomyelination and neuronal injury in the visual pathway and cortex; the precise route is not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss is reported in a subset of patients; whether it is central (auditory-pathway hypomyelination) or peripheral is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Zebrafish vps11 mutant\", \"target\": \"CNS Neuronal Death\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Extensive neuronal death in the hindbrain and midbrain of the mutant larva.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The zebrafish allele is a truncated RING-H2 domain, not the human founder missense p.Cys846Gly, so it models a different and more severe VPS11 lesion; larval neuroanatomy also differs from the human CNS.\"}, {\"source\": \"Zebrafish vps11 mutant\", \"target\": \"CNS Hypomyelination\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reduced CNS myelin basic protein immunolocalisation in the mutant larva.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The truncated RING-H2 allele is not the human founder missense; the larval myelination reduction is a partial correlate of the diffuse human hypomyelination.\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"CNS hypomyelination on MRI\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Brain MRI reads out the tissue-level hypomyelination as diffuse white-matter signal abnormality and the VPS11-specific cerebellar signature.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CNS Hypomyelination\", \"target\": \"Thin corpus callosum\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The short, posteriorly thinned corpus callosum on MRI is a structural readout of the white-matter hypomyelination and volume loss.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"VPS11\", \"target\": \"Biallelic VPS11 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5516,6 +5581,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5599,6 +5667,9 @@ This clinical feature is Cortical visual impairment, annotated with Cerebral vis
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5672,6 +5743,9 @@ This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5755,6 +5829,9 @@ This clinical feature is Truncal hypotonia, annotated with Axial hypotonia (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5819,6 +5896,9 @@ This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5901,6 +5981,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in all 8 patients in PMID:26307567 and all 5 in PMID:27120463.</div>
 
 
@@ -5970,6 +6053,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6045,6 +6131,9 @@ This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Diffuse hypomyelination present in all 6 patients in PMID:42697725.</div>
 
 
@@ -6114,6 +6203,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6230,6 +6322,9 @@ This disease-associated gene is VPS11 (hgnc:14583). hgnc:14583 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6365,6 +6460,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy. Management is supportive and multidisciplinary, addressing spasticity, seizures, feeding and aspiration risk, visual and hearing impairment, and developmental needs.</div>
 
 
@@ -6423,6 +6524,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Seizures (tonic-clonic, febrile, myoclonic) are managed with antiseizure medication as part of supportive care.</div>
 
 
@@ -6468,6 +6575,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8138,6 +8251,30 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Named-entity-confusion guardrail. This entry is anchored strictly on MONDO:0014732 / OMIM:616683 / VPS11 (hgnc:14583). &#34;Hypomyelinating leukodystrophy N&#34; is a numbered series whose members share only the numeral, so the anchor was fixed before curation with `uv run runoak -i sqlite:obo:mondo info MONDO:0014732 -O obo`, which returns `intersection_of: RO:0004003 HGNC:14583 ! VPS11` and `xref: OMIM:616683`, independently confirming both gene and OMIM number. VPS11 (hgnc:14583) was confirmed with `uv run runoak -i sqlite:obo:hgnc info hgnc:14583`.
+Gene-family confusables. VPS11 is one of six Class C Vps subunits; VPS16, VPS18, VPS33A and VPS33B all cause distinct disorders, and none of their literature is cited here as evidence for VPS11 disease. VPS11 also has a large, disease-unrelated cell-biology and cancer literature (autophagy machinery, ferroptosis), which is likewise excluded.
+Emerging movement-disorder spectrum (not curated here). A later-onset complex dystonic / spastic-paraplegia presentation from biallelic VPS11 missense variants with little or no white-matter change has been reported under the provisional DYT32 label (Storck et al., PMID:41551069, plus a prior single case). That is a distinct clinical entity; this entry stays anchored on MONDO:0014732 (the hypomyelinating leukodystrophy) and does not curate the movement-disorder presentation, whose primary sources are not yet fetched into this entry&#39;s evidence.
+No GeneReviews chapter exists for VPS11 or HLD12. Searched on 2026-09-05 with `VPS11 GeneReviews[All Fields]` and `hypomyelinating leukodystrophy GeneReviews[TI]`; both returned zero records. The phenotype baseline is therefore taken from the primary cohort literature: PMID:26307567 (8 patients, 4 AJ families; the founding report), PMID:27120463 (5 patients, 3 AJ families; founder-allele + autophagy mechanism), PMID:27473128 (2 siblings; the lysosomal-storage second report) and PMID:42697725 (6 patients; the systematic MRI cohort).
+Frequency discipline. FrequencyEnum bands are asserted only where a cohort gives an explicit numerator or an unambiguous &#34;in all patients&#34; statement, and the source figure is recorded in each phenotype&#39;s notes. Where a feature is reported in &#34;some&#34; or &#34;several&#34; patients, frequency is omitted rather than guessed. The whole published denominator is only a few dozen patients drawn largely from one founder population, so no feature is banded OBLIGATE.
+No `datasets:` block is curated. HLD12 has a few dozen published patients and no omics resource of its own, while a gene-keyed accession search on VPS11 returns cancer and generic-autophagy datasets that would resolve perfectly and be about the wrong biology - the Named Entity Confusion the dataset-curation SOP warns about - so an empty block is the honest result.
+A Claude Code literature-sweep deep-research report is committed at research/Hypomyelinating_Leukodystrophy_12-deep-research-claude-2026-09-05.md. Its citations were treated as leads and each snippet used here was verified against the primary source fetched into references_cache/.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hypomyelinating Leukodystrophy 12 (VPS11)</strong> · 2026-09-05T16:08:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypomyelinating_Leukodystrophy_12/2026-09-05T160833Z-claude-code-ede918.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of HLD12 (MONDO:0014732, VPS11/hgnc:14583, OMIM:616683) as a DISEASE entry. Deep research via claude_code literature sweep (research/Hypomyelinating_Leukodystrophy_12-deep-research-claude-2026-09-05.md; 12/12 report citations resolved, 0 not found). All KB evidence snippets verified against primary sources fetched into references_cache (PMID:26307567, 27120463, 27473128, 32316234, 42697725). Pathograph: biallelic VPS11 LoF -&gt; impaired HOPS/CORVET endolysosomal tethering/fusion -&gt; impaired autophagic flux + lysosomal storage; oligodendroglial differentiation failure and CNS neuronal death converge on CNS hypomyelination. Founder allele p.Cys846Gly recorded. GeneReviews searched, none exists. Validated: just validate, validate-terms, validate-disorders (30/30 snippets), check-entity-refs/causal-targets/duplicate-keys/enum-values/qualifier-terms/snippet-length/title-snippets/snippet-grading. Named-entity-confusion preflight: VPS11 dominant, OMIM 616683 matches.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

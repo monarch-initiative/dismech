@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4618,6 +4671,7 @@ This entry is deliberately distinct from the several nuclear-gene mitochondrial 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-m-8528t-c-substitution-in-the-mt-atp6-mt-atp8-overlap" data-dismech-node="m.8528T&gt;C Substitution in the MT-ATP6/MT-ATP8 Overlap" data-dismech-type="pathophysiology">
                 <div class="item-name">m.8528T&gt;C Substitution in the MT-ATP6/MT-ATP8 Overlap</div>
 
+
                 <div class="item-desc">MT-ATP8 and MT-ATP6 are transcribed as a bicistronic message whose reading frames overlap by 46 nucleotides. Position 8528 falls inside that overlap. The m.8528T&gt;C substitution therefore has two simultaneous consequences in two different proteins: it converts the ATP6 initiation codon (ATG) so that the encoded residue is threonine rather than methionine, and it replaces tryptophan 55 of ATP8, a strictly conserved hydrophobic residue, with the strongly basic arginine. This is the defining molecular lesion of the entity, and the first reported mutation to hit both mtDNA-encoded complex V subunits at once.</div>
 
 
@@ -4828,6 +4882,7 @@ This pathophysiological event involves MT-ATP8 (hgnc:7415). hgnc:7415 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-insert-atp6-and-atp8-into-the-atp-synthase-membrane-domain" data-dismech-node="Failure to Insert ATP6 and ATP8 into the ATP Synthase Membrane Domain" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Insert ATP6 and ATP8 into the ATP Synthase Membrane Domain</div>
 
+
                 <div class="item-desc">Human ATP synthase is an assembly of 29 subunits of 18 kinds, of which only ATP6 and ATP8 are encoded in mitochondrial DNA. Assembly proceeds through a nuclear-encoded intermediate - the F1-c8 complex attached to the peripheral stalk with subunits e, f and g - into which ATP6 and ATP8, translated on mitochondrial ribosomes, are inserted last; the 6.8 proteolipid then locks them in place and only at that point is the complex coupled to ATP synthesis. A lesion that removes or destabilises either mtDNA-encoded subunit therefore arrests assembly at the final, coupling-conferring step rather than preventing formation of the F1 head.</div>
 
 
@@ -4987,6 +5042,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complex-v-holoenzyme-deficiency-with-accumulation-of-subcomplexes" data-dismech-node="Complex V Holoenzyme Deficiency with Accumulation of Subcomplexes" data-dismech-type="pathophysiology">
                 <div class="item-name">Complex V Holoenzyme Deficiency with Accumulation of Subcomplexes</div>
+
 
                 <div class="item-desc">The biochemical consequence is an isolated deficiency of assembled, catalytically competent ATP synthase. In the closest characterised human model - a homoplasmic MT-ATP8 nonsense variant one base away, at m.8529 - patient fibroblasts, muscle and transmitochondrial cybrids all showed reduced complex V activity, absent holocomplex V, an excess of ATP synthase subcomplexes, and in-gel activity of free F1-ATPase, i.e. an unattached catalytic head no longer coupled to a proton channel.</div>
 
@@ -5188,6 +5244,7 @@ This pathophysiological event involves decreased proton-transporting ATP synthas
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-proton-coupled-mitochondrial-atp-synthesis" data-dismech-node="Impaired Proton-Coupled Mitochondrial ATP Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Proton-Coupled Mitochondrial ATP Synthesis</div>
 
+
                 <div class="item-desc">Loss of a functional Fo proton channel uncouples the respiratory-chain proton gradient from phosphorylation, so oxidative ATP output falls even though electron transport upstream of complex V may be intact. This is an isolated complex V lesion rather than a combined respiratory chain defect.</div>
 
 
@@ -5336,6 +5393,7 @@ This pathophysiological event involves decreased proton transmembrane transport 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-atp-synthase-dimerisation-and-cristae-architecture" data-dismech-node="Disrupted ATP Synthase Dimerisation and Cristae Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted ATP Synthase Dimerisation and Cristae Architecture</div>
 
+
                 <div class="item-desc">Beyond catalysis, ATP synthase dimers and their oligomeric rows along the cristae edges impose the curvature of the inner mitochondrial membrane. Failure to incorporate ATP6 therefore has a structural consequence as well as a bioenergetic one, degrading the cristae surface on which the whole respiratory chain is organised. This arm is inferred from the assembly and membrane-shaping literature rather than from ultrastructural study of m.8528T&gt;C hearts.</div>
 
 
@@ -5470,6 +5528,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-energy-deficit" data-dismech-node="Cardiomyocyte Energy Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Energy Deficit</div>
+
 
                 <div class="item-desc">Cardiomyocytes carrying a high burden of mutant genomes cannot meet contractile ATP demand from oxidative phosphorylation. The shortfall is partly offset by glycolysis, at the cost of lactate production, and drives the compensatory responses that produce the hypertrophic phenotype.</div>
 
@@ -5626,6 +5685,7 @@ This pathophysiological event involves decreased ATP biosynthetic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-cardiomyocyte-hypertrophy" data-dismech-node="Compensatory Cardiomyocyte Hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Cardiomyocyte Hypertrophy</div>
+
 
                 <div class="item-desc">Energy-deficient cardiomyocytes enlarge, and the ventricular wall thickens. In this disorder the hypertrophy is not a response to abnormal loading - outflow obstruction or hypertension - but to an intrinsic metabolic defect, which is why the entity is classified as a non-sarcomeric, secondary hypertrophic cardiomyopathy.</div>
 
@@ -5799,6 +5859,7 @@ This pathophysiological event involves increased cardiac muscle hypertrophy (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-lactate-accumulation" data-dismech-node="Systemic Lactate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Lactate Accumulation</div>
 
+
                 <div class="item-desc">Reliance on glycolysis where oxidative phosphorylation is blocked raises circulating lactate. Elevated lactate is the classic, though neither sensitive nor specific, systemic marker of a primary mitochondrial disorder, and in an infant with unexplained hypertrophic cardiomyopathy it is one of the findings that redirects investigation toward mitochondrial DNA.</div>
 
 
@@ -5874,6 +5935,7 @@ This pathophysiological event involves increased cardiac muscle hypertrophy (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-heteroplasmy-threshold" data-dismech-node="Cardiac Heteroplasmy Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Heteroplasmy Threshold</div>
+
 
                 <div class="item-desc">Because the variant is heteroplasmic, each tissue carries a mixture of mutant and wild-type mitochondrial genomes and expresses a biochemical defect only once the mutant load passes a tissue-specific threshold. This is what makes the phenotype cardiac-predominant despite a genome present in every cell, and it accounts for the variable expression seen among maternal relatives. In a fatal infantile case the cardiac heteroplasmy level of m.8528T&gt;C was 90%.</div>
 
@@ -6002,6 +6064,7 @@ This pathophysiological event involves increased cardiac muscle hypertrophy (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-heart-failure-of-infancy" data-dismech-node="Progressive Heart Failure of Infancy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Heart Failure of Infancy</div>
+
 
                 <div class="item-desc">The clinical endpoint is a rapidly progressive infantile cardiomyopathy with high mortality. In a large paediatric mitochondrial disease cohort, children with cardiomyopathy had markedly worse survival than those without, and a child with the m.8528T&gt;C variant died at two months of age.</div>
 
@@ -6196,6 +6259,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6260,6 +6326,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6334,6 +6403,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6398,6 +6470,9 @@ This clinical feature is Ventricular hypertrophy (HP:0001714). HP:0001714 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6476,6 +6551,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6568,6 +6646,9 @@ This clinical feature is Metabolic crises, annotated with Episodic metabolic aci
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6632,6 +6713,9 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6715,6 +6799,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6788,6 +6875,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6908,6 +6998,9 @@ This disease-associated gene is MT-ATP6 (hgnc:7414). hgnc:7414 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Mitochondrial inheritance</span>
@@ -6988,6 +7081,9 @@ This disease-associated gene is MT-ATP8 (hgnc:7415). hgnc:7415 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7084,6 +7180,7 @@ This disease-associated gene is MT-ATP8 (hgnc:7415). hgnc:7415 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7105,7 +7202,13 @@ This variant is in MT-ATP6 (hgnc:7414). hgnc:7414 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Mitochondrial DNA substitution in the 46-nucleotide MT-ATP8/MT-ATP6 overlap. It changes the MT-ATP6 initiation codon so that threonine replaces the start methionine and, in the other reading frame, substitutes arginine for the conserved tryptophan at MT-ATP8 position 55. Heteroplasmic; identified in four unrelated infants with isolated hypertrophic cardiomyopathy, and subsequently reported at 90% cardiac heteroplasmy in a child who died at two months.</div>
@@ -7168,6 +7271,7 @@ This variant is in MT-ATP6 (hgnc:7414). hgnc:7414 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7189,7 +7293,13 @@ This variant is in MT-ATP8 (hgnc:7415). hgnc:7415 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homoplasmic MT-ATP8 nonsense variant one nucleotide downstream of m.8528, truncating the same tryptophan residue. Reported in a 16-year-old with apical hypertrophic cardiomyopathy and neuropathy rather than in infantile disease, so it is curated here as allelic mechanistic context rather than as a variant of this entity.</div>
@@ -7292,6 +7402,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7415,6 +7531,9 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7425,6 +7544,9 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7558,6 +7680,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -10210,6 +10338,45 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: MT-ATP6/MT-ATP8-Related Infantile Hypertrophic Cardiomyopathy (MONDO:0010777)</strong> · 2026-08-19T19:30:40Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/MT-ATP6_MT-ATP8-Related_Infantile_Hypertrophic_Cardiomyopathy/2026-08-19T193040Z-claude-code-1c6c7b.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for MONDO:0010777 (cardiomyopathy, infantile hypertrophic), the maternally inherited mtDNA complex V (ATP synthase) infantile hypertrophic cardiomyopathy caused by variants in the MT-ATP6/MT-ATP8 overlapping reading frames (reference allele m.8528T&gt;C).
+
+NEC preflight (mandatory; this MONDO label was flagged HIGH RISK because at least six existing kb/disorders entries carry infantile hypertrophic cardiomyopathy as a feature of a *nuclear-gene* mitochondrial disease). MONDO:0010777 records no causal-gene relationship (RO:0004003), so `just preflight-dr` returns SKIP and cannot adjudicate; the identity was anchored manually instead:
+- `runoak -i sqlite:obo:mondo info MONDO:0010777 -O obo` gives xref OMIM:500006 (a phenotype number in the 500000 mitochondrial-inheritance series) and is_a MONDO:0003847 hereditary disease, with no causal gene.
+- MedGen 412660 (the equivalent concept) lists OMIM 516060 and 516070 as alternate names for the same phenotype string; those are the OMIM *gene* entries for MT-ATP6 and MT-ATP8.
+- The literature entry point for OMIM 500006 is Ware et al. 2009 (PMID:19188198): four unrelated infants with isolated hypertrophic cardiomyopathy carrying m.8528T&gt;C in the MT-ATP6/MT-ATP8 overlap.
+- `just preflight-dr &lt;report&gt; MONDO:0010777` verdict SKIP; its gene census on the falcon report is strongly confirmatory: MT-ATP6=45, MT-ATP8=22, no rival gene above 2 mentions. Report OMIM ids were 256000, 516060, 551500 (Leigh / MT-ATP6 gene / NARP context); 500006 itself was not cited by the report, so the Leigh/NARP material was read as context and not curated in.
+
+Deep research: `just research-disorder falcon` (Edison Scientific, 727s, 33 citations). Its own reference-validation frontmatter reported 10/10 references resolved, 0 unresolved, 0 off topic, needs_review absent. The report was used as a lead generator only; every PMID was re-fetched with `just fetch-reference` and every snippet re-verified against the local cache. One report suggestion was rejected on checking: it proposed HP:0011663 for left ventricular non-compaction, but HP:0011663 is &#34;Right ventricular cardiomyopathy&#34;, so that phenotype was dropped rather than mis-bound.
+
+GeneReviews: no chapter exists for this disorder. A PubMed search returned only the general &#34;Primary Mitochondrial Disorders Overview&#34; (PMID:20301403), whose abstract states the chapter&#39;s purpose and carries no disease-specific clinical characteristics, so it was deliberately not cited as a phenotype baseline. This is recorded in the entry&#39;s notes.
+
+Content: 10 atomic pathophysiology nodes running m.8528T&gt;C in the overlap -&gt; failure to insert ATP6/ATP8 into the Fo membrane domain -&gt; complex V holoenzyme deficiency with subcomplex accumulation -&gt; impaired proton-coupled ATP synthesis (plus a parallel dimerisation/cristae arm) -&gt; cardiomyocyte energy deficit -&gt; compensatory hypertrophy -&gt; progressive infantile heart failure, with a separate Cardiac Heteroplasmy Threshold modifier node feeding the energy-deficit node. Two OPEN KNOWLEDGE_GAP discussions with proposed experiments: (a) whether the ATP6 start-codon loss or the ATP8 p.Trp55Arg substitution drives the infantile phenotype - unresolvable in patients because the overlapping frames make the two consequences inseparable; (b) why the phenotype is cardiac-restricted when the heart is the least often affected tissue (18%) across MT-ATP6/MT-ATP8 deficiency.
+
+Evidence discipline: mechanistic evidence drawn from the adjacent MT-ATP8 nonsense variant m.8529G&gt;A (PMID:17954552), from yeast ATP6 work (PMID:33600551, PMID:11823415), and from whole-spectrum MT-ATP6/MT-ATP8 or general paediatric cohorts (PMID:40112238, PMID:30763462, PMID:30642647, PMID:33718303, PMID:31711761) is either marked supports: PARTIAL or carries an explicit node-level notes saying what population it came from. Two cached records used here, PMID:26803244 and PMID:27409572, have no abstract in the cache; they are listed under top-level references for discoverability but are deliberately NOT used as evidence items, since the only quotable text in them is the title (issue #8374).
+
+Validation actually run, with output read:
+- `just validate &lt;file&gt;`: schema &#34;No issues found&#34;; terms &#34;Validation passed&#34;; references &#34;All validations passed! Snippets checked: 62/62 verified against cached references&#34;.
+- `just count-verified-snippets &lt;file&gt;`: 62/62 verified.
+- `just validate-terms &lt;file&gt;`: passed.
+- `just check-duplicate-keys &lt;file&gt;`: OK, no duplicate mapping keys.
+- `scripts/check_snippet_length.py --against-ref origin/main`: OK, no new snippets under 5 words.
+- `just check-title-snippets`: OK, no new title-quoting snippets.
+- `just check-reference-cache-frontmatter` and `just check-term-cache-integrity`: OK.
+- `just validate-disorders &lt;file&gt;` (the batched, --no-full-text check CI runs): exit 0, 62/62 snippets verified.
+- `just compliance &lt;file&gt;`: Global 93.7%, weighted 94.2%.
+- `uv run pytest tests/test_data.py`: the only failure was a pre-existing one in Travelers_Diarrhea.yaml (bare-URL evidence references), untouched by this branch; a targeted re-run over the rest passed 8570 tests.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4360,6 +4413,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stk11-germline-loss-of-function" data-dismech-node="STK11 germline loss-of-function" data-dismech-type="pathophysiology">
                 <div class="item-name">STK11 germline loss-of-function</div>
 
+
                 <div class="item-desc">Germline heterozygous pathogenic variants in STK11, encoding the LKB1 serine/threonine kinase, initiate PJS. Loss of tumor-suppressor kinase function perturbs epithelial polarity, growth-control, and stromal paracrine signaling, creating the inherited background for hamartomatous polyposis, mucocutaneous pigmentation, and cancer susceptibility.
 </div>
 
@@ -4698,6 +4752,7 @@ This pathophysiological event occurs in colon (UBERON:0001155). UBERON:0001155 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lkb1-ampk-pathway-inactivation" data-dismech-node="LKB1/AMPK pathway inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">LKB1/AMPK pathway inactivation</div>
 
+
                 <div class="item-desc">LKB1 normally activates AMPK-family kinases. In PJS polyp tissue, pathogenic STK11 variants reduce phosphorylated AMPK, weakening energy- and polarity-linked growth control and contributing to downstream mTORC1 hyperactivation.
 </div>
 
@@ -4929,6 +4984,7 @@ This pathophysiological event involves decreased AMP-activated protein kinase ac
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtorc1-pathway-hyperactivation" data-dismech-node="mTORC1 pathway hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">mTORC1 pathway hyperactivation</div>
 
+
                 <div class="item-desc">LKB1-deficient PJS tissues show increased mTORC1 signaling with elevated HIF-1alpha and GLUT1, supporting proliferative polyp growth and providing a mechanism-directed rationale for investigational mTOR inhibition.
 </div>
 
@@ -5121,6 +5177,7 @@ This pathophysiological event involves increased cell proliferation, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stromal-tgf-beta-signaling-defect" data-dismech-node="Stromal TGF-beta signaling defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Stromal TGF-beta signaling defect</div>
+
 
                 <div class="item-desc">Mesenchymal/stromal LKB1 loss can drive PJS-like GI polyposis by reducing stromal TGF-beta signaling to the epithelium. This paracrine defect removes a local growth-suppressive brake and helps explain the arborizing stromal architecture of PJS hamartomas.
 </div>
@@ -5434,6 +5491,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cox-2-prostaglandin-biosynthetic-upregulation" data-dismech-node="COX-2 / prostaglandin biosynthetic upregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">COX-2 / prostaglandin biosynthetic upregulation</div>
 
+
                 <div class="item-desc">PJS hamartomatous polyps overexpress COX-2/PTGS2 in epithelial and stromal compartments, increasing local prostaglandin biosynthesis. This supports an investigational chemoprevention rationale for COX-2 inhibition.
 </div>
 
@@ -5648,6 +5706,7 @@ This pathophysiological event involves increased cyclooxygenase pathway (GO:0019
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hamartomatous-polyp-burden-and-mechanical-complications" data-dismech-node="Hamartomatous Polyp Burden and Mechanical Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Hamartomatous Polyp Burden and Mechanical Complications</div>
 
+
                 <div class="item-desc">Characteristic PJS hamartomatous GI polyps, especially in the small bowel, create a mechanical and bleeding complication branch. Polyp ulceration causes chronic GI hemorrhage and anemia, while large or pedunculated polyps cause recurrent obstruction, intussusception, and abdominal pain.
 </div>
 
@@ -5836,6 +5895,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-stk11-second-hit-and-malignant-transformation" data-dismech-node="Somatic STK11 second-hit and malignant transformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic STK11 second-hit and malignant transformation</div>
+
 
                 <div class="item-desc">Germline STK11 pathogenic variants confer inherited susceptibility, while somatic loss of the remaining STK11 allele and cooperating oncogenic events drive the high lifetime risk of GI and extra-GI epithelial malignancies.
 </div>
@@ -6116,6 +6176,7 @@ This pathophysiological event involves increased regulation of cell proliferatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gonadal-sex-cord-tumor-predisposition" data-dismech-node="Gonadal Sex-Cord Tumor Predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Gonadal Sex-Cord Tumor Predisposition</div>
 
+
                 <div class="item-desc">The PJS neoplasia spectrum includes sex-specific gonadal sex-cord tumors: ovarian sex cord tumors with annular tubules in females and estrogen-secreting large calcifying Sertoli cell tumors in males. Estrogen secretion from Sertoli cell tumors can cause gynecomastia.
 </div>
 
@@ -6233,6 +6294,7 @@ This pathophysiological event involves increased regulation of cell proliferatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucocutaneous-melanocyte-hyperpigmentation" data-dismech-node="Mucocutaneous melanocyte hyperpigmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucocutaneous melanocyte hyperpigmentation</div>
+
 
                 <div class="item-desc">PJS causes characteristic dark blue to brown macules around the mouth, eyes, nostrils, perianal area, buccal mucosa, lips, and extremities. The precise melanocyte-intrinsic mechanism remains incompletely defined, but pigmentation commonly appears in childhood before GI complications.
 </div>
@@ -6523,6 +6585,9 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6614,6 +6679,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6724,6 +6792,9 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6820,6 +6891,9 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6886,6 +6960,7 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
             </div>
 
 
+
             <div class="context-notes">Gynecomastia is a consequence of estrogen secretion by Sertoli cell tumors.</div>
 
 
@@ -6934,6 +7009,9 @@ This clinical feature is Small intestinal polyposis (HP:0030256). HP:0030256 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7035,6 +7113,9 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7131,6 +7212,9 @@ This clinical feature is Intussusception (HP:0002576). HP:0002576 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7197,6 +7281,9 @@ This clinical feature is Gastrointestinal carcinoma (HP:0002672). HP:0002672 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7293,6 +7380,9 @@ This clinical feature is Pancreatic adenocarcinoma (HP:0006725). HP:0006725 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7403,6 +7493,9 @@ This clinical feature is Adenoma malignum of the cervix, annotated with Cervix c
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7492,6 +7585,7 @@ This clinical feature is Adenoma malignum of the cervix, annotated with Cervix c
             </div>
 
 
+
             <div class="context-notes">PJS-associated adenoma malignum is a female-specific gynecologic manifestation.</div>
 
 
@@ -7529,6 +7623,9 @@ This clinical feature is Sex cord tumor with annular tubules, annotated with Ova
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7598,6 +7695,7 @@ This clinical feature is Sex cord tumor with annular tubules, annotated with Ova
             </div>
 
 
+
             <div class="context-notes">SCTAT is a female-specific ovarian manifestation of PJS.</div>
 
 
@@ -7637,6 +7735,9 @@ This clinical feature is Large calcifying Sertoli cell tumor, annotated with Tes
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7708,6 +7809,7 @@ This clinical feature is Large calcifying Sertoli cell tumor, annotated with Tes
             </div>
 
 
+
             <div class="context-notes">Large calcifying Sertoli cell tumor is a male-specific PJS manifestation.</div>
 
 
@@ -7756,6 +7858,9 @@ This clinical feature is Abnormal pigmentation of the oral mucosa (HP:0100669). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7866,6 +7971,9 @@ This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7941,6 +8049,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8057,6 +8168,9 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8320,6 +8434,12 @@ This treatment is endoscopic procedure (NCIT:C16546). NCIT:C16546 is a clinical 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Routine endoscopic surveillance with removal of clinically significant GI polyps reduces emergency laparotomy and bowel loss from intussusception.
 </div>
 
@@ -8402,6 +8522,12 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8562,6 +8688,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Autosomal dominant STK11-associated PJS warrants genetic counseling and testing of at-risk relatives.
 </div>
 
@@ -8667,6 +8799,12 @@ This treatment uses celecoxib (CHEBI:41423). CHEBI:41423 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8837,6 +8975,12 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -10830,6 +10974,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

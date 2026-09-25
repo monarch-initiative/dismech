@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4415,6 +4468,7 @@ The molecular context is what makes the phenotype interpretable. TCF20 is the st
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tcf20-haploinsufficiency" data-dismech-node="TCF20 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">TCF20 Haploinsufficiency</div>
 
+
                 <div class="item-desc">One inactivated allele halves the dose of a chromatin-binding transcriptional co-regulator. The reciprocal duplication causing a mirror disorder is the strongest available argument that dose, rather than a property of the mutant protein, is what matters.</div>
 
 
@@ -4624,6 +4678,7 @@ This pathophysiological event involves decreased transcription coactivator activ
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-occupancy-of-the-mecp2-phf14-tcf20-chromatin-complex" data-dismech-node="Reduced Occupancy of the MeCP2-PHF14-TCF20 Chromatin Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Occupancy of the MeCP2-PHF14-TCF20 Chromatin Complex</div>
 
+
                 <div class="item-desc">TCF20 and MeCP2 are co-expressed in neurons and co-regulate a shared set of neuronal genes. The complex is the convergence point for three separately named disorders: Rett-causing MECP2 mutations abolish the interaction from one side, a PHF14 missense variant abolishes it from another, and TCF20 haploinsufficiency reduces it from a third. TCF20 binds chromatin through two independent nucleosome-interaction domains, so a halved dose is plausibly a halved residence on chromatin rather than a qualitatively altered complex.</div>
 
 
@@ -4822,6 +4877,7 @@ This pathophysiological event involves decreased chromatin binding (GO:0003682).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-neuronal-transcriptional-program" data-dismech-node="Dysregulated Neuronal Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Neuronal Transcriptional Program</div>
 
+
                 <div class="item-desc">Knockdown of TCF20 in cortical neurons downregulates pre- and postsynaptic pathways and reduces specific synaptic proteins, with an unexpected asymmetry: GABRA1, BDNF, PSD-95, c-Fos, GluN2B and GABRA5 fall while GluA2 rises. The mixed direction matters, because it means the consequence is a reshaped synaptic composition rather than a uniform loss of synaptic gene expression.</div>
 
 
@@ -5013,6 +5069,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-dendritic-arborization-and-spine-formation" data-dismech-node="Impaired Dendritic Arborization and Spine Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Dendritic Arborization and Spine Formation</div>
+
 
                 <div class="item-desc">The structural endpoint measurable in neurons. TCF20 expression rises through brain development in mice, which places its requirement in the period when arbors and spines are being built rather than maintained.</div>
 
@@ -5355,6 +5412,9 @@ This clinical feature is Craniofacial features without a recognizable gestalt, a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5460,6 +5520,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5540,6 +5603,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5611,6 +5677,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5677,6 +5746,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5778,6 +5850,9 @@ This clinical feature is Autism spectrum disorder or autistic features, annotate
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5844,6 +5919,9 @@ This clinical feature is Attention disorder or hyperactivity, annotated with Att
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5920,6 +5998,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5986,6 +6067,9 @@ This clinical feature is Structural brain anomaly, annotated with Abnormal brain
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6062,6 +6146,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6131,6 +6218,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6195,6 +6285,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6315,6 +6408,9 @@ This disease-associated gene is TCF20 (hgnc:11631). hgnc:11631 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6416,6 +6512,12 @@ This disease-associated gene is TCF20 (hgnc:11631). hgnc:11631 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The reported spectrum is dominated by frameshift and nonsense alleles plus whole-gene deletions, with missense alleles a small minority. That distribution is itself the argument for haploinsufficiency.</div>
 
 
@@ -6500,6 +6602,12 @@ This disease-associated gene is TCF20 (hgnc:11631). hgnc:11631 is a gene from th
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A novel frameshift allele shared by two siblings and absent from both parents&#39; blood, traced to paternal germline mosaicism detected in urothelial cells.</div>
@@ -6617,6 +6725,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6627,6 +6738,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6739,6 +6853,9 @@ This treatment is Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clin
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6749,6 +6866,9 @@ This treatment is Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clin
 
 
     </div>
+
+
+
 
 
 
@@ -6861,6 +6981,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6871,6 +6994,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6990,6 +7116,9 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7000,6 +7129,9 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -7147,6 +7279,9 @@ This treatment uses methylphenidate (CHEBI:6887). CHEBI:6887 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7157,6 +7292,9 @@ This treatment uses methylphenidate (CHEBI:6887). CHEBI:6887 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -7316,6 +7454,9 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7326,6 +7467,9 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7438,6 +7582,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7448,6 +7595,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9302,6 +9452,29 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep-research provenance. Curated alongside an OpenScientist report (research/TCF20-Associated_Neurodevelopmental_Disorder-deep-research-openscientist.md). All 13 of its references resolved and all 16 quotes it checked were valid.
+Its relevance heuristic is worth recording, because it was wrong in an instructive way. Two references were flagged as off topic: PMID:10995766 and PMID:22081970. Both are papers on SPBP, which is the former symbol for TCF20, and both are directly on point: the first maps the protein&#39;s functional domains and its coactivator behaviour, the second identifies its two independent nucleosome-binding domains and shows that RAI1 carries homologous domains. Neither mentions TCF20 or the disease anywhere, because both predate the rename and the disease association. Relevance is scored on vocabulary overlap with the report, so a paper about the same protein under a different name scores as if it were about something else. Both are cited here, with directness INDIRECT recording that they predate the disease association.
+Ontology note. The report&#39;s term validation flagged one mislabelled term, MONDO:0032745, as being called &#34;MONDO&#34; rather than by its label. That is the identifier-table column header being read as a label, not a wrong binding.
+Frequencies. The percentages curated here (69% autism, 67% attention or hyperactivity, 24% structural brain anomalies, 12% seizures) all come from one 27-patient cohort compared against 17 previously reported patients, so they are cohort figures rather than population frequencies, and the FrequencyEnum bands assigned from them inherit that limitation.
+Not curated. The report describes postnatal overgrowth (tall stature, macrocephaly, obesity) in a subset. The 27-patient cohort cached here reports the opposite: &#34;In a majority of patients, we did not observe previously reported findings of postnatal overgrowth or craniosynostosis, in comparison with earlier reports.&#34; Those phenotypes are therefore omitted because the strongest cached source argues against them in most patients, not merely because no positive quote was found. The report&#39;s LOEUF figure (0.052) is likewise uncurated: the cached source gives pLI = 1 and no LOEUF value, and a constraint statistic taken from report prose alone would not be verifiable.
+Craniofacial dysmorphism was omitted in the first version of this entry, on the argument that &#34;no recognizable facial gestalt&#34; made a phenotype term overclaim. That was wrong and was corrected in review. The absence of a syndromic gestalt is not the absence of the finding, and HP:0001999 (Abnormal facial shape) exists for exactly the under-specified case. It is now curated at its 67% frequency, bound to the generic term, with the no-gestalt statement quoted alongside so the limitation travels with the annotation instead of being used to suppress it.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: TCF20-Associated Neurodevelopmental Disorder (TAND / DDVIBA)</strong> · 2026-09-05T15:11:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/TCF20-Associated_Neurodevelopmental_Disorder/2026-09-05T151158Z-claude-code-217d0b.yaml">View source</a></p>
+                        <p class="research-review-text">New kb/disorders entry for TAND (MONDO:0032745), claimed via issue #11109. Curated as a dosage disorder of a chromatin complex rather than as a syndrome description: TCF20 haploinsufficiency reduces occupancy of the MeCP2-PHF14-TCF20 complex, dysregulating the neuronal transcriptional program and impairing dendritic arborization and spine formation. The differential is built on that mechanism, since Smith-Magenis (RAI1 paralogy, shared nucleosome-binding domains), Rett and MECP2 duplication syndrome (same complex, with a Tcf20-reduction rescue of MECP2-overexpression behavioural deficits) and the reciprocal TCF20 duplication disorder all connect through it rather than through shared phenotype lists. Ten HPO-bound phenotypes with cohort frequencies from Torti 2019, four treatments, two KNOWLEDGE_GAP/HUMAN_MODEL_MISMATCH discussions. Deep research: OpenScientist report committed; 13/13 references resolved and 16/16 checked quotes valid. Its relevance heuristic flagged PMID:10995766 and PMID:22081970 as off topic; both are SPBP papers, SPBP being the former symbol for TCF20, and both are directly on point. They are cited here with directness INDIRECT recording that they predate the disease association. This is a vocabulary-overlap failure of relevance scoring rather than a citation problem, and is worth knowing about for any gene with a former symbol. One snippet from PMID:22081970 had to be requoted around a bracketed abbreviation expansion that the reference validator strips (issue #10192). Deliberately not curated: postnatal overgrowth and craniofacial dysmorphism, the first because no cached source carries a quotable statement of it and the second because the same source states there is no recognizable facial gestalt, so a phenotype term would assert more structure than the finding has. Validation: schema pass, term validation pass, 43/43 snippets verified, check-entity-refs / check-causal-targets / check-duplicate-keys / check-enum-values clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

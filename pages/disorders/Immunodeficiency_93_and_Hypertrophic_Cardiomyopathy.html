@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4682,6 +4735,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fnip1-loss-of-function" data-dismech-node="FNIP1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">FNIP1 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in FNIP1 abolish the folliculin-interacting protein 1 polypeptide. Immunoblotting of patient-derived T-cell blasts and EBV-immortalized B cells confirms absent FNIP1 protein, and the paralogue FNIP2 is not upregulated to compensate.
 </div>
 
@@ -4826,6 +4880,7 @@ This pathophysiological event involves absent FNIP1 (hgnc:29418). hgnc:29418 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-ampk-and-mtorc1-nutrient-sensing" data-dismech-node="Dysregulated AMPK and mTORC1 Nutrient Sensing" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated AMPK and mTORC1 Nutrient Sensing</div>
+
 
                 <div class="item-desc">FNIP1 forms a complex with folliculin (FLCN) that couples cellular energy and amino-acid status to the two master metabolic regulators: it binds and modulates AMP-activated protein kinase (AMPK), and the FLCN-FNIP1 complex acts as a GTPase-activating protein for RagC/D, controlling mTORC1 recruitment to the lysosome. FNIP1 additionally interacts with the HSP90 chaperone machinery, coupling its own stability to proteostasis. Loss of FNIP1 produces an AMPK phosphorylation (AMPK-P) gain-of-function state; in mouse B-cell progenitors both AMPK and mTORC1 are simultaneously activated, mTOR is inappropriately localized at the lysosome under nutrient-depleted conditions, and the MiT/TFE transcription factor TFE3 accumulates in the nucleus, driving lysosomal biogenesis and increased autophagic flux. The lesion is notably not reducible to a single linear &#34;AMPK-high&#34; or &#34;mTOR-high&#34; abnormality.
 </div>
@@ -5132,6 +5187,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pre-b-cell-metabolic-checkpoint-failure-and-developmental-arrest" data-dismech-node="Pre-B Cell Metabolic Checkpoint Failure and Developmental Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Pre-B Cell Metabolic Checkpoint Failure and Developmental Arrest</div>
 
+
                 <div class="item-desc">FNIP1 enforces a metabolic checkpoint that verifies a developing pre-B cell has sufficient metabolic capacity to undergo the proliferative burst that follows successful immunoglobulin heavy-chain rearrangement. Without FNIP1, B-cell development arrests at the pre-B-cell stage: progenitors show impaired mitochondrial number and activity, blunted PI3K/AKT signalling, increased autophagic flux, and increased apoptosis on amino-acid (lysine or arginine) withdrawal. The arrest is not rescued by genetic AMPK inhibition, mTORC1 inhibition, or Bcl-xL-mediated survival support, indicating a metabolic rather than purely apoptotic block.
 </div>
 
@@ -5418,6 +5474,7 @@ This pathophysiological event involves abnormal mitochondrion (GO:0005739). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-circulating-b-cells-and-agammaglobulinemia" data-dismech-node="Absent Circulating B Cells and Agammaglobulinemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Circulating B Cells and Agammaglobulinemia</div>
 
+
                 <div class="item-desc">The pre-B-cell arrest translates into profoundly decreased or absent circulating CD19+/CD20+ B cells and severe reduction of all serum immunoglobulin isotypes (profound hypogammaglobulinemia to agammaglobulinemia). A mild increase in circulating CD3+ T lymphocytes has been documented in some patients.
 </div>
 
@@ -5557,6 +5614,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-susceptibility-to-recurrent-sinopulmonary-and-gastrointestinal-infection" data-dismech-node="Susceptibility to Recurrent Sinopulmonary and Gastrointestinal Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Susceptibility to Recurrent Sinopulmonary and Gastrointestinal Infection</div>
 
+
                 <div class="item-desc">Loss of antibody-mediated humoral immunity produces early-onset recurrent viral and bacterial infection, dominated by upper and lower respiratory tract infection (including otitis media, pneumonia, and sequelae such as bronchiectasis) and gastrointestinal infection or enteropathy, with resulting failure to thrive. Encapsulated bacteria are characteristic pathogens of this antibody-deficiency pattern.
 </div>
 
@@ -5644,6 +5702,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-glycogen-accumulation" data-dismech-node="Cardiomyocyte Glycogen Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Glycogen Accumulation</div>
+
 
                 <div class="item-desc">Within the cardiomyocyte, the AMPK gain-of-function state driven by FNIP1 loss reproduces the cell-level pathology of activating mutations in the AMPK gamma-2 subunit (PRKAG2): gamma-2-specific AMPK activity is elevated in neonatal FNIP1-deficient myocardium and glycogen accumulates within the myocyte. This is the cellular lesion that underlies the tissue-level hypertrophy modelled downstream.
 </div>
@@ -5818,6 +5877,7 @@ This pathophysiological event involves increased glycogen metabolic process (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-hypertrophy-and-hypertrophic-cardiomyopathy" data-dismech-node="Ventricular Hypertrophy and Hypertrophic Cardiomyopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Hypertrophy and Hypertrophic Cardiomyopathy</div>
 
+
                 <div class="item-desc">At tissue level the glycogen-laden myocardium becomes hypertrophic. In patients this manifests as hypertrophic — frequently obstructive — cardiomyopathy with left or biventricular hypertrophy, presenting from the neonatal period through the first years of life, and can be fatal through cardiogenic shock or heart failure.
 </div>
 
@@ -5956,6 +6016,7 @@ This pathophysiological event involves increased cardiac muscle hypertrophy (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-pre-excitation-and-tachyarrhythmia" data-dismech-node="Ventricular Pre-excitation and Tachyarrhythmia" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Pre-excitation and Tachyarrhythmia</div>
 
+
                 <div class="item-desc">Glycogen-laden hypertrophic myocardium provides the substrate for accessory atrioventricular conduction, producing ventricular pre-excitation (Wolff-Parkinson-White syndrome) and supraventricular tachyarrhythmia — the same electrophysiological signature seen in PRKAG2 glycogen-storage cardiomyopathy.
 </div>
 
@@ -6070,6 +6131,7 @@ This pathophysiological event involves increased cardiac muscle hypertrophy (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neutrophil-homeostasis" data-dismech-node="Impaired Neutrophil Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neutrophil Homeostasis</div>
+
 
                 <div class="item-desc">A subset of FNIP1-deficient patients develop severe or intermittent neutropenia, sometimes with recurrent gingivitis and perianal abscesses, which is responsive to granulocyte colony-stimulating factor. Other patients have entirely normal neutrophil counts, making neutropenia a variable rather than obligate feature; the observation nonetheless suggests a non-redundant role for FNIP1 in neutrophils.
 </div>
@@ -6281,6 +6343,9 @@ This clinical feature is Agammaglobulinemia (HP:0004432), qualified as infantile
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6373,6 +6438,9 @@ This clinical feature is Absent circulating B cells, annotated with Decreased to
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6493,6 +6561,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Explicitly a variable feature. In the defining Blood cohort 2 of 3 patients had neutropenia; other reported patients (e.g. Spivak et al. 2024) had normal neutrophil counts.
 </div>
 
@@ -6596,6 +6667,9 @@ This clinical feature is T cell lymphocytosis, annotated with Increased total T 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6672,6 +6746,9 @@ This clinical feature is Supraventricular tachycardia (HP:0004755). HP:0004755 i
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported in the index patient&#39;s sibling, who died of cardiogenic shock at 2 months before genetic confirmation; the authors infer he &#34;very likely&#34; carried the same FNIP1 variant. Evidence recorded with directness INDIRECT accordingly.
@@ -6783,6 +6860,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639), qualified as 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6873,6 +6953,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6969,6 +7052,9 @@ This clinical feature is Wolff-Parkinson-White pre-excitation syndrome, annotate
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7100,6 +7186,9 @@ This clinical feature is Atrial septal defect (HP:0001631), qualified as congeni
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7194,6 +7283,9 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
 
 
                     </div>
+
+
+
 
 
 
@@ -7308,6 +7400,9 @@ This clinical feature is Recurrent infections (HP:0002719), qualified as infanti
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7405,6 +7500,9 @@ This clinical feature is Recurrent sinopulmonary infections, annotated with Recu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7481,6 +7579,9 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Recorded by the IUIS 2022 Expert Committee among the associated features of FNIP1 deficiency. Frequency is not quantified in the source, so a conservative band is used.
@@ -7565,6 +7666,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7683,6 +7787,9 @@ This disease-associated gene is FNIP1 (hgnc:29418). hgnc:29418 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7785,6 +7892,12 @@ This disease-associated gene is FNIP1 (hgnc:29418). hgnc:29418 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous 13-bp duplication in exon 1 of 18 causing a frameshift and premature stop; classified likely pathogenic (ACMG).
 </div>
 
@@ -7808,6 +7921,12 @@ This disease-associated gene is FNIP1 (hgnc:29418). hgnc:29418 is a gene from th
         NM_133372.3:c.3334C&gt;T (p.Gln1112*)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense variant in exon 17, present in a hemizygous state due to a de novo paternal copy-number deletion spanning FNIP1; immunoblotting showed complete absence of FNIP1 protein in patient cells.
@@ -7892,6 +8011,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7902,6 +8024,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
     </div>
+
+
+
 
 
 
@@ -8064,6 +8189,9 @@ This treatment uses recombinant G-CSF, annotated with Recombinant Granulocyte Co
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8074,6 +8202,9 @@ This treatment uses recombinant G-CSF, annotated with Recombinant Granulocyte Co
 
 
     </div>
+
+
+
 
 
 
@@ -8227,6 +8358,9 @@ This treatment uses furosemide (CHEBI:47426). CHEBI:47426 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8237,6 +8371,9 @@ This treatment uses furosemide (CHEBI:47426). CHEBI:47426 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8371,6 +8508,9 @@ This treatment uses verapamil (CHEBI:9948). CHEBI:9948 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8381,6 +8521,9 @@ This treatment uses verapamil (CHEBI:9948). CHEBI:9948 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -8461,6 +8604,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8471,6 +8617,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8568,6 +8717,9 @@ This treatment is cardiac monitoring, annotated with Supportive Care (NCIT:C1574
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8578,6 +8730,9 @@ This treatment is cardiac monitoring, annotated with Supportive Care (NCIT:C1574
 
 
     </div>
+
+
+
 
 
 
@@ -11392,6 +11547,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Immunodeficiency 93 and Hypertrophic Cardiomyopathy (FNIP1)</strong> · 2026-08-01T19:09:44Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_93_and_Hypertrophic_Cardiomyopathy/2026-08-01T190944Z-claude-code-548849.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of IMD93 / FNIP1 deficiency, MONDO:0030528, OMIM 619705. NEC preflight passed: OAK MONDO record confirms xref OMIM:619705 and RO:0004003 HGNC:29418 FNIP1, plus synonym IMD93; causal gene independently confirmed as FNIP1 against primary literature before any deep-research content was used. Deep research provider: Edison/falcon via just research-disorder falcon; the report was read in full and cross-checked - it named FNIP1 throughout and cited only DOIs that resolve to papers independently fetched and verified, so it passed the NEC and hallucination checks, but it had missed the three most informative human sources and it proposed HP:0005136 for ventricular preexcitation, which OAK shows is actually Mitral annular calcification, so that suggested term was rejected. Curation is therefore anchored on independently fetched primary literature: Saettini Blood 2021 PMID 32905580, Niehues Eur J Immunol 2020 PMID 32181500, Moreno-Corona J Clin Immunol 2023 PMID 37522988, Spivak Immunogenetics 2024 PMID 39537849, Ulas J Pediatr Hematol Oncol 2024 PMID 38748614, Roncareggi review 2025 PMID 40699689, Siggs PNAS 2016 PMID 27303042, Ramirez J Immunol 2019 PMID 31676673, Reyes PNAS 2015 PMID 25548157, and IUIS 2022 PMID 35748970. Modelled an eight-node pathograph running FNIP1 loss of function to dysregulated AMPK/mTORC1 nutrient sensing, then branching to a pre-B-cell metabolic checkpoint failure arm giving absent B cells, agammaglobulinemia and recurrent infection, a cardiomyocyte glycogen accumulation arm giving hypertrophic cardiomyopathy and ventricular pre-excitation as a PRKAG2 phenocopy, and a variable neutropenia arm. Twelve phenotypes, four treatments, three diagnostics, three differential diagnoses, one mouse model, and two discussions. Respected the OMIM/MONDO caveat that rare myopathic and neurologic features are not consistently part of the disorder: these are deliberately NOT curated as core phenotypes and are instead recorded as a KNOWLEDGE_GAP discussion citing the primary statement that they were seen only in consanguineous pedigrees. IUIS category set to predominantly antibody deficiency, sourced from the IUIS 2022 Table 3 row. Validation: just validate, just validate-terms and just validate-references all pass, with 68 of 68 snippets verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

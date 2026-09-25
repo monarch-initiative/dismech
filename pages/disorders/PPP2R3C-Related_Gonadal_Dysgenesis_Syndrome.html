@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4523,6 +4576,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ppp2r3c-pp2a-b-gamma-regulatory-subunit-function" data-dismech-node="Loss of PPP2R3C PP2A B&#39;&#39;gamma Regulatory Subunit Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of PPP2R3C PP2A B&#39;&#39;gamma Regulatory Subunit Function</div>
 
+
                 <div class="item-desc">PPP2R3C encodes the B&#39;&#39;gamma regulatory subunit of protein phosphatase 2A, a serine/threonine phosphatase holoenzyme whose substrate specificity and subcellular targeting are set by its exchangeable regulatory subunit. Biallelic missense or in-frame PPP2R3C variants impair that regulatory function, so PP2A activity is misdirected rather than globally abolished. The gene is most abundantly expressed in testis, matching the gonadal predominance of the phenotype.</div>
 
 
@@ -4692,6 +4746,7 @@ This pathophysiological event involves PP2A holoenzyme, annotated with protein p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-sox9-phospho-signaling-in-the-developing-gonad" data-dismech-node="Impaired SOX9 Phospho-Signaling in the Developing Gonad" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired SOX9 Phospho-Signaling in the Developing Gonad</div>
+
 
                 <div class="item-desc">Immunohistochemistry of dysgenetic gonads from individuals with homozygous PPP2R3C variants shows reduced phosphorylated SOX9, implicating defective phospho-regulation of the SOX9 testis-determination program. Because both 46,XY and 46,XX individuals are affected, PPP2R3C is proposed to act in the early, chromosomal-sex-independent signaling cascade that commits the bipotential gonad, upstream of the SRY/SOX9 versus ovarian branch point.</div>
 
@@ -4898,6 +4953,7 @@ This pathophysiological event involves abnormal sex determination (GO:0007530). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ppp2r3c-map3k1-centrosomal-phospho-regulatory-imbalance" data-dismech-node="PPP2R3C-MAP3K1 Centrosomal Phospho-Regulatory Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">PPP2R3C-MAP3K1 Centrosomal Phospho-Regulatory Imbalance</div>
 
+
                 <div class="item-desc">Cell-biological work identifies PPP2R3C as a distal centriole protein and functional partner of the centriolar proteins CEP350 and FOP, whose key job is to counteract the kinase MAP3K1. A syndromic PPP2R3C variant fails to localize to the centriole and to bind FOP. Because activating MAP3K1 variants cause a separate gonadal dysgenesis syndrome, the proposal is that an imbalanced centrosomal kinase-phosphatase pair is the shared cause of both disorders. This is a mechanistic proposal from cultured human cells; it has not been demonstrated in patient gonadal tissue.</div>
 
 
@@ -5083,6 +5139,7 @@ stress-induced JNK signaling."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-jnk-mediated-b-cell-survival" data-dismech-node="Impaired JNK-Mediated B Cell Survival" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired JNK-Mediated B Cell Survival</div>
+
 
                 <div class="item-desc">PPP2R3C (G5PR) is highly expressed in lymphocytes, and conditional CD19-Cre Ppp2r3c knockout mice have a B-cell survival deficit with fewer mature B cells; the proposed mechanism is regulation of the JNK-mediated apoptosis signal. This is the candidate mechanistic arm for the reduced CD19+ B-cell and CD4+ T-cell subsets measured in one reported patient. It is deliberately modeled as a terminal, non-gonadal branch and is NOT asserted to be a syndrome-level feature: previously reported patients had normal lymphocyte counts, and the open question is recorded in the ppp2r3c_immunodeficiency_n_of_1 discussion.</div>
 
@@ -5300,6 +5357,7 @@ This pathophysiological event involves decreased B cell homeostasis (GO:0001782)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gonadal-dysgenesis-with-hypergonadotropic-hypogonadism" data-dismech-node="Gonadal Dysgenesis with Hypergonadotropic Hypogonadism" data-dismech-type="pathophysiology">
                 <div class="item-name">Gonadal Dysgenesis with Hypergonadotropic Hypogonadism</div>
+
 
                 <div class="item-desc">Failure of gonad development yields dysgenetic or non-visualized gonads in both chromosomal sexes. Absent gonadal steroid and anti-Mullerian hormone output removes negative feedback on the pituitary, producing the hypergonadotropic pattern of low androgens and low AMH with elevated FSH and LH, and clinically manifesting as absent puberty and primary amenorrhea. In 46,XY individuals the external genital phenotype ranges from complete female through ambiguous.</div>
 
@@ -5550,6 +5608,9 @@ This clinical feature is Decreased CD19+ B cells, annotated with Decreased total
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5614,6 +5675,9 @@ This clinical feature is Decreased CD4+ T cells, annotated with Decreased CD4+ T
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5696,6 +5760,9 @@ This clinical feature is Cardiac defect, annotated with Abnormal heart morpholog
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5808,6 +5875,9 @@ This clinical feature is Gastrointestinal dysfunction, annotated with Abnormalit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5877,6 +5947,9 @@ This clinical feature is Anal atresia (HP:0002023). HP:0002023 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5941,6 +6014,9 @@ This clinical feature is Omphalocele (HP:0001539). HP:0001539 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6021,6 +6097,9 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6130,6 +6209,9 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6194,6 +6276,9 @@ This clinical feature is Elevated circulating follicle stimulating hormone level
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6265,6 +6350,9 @@ This clinical feature is Decreased circulating anti-Mullerian hormone, annotated
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6345,6 +6433,9 @@ This clinical feature is Impaired vision, annotated with Visual impairment (HP:0
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6444,6 +6535,9 @@ This clinical feature is Rod and cone dystrophy, annotated with Rod-cone dystrop
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6520,6 +6614,9 @@ This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6644,6 +6741,9 @@ This clinical feature is Streak gonads, annotated with Streak gonad (HP:0025733)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6713,6 +6813,9 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6777,6 +6880,9 @@ This clinical feature is Hypoplastic uterus, annotated with Hypoplasia of the ut
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6879,6 +6985,9 @@ This clinical feature is Renal agenesis (HP:0000104). HP:0000104 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6968,6 +7077,9 @@ This clinical feature is Abnormal sperm morphology (HP:0012864). HP:0012864 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7080,6 +7192,9 @@ This clinical feature is Recognizable facial gestalt, annotated with Abnormal fa
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7183,6 +7298,9 @@ This clinical feature is Dry and scaly skin, annotated with Dry skin (HP:0000958
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7261,6 +7379,9 @@ This clinical feature is Cubitus valgus (HP:0002967). HP:0002967 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7325,6 +7446,9 @@ This clinical feature is Limited elbow extension (HP:0001377). HP:0001377 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7410,6 +7534,9 @@ This clinical feature is Retardation of bone age, annotated with Delayed skeleta
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7476,6 +7603,9 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7586,6 +7716,9 @@ This clinical feature is Delayed development of the nervous system, annotated wi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7680,6 +7813,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7758,6 +7894,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7825,6 +7964,9 @@ This clinical feature is Low birth weight, annotated with Small for gestational 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7939,6 +8081,9 @@ This disease-associated gene is PPP2R3C (hgnc:17485). hgnc:17485 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -8096,6 +8241,9 @@ This treatment is bilateral gonadectomy, annotated with Surgical Procedure (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8106,6 +8254,9 @@ This treatment is bilateral gonadectomy, annotated with Surgical Procedure (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -8289,6 +8440,9 @@ This treatment uses dydrogesterone (CHEBI:31527). CHEBI:31527 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8299,6 +8453,9 @@ This treatment uses dydrogesterone (CHEBI:31527). CHEBI:31527 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -8464,6 +8621,9 @@ This treatment uses Somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8474,6 +8634,9 @@ This treatment uses Somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -10708,6 +10871,55 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and boundary. This entry covers biallelic PPP2R3C disease (GDRM / Kennerknecht syndrome / MEGD, OMIM:618419, MONDO:0032738). It is deliberately separate from the dismech entry 46,XY complete gonadal dysgenesis (MONDO:0010765), whose own scoping note names &#34;PPP2R3C-related disease&#34; as out of scope for that root; no content is duplicated from that entry. The allelic heterozygous-carrier entity SPGF36 (OMIM:618420, spermatogenic failure 36) is a distinct OMIM entry and is not modeled here; the single carrier phenotype recorded above is included only to document the SUPPORT/REFUTE disagreement between cohorts.
+Contested phenotype criteria. Guran et al. 2019 (PMID:30893644) delineated the syndrome with prominent retinal dystrophy and myopathy — the features that give the MONDO/OMIM label its name. Altunoglu et al. 2022 (PMID:34750818), reporting eight patients from four families, explicitly did not support ocular or muscular involvement as major criteria. Both positions are curated above as SUPPORT and REFUTE evidence on the same phenotypes rather than being silently reconciled.
+Frequency provenance. Every frequency band in this entry derives from the pooled literature tabulation in Zhang et al. 2022 (PMID:35812758), which reports counts against an explicit denominator of 16 published individuals with PPP2R3C variants. That denominator is a genotype-first, gestalt-ascertained case series, not a population sample, so the bands describe the reported literature rather than true penetrance. No band was derived by inference.
+Deep research. A claude_code deep-research report was generated (research/PPP2R3C-Related_Gonadal_Dysgenesis_Syndrome-deep-research-claude_code.md) and passed the NEC gate: PPP2R3C is named 136 times versus 32 for the next gene (MAP3K1, its legitimate mechanistic partner), OMIM:618419 is the dominant OMIM disease identifier, and MONDO:0032738 is the only MONDO disease identifier in the report. OMIM:615902 also appears but is the PPP2R3C *gene* entry, not a competing disease. The report independently reproduced the same Zhang 2022 n=16 tabulation used for the frequency bands here. It contributed one item to this entry that primary triage had missed — the single-patient lymphocyte-subset abnormality, curated above with an explicit n=1 caveat and an open KNOWLEDGE_GAP discussion. It also confirmed that no germ-cell tumour has been reported in any PPP2R3C patient, which is why no tumour-risk claim is made here despite the theoretical risk in 46,XY dysgenetic gonads.
+Correction to an earlier curation decision. An earlier version of this entry omitted the treatments section on the stated ground that management was generic DSD care with no PPP2R3C-specific quotable evidence. That was wrong, and the three treatments now curated above come from a single PPP2R3C case report already cited here (PMID:35812758), which documents management actually delivered to a PPP2R3C patient: gonadectomy on stated malignancy-risk grounds, post-gonadectomy estradiol/dydrogesterone, and a short course of growth hormone. What remains correct from the earlier reasoning is the refusal to assert a quantified germ-cell-tumour risk, which is a separate claim from quoting the stated indication for a procedure. The broader generic DSD management the deep-research report enumerates (testosterone for male-raised partial-GD individuals, calcium/vitamin D, psychosexual support, physical/speech/occupational therapy, cochlear implantation) is still deliberately excluded: none of it is attested for any PPP2R3C patient in the cached references, so adding it would mean asserting unsourced management.
+Ontology note on gonadectomy. NCIT has no clinical-action term for gonadectomy. Searches run 2026-08-01 with runoak against sqlite:obo:ncit using the literal strings &#34;l^Gonadectomy&#34;, &#34;l~gonadectomy&#34; and &#34;l~Gonad Excision&#34; each returned zero results; &#34;t~gonadectomy&#34; returned a single hit, NCIT:C15288 Orchiectomy, which was audited and rejected because its definition is &#34;Surgical removal of one or both testicles&#34; and this patient had streak gonads, not testes. NCIT:C15329 Surgical Procedure is therefore used with the more specific preferred_term &#34;bilateral gonadectomy&#34;. Separately, the deep-research report suggested NCIT:C51642 as a possible Gonadectomy term &#34;if verified&#34;; it was checked with OAK and is in fact &#34;Biopsy of Bile Duct&#34;, so it was not used. Every ontology identifier proposed by that report was independently OAK-verified before use.
+GeneReviews. No GeneReviews chapter exists for this disorder. PubMed searches run 2026-08-01 with the literal terms &#34;Kennerknecht syndrome GeneReviews[All Fields]&#34; and &#34;PPP2R3C GeneReviews[All Fields]&#34; each returned 0 results; a general PPP2R3C search (term &#34;PPP2R3C&#34;, 28 records) returned no GeneReviews chapter among the titles audited.
+Ontology gaps identified during curation (searched 2026-08-01 with runoak against sqlite:obo:hp). There is no HPO term for &#34;ovarian dysgenesis&#34;: the search &#34;t~ovarian dysgenesis&#34; returned no results, and the full &#34;t~dysgenesis&#34; listing (23 terms) contains only Gonadal dysgenesis (HP:0000133), Gonadal dysgenesis male (HP:0008668) and Gonadal dysgenesis with female appearance male (HP:0008723) in the gonadal branch, with no ovarian counterpart; the 46,XX gonadal phenotype is therefore bound to the parent HP:0000133.
+Streak ovary (HP:0010464) — scope of the rejection. This clause previously read as an unqualified claim that &#34;the reports describe non-visualized rather than streak gonads&#34;. That was too broad and is corrected here rather than quietly deleted. The rejection holds only for the 46,XX arm: Altunoglu et al. (PMID:34750818) describe &#34;two 46,XX patients with hypergonadotropic hypogonadism and nonvisualized gonads&#34;, so there is no observed ovarian histology in a 46,XX patient to bind HP:0010464 to, and those individuals stay on the parent HP:0000133. It does NOT hold for the 46,XY arm: Zhang et al. (PMID:35812758) report that &#34;streak gonads and bilateral oviducts were found during the operation&#34; in the 46,XY index patient. That finding is now curated as its own phenotype using Streak gonad (HP:0025733, a direct child of HP:0000133, verified with runoak against sqlite:obo:hp on 2026-08-01 via the search &#34;t~streak&#34;, which returned 14 terms including both HP:0010464 Streak ovary and HP:0025733 Streak gonad). HP:0025733 rather than HP:0010464 is used because the patient is 46,XY and the operative note says &#34;streak gonads&#34;, not &#34;streak ovaries&#34;. There is likewise no HPO term for &#34;teratozoospermia&#34; (search &#34;t~teratozoospermia&#34; returned no results; the full &#34;t~spermia&#34; listing of 15 terms was audited and contains azoospermia, oligozoospermia, globozoospermia, macrozoospermia and cryptozoospermia but no teratozoospermia), so Abnormal sperm morphology (HP:0012864) is used instead.
+ORPHA evidence was not available for this entry: the orphadata sha256 refresh is a known repository-level blocker (issues #7234, #7539, #7199, #7522) and the data manifest must not be modified to work around it.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address re-review of PR #7781: treatments, 4 phenotypes, scoped ontology negative</strong> · 2026-08-01T22:14:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/PPP2R3C-Related_Gonadal_Dysgenesis_Syndrome/2026-08-01T221423Z-claude-code-a24363.yaml">View source</a></p>
+                        <p class="research-review-text">Third session on this entry, responding to the ai4c-reviewer re-review of commit e6d41ba. Four IMPORTANT items were raised; all four are addressed here.
+
+(1) TREATMENTS - section added, three treatments, all from PMID:35812758, a PPP2R3C case report already cached in this PR. Bilateral Gonadectomy (NCIT:C15329 Surgical Procedure, SURGERY, targets HP:0025733) quoting the stated indication &#39;Considering the risk of gonadal malignancy, she underwent&#39; and the procedure line. Post-Gonadectomy Estrogen-Progestin Replacement (NCIT:C15599 Hormone Replacement Therapy, SMALL_MOLECULE, therapeutic_agent CHEBI:23965 estradiol + CHEBI:31527 dydrogesterone, targets HP:0000815). Growth Hormone Therapy (NCIT:C15986 Pharmacotherapy, PROTEIN_REPLACEMENT, therapeutic_agent NCIT:C837 Somatropin, targets HP:0004322); the 2.5 cm height-gain quote is recorded as supports=PARTIAL because an uncontrolled gain over two years after a three-month course cannot be attributed to the drug. No quantified germ-cell-tumour risk is asserted anywhere: quoting a treating team&#39;s stated indication is a different claim from asserting an incidence, and the deep-research report confirms no tumour has been reported in any PPP2R3C patient. The generic DSD care the DR report enumerates (testosterone, calcium/vitamin D, psychosexual support, therapies, cochlear implantation) is still excluded because none of it is attested for any PPP2R3C patient in the cached references.
+
+ONTOLOGY DUE DILIGENCE ON THE TREATMENT TERMS. NCIT has no gonadectomy clinical-action term. Searched 2026-08-01 with runoak against sqlite:obo:ncit: &#39;l^Gonadectomy&#39; 0 results, &#39;l~gonadectomy&#39; 0 results, &#39;l~Gonad Excision&#39; 0 results; &#39;t~gonadectomy&#39; returned exactly one hit, NCIT:C15288 Orchiectomy, audited and rejected because its definition is &#39;Surgical removal of one or both testicles&#39; and this patient had streak gonads, not testes. NCIT:C15329 is therefore used with preferred_term &#39;bilateral gonadectomy&#39;. The deep-research report proposed NCIT:C51642 as a possible Gonadectomy term &#39;if verified&#39;; OAK shows NCIT:C51642 is &#39;Biopsy of Bile Duct&#39;, so it was NOT used - a concrete instance of why reviewer- and DR-suggested identifiers are re-verified rather than trusted. Reachability from NCIT:C25218 was confirmed with runoak ancestors for C15329, C15599 and C15986.
+
+(2) THREE MISSING PHENOTYPES ADDED, plus a fourth. Short stature HP:0004322 (snippet &#39;148 cm tall (-3SD) at 18 years old and was diagnosed / with short stature&#39;), Hypoplasia of the uterus HP:0000013 (two snippets, the 11-of-13 pooled statement and the ultrasound/laparoscopy statement), Limited elbow extension HP:0001377 (snippet &#39;bone age, and limited elbow extension also are common&#39;). None carries a frequency band, and each description states why: short stature and limited elbow extension are not counted against the 16-individual denominator that every other band in this entry derives from, and the hypoplastic-uterus 11/13 figure is the 46,XY subset, a different denominator. Additionally added Streak gonad HP:0025733, which resolves the unconsumed :379 operative finding the reviewer flagged.
+
+(3) STREAK-OVARY NOTE RESCOPED, NOT DELETED. The clause previously read as an unqualified claim that the reports describe non-visualized rather than streak gonads. The note now says so explicitly, states that the rejection holds only for the 46,XX arm (PMID:34750818 &#39;nonvisualized gonads&#39;, quoted), states that it does NOT hold for the 46,XY arm (PMID:35812758 &#39;streak gonads and bilateral oviducts were found during the operation&#39;), and records that HP:0025733 Streak gonad is now used for that patient. Search string, date and rejected candidate recorded: &#39;t~streak&#39; run 2026-08-01 against sqlite:obo:hp returned 14 terms including both HP:0010464 Streak ovary and HP:0025733 Streak gonad; HP:0025733 was chosen because the patient is 46,XY and the operative note says streak gonads.
+
+(4) HISTORY - a separate append-only record was added for the e6d41ba deep-research session (2026-08-01T221339Z-claude-code-07b2d1), and links.issues/links.prs were populated on the original CREATE record.
+
+SUGGESTIONS ALSO WORKED. GO:0007254 JNK cascade on the centriolar node now carries its own snippet from PMID:39317195. A new CELLULAR pathophysiology node &#39;Impaired JNK-Mediated B Cell Survival&#39; (CL:0001201 B cell CD19-positive; GO:0001783 B cell apoptotic process INCREASED; GO:0001782 B cell homeostasis DECREASED) hangs off the molecular node and gives the two immunophenotypes a mechanistic arm; its third evidence item is supports=PARTIAL quoting &#39;lymphocyte counts were normal&#39; so the node cannot be read as asserting a syndrome-level immunodeficiency. The KNOWLEDGE_GAP discussion gained the stronger prior-normals quote. A histopathology section was added for the oviduct-like gonadectomy material. PMID:42445464 is no longer single-use: it now also supports Gonadal dysgenesis (the 46,XX sibling with ovarian dysgenesis, the strongest support for the sex-chromosome-independent claim), renal agenesis, hearing loss and congenital heart defect. The MONDO:0032738 &#39;agonadism, 46,XY, with intellectual disability, short stature, retarded bone age, and multiple extragenital malformations&#39; synonym was added to synonyms.
+
+DECLINED. The &#39;mental retardation&#39; variant of that MONDO synonym was not added - outdated terminology, identical denotation. The extragonadal SOX9/chondrogenesis pathophysiology bridge was not built: the source hedges it as &#39;might be related to&#39;, which is speculation about a mechanism rather than a finding, and this entry already keeps in-vitro/proposal-level content clearly demarcated. No diagnosis section was added: the two quotable sentences are about the diagnostic value of gestalt recognition and WES reanalysis, which is already stated in the description and carried by the diagnostic:true flags, and a Diagnosis block would restate it without adding criteria.
+
+VALIDATION. just validate PASS; validate-terms PASS; validate-references 72/72; scripts/check_snippets_verbatim.py 72 verbatim, 0 failed; check_folded_hyphens --check OK; validate-history-all PASS. references_cache churn from just validate reverted; cache row additions inserted in sorted position.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Add deep-research artifact and n=1 immunophenotype (commit e6d41ba)</strong> · 2026-08-01T22:13:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/PPP2R3C-Related_Gonadal_Dysgenesis_Syndrome/2026-08-01T221339Z-claude-code-07b2d1.yaml">View source</a></p>
+                        <p class="research-review-text">Retroactive history record for commit e6d41ba, which the original CREATE record (2026-08-01T211047Z-claude-code-7b6c6a) predates and does not describe. The deep-research run reported as hung when the CREATE record was written subsequently completed (exit 0, stop_reason end_turn, duration_seconds 1525.8, citation_count 14) and produced research/PPP2R3C-Related_Gonadal_Dysgenesis_Syndrome-deep-research-claude_code.md plus a 465-line .citations.md sidecar; both were committed. NEC gate was applied to the report BEFORE any of it was used: PPP2R3C named 136 times vs MAP3K1 32 and SOX9 40 (both legitimate partners in the curated mechanism), NR5A1 8, SRY 10; OMIM:618419 dominant with 9 occurrences; OMIM:600908 (4) is the merged legacy 46,XY agonadism entry that MONDO:0032738 also xrefs; OMIM:618420 (3) is the known allelic SPGF36 carrier entity; OMIM:615902 (1) was read in context and is the PPP2R3C *gene* record, not a competing disease; MONDO:0032738 is the only MONDO disease id in the report (7 occurrences). Gate passes. The report independently reproduced the Zhang 2022 n=16 tabulation already used for the frequency bands, corroborating them. It contributed exactly one item that primary triage had missed: a single-patient lymphocyte-subset abnormality in PMID:35812758 (already cached) - reduced CD19+ B cells (1.6%, ref 8.5-14.5%) and CD4+ T cells (21.5%, ref 30.0-46.0%). Added as HP:0010976 Decreased total B cell count and HP:0032218 Decreased CD4+ T cell proportion with NO frequency band, explicit n=1 framing in each description, and an OPEN KNOWLEDGE_GAP discussion (ppp2r3c_immunodeficiency_n_of_1) attaching to both phenotypes and carrying two proposed experiments. The gap&#39;s evidence item quotes the same patient&#39;s normal routine haematology, which is the reason an n=1 subset finding cannot be promoted to a syndrome feature. KNOWLEDGE_GAP rather than HUMAN_MODEL_MISMATCH was chosen because the issue is absent evidence at n&gt;1, not model-to-human translation. The count-vs-proportion mismatch for HP:0010976 (the paper says decreased number but reports a percentage) is stated in the phenotype description rather than papered over. The report also confirmed two prior omissions were correct: no germ-cell tumour has been reported in any PPP2R3C patient, so no tumour-risk figure is asserted. Post-change validation at that commit: 51/51 snippets verified by both validate-references and scripts/check_snippets_verbatim.py; just validate, validate-terms, check_folded_hyphens and validate-history-all all passed; diff vs origin/main remained additive with no protected paths; references_cache churn from just validate was reverted before staging.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Thrombophilia"
@@ -3982,7 +4035,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4691,11 +4744,55 @@ This subtype is caused by variation in PROS1 (hgnc:9456). hgnc:9456 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-factor-v-leiden-mediated-activated-protein-c-resistance" data-dismech-node="Factor V Leiden-Mediated Activated Protein C Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Factor V Leiden-Mediated Activated Protein C Resistance</div>
 
+
                 <div class="item-desc">The F5 p.Arg534Gln (Leiden) variant abolishes an APC cleavage site on factor Va, so factor Va escapes proteolytic inactivation by activated protein C and remains procoagulant for longer than normal, sustaining prothrombinase activity and thrombin generation.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        F5
+
+
+    <a href="https://bioregistry.io/hgnc:3542" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:3542</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves F5 (hgnc:3542). hgnc:3542 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4712,11 +4809,11 @@ This subtype is caused by variation in PROS1 (hgnc:9456). hgnc:9456 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007596</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4746,11 +4843,11 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030195" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030195</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030195" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030195</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased negative regulation of blood coagulation (GO:0030195). GO:0030195 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4864,11 +4961,55 @@ This pathophysiological event involves decreased negative regulation of blood co
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prothrombin-g20210a-associated-increased-prothrombin-synthesis" data-dismech-node="Prothrombin G20210A-Associated Increased Prothrombin Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Prothrombin G20210A-Associated Increased Prothrombin Synthesis</div>
 
+
                 <div class="item-desc">The F2 c.*97G&gt;A 3&#39; UTR variant increases prothrombin mRNA processing efficiency, raising steady-state plasma prothrombin concentration and expanding the substrate pool available for thrombin generation.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        F2
+
+
+    <a href="https://bioregistry.io/hgnc:3535" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:3535</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves F2 (hgnc:3535). hgnc:3535 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4885,11 +5026,11 @@ This pathophysiological event involves decreased negative regulation of blood co
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007596</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4978,11 +5119,55 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antithrombin-deficiency" data-dismech-node="Antithrombin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Antithrombin Deficiency</div>
 
+
                 <div class="item-desc">Reduced antithrombin level (type I) or function (type II) impairs serpin-mediated inhibition of thrombin, factor Xa, and other activated serine protease coagulation factors, removing a principal brake on the coagulation cascade.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SERPINC1
+
+
+    <a href="https://bioregistry.io/hgnc:775" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:775</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SERPINC1 (hgnc:775). hgnc:775 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4999,11 +5184,11 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030195" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030195</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030195" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030195</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased negative regulation of blood coagulation (GO:0030195). GO:0030195 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5117,6 +5302,7 @@ This pathophysiological event involves decreased negative regulation of blood co
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-c-deficiency" data-dismech-node="Protein C Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein C Deficiency</div>
 
+
                 <div class="item-desc">Reduced level or function of protein C impairs generation of activated protein C (APC) on the thrombomodulin/endothelial protein C receptor complex, so APC-mediated proteolytic inactivation of factors Va and VIIIa is diminished and their procoagulant activity persists.</div>
 
 
@@ -5131,11 +5317,11 @@ This pathophysiological event involves decreased negative regulation of blood co
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5157,6 +5343,49 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PROC
+
+
+    <a href="https://bioregistry.io/hgnc:9451" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:9451</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PROC (hgnc:9451). hgnc:9451 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5172,11 +5401,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030195" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030195</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030195" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0030195</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased negative regulation of blood coagulation (GO:0030195). GO:0030195 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5323,11 +5552,55 @@ This pathophysiological event involves decreased negative regulation of blood co
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-s-deficiency" data-dismech-node="Protein S Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein S Deficiency</div>
 
+
                 <div class="item-desc">Reduced level or free/functional activity of protein S diminishes its cofactor support for APC-mediated inactivation of factors Va and VIIIa (and, independently, for tissue factor pathway inhibitor), so procoagulant factor activity persists longer than normal.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PROS1
+
+
+    <a href="https://bioregistry.io/hgnc:9456" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:9456</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PROS1 (hgnc:9456). hgnc:9456 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -5344,11 +5617,11 @@ This pathophysiological event involves decreased negative regulation of blood co
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030195" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030195</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030195" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030195</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased negative regulation of blood coagulation (GO:0030195). GO:0030195 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5515,6 +5788,7 @@ This pathophysiological event involves decreased negative regulation of blood co
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coagulation-cascade-activation-and-thrombin-driven-fibrin-formation" data-dismech-node="Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation</div>
 
+
                 <div class="item-desc">The shared downstream convergence point for all five hereditary thrombophilia subtypes: whichever specific gain of procoagulant or loss of anticoagulant function is present, the net effect is unchecked thrombin generation and thrombin-driven crosslinking of fibrinogen into an insoluble fibrin network.</div>
 
 
@@ -5529,11 +5803,11 @@ This pathophysiological event involves decreased negative regulation of blood co
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000233</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5570,11 +5844,11 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007596</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5604,11 +5878,11 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0072378</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0072378</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased fibrin clot formation, annotated with blood coagulation, fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5747,6 +6021,7 @@ This pathophysiological event involves increased fibrin clot formation, annotate
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathological-venous-thrombus-formation" data-dismech-node="Pathological Venous Thrombus Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathological Venous Thrombus Formation</div>
 
+
                 <div class="item-desc">Crosslinked fibrin and aggregated platelets assemble into a pathological intravascular thrombus, most often in the deep veins of the legs or pelvis. Hereditary thrombophilia is classically associated with venous, not arterial, thrombosis.</div>
 
 
@@ -5771,11 +6046,11 @@ This pathophysiological event involves increased fibrin clot formation, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001638" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001638" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0001638</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in vein (UBERON:0001638). UBERON:0001638 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5867,6 +6142,7 @@ This pathophysiological event occurs in vein (UBERON:0001638). UBERON:0001638 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-venous-thrombus-embolization-to-pulmonary-arteries" data-dismech-node="Venous Thrombus Embolization to Pulmonary Arteries" data-dismech-type="pathophysiology">
                 <div class="item-name">Venous Thrombus Embolization to Pulmonary Arteries</div>
 
+
                 <div class="item-desc">A deep vein thrombus can dislodge and travel to the pulmonary arteries, producing pulmonary embolism, the other principal clinical manifestation of hereditary thrombophilia alongside deep vein thrombosis.</div>
 
 
@@ -5891,11 +6167,11 @@ This pathophysiological event occurs in vein (UBERON:0001638). UBERON:0001638 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002012</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5948,6 +6224,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-warfarin-induced-transient-anticoagulant-depletion" data-dismech-node="Warfarin-Induced Transient Anticoagulant Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Warfarin-Induced Transient Anticoagulant Depletion</div>
+
 
                 <div class="item-desc">Because protein C and protein S have short plasma half-lives (protein C approximately 8 hours) relative to the procoagulant vitamin K-dependent clotting factors (24-72 hours), initiating vitamin K antagonist therapy (warfarin) without heparin bridging causes their activity to fall faster than that of the procoagulant factors, producing a paradoxical transient hypercoagulable state. This is proportionally more severe when baseline protein C or protein S activity is already reduced by hereditary deficiency, and can precipitate microvascular thrombosis and skin necrosis.</div>
 
@@ -6070,7 +6347,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Anticoagulation via Heparin-Potentiated Antithrombin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic unfractionated or low-molecular-weight heparin potentiates antithrombin-mediated inhibition of thrombin and factor Xa. Because heparin\u0027s mechanism depends on antithrombin, its anticoagulant effect can be attenuated in antithrombin deficiency; antithrombin concentrate replacement (below) addresses this specifically. Agent, dose, and duration are individualized to the clinical circumstances.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"low molecular weight heparin\"]}}, {\"id\": \"Antithrombin Concentrate Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Human antithrombin III concentrate directly restores antithrombin activity in hereditary antithrombin deficiency, used during high-risk periods (surgery, pregnancy, peripartum) or for treatment/prevention of thromboembolism when heparin-potentiated endogenous antithrombin is insufficient because the endogenous pool itself is deficient.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antithrombin III (human)\"]}}, {\"id\": \"Antithrombin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced antithrombin level (type I) or function (type II) impairs serpin-mediated inhibition of thrombin, factor Xa, and other activated serine protease coagulation factors, removing a principal brake on the coagulation cascade.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"negative regulation of blood coagulation\"], \"subtypes\": [\"Antithrombin III Deficiency\"], \"role\": \"trigger\"}}, {\"id\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared downstream convergence point for all five hereditary thrombophilia subtypes: whichever specific gain of procoagulant or loss of anticoagulant function is present, the net effect is unchecked thrombin generation and thrombin-driven crosslinking of fibrinogen into an insoluble fibrin network.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation\", \"fibrin clot formation\"], \"role\": \"central_effector\"}}, {\"id\": \"Estrogen-Containing Oral Contraceptive Use\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Estrogen-containing hormonal contraception supplies a \\\"second hit\\\" that can precipitate venous thromboembolism in carriers of an otherwise silent hereditary thrombophilia genotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Factor V Leiden-Mediated Activated Protein C Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The F5 p.Arg534Gln (Leiden) variant abolishes an APC cleavage site on factor Va, so factor Va escapes proteolytic inactivation by activated protein C and remains procoagulant for longer than normal, sustaining prothrombinase activity and thrombin generation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\", \"negative regulation of blood coagulation\"], \"subtypes\": [\"Factor V Leiden Thrombophilia\"], \"role\": \"trigger\"}}, {\"id\": \"Hormone Replacement Therapy Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exogenous hormone replacement therapy, like oral contraception, supplies a transient prothrombotic exposure that can precipitate venous thromboembolism in carriers of a hereditary thrombophilia genotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Long-Term Oral Anticoagulation with Heparin-Bridged Initiation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term oral anticoagulation (vitamin K antagonists such as warfarin, or direct oral anticoagulants) reduces the risk of recurrent venous thromboembolism; duration is individualized to the risk of recurrence versus bleeding. When warfarin is used, initiation should be bridged with heparin and avoid high loading doses, because unbridged warfarin initiation can precipitate warfarin-induced skin necrosis, particularly in protein C or protein S deficiency (see Warfarin-Induced Transient Anticoagulant Depletion). Direct oral anticoagulants avoid this mechanism and are an emerging alternative in this setting.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"warfarin\", \"rivaroxaban\"]}}, {\"id\": \"Pathological Venous Thrombus Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Crosslinked fibrin and aggregated platelets assemble into a pathological intravascular thrombus, most often in the deep veins of the legs or pelvis. Hereditary thrombophilia is classically associated with venous, not arterial, thrombosis.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"locations\": [\"vein\"]}}, {\"id\": \"Platelet-specific Pros1 knockout mouse (Pros1lox/loxPf4-Cre+)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conditional knockout that eliminates protein S expression specifically in platelets (and their megakaryocyte precursors) while sparing the systemic, largely hepatocyte-derived plasma protein S pool.\"}, {\"id\": \"Protein C Concentrate Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasma-derived protein C concentrate directly restores protein C activity in severe congenital protein C deficiency, the exact parallel of antithrombin concentrate replacement above. It is used as long-term prophylaxis and for acute treatment of purpura fulminans and disseminated intravascular coagulation, and as a bridge during initiation of vitamin K antagonist therapy to avoid the transient hypercoagulable state (see Warfarin-Induced Transient Anticoagulant Depletion).\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"protein C concentrate\"]}}, {\"id\": \"Protein C Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced level or function of protein C impairs generation of activated protein C (APC) on the thrombomodulin/endothelial protein C receptor complex, so APC-mediated proteolytic inactivation of factors Va and VIIIa is diminished and their procoagulant activity persists.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"negative regulation of blood coagulation\"], \"subtypes\": [\"Protein C Deficiency\"], \"role\": \"trigger\"}}, {\"id\": \"Protein S Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced level or free/functional activity of protein S diminishes its cofactor support for APC-mediated inactivation of factors Va and VIIIa (and, independently, for tissue factor pathway inhibitor), so procoagulant factor activity persists longer than normal.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"negative regulation of blood coagulation\"], \"subtypes\": [\"Protein S Deficiency\"], \"role\": \"trigger\", \"animal_models\": [{\"name\": \"Platelet-specific Pros1 knockout mouse (Pros1lox/loxPf4-Cre+)\", \"species\": \"Mouse\", \"genotype\": \"Pros1lox/loxPf4-Cre+ (platelet lineage-restricted Pros1 deletion via Platelet factor 4-Cre)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of platelet-derived protein S increases venous thrombus propensity by impairing its cofactor role for activated protein C and tissue factor pathway inhibitor, limiting factor X activation and thrombin generation within the growing thrombus at low shear rates. It does not increase arterial thrombosis propensity, unlike the systemic human deficiency, which is not restricted to a low-shear vascular bed.\"}]}}, {\"id\": \"Prothrombin G20210A-Associated Increased Prothrombin Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The F2 c.*97G\u003eA 3\u0027 UTR variant increases prothrombin mRNA processing efficiency, raising steady-state plasma prothrombin concentration and expanding the substrate pool available for thrombin generation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"], \"subtypes\": [\"Prothrombin G20210A Thrombophilia\"], \"role\": \"trigger\"}}, {\"id\": \"Venous Thrombus Embolization to Pulmonary Arteries\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A deep vein thrombus can dislodge and travel to the pulmonary arteries, producing pulmonary embolism, the other principal clinical manifestation of hereditary thrombophilia alongside deep vein thrombosis.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Warfarin-Induced Skin Necrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful, hemorrhagic skin lesions progressing to full-thickness necrosis, typically emerging within days of starting warfarin without heparin bridging; most strongly associated with underlying protein C or protein S deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Protein C Deficiency\", \"Protein S Deficiency\"], \"term_id\": \"HP:0001038\"}}, {\"id\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because protein C and protein S have short plasma half-lives (protein C approximately 8 hours) relative to the procoagulant vitamin K-dependent clotting factors (24-72 hours), initiating vitamin K antagonist therapy (warfarin) without heparin bridging causes their activity to fall faster than that of the procoagulant factors, producing a paradoxical transient hypercoagulable state. This is proportionally more severe when baseline protein C or protein S activity is already reduced by hereditary deficiency, and can precipitate microvascular thrombosis and skin necrosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Protein C Deficiency\", \"Protein S Deficiency\"], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"Factor V Leiden-Mediated Activated Protein C Resistance\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistently active factor Va sustains prothrombinase complex activity, amplifying thrombin generation and downstream fibrin formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prothrombin G20210A-Associated Increased Prothrombin Synthesis\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated circulating prothrombin increases the substrate available to the prothrombinase complex, amplifying thrombin generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antithrombin Deficiency\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of antithrombin-mediated inhibition of thrombin and factor Xa permits unchecked amplification of the coagulation cascade.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein C Deficiency\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diminished APC-mediated inactivation of factors Va and VIIIa allows sustained prothrombinase and intrinsic tenase activity, amplifying thrombin generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein C Deficiency\", \"target\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because protein C has a short plasma half-life, a deficient baseline makes the transient post-warfarin-initiation fall in protein C activity proportionally more severe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein S Deficiency\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diminished APC-cofactor activity allows sustained factor Va/VIIIa activity and amplified thrombin generation, particularly under the low-shear conditions of venous flow.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein S Deficiency\", \"target\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because protein S has a short plasma half-life relative to the procoagulant vitamin K-dependent factors, a deficient baseline makes the transient post-warfarin-initiation fall in protein S activity proportionally more severe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"target\": \"Pathological Venous Thrombus Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombin-driven fibrin formation, together with platelet participation, builds the crosslinked fibrin-platelet scaffold of a pathological intravascular venous thrombus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pathological Venous Thrombus Formation\", \"target\": \"Venous Thrombus Embolization to Pulmonary Arteries\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"target\": \"Warfarin-Induced Skin Necrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Estrogen-Containing Oral Contraceptive Use\", \"target\": \"Pathological Venous Thrombus Formation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Estrogen exposure amplifies the venous thrombosis risk of an underlying hereditary thrombophilia genotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hormone Replacement Therapy Exposure\", \"target\": \"Pathological Venous Thrombus Formation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Hormone replacement therapy amplifies the venous thrombosis risk of an underlying hereditary thrombophilia genotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute Anticoagulation via Heparin-Potentiated Antithrombin\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Long-Term Oral Anticoagulation with Heparin-Bridged Initiation\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Long-Term Oral Anticoagulation with Heparin-Bridged Initiation\", \"target\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antithrombin Concentrate Replacement Therapy\", \"target\": \"Antithrombin Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Protein C Concentrate Replacement Therapy\", \"target\": \"Protein C Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Platelet-specific Pros1 knockout mouse (Pros1lox/loxPf4-Cre+)\", \"target\": \"Protein S Deficiency\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Loss of platelet-derived protein S increases venous thrombus propensity by impairing its cofactor role for activated protein C and tissue factor pathway inhibitor, limiting factor X activation and thrombin generation within the growing thrombus at low shear rates. It does not increase arterial thrombosis propensity, unlike the systemic human deficiency, which is not restricted to a low-shear vascular bed.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This model isolates only the platelet-derived pool of protein S via a platelet-lineage-restricted knockout; it does not reproduce the systemic (predominantly hepatocyte-synthesized) protein S deficiency that defines the human hereditary disorder, so its venous-versus-arterial selectivity may not generalize to human patients with global protein S deficiency.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Anticoagulation via Heparin-Potentiated Antithrombin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic unfractionated or low-molecular-weight heparin potentiates antithrombin-mediated inhibition of thrombin and factor Xa. Because heparin\u0027s mechanism depends on antithrombin, its anticoagulant effect can be attenuated in antithrombin deficiency; antithrombin concentrate replacement (below) addresses this specifically. Agent, dose, and duration are individualized to the clinical circumstances.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"low molecular weight heparin\"]}}, {\"id\": \"Antithrombin Concentrate Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Human antithrombin III concentrate directly restores antithrombin activity in hereditary antithrombin deficiency, used during high-risk periods (surgery, pregnancy, peripartum) or for treatment/prevention of thromboembolism when heparin-potentiated endogenous antithrombin is insufficient because the endogenous pool itself is deficient.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antithrombin III (human)\"]}}, {\"id\": \"Antithrombin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced antithrombin level (type I) or function (type II) impairs serpin-mediated inhibition of thrombin, factor Xa, and other activated serine protease coagulation factors, removing a principal brake on the coagulation cascade.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"negative regulation of blood coagulation\"], \"genes\": [\"SERPINC1\"], \"gene_terms\": [{\"label\": \"SERPINC1\", \"id\": \"hgnc:775\"}], \"subtypes\": [\"Antithrombin III Deficiency\"], \"role\": \"trigger\"}}, {\"id\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared downstream convergence point for all five hereditary thrombophilia subtypes: whichever specific gain of procoagulant or loss of anticoagulant function is present, the net effect is unchecked thrombin generation and thrombin-driven crosslinking of fibrinogen into an insoluble fibrin network.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation\", \"fibrin clot formation\"], \"role\": \"central_effector\"}}, {\"id\": \"Estrogen-Containing Oral Contraceptive Use\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Estrogen-containing hormonal contraception supplies a \\\"second hit\\\" that can precipitate venous thromboembolism in carriers of an otherwise silent hereditary thrombophilia genotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"F2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"F2\"], \"gene_terms\": [{\"label\": \"F2\", \"id\": \"hgnc:3535\"}], \"subtypes\": [\"Prothrombin G20210A Thrombophilia\"], \"association\": \"The c.*97G\u003eA (legacy g.20210G\u003eA) 3\u0027 UTR variant is causal for prothrombin thrombophilia, the second most common hereditary thrombophilia in individuals of European ancestry.\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"F5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"F5\"], \"gene_terms\": [{\"label\": \"F5\", \"id\": \"hgnc:3542\"}], \"subtypes\": [\"Factor V Leiden Thrombophilia\"], \"association\": \"The c.1601G\u003eA (p.Arg534Gln) variant is causal for factor V Leiden thrombophilia and is the most common hereditary thrombophilia in individuals of European ancestry.\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Factor V Leiden-Mediated Activated Protein C Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The F5 p.Arg534Gln (Leiden) variant abolishes an APC cleavage site on factor Va, so factor Va escapes proteolytic inactivation by activated protein C and remains procoagulant for longer than normal, sustaining prothrombinase activity and thrombin generation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\", \"negative regulation of blood coagulation\"], \"genes\": [\"F5\"], \"gene_terms\": [{\"label\": \"F5\", \"id\": \"hgnc:3542\"}], \"subtypes\": [\"Factor V Leiden Thrombophilia\"], \"role\": \"trigger\"}}, {\"id\": \"Hormone Replacement Therapy Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exogenous hormone replacement therapy, like oral contraception, supplies a transient prothrombotic exposure that can precipitate venous thromboembolism in carriers of a hereditary thrombophilia genotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Long-Term Oral Anticoagulation with Heparin-Bridged Initiation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term oral anticoagulation (vitamin K antagonists such as warfarin, or direct oral anticoagulants) reduces the risk of recurrent venous thromboembolism; duration is individualized to the risk of recurrence versus bleeding. When warfarin is used, initiation should be bridged with heparin and avoid high loading doses, because unbridged warfarin initiation can precipitate warfarin-induced skin necrosis, particularly in protein C or protein S deficiency (see Warfarin-Induced Transient Anticoagulant Depletion). Direct oral anticoagulants avoid this mechanism and are an emerging alternative in this setting.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"warfarin\", \"rivaroxaban\"]}}, {\"id\": \"PROC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PROC\"], \"gene_terms\": [{\"label\": \"PROC\", \"id\": \"hgnc:9451\"}], \"subtypes\": [\"Protein C Deficiency\"], \"association\": \"Loss-of-function PROC variants cause hereditary protein C deficiency; severe (typically biallelic) deficiency can present as neonatal purpura fulminans.\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PROS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PROS1\"], \"gene_terms\": [{\"label\": \"PROS1\", \"id\": \"hgnc:9456\"}], \"subtypes\": [\"Protein S Deficiency\"], \"association\": \"Loss-of-function PROS1 variants cause hereditary protein S deficiency; severe (typically biallelic) deficiency can present as neonatal purpura fulminans.\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Pathological Venous Thrombus Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Crosslinked fibrin and aggregated platelets assemble into a pathological intravascular thrombus, most often in the deep veins of the legs or pelvis. Hereditary thrombophilia is classically associated with venous, not arterial, thrombosis.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"locations\": [\"vein\"]}}, {\"id\": \"Platelet-specific Pros1 knockout mouse (Pros1lox/loxPf4-Cre+)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conditional knockout that eliminates protein S expression specifically in platelets (and their megakaryocyte precursors) while sparing the systemic, largely hepatocyte-derived plasma protein S pool.\"}, {\"id\": \"Protein C Concentrate Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasma-derived protein C concentrate directly restores protein C activity in severe congenital protein C deficiency, the exact parallel of antithrombin concentrate replacement above. It is used as long-term prophylaxis and for acute treatment of purpura fulminans and disseminated intravascular coagulation, and as a bridge during initiation of vitamin K antagonist therapy to avoid the transient hypercoagulable state (see Warfarin-Induced Transient Anticoagulant Depletion).\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"protein C concentrate\"]}}, {\"id\": \"Protein C Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced level or function of protein C impairs generation of activated protein C (APC) on the thrombomodulin/endothelial protein C receptor complex, so APC-mediated proteolytic inactivation of factors Va and VIIIa is diminished and their procoagulant activity persists.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"negative regulation of blood coagulation\"], \"genes\": [\"PROC\"], \"gene_terms\": [{\"label\": \"PROC\", \"id\": \"hgnc:9451\"}], \"subtypes\": [\"Protein C Deficiency\"], \"role\": \"trigger\"}}, {\"id\": \"Protein S Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced level or free/functional activity of protein S diminishes its cofactor support for APC-mediated inactivation of factors Va and VIIIa (and, independently, for tissue factor pathway inhibitor), so procoagulant factor activity persists longer than normal.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"negative regulation of blood coagulation\"], \"genes\": [\"PROS1\"], \"gene_terms\": [{\"label\": \"PROS1\", \"id\": \"hgnc:9456\"}], \"subtypes\": [\"Protein S Deficiency\"], \"role\": \"trigger\", \"animal_models\": [{\"name\": \"Platelet-specific Pros1 knockout mouse (Pros1lox/loxPf4-Cre+)\", \"species\": \"Mouse\", \"genotype\": \"Pros1lox/loxPf4-Cre+ (platelet lineage-restricted Pros1 deletion via Platelet factor 4-Cre)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of platelet-derived protein S increases venous thrombus propensity by impairing its cofactor role for activated protein C and tissue factor pathway inhibitor, limiting factor X activation and thrombin generation within the growing thrombus at low shear rates. It does not increase arterial thrombosis propensity, unlike the systemic human deficiency, which is not restricted to a low-shear vascular bed.\"}]}}, {\"id\": \"Prothrombin G20210A-Associated Increased Prothrombin Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The F2 c.*97G\u003eA 3\u0027 UTR variant increases prothrombin mRNA processing efficiency, raising steady-state plasma prothrombin concentration and expanding the substrate pool available for thrombin generation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"], \"genes\": [\"F2\"], \"gene_terms\": [{\"label\": \"F2\", \"id\": \"hgnc:3535\"}], \"subtypes\": [\"Prothrombin G20210A Thrombophilia\"], \"role\": \"trigger\"}}, {\"id\": \"SERPINC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SERPINC1\"], \"gene_terms\": [{\"label\": \"SERPINC1\", \"id\": \"hgnc:775\"}], \"subtypes\": [\"Antithrombin III Deficiency\"], \"association\": \"Loss-of-function or reduced-activity SERPINC1 variants cause hereditary antithrombin deficiency, the most thrombogenic of the classic hereditary thrombophilias.\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Venous Thrombus Embolization to Pulmonary Arteries\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A deep vein thrombus can dislodge and travel to the pulmonary arteries, producing pulmonary embolism, the other principal clinical manifestation of hereditary thrombophilia alongside deep vein thrombosis.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Warfarin-Induced Skin Necrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Painful, hemorrhagic skin lesions progressing to full-thickness necrosis, typically emerging within days of starting warfarin without heparin bridging; most strongly associated with underlying protein C or protein S deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Protein C Deficiency\", \"Protein S Deficiency\"], \"term_id\": \"HP:0001038\"}}, {\"id\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because protein C and protein S have short plasma half-lives (protein C approximately 8 hours) relative to the procoagulant vitamin K-dependent clotting factors (24-72 hours), initiating vitamin K antagonist therapy (warfarin) without heparin bridging causes their activity to fall faster than that of the procoagulant factors, producing a paradoxical transient hypercoagulable state. This is proportionally more severe when baseline protein C or protein S activity is already reduced by hereditary deficiency, and can precipitate microvascular thrombosis and skin necrosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Protein C Deficiency\", \"Protein S Deficiency\"], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"Factor V Leiden-Mediated Activated Protein C Resistance\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistently active factor Va sustains prothrombinase complex activity, amplifying thrombin generation and downstream fibrin formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prothrombin G20210A-Associated Increased Prothrombin Synthesis\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated circulating prothrombin increases the substrate available to the prothrombinase complex, amplifying thrombin generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antithrombin Deficiency\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of antithrombin-mediated inhibition of thrombin and factor Xa permits unchecked amplification of the coagulation cascade.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein C Deficiency\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diminished APC-mediated inactivation of factors Va and VIIIa allows sustained prothrombinase and intrinsic tenase activity, amplifying thrombin generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein C Deficiency\", \"target\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because protein C has a short plasma half-life, a deficient baseline makes the transient post-warfarin-initiation fall in protein C activity proportionally more severe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein S Deficiency\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diminished APC-cofactor activity allows sustained factor Va/VIIIa activity and amplified thrombin generation, particularly under the low-shear conditions of venous flow.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein S Deficiency\", \"target\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because protein S has a short plasma half-life relative to the procoagulant vitamin K-dependent factors, a deficient baseline makes the transient post-warfarin-initiation fall in protein S activity proportionally more severe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"target\": \"Pathological Venous Thrombus Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombin-driven fibrin formation, together with platelet participation, builds the crosslinked fibrin-platelet scaffold of a pathological intravascular venous thrombus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pathological Venous Thrombus Formation\", \"target\": \"Venous Thrombus Embolization to Pulmonary Arteries\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"target\": \"Warfarin-Induced Skin Necrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Estrogen-Containing Oral Contraceptive Use\", \"target\": \"Pathological Venous Thrombus Formation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Estrogen exposure amplifies the venous thrombosis risk of an underlying hereditary thrombophilia genotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hormone Replacement Therapy Exposure\", \"target\": \"Pathological Venous Thrombus Formation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Hormone replacement therapy amplifies the venous thrombosis risk of an underlying hereditary thrombophilia genotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute Anticoagulation via Heparin-Potentiated Antithrombin\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Long-Term Oral Anticoagulation with Heparin-Bridged Initiation\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Long-Term Oral Anticoagulation with Heparin-Bridged Initiation\", \"target\": \"Warfarin-Induced Transient Anticoagulant Depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antithrombin Concentrate Replacement Therapy\", \"target\": \"Antithrombin Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Protein C Concentrate Replacement Therapy\", \"target\": \"Protein C Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Platelet-specific Pros1 knockout mouse (Pros1lox/loxPf4-Cre+)\", \"target\": \"Protein S Deficiency\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Loss of platelet-derived protein S increases venous thrombus propensity by impairing its cofactor role for activated protein C and tissue factor pathway inhibitor, limiting factor X activation and thrombin generation within the growing thrombus at low shear rates. It does not increase arterial thrombosis propensity, unlike the systemic human deficiency, which is not restricted to a low-shear vascular bed.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This model isolates only the platelet-derived pool of protein S via a platelet-lineage-restricted knockout; it does not reproduce the systemic (predominantly hepatocyte-synthesized) protein S deficiency that defines the human hereditary disorder, so its venous-versus-arterial selectivity may not generalize to human patients with global protein S deficiency.\"}, {\"source\": \"F5\", \"target\": \"Factor V Leiden-Mediated Activated Protein C Resistance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"F2\", \"target\": \"Prothrombin G20210A-Associated Increased Prothrombin Synthesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SERPINC1\", \"target\": \"Antithrombin Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PROC\", \"target\": \"Protein C Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PROS1\", \"target\": \"Protein S Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6122,15 +6399,18 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002625" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002625</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002625" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002625</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6193,15 +6473,18 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004831" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004831</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004831" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004831</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent thromboembolism (HP:0004831). HP:0004831 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6262,15 +6545,18 @@ This clinical feature is Recurrent thromboembolism (HP:0004831). HP:0004831 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033724" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0033724</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033724" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0033724</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral venous sinus thrombosis (HP:0033724). HP:0033724 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6383,15 +6669,18 @@ This clinical feature is Cerebral venous sinus thrombosis (HP:0033724). HP:00337
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Resistance to activated protein C (HP:0012175). HP:0012175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6454,15 +6743,18 @@ This clinical feature is Resistance to activated protein C (HP:0012175). HP:0012
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001976</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001976</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced antithrombin III activity (HP:0001976). HP:0001976 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6523,15 +6815,18 @@ This clinical feature is Reduced antithrombin III activity (HP:0001976). HP:0001
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0005543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced protein C activity (HP:0005543). HP:0005543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6592,15 +6887,18 @@ This clinical feature is Reduced protein C activity (HP:0005543). HP:0005543 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004855</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004855</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced protein S activity (HP:0004855). HP:0004855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6661,15 +6959,18 @@ This clinical feature is Reduced protein S activity (HP:0004855). HP:0004855 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000979</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000979</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO has no dedicated &#34;purpura fulminans&#34; term; HP:0000979 Purpura is used here as the closest available term (a deliberate choice, not an oversight).</div>
@@ -6766,15 +7067,18 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002204</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002204</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6844,15 +7148,18 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001038" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001038</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001038" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001038</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Warfarin-induced skin necrosis (HP:0001038). HP:0001038 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6914,6 +7221,9 @@ This clinical feature is Warfarin-induced skin necrosis (HP:0001038). HP:0001038
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HP:0200067 (Recurrent spontaneous abortion) exists in HPO but is not bindable here: its full ancestor closure (`Recurrent spontaneous abortion -&gt; Pregnancy history -&gt; Past medical history -&gt; All`, verified with `runoak -i sqlite:obo:hp ancestors HP:0200067`) does not pass through HP:0000118 (Phenotypic abnormality), the root the PhenotypeTerm dynamic enum requires, and there is no MONDO disease term for recurrent pregnancy loss either. This is a deliberate needs-term/NTR gap, not an oversight.</div>
@@ -7019,10 +7329,10 @@ This clinical feature is Warfarin-induced skin necrosis (HP:0001038). HP:0001038
                         Gene: F5
 
 
-    <a href="https://bioregistry.io/hgnc:3542" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:3542</a>
+    <a href="https://bioregistry.io/hgnc:3542" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:3542</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7032,6 +7342,9 @@ This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7124,10 +7437,10 @@ This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUG
                         Gene: F2
 
 
-    <a href="https://bioregistry.io/hgnc:3535" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:3535</a>
+    <a href="https://bioregistry.io/hgnc:3535" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:3535</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7137,6 +7450,9 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7229,10 +7545,10 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
                         Gene: SERPINC1
 
 
-    <a href="https://bioregistry.io/hgnc:775" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:775</a>
+    <a href="https://bioregistry.io/hgnc:775" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:775</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SERPINC1 (hgnc:775). hgnc:775 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7242,6 +7558,9 @@ This disease-associated gene is SERPINC1 (hgnc:775). hgnc:775 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7309,10 +7628,10 @@ This disease-associated gene is SERPINC1 (hgnc:775). hgnc:775 is a gene from the
                         Gene: PROC
 
 
-    <a href="https://bioregistry.io/hgnc:9451" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:9451</a>
+    <a href="https://bioregistry.io/hgnc:9451" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:9451</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PROC (hgnc:9451). hgnc:9451 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7322,6 +7641,9 @@ This disease-associated gene is PROC (hgnc:9451). hgnc:9451 is a gene from the H
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7389,10 +7711,10 @@ This disease-associated gene is PROC (hgnc:9451). hgnc:9451 is a gene from the H
                         Gene: PROS1
 
 
-    <a href="https://bioregistry.io/hgnc:9456" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:9456</a>
+    <a href="https://bioregistry.io/hgnc:9456" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:9456</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PROS1 (hgnc:9456). hgnc:9456 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7402,6 +7724,9 @@ This disease-associated gene is PROS1 (hgnc:9456). hgnc:9456 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7477,7 +7802,7 @@ This disease-associated gene is PROS1 (hgnc:9456). hgnc:9456 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">anticoagulation therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">anticoagulation therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7519,16 +7844,22 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2578" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C2578</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2578" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C2578</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses low molecular weight heparin (NCIT:C2578). NCIT:C2578 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7611,7 +7942,7 @@ This treatment uses low molecular weight heparin (NCIT:C2578). NCIT:C2578 is a t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">anticoagulation therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">anticoagulation therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7653,11 +7984,11 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_10033" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:10033</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_10033" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:10033</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -7670,16 +8001,22 @@ This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_68579" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:68579</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_68579" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:68579</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses rivaroxaban (CHEBI:68579). CHEBI:68579 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7800,7 +8137,7 @@ This treatment uses rivaroxaban (CHEBI:68579). CHEBI:68579 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7841,16 +8178,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C136824" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C136824</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C136824" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C136824</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses antithrombin III (human), annotated with Therapeutic Human Antithrombin-III (NCIT:C136824). NCIT:C136824 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7867,6 +8207,9 @@ This treatment uses antithrombin III (human), annotated with Therapeutic Human A
 
 
     </div>
+
+
+
 
 
 
@@ -7944,7 +8287,7 @@ This treatment uses antithrombin III (human), annotated with Therapeutic Human A
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7985,16 +8328,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C87607" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C87607</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C87607" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C87607</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses protein C concentrate (NCIT:C87607). NCIT:C87607 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -8011,6 +8357,9 @@ This treatment uses protein C concentrate (NCIT:C87607). NCIT:C87607 is a therap
 
 
     </div>
+
+
+
 
 
 
@@ -8105,11 +8454,11 @@ This treatment uses protein C concentrate (NCIT:C87607). NCIT:C87607 is a therap
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_9002149" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-42">ECTO:9002149</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_9002149" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-47">ECTO:9002149</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is exposure to oral contraceptive (ECTO:9002149). ECTO:9002149 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -8235,11 +8584,11 @@ This environmental factor is exposure to oral contraceptive (ECTO:9002149). ECTO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_2000005" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-43">ECTO:2000005</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_2000005" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-48">ECTO:2000005</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is exposure to hormone replacement therapy (ECTO:2000005). ECTO:2000005 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -8389,11 +8738,11 @@ This environmental factor is exposure to hormone replacement therapy (ECTO:20000
         coagulation study
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62662" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C62662</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62662" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C62662</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8504,11 +8853,11 @@ This environmental factor is exposure to hormone replacement therapy (ECTO:20000
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8594,11 +8943,11 @@ This environmental factor is exposure to hormone replacement therapy (ECTO:20000
         coagulation study
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62662" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C62662</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62662" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C62662</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8709,11 +9058,11 @@ This environmental factor is exposure to hormone replacement therapy (ECTO:20000
         coagulation study
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62662" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C62662</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62662" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C62662</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8799,11 +9148,11 @@ This environmental factor is exposure to hormone replacement therapy (ECTO:20000
         coagulation study
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62662" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C62662</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62662" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C62662</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9726,6 +10075,11 @@ has_subtypes:
 
 pathophysiology:
 - name: Factor V Leiden-Mediated Activated Protein C Resistance
+  genes:
+  - preferred_term: F5
+    term:
+      id: hgnc:3542
+      label: F5
   subtypes:
   - Factor V Leiden Thrombophilia
   role: trigger
@@ -9766,6 +10120,11 @@ pathophysiology:
       Persistently active factor Va sustains prothrombinase complex activity,
       amplifying thrombin generation and downstream fibrin formation.
 - name: Prothrombin G20210A-Associated Increased Prothrombin Synthesis
+  genes:
+  - preferred_term: F2
+    term:
+      id: hgnc:3535
+      label: F2
   subtypes:
   - Prothrombin G20210A Thrombophilia
   role: trigger
@@ -9794,6 +10153,11 @@ pathophysiology:
       Elevated circulating prothrombin increases the substrate available to
       the prothrombinase complex, amplifying thrombin generation.
 - name: Antithrombin Deficiency
+  genes:
+  - preferred_term: SERPINC1
+    term:
+      id: hgnc:775
+      label: SERPINC1
   subtypes:
   - Antithrombin III Deficiency
   role: trigger
@@ -9829,6 +10193,11 @@ pathophysiology:
       Loss of antithrombin-mediated inhibition of thrombin and factor Xa
       permits unchecked amplification of the coagulation cascade.
 - name: Protein C Deficiency
+  genes:
+  - preferred_term: PROC
+    term:
+      id: hgnc:9451
+      label: PROC
   subtypes:
   - Protein C Deficiency
   role: trigger
@@ -9889,6 +10258,11 @@ pathophysiology:
       snippet: &#34;Protein C deficiency, most commonly implicated in WSN, is typically inherited in an autosomal dominant pattern.&#34;
       explanation: Identifies protein C deficiency as the most common predisposing condition for warfarin-induced skin necrosis.
 - name: Protein S Deficiency
+  genes:
+  - preferred_term: PROS1
+    term:
+      id: hgnc:9456
+      label: PROS1
   subtypes:
   - Protein S Deficiency
   role: trigger
@@ -11017,6 +11391,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Thrombophilia</strong> · 2026-08-27T00:35:40Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Thrombophilia/2026-08-27T003540Z-claude-code-cc46fc.yaml">View source</a></p>
+                        <p class="research-review-text">Created a new dismech entry for thrombophilia, MONDO:0002305, resolving issue #9545, CURATE_ROOT_WITH_SUBTYPES. Modeled the root disease plus five classic hereditary subtypes via has_subtypes: factor V Leiden thrombophilia / activated protein C resistance MONDO:0008560 F5, prothrombin G20210A thrombophilia MONDO:0008559 F2, antithrombin III deficiency MONDO:0013144 SERPINC1, protein C deficiency MONDO:0019145 PROC, and protein S deficiency MONDO:0019144 PROS1. Pathophysiology models each subtype molecular lesion as a trigger node converging on a shared Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation node, which conforms_to thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation; downstream nodes conform to thrombogenesis#Pathological Fibrin-Platelet Thrombus Formation and thrombogenesis#Venous Thrombus Embolization to Pulmonary Arteries. A dedicated Warfarin-Induced Transient Anticoagulant Depletion node, protein C and protein S subtypes, captures the paradoxical warfarin skin necrosis mechanism. Acquired antiphospholipid-antibody-mediated thrombophilia is explicitly cross-referenced to, not duplicated from, Antiphospholipid_Syndrome.yaml. Curated phenotypes DVT, PE, recurrent VTE, cerebral venous sinus thrombosis, subtype-specific lab findings, recurrent pregnancy loss, warfarin-induced skin necrosis, neonatal purpura fulminans; genetics F5, F2, SERPINC1, PROC, PROS1 with CAUSATIVE relationship and autosomal dominant incomplete-penetrance inheritance; environmental exposures oral contraceptive and HRT use, EXACERBATES; one animal model, platelet-specific Pros1 knockout mouse, Calzavarini et al 2020, PARTIALLY_RECAPITULATES; and treatments, heparin-bridged anticoagulation, long-term oral anticoagulation and DOACs, antithrombin concentrate replacement therapy, plus structured per-subtype prevalence records. Deep research: falcon Edison Scientific provider, research/Thrombophilia-deep-research-falcon.md, reference_validation 9 of 9 resolved, 0 off-topic. NEC preflight just preflight-dr returned SKIP because MONDO:0002305 records no single causal gene, expected for this heterogeneous umbrella term; manual review of the report&#39;s gene-frequency table F2=17 F5=12 PROC=12 PROS1=12 SERPINC1=9 confirmed it discusses exactly the five expected classic thrombophilia genes with no rival-disease gene dominating, and the report&#39;s own Identifiers section correctly cites MONDO:0002305, so no NEC concern. All evidence PMIDs and DOIs fetched via just fetch-reference, never hand-written. Validation: just validate passed, schema plus terms plus references, 59 of 64 snippets verified against cached references, 5 skipped by prefix for DOI references; just count-verified-snippets separately confirmed the same 59 of 64; just validate-terms passed; just check-duplicate-keys passed; just validate-disorders batched pre-PR sweep passed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11936,7 +12323,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Thrombophilia", "mondoId": "MONDO:0002305", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thrombophilia", "yamlRevision": "afc18d7f6ca3"};
+        const OS_CONFIG = {"diseaseName": "Thrombophilia", "mondoId": "MONDO:0002305", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thrombophilia", "yamlRevision": "2401f748fb86"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

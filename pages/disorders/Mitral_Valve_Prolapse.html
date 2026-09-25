@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4048,6 +4101,33 @@
 
 
         <!-- Comorbidities -->
+
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Hypermobile_Ehlers-Danlos_Syndrome__Mitral_Valve_Prolapse.html">Hypermobile Ehlers-Danlos Syndrome &lt;-&gt; Mitral Valve Prolapse</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease B</span>
+
+
+                        <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
 
 
         <!-- Mechanistic Hypotheses -->
@@ -4442,6 +4522,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myxomatous-leaflet-remodeling" data-dismech-node="Myxomatous Leaflet Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Myxomatous Leaflet Remodeling</div>
 
+
                 <div class="item-desc">The primary lesion. Mitral valve interstitial cells remodel the leaflet extracellular matrix, producing thickened, redundant, abnormally compliant leaflets - the myxomatous or &#34;floppy&#34; valve. Leaflet thickness of 5 mm or more distinguishes classic from non-classic prolapse echocardiographically and is not a cosmetic distinction: it marks the more substantially remodeled valve. Myxomatous valve disease is among the commonest indications for valvular surgery.
 </div>
 
@@ -4636,6 +4717,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-valve-developmental-and-cytoskeletal-gene-lesion" data-dismech-node="Valve Developmental and Cytoskeletal Gene Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Valve Developmental and Cytoskeletal Gene Lesion</div>
+
 
                 <div class="item-desc">Non-syndromic prolapse has a clear heritable component, and two genes identified in isolated families implicate different layers of valve biology. FLNA, encoding the actin-crosslinking protein filamin A, causes X-linked myxomatous valvular dystrophy with complete penetrance in men and incomplete penetrance in women - a cytoskeletal, mechanotransductive lesion. DCHS1, the human homologue of the Drosophila planar-cell-polarity gene dachsous, causes autosomal prolapse through impaired valve interstitial cell migration and patterning, and the mouse heterozygote traces adult prolapse back to developmental errors in valve morphogenesis. Together they suggest the adult valve lesion is in part a developmental one.
 </div>
@@ -4846,6 +4928,7 @@ This pathophysiological event involves DCHS1 (hgnc:13681). hgnc:13681 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systolic-leaflet-prolapse" data-dismech-node="Systolic Leaflet Prolapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Systolic Leaflet Prolapse</div>
 
+
                 <div class="item-desc">Superior displacement of one or both leaflets more than 2 mm past the annular plane during systole - the defining finding, and the audible midsystolic click. In the community the prolapsing valve is usually competent or nearly so: Framingham subjects with prolapse had more regurgitation than those without, but on average only trace or mild. Bileaflet involvement is disproportionately represented in the arrhythmic phenotype, being present in 70% of both sudden-death cases and living patients with complex ventricular arrhythmia.
 </div>
 
@@ -4998,6 +5081,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitral-annular-disjunction-and-systolic-curling" data-dismech-node="Mitral Annular Disjunction and Systolic Curling" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitral Annular Disjunction and Systolic Curling</div>
+
 
                 <div class="item-desc">A structural abnormality of the valve hinge rather than of the leaflet: the atrial wall-mitral valve junction is displaced away from the ventricular myocardium, so the annulus is not anchored where it should be. In systole the disjointed posterior annulus curls toward the atrium instead of descending with the ventricle. Disjunction is a constant feature of arrhythmic prolapse with ventricular fibrosis - median 4.8 mm versus 1.8 mm in prolapse without fibrosis - and the degree of disjunction correlates tightly with the degree of curling. It is what converts leaflet excursion into myocardial traction, and it can be measured directly.
 </div>
@@ -5168,6 +5252,7 @@ This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mechanical-traction-on-papillary-muscles-and-inferobasal-wall" data-dismech-node="Mechanical Traction on Papillary Muscles and Inferobasal Wall" data-dismech-type="pathophysiology">
                 <div class="item-name">Mechanical Traction on Papillary Muscles and Inferobasal Wall</div>
+
 
                 <div class="item-desc">The mechanistic pivot of the arrhythmic phenotype. Excessive leaflet mobility combined with an unanchored, curling annulus applies repetitive systolic stretch to the inferobasal left ventricular wall and the papillary muscles. The regional distribution of the resulting injury is the signature: fibrosis appears exactly where the traction is applied, not diffusely, and not where ischaemia or a cardiomyopathy would put it. Crucially, this operates in patients with no or trivial mitral regurgitation, so it is not a consequence of volume loading.
 </div>
@@ -5402,6 +5487,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-left-ventricular-fibrosis" data-dismech-node="Regional Left Ventricular Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional Left Ventricular Fibrosis</div>
+
 
                 <div class="item-desc">Fibrosis of the papillary muscles and the inferobasal left ventricular wall - found at histology in every one of the sudden-death cases in which prolapse was the only identified cause, and at the papillary muscles in all of them. In living patients with complex ventricular arrhythmia the same distribution appears as late gadolinium enhancement in 93%, against 14% of prolapse controls. The correspondence between the autopsy and imaging distributions is what makes this a substrate rather than an epiphenomenon, and what makes it detectable before the arrhythmia rather than after it. This node conforms to the extracellular-matrix-deposition effector of the `fibrotic_response` module with mechanical traction substituted for the module&#39;s usual chemical or inflammatory tissue injury.
 </div>
@@ -5662,6 +5748,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-electrical-instability-and-sudden-cardiac-death" data-dismech-node="Ventricular Electrical Instability and Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Electrical Instability and Sudden Cardiac Death</div>
 
+
                 <div class="item-desc">Malignant ventricular arrhythmia in prolapse appears to need both halves of the classical substrate-plus-trigger pair. The substrate is the regional hypertrophy and fibrosis together with surviving Purkinje tissue; the trigger is mechanical stretch eliciting premature ventricular beats, documented arising from Purkinje tissue in patients with aborted sudden death. Prolapse accounts for 7% of sudden cardiac deaths in adults aged 40 or under and 13% of those in young women, and the electrocardiographic signature points back at the anatomy: inverted inferior T waves in 83% of cases with an available tracing, and right bundle-branch block morphology arrhythmias in all of them, consistent with a left ventricular inferobasal origin.
 </div>
 
@@ -5866,6 +5953,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitral-regurgitation-and-left-ventricular-volume-overload" data-dismech-node="Mitral Regurgitation and Left Ventricular Volume Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitral Regurgitation and Left Ventricular Volume Overload</div>
 
+
                 <div class="item-desc">The haemodynamic route, and the one that dominates the surgical literature. Failure of coaptation regurgitates a fraction of stroke volume into the left atrium; the ventricle compensates by dilating. Outcome is graded by the effective regurgitant orifice area rather than by symptoms: in asymptomatic patients followed for a median of 26 years, five-year survival under medical management fell from 88% with an orifice below 20 mm2 to 55% at 40 mm2 or above, with risk rising continuously rather than at a threshold. This is a different disease from the arrhythmic one, in a different population, and it is measured differently.
 </div>
 
@@ -6013,6 +6101,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heart-failure" data-dismech-node="Heart Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Heart Failure</div>
+
 
                 <div class="item-desc">Decompensation of the volume-loaded ventricle. Notably absent from the community phenotype: no subject with prolapse in the Framingham offspring cohort had a history of heart failure, which is the clearest single statement of how rarely uncomplicated prolapse progresses this far.
 </div>
@@ -6182,6 +6271,9 @@ This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6246,6 +6338,9 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6320,6 +6415,9 @@ This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6384,6 +6482,9 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6465,6 +6566,9 @@ This clinical feature is Premature ventricular contraction (HP:0006682). HP:0006
 
 
 
+
+
+
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6543,6 +6647,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6614,6 +6721,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6680,6 +6790,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6772,6 +6885,9 @@ This disease-associated gene is FLNA (hgnc:3754). hgnc:3754 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6840,6 +6956,9 @@ This disease-associated gene is DCHS1 (hgnc:13681). hgnc:13681 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -6945,6 +7064,9 @@ This treatment is mitral valve repair (NCIT:C80449). NCIT:C80449 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6955,6 +7077,9 @@ This treatment is mitral valve repair (NCIT:C80449). NCIT:C80449 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -7069,6 +7194,9 @@ This treatment is transcatheter mitral valve repair (NCIT:C158019). NCIT:C158019
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7079,6 +7207,9 @@ This treatment is transcatheter mitral valve repair (NCIT:C158019). NCIT:C158019
 
 
     </div>
+
+
+
 
 
 

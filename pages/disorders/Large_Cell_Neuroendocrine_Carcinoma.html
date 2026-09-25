@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4719,6 +4772,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tobacco-carcinogen-exposure-and-smoking-associated-mutagenesis" data-dismech-node="Tobacco Carcinogen Exposure and Smoking-Associated Mutagenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Tobacco Carcinogen Exposure and Smoking-Associated Mutagenesis</div>
 
+
                 <div class="item-desc">Pulmonary LCNEC arises almost exclusively in older heavy smokers. Whole-exome and whole-genome sequencing shows a high exonic mutation rate dominated by C:G&gt;A:T transversions and by COSMIC mutational signature 4, the canonical tobacco-carcinogen signature. This mutagenic burden is what generates the tumour-suppressor loss-of-function events that define both molecular subgroups.</div>
 
 
@@ -4853,6 +4907,7 @@ This pathophysiological event involves pulmonary neuroendocrine cell (CL:1000223
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-inactivation" data-dismech-node="TP53 Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53 Inactivation</div>
+
 
                 <div class="item-desc">Biallelic TP53 loss of function is the near-universal first hit in LCNEC, reported in 78% of tumours by targeted sequencing and 92% by whole-exome sequencing. Loss of p53 abrogates DNA-damage checkpoint control and apoptosis, licensing both the genomic instability and the second-hit bifurcation that follow.</div>
 
@@ -5014,6 +5069,7 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mutator-phenotype-and-chromosomal-instability" data-dismech-node="Mutator Phenotype and Chromosomal Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Mutator Phenotype and Chromosomal Instability</div>
 
+
                 <div class="item-desc">Following p53 loss, LCNEC accumulates a high mutation burden together with recurrent focal amplifications (MYCL1 at 1p34, FGFR1 at 8p12, MYC at 8q24.21, NKX2-1 at 14q13) and deletions (CDKN2A at 9p21), i.e. the mutator phenotype and chromosomal instability that the genome-instability module describes.</div>
 
 
@@ -5152,6 +5208,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rb1-biallelic-inactivation" data-dismech-node="RB1 Biallelic Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">RB1 Biallelic Inactivation</div>
+
 
                 <div class="item-desc">Biallelic RB1 inactivation, co-occurring with TP53 loss, defines the SCLC-like (Rekhtman) or type II (George) subgroup. RB1 mutation is reported in 38-47% of cases and loss of nuclear Rb protein in up to 72%. This branch is mutually exclusive with the STK11/KEAP1 branch. Note the counterintuitive transcriptional consequence: despite the SCLC-like genotype, type II tumours show reduced neuroendocrine marker expression.</div>
 
@@ -5331,6 +5388,7 @@ This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stk11-and-keap1-biallelic-inactivation" data-dismech-node="STK11 and KEAP1 Biallelic Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">STK11 and KEAP1 Biallelic Inactivation</div>
+
 
                 <div class="item-desc">Biallelic inactivation of STK11 (LKB1) and/or KEAP1, in the absence of RB1 co-alteration, defines the NSCLC-like (Rekhtman) or type I (George) subgroup. STK11 loss deregulates LKB1-AMPK-mTOR energy sensing and KEAP1 loss constitutively activates NRF2 antioxidant signalling. This branch frequently also carries activating KRAS mutations.</div>
 
@@ -5579,6 +5637,7 @@ This pathophysiological event involves KRAS (hgnc:6407). hgnc:6407 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-g1-s-cell-cycle-checkpoint-control" data-dismech-node="Loss of G1/S Cell-Cycle Checkpoint Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of G1/S Cell-Cycle Checkpoint Control</div>
 
+
                 <div class="item-desc">Combined TP53 and RB1 inactivation removes both the p53 damage checkpoint and the Rb-enforced G1/S restriction point, the canonical evading-growth-suppressors lesion. In LCNEC this is the SCLC-like branch and is accompanied by measurably higher proliferative activity than in the STK11/KEAP1 branch.</div>
 
 
@@ -5712,6 +5771,7 @@ This pathophysiological event involves increased G1/S transition of mitotic cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroendocrine-lineage-programme-expression" data-dismech-node="Neuroendocrine Lineage Programme Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroendocrine Lineage Programme Expression</div>
+
 
                 <div class="item-desc">LCNEC expresses a neuroendocrine differentiation programme demonstrable as chromogranin A, synaptophysin and CD56 immunoreactivity, and transcriptionally as ASCL1 and DLL3 expression in the neuroendocrine-high subgroup. This programme, not the genomic lesion set, is what places LCNEC transcriptionally closest to small cell lung carcinoma and justifies its WHO classification as a neuroendocrine carcinoma rather than an NSCLC variant. DLL3 expression in this branch is the rationale for DLL3-directed therapy.</div>
 
@@ -5984,6 +6044,7 @@ This pathophysiological event involves neuroendocrine cell differentiation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-notch-pathway-dysregulation" data-dismech-node="NOTCH Pathway Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">NOTCH Pathway Dysregulation</div>
 
+
                 <div class="item-desc">Inactivating NOTCH-family mutations occur in about a quarter of NSCLC-like LCNEC, and NOTCH pathway activity is high in the type II subgroup that shows low neuroendocrine marker expression. NOTCH signalling is an established regulator of the neuroendocrine-versus-non-neuroendocrine fate switch in lung epithelium, which makes it the most plausible link between the genomic subgroups and their divergent lineage states.</div>
 
 
@@ -6093,6 +6154,7 @@ This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-grade-proliferative-activity-and-necrosis" data-dismech-node="High-Grade Proliferative Activity and Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">High-Grade Proliferative Activity and Necrosis</div>
+
 
                 <div class="item-desc">A mitotic rate above 10 mitoses per 2 square millimetres together with extensive, often geographic necrosis is a defining diagnostic criterion of LCNEC and separates it from the low-grade (typical carcinoid) and intermediate-grade (atypical carcinoid) neuroendocrine tumours.</div>
 
@@ -6215,6 +6277,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-local-tumour-growth-with-central-or-peripheral-presentation" data-dismech-node="Local Tumour Growth with Central or Peripheral Presentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Local Tumour Growth with Central or Peripheral Presentation</div>
+
 
                 <div class="item-desc">The primary tumour grows as either a peripheral mass, which is the majority pattern, or a central tumour invading the segmental or lobar bronchus. The distinction is prognostically and biologically real: central tumours are more strongly associated with smoking, present at higher stage and larger size, and carry markedly worse survival, while peripheral tumours more often retain Rb protein and harbour EGFR mutations.</div>
 
@@ -6350,6 +6413,7 @@ This pathophysiological event involves bronchial epithelial cell (CL:0002328). C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-metastatic-dissemination" data-dismech-node="Early Metastatic Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Early Metastatic Dissemination</div>
+
 
                 <div class="item-desc">LCNEC disseminates early and widely. In population data the majority of patients present at stage IV, and brain metastasis is more frequent than in either small cell or non-small cell lung cancer, making the central nervous system a characteristic site of colonisation.</div>
 
@@ -6604,6 +6668,9 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6670,6 +6737,9 @@ This clinical feature is Brain neoplasm (HP:0030692). HP:0030692 is a phenotype 
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6764,6 +6834,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6834,6 +6907,9 @@ This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -6912,6 +6988,9 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6986,6 +7065,9 @@ This disease-associated gene is KEAP1 (hgnc:23177). hgnc:23177 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7056,6 +7138,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -7217,6 +7302,9 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7227,6 +7315,9 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -7414,6 +7505,9 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7424,6 +7518,9 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7635,6 +7732,9 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7645,6 +7745,9 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7739,6 +7842,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7749,6 +7855,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7844,6 +7953,9 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7854,6 +7966,9 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -10289,6 +10404,50 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry is the site-agnostic LCNEC entity (MONDO:0005057), whose MONDO children are the organ-specific LCNECs modelled here under `has_subtypes`. Because the overwhelming majority of the mechanistic and clinical literature concerns the pulmonary form, the pathograph and the treatment/prevalence sections are pulmonary-anchored and say so; extrapulmonary LCNEC is captured as subtypes plus a site-specific treatment entry rather than by silently generalising lung data. Thymic LCNEC (MONDO:0003047) is already curated in depth as a `has_subtypes` facet of `kb/disorders/Thymic_Neuroendocrine_Carcinoma.yaml`; it is listed here as a subtype for completeness and deliberately not re-derived.
+Deep research. `just research-disorder falcon` was attempted first (the repo default) and failed with HTTP 402 Payment Required from the Edison API, so this entry was curated without one. Two providers did complete and both reports are committed: `claude_code` (35/35 references resolved, confabulation rate 0.0, 0 off topic) and `openscientist` (49/49 resolved, 7/7 quoted claims found in source, 0 off topic). The Edison account was topped up afterwards and the falcon run then completed normally; that report is committed too (13/13 references resolved, confabulation rate 0.0), but only 7 of its 13 references were judged on topic, and it post-dates the curation rather than informing it. NEC preflight against MONDO:0005057 returned SKIP for both, because MONDO records no causal gene for a sporadic carcinoma; the manual fallback was therefore run - the reports&#39; top-mentioned genes are the expected TP53/RB1/STK11/KEAP1/ASCL1 set, MONDO:0005057 carries no OMIM xref to contradict, and the flagged acronym &#34;LCNEC&#34; names no other MONDO entity.
+Despite validating cleanly, the claude_code report proposed three incorrect ontology identifiers, which were caught and not used: KEAP1 as HGNC:6396 (correct: hgnc:23177), pulmonary neuroendocrine cell as CL:0002251 (correct: CL:1000223), and the disease itself as a MONDO:0018316-class term (correct: MONDO:0005057). The later falcon report proposed three more, none of which is bound here: pulmonary neuroendocrine cell as CL:0000450 - obsolete, and merged into CL:0000136 adipocyte, so the identifier resolves to the wrong concept entirely (correct: CL:1000223); bone metastasis as HP:0002797, which is Osteolysis; and liver metastasis as HP:0002896, which is Neoplasm of the liver. HPO has no term for either metastatic site. Note that the same concept, pulmonary neuroendocrine cell, drew a different wrong CURIE from each report. Every identifier in this entry was independently re-resolved with OAK. Reference validation checks that a citation resolves, not that an ontology term is real - and a term validator checks that a CURIE exists and is named consistently, not that it is the right term for the claim, which is what the obsolete CL:0000450 shows. This is the standard treat-DR-as-leads discipline, not an incidental problem with one report.
+Phenotypes deliberately not curated. Cough, haemoptysis, dyspnoea and constitutional weight loss are the typical presenting features of LCNEC as of any thoracic malignancy, and earlier drafts of this entry carried them. They were removed because none of the sources available here actually documents or quantifies them in LCNEC specifically - the only snippets that could be attached were general statements about LCNEC being aggressive, which do not support a symptom claim. They are recorded in prose here instead of being given evidence items that do not say what they are cited for. The curated phenotypes are limited to the two that are directly evidenced (the lung primary, and brain metastasis at 19.2%); a clinical series that quantifies presenting symptoms would be the right basis for adding the rest.
+Type I / type II naming. The two large genomic studies use opposite-sounding labels for overlapping groups and this entry preserves both rather than flattening them: Rekhtman&#39;s SCLC-like group (TP53+RB1 co-altered) corresponds to George&#39;s type II, and Rekhtman&#39;s NSCLC-like group (STK11/KRAS/KEAP1) corresponds to George&#39;s type I. Counterintuitively it is George&#39;s type I, the group named for NSCLC-type genomic lesions, that carries the higher neuroendocrine transcriptional programme (ASCL1high/DLL3high/NOTCHlow), while type II shows reduced neuroendocrine markers. Curators should not correct this apparent inversion; it is what the sources report.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Update DR notes: falcon report now exists</strong> · 2026-09-15T18:14:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Large_Cell_Neuroendocrine_Carcinoma/2026-09-15T181404Z-claude-code-b994d2.yaml">View source</a></p>
+                        <p class="research-review-text">Corrected a sentence in notes: that said no falcon deep-research report existed for this entry, which PR #11759 makes false. The Edison API returned HTTP 402 when the entry was curated; the account was later topped up and the falcon run completed, so the sentence now records that sequence and states that the report post-dates the curation rather than informing it (13/13 references resolved, but only 7 of 13 judged on topic). Also extended the existing wrong-ontology-identifier paragraph with the three bad term leads the falcon report proposed, none of which is bound in this entry: CL:0000450 for pulmonary neuroendocrine cell (obsolete, merged into CL:0000136 adipocyte, so it resolves to the wrong concept rather than failing), HP:0002797 for bone metastasis (actually Osteolysis) and HP:0002896 for liver metastasis (actually Neoplasm of the liver). Each of the five CURIEs named was re-resolved before writing: four against the committed caches, and CL:0000450 against OLS, which confirms is_obsolete with term_replaced_by CL_0000136. No pathophysiology, phenotype, evidence or term binding changed. Validated with just validate (72 of 72 snippets verified).
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Large Cell Neuroendocrine Carcinoma (MONDO:0005057)</strong> · 2026-08-20T04:39:28Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Large_Cell_Neuroendocrine_Carcinoma/2026-08-20T043928Z-claude-code-f6630c.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of the site-agnostic LCNEC entity (MONDO:0005057), the CURATE_ROOT_WITH_SUBTYPES target from issue #8988.
+
+DEEP RESEARCH. falcon (the repo default) was attempted first and failed with HTTP 402 Payment Required from the Edison API; no falcon report exists. Two providers completed and both reports are committed: claude_code (35/35 references resolved, confabulation_rate 0.0, 0 off topic) and openscientist (49/49 resolved, 7/7 quoted claims found in source, 0 off topic). Both reports&#39; Reference Validation sections were read before any citation was reused.
+
+NEC PREFLIGHT. The priority dashboard flagged this candidate ACRONYM_AMBIGUITY on &#34;LCNEC&#34;. just preflight-dr returned SKIP for both reports because MONDO records no causal gene (RO:0004003) for a sporadic carcinoma, so the manual fallback was run: the reports&#39; top-mentioned genes are the expected TP53/RB1/STK11/KEAP1/ASCL1 set; MONDO:0005057 carries no OMIM xref to contradict; and an OAK search confirmed &#34;LCNEC&#34; names no other MONDO entity. Entity identity confirmed.
+
+DR ONTOLOGY ERRORS CAUGHT. Despite clean reference validation, the claude_code report proposed three wrong ontology IDs which were NOT used: KEAP1 as HGNC:6396 (correct hgnc:23177), pulmonary neuroendocrine cell as CL:0002251 (correct CL:1000223), and the disease as a &#34;MONDO:0018316-class term&#34; (correct MONDO:0005057). Every identifier in the entry was independently re-resolved with OAK. Reference validation checks citation resolution, not ontology-term reality.
+
+GENEREVIEWS. Searched; the only PubMed hit for &#34;large cell neuroendocrine carcinoma GeneReviews&#34; is PMID:20301399 (Tuberous Sclerosis Complex), which is unrelated. No GeneReviews chapter exists for this sporadic carcinoma, so Step 3b was recorded as not applicable rather than skipped silently.
+
+WHAT WAS CURATED. 10 pathophysiology nodes forming a bifurcating pathograph (tobacco mutagenesis then TP53 inactivation, then either RB1 biallelic loss or STK11/KEAP1 biallelic loss, then checkpoint loss and neuroendocrine lineage programme, then high-grade proliferation, local growth and early dissemination), with three module conformances: genome_instability_mutation#Mutator Phenotype and Chromosomal Instability, evading_growth_suppressors#Loss of Cell-Cycle Checkpoint Control, and invasion_and_metastasis#Metastatic Colonization. 6 has_subtypes covering all six MONDO children (pulmonary, combined pulmonary, thymic, cervical, pancreatic, breast). 5 somatic driver genes, all wired to mechanism nodes. 5 treatments including the RB1-predictive chemotherapy contrast. One animal model (PMID:31611390) with two modeled_mechanisms links, one RECAPITULATES and one PARTIALLY_RECAPITULATES. Two KNOWLEDGE_GAP discussions with proposed experiments.
+
+PHENOTYPES DELIBERATELY NOT CURATED. An earlier draft carried Cough, Hemoptysis, Dyspnea and Weight Loss. They were removed because no available source documents or quantifies them in LCNEC specifically; the only attachable snippets were general &#34;LCNEC is aggressive&#34; statements that do not support a symptom claim (the issue #8352 anti-pattern). They are recorded in the entry&#39;s notes as prose instead. Only the two directly-evidenced phenotypes were kept (lung neoplasm; brain metastasis at 19.2 percent), and both are wired into the pathograph.
+
+SCOPE. Thymic LCNEC (MONDO:0003047) is already curated in depth under Thymic_Neuroendocrine_Carcinoma.yaml and is listed here as a subtype only, not re-derived. Pulmonary-derived mechanism and treatment data are labelled as such rather than generalised across sites; the cervical subtype records a contrasting low-TMB HPV18 case as an explicit caution against that generalisation.
+
+VALIDATION. just validate passed (schema, terms and references). just validate-terms passed. just count-verified-snippets reported 65/65 verified against cached references. just check-title-snippets reported OK with no new title-quoting snippets. just check-duplicate-keys reported OK. Phenotype connectivity 2/2 (100 percent); gene-to-mechanism wiring 5/5 (100 percent). just compliance reported 89.4 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

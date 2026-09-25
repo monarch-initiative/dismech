@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4238,6 +4291,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dsp-premature-termination-codons-triggering-nonsense-mediated-decay" data-dismech-node="DSP Premature Termination Codons Triggering Nonsense-Mediated Decay" data-dismech-type="pathophysiology">
                 <div class="item-name">DSP Premature Termination Codons Triggering Nonsense-Mediated Decay</div>
 
+
                 <div class="item-desc">Heterozygous DSP truncating variants (nonsense, frameshift, splice-site) introduce premature termination codons. Aberrant splicing variants such as 939+1G&gt;A retain intron 7 and place a PTC in the N-terminal coding region; nonsense alleles such as Q331X and frameshifts such as p.Glu831Aspfs*33 generate PTCs in the canonical reading frame. The mutant transcripts are degraded by nuclear-transcribed nonsense-mediated mRNA decay, so no truncated dominant-negative protein accumulates and the affected allele functionally drops out. Variant location matters: PTCs in the regions producing NMD-competent transcripts of both major DSP isoforms (DSPI and DSPII) are markedly enriched in disease cohorts compared with population controls.</div>
 
 
@@ -4443,6 +4497,7 @@ This pathophysiological event involves increased Nuclear-transcribed mRNA catabo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-desmoplakin-haploinsufficiency-in-epidermis" data-dismech-node="Desmoplakin Haploinsufficiency in Epidermis" data-dismech-type="pathophysiology">
                 <div class="item-name">Desmoplakin Haploinsufficiency in Epidermis</div>
+
 
                 <div class="item-desc">Loss of one functional DSP allele halves the dosage of desmoplakin in keratinocytes, the most abundant constitutive component of the desmosomal plaque. The skin-dominant isoform DSPII is particularly sensitive to this dosage reduction: in cultured keratinocytes DSPII is the key component supporting intermediate filament stability and desmosome-mediated adhesion, and reduction of total DSP also lowers plakophilin 1, desmocollin 2 and desmocollin 3, propagating the dosage problem to interacting plaque and cadherin components. Because desmoplakin is the principal link between desmosomes and keratin intermediate filaments, halved dosage degrades both desmosomal assembly and keratin anchoring, with effects most apparent under the mechanical loads borne by palmar and plantar epidermis.</div>
 
@@ -4705,6 +4760,7 @@ This pathophysiological event occurs in Skin of palm and sole, annotated with sk
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-desmosomal-plaque-assembly" data-dismech-node="Defective Desmosomal Plaque Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Desmosomal Plaque Assembly</div>
 
+
                 <div class="item-desc">In SPPK2 epidermis, suprabasal desmosomes form in reduced numbers and with rudimentary architecture. Electron microscopy of palm skin shows a significant decrease in desmosome counts in the suprabasal layers and desmosomes that lack inner plaques or display abnormal keratin filament connections. Confocal analysis additionally shows abnormal expression of plaque components, consistent with the haploinsufficient desmoplakin&#39;s downstream effect on plakophilin and desmocollin partners. The result is a mechanically weak desmosomal scaffold in the layers of the epidermis that normally bear shear stress.</div>
 
 
@@ -4931,6 +4987,7 @@ This pathophysiological event occurs in Skin of palm and sole, annotated with sk
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratin-intermediate-filament-network-disruption" data-dismech-node="Keratin Intermediate Filament Network Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Keratin Intermediate Filament Network Disruption</div>
+
 
                 <div class="item-desc">Loss of desmoplakin-mediated anchoring causes the suprabasal keratin intermediate filament cytoskeleton to detach from the cell periphery and collapse around the nucleus. Affected SPPK2 keratinocytes show perinuclear aggregation of keratin filaments and dense perinuclear tonofilament bundles, accompanied by pronounced upregulation of keratin 16 (a stress/wound keratin) and abnormal involucrin labelling, indicating perturbed terminal differentiation downstream of the cytoskeletal failure.</div>
 
@@ -5201,6 +5258,7 @@ This pathophysiological event occurs in Skin of palm and sole, annotated with sk
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suprabasal-keratinocyte-adhesion-failure-in-mechanical-stress-sites" data-dismech-node="Suprabasal Keratinocyte Adhesion Failure in Mechanical Stress Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Suprabasal Keratinocyte Adhesion Failure in Mechanical Stress Sites</div>
 
+
                 <div class="item-desc">Combined plaque hypoplasia and keratin uncoupling render the suprabasal epidermis mechanically fragile. In palmar and plantar skin, where shear forces are highest, intercellular spaces widen and cell–cell contact loosens. The fragility is friction- and age-dependent: lesions emerge and worsen at trauma-prone sites and with cumulative occupational or activity-related load. This site-restricted adhesion failure explains why the disease is palmoplantar despite the desmoplakin defect being systemic.</div>
 
 
@@ -5394,6 +5452,7 @@ This pathophysiological event occurs in Skin of palm and sole, annotated with sk
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-hyperkeratosis-along-stress-lines" data-dismech-node="Compensatory Hyperkeratosis Along Stress Lines" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Hyperkeratosis Along Stress Lines</div>
+
 
                 <div class="item-desc">Reactive thickening of the cornified layer (hyperkeratosis), expanded granular layer (hypergranulosis) and acanthosis arise as the mechanically fragile palmoplantar epidermis adapts to friction. Because the underlying defect is desmosomal rather than epidermolytic, thickening produces persistent hyperkeratotic plaques rather than blistering, and the distribution traces lines of pressure: linear streaks on palmar and flexor finger surfaces and focal plaques over pressure-bearing plantar sites. Fissures form where the thickened, poorly cohesive epidermis splits under continued stress.</div>
 
@@ -5671,6 +5730,7 @@ This pathophysiological event occurs in Skin of palm and sole, annotated with sk
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dsp-truncating-variant-cardiomyopathy-susceptibility" data-dismech-node="DSP Truncating-Variant Cardiomyopathy Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">DSP Truncating-Variant Cardiomyopathy Susceptibility</div>
 
+
                 <div class="item-desc">A subset of DSP truncating-variant carriers have a cardiocutaneous phenotype in which the same loss-of-function alleles that produce palmoplantar keratoderma also predispose to myocardial disease. Reduced functional desmoplakin in cardiac desmosomes weakens cardiomyocyte mechanical coupling, promoting ventricular dilation, myocardial remodeling and arrhythmia susceptibility. Expression is variable, often adult-onset and modified by truncating-variant location.</div>
 
 
@@ -5866,6 +5926,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5957,6 +6020,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6067,6 +6133,9 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6165,6 +6234,9 @@ This clinical feature is Streaks of hyperkeratosis along each finger onto the pa
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6231,6 +6303,9 @@ This clinical feature is Plantar hyperkeratosis (HP:0007556). HP:0007556 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6334,6 +6409,9 @@ This clinical feature is Hypoplastic suprabasal desmosomes, annotated with Abnor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6432,6 +6510,9 @@ This clinical feature is Perinuclear keratin filament aggregation, annotated wit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6503,6 +6584,9 @@ This clinical feature is Hyperkeratosis (HP:0000962). HP:0000962 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6569,6 +6653,9 @@ This clinical feature is Hypergranulosis (HP:0025114). HP:0025114 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6670,6 +6757,9 @@ This clinical feature is Epidermal acanthosis (HP:0025092). HP:0025092 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6743,6 +6833,9 @@ This clinical feature is Abnormal keratinocyte differentiation, annotated with A
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6809,6 +6902,9 @@ This clinical feature is Skin fissure (HP:0031057). HP:0031057 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6925,6 +7021,9 @@ This disease-associated gene is DSP (hgnc:3052). hgnc:3052 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -7035,6 +7134,7 @@ This disease-associated gene is DSP (hgnc:3052). hgnc:3052 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7054,11 +7154,17 @@ This variant is in DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous nonsense variant in exon 4 of DSP, in the original Northern Irish kindred linked to chromosome 6p21. Predicts a PTC in the N-terminal region; mutant transcript is undetectable, consistent with NMD and haploinsufficiency.</div>
@@ -7121,6 +7227,7 @@ This variant is in DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7140,11 +7247,17 @@ This variant is in DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice site variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous splice-donor variant at intron 7 of DSP. Aberrant splicing retains the entire intron 7, introducing an in-frame PTC within the N-terminal coding region. Provides a second, independent example that DSP haploinsufficiency causes SPPK2.</div>
@@ -7207,6 +7320,7 @@ This variant is in DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomen
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7226,11 +7340,17 @@ This variant is in DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomen
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift truncating variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous frameshift variant identified in a multigenerational Finnish family with focal/striate-spectrum PPK (often the earliest sign) plus dilated cardiomyopathy and arrhythmias in adult carriers. Illustrates that DSPtv haploinsufficiency alleles can extend beyond skin-limited SPPK2 to a cardiocutaneous phenotype.</div>
@@ -7309,6 +7429,12 @@ This variant is in DSP (hgnc:3052). hgnc:3052 is a gene from the HUGO Gene Nomen
                 <div class="item-name">
                     Topical Emollients
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7408,6 +7534,12 @@ This treatment is Keratolytic therapy, annotated with Pharmacotherapy (NCIT:C159
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7550,6 +7682,9 @@ This treatment is Mechanical debridement, annotated with Surgical Procedure (NCI
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7560,6 +7695,9 @@ This treatment is Mechanical debridement, annotated with Surgical Procedure (NCI
 
 
     </div>
+
+
+
 
 
 
@@ -7688,6 +7826,12 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7833,6 +7977,12 @@ This treatment is Orthotic support, annotated with Supportive Care (NCIT:C15747)
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Custom insoles, padded footwear and activity modification reduce the mechanical loading that triggers and sustains plantar lesions in SPPK2.</div>
 
 
@@ -7897,6 +8047,12 @@ This treatment is Serial echocardiographic and electrocardiographic cardiac surv
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8080,6 +8236,12 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9761,6 +9923,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

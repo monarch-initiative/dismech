@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4157,7 +4210,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"Presumed parental germline mosaicism has been reported in one family with two affected sibs."</div>
+                <div class="evidence-snippet">"HNRNPU-NDD is expressed in an autosomal dominant manner and typically caused by a de novo HNRNPU pathogenic variant. The risk to other family members is hypothesized to be low. Presumed parental germline mosaicism has been reported in one family with two affected sibs."</div>
 
 
                 <div class="evidence-explanation">The documented exception that keeps recurrence risk above zero.</div>
@@ -4884,6 +4937,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-hnrnpu-loss-of-function-lesion" data-dismech-node="Heterozygous HNRNPU Loss-of-Function Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous HNRNPU Loss-of-Function Lesion</div>
 
+
                 <div class="item-desc">A de novo heterozygous loss-of-function point variant in HNRNPU, or a 1q44 microdeletion encompassing the gene, is present. Both routes reduce HNRNPU to a single functional copy, which is the starting point this node records - but they are not the same lesion, because a 1q44 deletion also removes AKT3 and ZBTB18 (see the genetic section). This node records the HNRNPU lesion only, not its consequences.</div>
 
 
@@ -5019,6 +5073,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-hnrnp-u-protein-dose" data-dismech-node="Reduced hnRNP U Protein Dose" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced hnRNP U Protein Dose</div>
 
+
                 <div class="item-desc">Haploinsufficiency for an abundant, ubiquitously expressed nuclear protein. Because hnRNP U is required for mammalian development - complete knockout mice die early - the disease is specifically a dose problem rather than an absence problem, and the relevant question is which of its several functions are most dose-sensitive.</div>
 
 
@@ -5102,6 +5157,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-alternative-splicing-program" data-dismech-node="Disrupted Alternative Splicing Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Alternative Splicing Program</div>
+
 
                 <div class="item-desc">Expression and alternative splicing of many genes are altered, with the affected transcripts concentrated in cell survival, cell motility, and synapse formation. This is the post-transcriptional arm.</div>
 
@@ -5225,6 +5281,7 @@ This pathophysiological event involves abnormal regulation of alternative mRNA s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilized-saf-a-rna-nuclear-mesh-and-chromatin-architecture" data-dismech-node="Destabilized SAF-A/RNA Nuclear Mesh and Chromatin Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilized SAF-A/RNA Nuclear Mesh and Chromatin Architecture</div>
 
+
                 <div class="item-desc">hnRNP U oligomerises in an ATP-dependent manner and binds RNA to form a dynamic nuclear mesh that regulates chromatin organization in interphase and mitosis. Reduced protein destabilizes that mesh. Nothing in a splicing assay measures this arm, which is why it is modeled separately.</div>
 
 
@@ -5338,6 +5395,7 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-widespread-transcriptional-dysregulation" data-dismech-node="Widespread Transcriptional Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Widespread Transcriptional Dysregulation</div>
+
 
                 <div class="item-desc">Transcriptome-wide changes across functionally relevant pathways. The dysregulation is notable for being broad but individually modest rather than a small number of large effects, which is why no single downstream gene explains the phenotype.</div>
 
@@ -5469,6 +5527,7 @@ This pathophysiological event involves abnormal regulation of DNA-templated tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-progenitor-cell-death" data-dismech-node="Neural Progenitor Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Progenitor Cell Death</div>
+
 
                 <div class="item-desc">Loss of HNRNPU function causes rapid cell death of both postmitotic neurons and neural progenitors, with progenitors apparently the more sensitive population. This differential vulnerability matters: it means the lesion subtracts cells that would each have produced many neurons, not just the cells directly lost.</div>
 
@@ -5707,6 +5766,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-radial-neuronal-migration" data-dismech-node="Impaired Radial Neuronal Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Radial Neuronal Migration</div>
 
+
                 <div class="item-desc">Neurons that survive migrate abnormally along the radial axis. This is a positioning defect distinct from the cell-death arm, and it is separately rescuable in the model.</div>
 
 
@@ -5816,6 +5876,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cortical-structure" data-dismech-node="Loss of Cortical Structure" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cortical Structure</div>
+
 
                 <div class="item-desc">Cortical structures are lost in the mutant embryonic brain. In the mouse conditional knockout this is severe; the human heterozygous condition produces the much milder nonspecific findings seen on MRI, so this node represents the same process at a different dose.</div>
 
@@ -5951,6 +6012,7 @@ This pathophysiological event involves decreased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synapse-formation-and-circuit-maturation" data-dismech-node="Impaired Synapse Formation and Circuit Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synapse Formation and Circuit Maturation</div>
 
+
                 <div class="item-desc">Synapse formation is among the functional categories whose genes are mis-spliced, and the resulting circuits mature abnormally. This is the synaptic-level convergence point for the splicing, transcriptional, and structural arms.</div>
 
 
@@ -6068,6 +6130,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability" data-dismech-node="Cortical Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability</div>
+
 
                 <div class="item-desc">Cortical networks become seizure-prone. In patients this is inferred from the clinical seizure frequency rather than measured directly; no electrophysiological characterization of the human excitatory-inhibitory balance in this disorder has been published. The direct excitability measurement comes instead from the dose-matched heterozygous mouse, in which the threshold for electrically evoked seizures is significantly reduced.</div>
 
@@ -6224,6 +6287,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-seizures" data-dismech-node="Recurrent Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Seizures</div>
 
+
                 <div class="item-desc">Seizures affect 83-95% of individuals, most commonly tonic-clonic or absence, and may be refractory to treatment.</div>
 
 
@@ -6319,6 +6383,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-delay-and-intellectual-disability" data-dismech-node="Developmental Delay and Intellectual Disability" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Delay and Intellectual Disability</div>
+
 
                 <div class="item-desc">Developmental delay in around 95% of individuals and intellectual disability - typically moderate to severe - with speech and language delay or absent speech. Two upstream routes converge here, the developmental lesion and the seizure burden, and the published data do not separate their contributions.</div>
 
@@ -6473,6 +6538,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6548,6 +6616,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6630,6 +6701,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6726,6 +6800,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6852,6 +6929,9 @@ This clinical feature is Hypotonia (HP:0001252), qualified as temporality chroni
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6927,6 +7007,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7028,6 +7111,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7094,6 +7180,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7195,6 +7284,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7259,6 +7351,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7333,6 +7428,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7399,6 +7497,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7481,6 +7582,9 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7599,6 +7703,9 @@ This disease-associated gene is HNRNPU (hgnc:5048). hgnc:5048 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 
@@ -7777,6 +7884,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7787,6 +7897,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -7934,6 +8047,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7944,6 +8060,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -8039,6 +8158,9 @@ This treatment is respiratory therapy (NCIT:C15322). NCIT:C15322 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8049,6 +8171,9 @@ This treatment is respiratory therapy (NCIT:C15322). NCIT:C15322 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -8144,6 +8269,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8154,6 +8282,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -8249,6 +8380,9 @@ This treatment is preventive intervention (NCIT:C15843). NCIT:C15843 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8259,6 +8393,9 @@ This treatment is preventive intervention (NCIT:C15843). NCIT:C15843 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -8353,6 +8490,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8363,6 +8503,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8482,6 +8625,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8492,6 +8638,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10007,7 +10156,11 @@ inheritance:
     reference_title: &#34;HNRNPU-Related Neurodevelopmental Disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Presumed parental germline mosaicism has been reported in one family with two affected sibs.&#34;
+    snippet: &gt;-
+      HNRNPU-NDD is expressed in an autosomal dominant manner and typically caused by a de
+      novo HNRNPU pathogenic variant. The risk to other family members is hypothesized to be
+      low. Presumed parental germline mosaicism has been reported in one family with two
+      affected sibs.
     explanation: &gt;-
       The documented exception that keeps recurrence risk above zero.
 
@@ -11546,6 +11699,19 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: HNRNPU-Related Developmental and Epileptic Encephalopathy DEE54</strong> · 2026-08-19T14:48:31Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/HNRNPU-Related_Developmental_and_Epileptic_Encephalopathy/2026-08-19T144831Z-claude-code-dc8bf4.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for DEE54 MONDO:0033363, HNRNPU haploinsufficiency. Deep research via &#34;just research-disorder claude_code&#34;; NEC preflight PASS with HNRNPU mentioned 59 times and report OMIM 617391 matching the MONDO xref. GeneReviews baseline PMID:35274911 cross-referenced across all four chapter domains: clinical characteristics, diagnosis, management including the agents-to-avoid section, and genetic counseling. Pathophysiology de-bundled into 12 atomic nodes carrying three parallel molecular arms, because hnRNP U has three documented functions and the disease models cannot currently separate them: an alternative-splicing arm, a chromatin-architecture arm via the SAF-A/RNA nuclear mesh, and a transcriptional arm. Progenitor cell death and radial migration are kept as separate cellular consequences since the rescue experiments correct them separately. Frequency bands are derived from published percentages: developmental delay about 95% VERY_FREQUENT, seizures 83-95% VERY_FREQUENT, intellectual disability 52% FREQUENT, craniofacial dysmorphism 54-95% banded FREQUENT at the lower bound so as not to over-claim, microcephaly 14-20% OCCASIONAL. Four discussions: a KNOWLEDGE_GAP on which of the three functions is the dose-sensitive one, two HUMAN_MODEL_MISMATCH entries covering the conditional-truncation versus heterozygous dose gap and the organoid developmental-window limit, and an OPEN_QUESTION on why valproate is unusually effective here. Validated with just validate 57/57 snippets verified, just validate-terms passed, just check-duplicate-keys, and just check-title-snippets.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12039,7 +12205,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "HNRNPU-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0033363", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "HNRNPU-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "7982240a6c9a"};
+        const OS_CONFIG = {"diseaseName": "HNRNPU-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0033363", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "HNRNPU-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "27f818e30ce2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

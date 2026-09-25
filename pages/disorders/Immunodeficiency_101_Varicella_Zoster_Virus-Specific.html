@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Immunodeficiency%20101%20%28Varicella%20Zoster%20Virus-Specific%29"
@@ -4000,7 +4053,7 @@ Identifier note, and a MONDO gap worth recording: MONDO:0030813 carries NO causa
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">24</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4160,6 +4213,23 @@ Identifier note, and a MONDO gap worth recording: MONDO:0030813 carries NO causa
 
 
                     <span class="tag tag-classification" title="Placed with the immune disorders because the entity is an inborn error of innate antiviral immunity; the presenting illness is neurological, but the lesion is immunological and the susceptibility is what defines the disease.">IMMUNE RHEUMATOLOGIC</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification Table 6 (defects in intrinsic and innate immunity), section 3 (Predisposition to Severe Viral Infection): the three-gene &#34;RNA polymerase III deficiency&#34; row (POLR3A AD 614258, POLR3C AD 617454, POLR3F AD 617455) — those three numbers are the POLR3A, POLR3C and POLR3F *gene* records, not phenotype MIMs; OMIM #619872 and MedGen anchor IMD101 itself on POLR3F. Scope: the classification is anchored on the POLR3F arm, which is the arm this entry&#39;s disease_term resolves through. The entry does model the wider POL III allelic series as one mechanism and its trigger node binds POLR3A, POLR3C, POLR3E and POLR3F, so this is an anchoring statement rather than a claim that the other arms are out of scope.">innate immunity defect</span>
 
                 </div>
 
@@ -4784,6 +4854,7 @@ Identifier note, and a MONDO gap worth recording: MONDO:0030813 carries NO causa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rna-polymerase-iii-subunit-missense-variant" data-dismech-node="RNA Polymerase III Subunit Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">RNA Polymerase III Subunit Missense Variant</div>
 
+
                 <div class="item-desc">Rare heterozygous missense variants in genes encoding subunits of RNA polymerase III. Four subunits have been implicated in VZV susceptibility: POLR3A and POLR3C in children with severe primary VZV disease, POLR3A and POLR3E in adults with VZV CNS infection after reactivation, and POLR3F — the subunit on which OMIM anchors IMD101 — in monozygotic twins with recurrent VZV CNS vasculitis. The variants are damaging but not null: the functional assays show impaired, not abolished, responses, and POL III&#39;s housekeeping transcription of tRNAs and other small RNAs is evidently preserved enough to be compatible with life and with otherwise normal health.</div>
 
 
@@ -4995,6 +5066,8 @@ This genetic context concerns POLR3F (hgnc:15763). hgnc:15763 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -5010,6 +5083,9 @@ This genetic context concerns POLR3F (hgnc:15763). hgnc:15763 is a gene from the
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">The genetic context is written for POLR3F because that is the subunit on which OMIM and MedGen anchor the numbered IMD101 entity; the twins carried the heterozygous R50W substitution. PARTIAL_LOSS_OF_FUNCTION rather than LOSS_OF_FUNCTION is the honest category: the reported functional consequence is impaired antiviral and inflammatory responses and increased viral replication relative to controls, not abolished POL III function, and the housekeeping transcription these subunits also serve is evidently retained. The same category applies to the POLR3A, POLR3C and POLR3E alleles listed on this node.</div>
 
@@ -5157,6 +5233,7 @@ This pathophysiological event involves RNA polymerase III complex (GO:0005666). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cytosolic-sensing-of-at-rich-vzv-dna" data-dismech-node="Impaired Cytosolic Sensing of AT-Rich VZV DNA" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cytosolic Sensing of AT-Rich VZV DNA</div>
+
 
                 <div class="item-desc">RNA polymerase III has a second job beyond housekeeping transcription: in the cytosol it transcribes AT-rich double-stranded DNA into 5&#39;-triphosphate RNA, which is a ligand for RIG-I and thus a trigger for type I interferon. This node is the failure of that recognition step. It is also the best available explanation for the disease&#39;s most striking feature — that the susceptibility is confined to one virus. VZV has an AT-rich genome, so it is the pathogen most dependent on this particular sensing route; patients do not have increased susceptibility to other infections.</div>
 
@@ -5413,6 +5490,7 @@ This pathophysiological event involves decreased transcription by RNA polymerase
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-type-i-interferon-induction" data-dismech-node="Deficient Type I Interferon Induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Type I Interferon Induction</div>
 
+
                 <div class="item-desc">Patient leukocytes mount a poor interferon response to synthetic AT-rich DNA, to VZV-derived DNA, and to VZV infection itself. That the defect is demonstrable with a synthetic agonist as well as with the virus is what separates a sensing defect from a downstream failure of viral handling. The causal weight of this node rests on a rescue experiment: transducing patient cells with the relevant wild-type allele restored the phenotype.</div>
 
 
@@ -5664,6 +5742,7 @@ This pathophysiological event involves decreased type I interferon production (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-restrict-vzv-replication" data-dismech-node="Failure to Restrict VZV Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Restrict VZV Replication</div>
 
+
                 <div class="item-desc">Patient cells permit more VZV replication than control cells. This is the convergence point of the disease: whatever the subunit and whichever phase of the viral life cycle, the cell fails to hold the virus down, and everything downstream is a consequence of uncontrolled VZV in a particular tissue.</div>
 
 
@@ -5811,6 +5890,7 @@ This pathophysiological event involves decreased defense response to virus (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vzv-reactivation-from-latency" data-dismech-node="VZV Reactivation from Latency" data-dismech-type="pathophysiology">
                 <div class="item-name">VZV Reactivation from Latency</div>
 
+
                 <div class="item-desc">VZV establishes latency in sensory ganglia after primary infection and reactivates from there. In POL III deficiency the reactivation arm is what produces the defining adult phenotype, and a neuronal knockout model shows both higher viral gene expression and more spontaneous reactivation in POLR3F-heterozygous cells. Note the model&#39;s own framing: it supports POL III mattering to VZV immunity MAINLY UPON REACTIVATION, which is a claim about where in the viral life cycle the sensor is rate-limiting and should not be flattened into &#34;POL III controls VZV&#34;.</div>
 
 
@@ -5938,6 +6018,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vzv-vasculopathy-of-cerebral-arteries" data-dismech-node="VZV Vasculopathy of Cerebral Arteries" data-dismech-type="pathophysiology">
                 <div class="item-name">VZV Vasculopathy of Cerebral Arteries</div>
 
+
                 <div class="item-desc">Productive VZV infection of cerebral arteries produces a vasculitis affecting large vessels, small vessels, or both. The consequence is ischemic injury, which is why an immunodeficiency presents to a stroke service. Cerebrospinal fluid in the reported twins showed pleocytosis with intrathecal VZV antibody production, and brain MRI showed ischemic lesions.</div>
 
 
@@ -5997,6 +6078,38 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hemiparesis</span>
+
+	                            <span class="crosslink-desc">Unilateral weakness during vasculitic episodes — the presenting event in the index twin at 25, and the clearest clinical expression of cerebral arterial involvement.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Diplopia</span>
+
+	                            <span class="crosslink-desc">Double vision accompanying an episode of hemiparesis and impaired balance, from brainstem or cranial nerve territory involvement.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Paresthesia</span>
+
+	                            <span class="crosslink-desc">Sensory disturbance of limbs and face during episodes, in both twins.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myelitis</span>
+
+	                            <span class="crosslink-desc">Spinal cord lesions at C6 and Th2 on MRI in the second twin. Drawn from the same vasculopathy node because that is what the finding demonstrates: the vascular process is not confined to the cerebral circulation.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cerebral vasculitis</span>
@@ -6109,6 +6222,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-primary-vzv-disease-of-the-cns-and-lungs" data-dismech-node="Severe Primary VZV Disease of the CNS and Lungs" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Primary VZV Disease of the CNS and Lungs</div>
 
+
                 <div class="item-desc">The paediatric arm: otherwise healthy children who, on first meeting VZV, develop CNS disease or pneumonitis instead of uncomplicated varicella. This is a rare outcome at population level — CNS infection and pneumonia complicate roughly 0.02% and 0.25% of childhood primary infections — which is what made a monogenic explanation worth looking for. This node is retained even though the OMIM definition of IMD101 is written around adult reactivation; see the nosology discussion.</div>
 
 
@@ -6151,6 +6265,14 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pneumonitis</span>
+
+	                            <span class="crosslink-desc">VZV pneumonitis, the non-CNS manifestation of severe primary infection, and the reason this node names the lungs alongside the CNS.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Infectious encephalitis</span>
@@ -6253,7 +6375,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acyclovir\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiviral therapy is the mainstay, and OMIM\u0027s own summary of IMD101 states that treatment with acyclovir is effective. Two qualifiers belong with that word. Even with acyclovir, the incidence and severity of sequelae after severe VZV infection are considerable, so effective is not curative, and nothing available treats the underlying sensing defect. And in the reported twins the benefit was not durable: both had a good clinical response during episodes but relapsed with new symptoms AND new MRI lesions when acyclovir was discontinued. In a host whose cell-intrinsic control of VZV is permanently impaired, that is what one would expect, and it is the argument for continued rather than episodic antiviral therapy - though no trial has tested a suppression strategy in this disorder.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"aciclovir\"]}}, {\"id\": \"CSF pleocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebrospinal fluid pleocytosis with intrathecal VZV antibody production, which is what establishes the infection as intrathecal rather than incidental.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012229\"}}, {\"id\": \"Cerebral vasculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammation of cerebral arteries caused by productive VZV infection following reactivation. In the reported POLR3F twins it was recurrent.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005318\"}}, {\"id\": \"Corticosteroids During Acute Vasculitic Episodes\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corticosteroids were given alongside acyclovir during acute episodes in the reported twins, on the reasoning that the presentation is an inflammatory vasculitis and not simply viral replication. The index patient received prednisolone 50 mg daily for 10 days with acyclovir 10 mg/kg three times daily for 14 days, and the authors report good clinical response to the combination. Two cautions belong with this. The contribution of the steroid cannot be separated from that of the antiviral in a two-patient series. And immunosuppression in a patient who already fails to control VZV is not a neutral act - it is given here for the vasculitic component, under antiviral cover, not as monotherapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"prednisolone\"]}}, {\"id\": \"Deficient Type I Interferon Induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient leukocytes mount a poor interferon response to synthetic AT-rich DNA, to VZV-derived DNA, and to VZV infection itself. That the defect is demonstrable with a synthetic agonist as well as with the virus is what separates a sensing defect from a downstream failure of viral handling. The causal weight of this node rests on a rescue experiment: transducing patient cells with the relevant wild-type allele restored the phenotype.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"leukocyte\"], \"biological_processes\": [\"positive regulation of type I interferon production\", \"type I interferon production\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient peripheral blood mononuclear cells with wild-type allele rescue\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Direct measurement in patient cells of the interferon and cytokine defect, with genetic rescue.\"}]}}, {\"id\": \"Failure to Restrict VZV Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient cells permit more VZV replication than control cells. This is the convergence point of the disease: whatever the subunit and whichever phase of the viral life cycle, the cell fails to hold the virus down, and everything downstream is a consequence of uncontrolled VZV in a particular tissue.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"defense response to virus\"], \"role\": \"effector\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent headache accompanying the vasculitic episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Impaired Cytosolic Sensing of AT-Rich VZV DNA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNA polymerase III has a second job beyond housekeeping transcription: in the cytosol it transcribes AT-rich double-stranded DNA into 5\u0027-triphosphate RNA, which is a ligand for RIG-I and thus a trigger for type I interferon. This node is the failure of that recognition step. It is also the best available explanation for the disease\u0027s most striking feature \\u2014 that the susceptibility is confined to one virus. VZV has an AT-rich genome, so it is the pathogen most dependent on this particular sensing route; patients do not have increased susceptibility to other infections.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"leukocyte\"], \"biological_processes\": [\"innate immune response\", \"transcription by RNA polymerase III\"], \"role\": \"central_effector\"}}, {\"id\": \"Infectious encephalitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"VZV encephalitis, part of the CNS disease spectrum in both the paediatric primary-infection and the adult reactivation presentations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002383\"}}, {\"id\": \"Ischemic stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stroke-like episodes with ischemic lesions on brain MRI, the presentation that typically brings an adult with this condition to medical attention.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002140\"}}, {\"id\": \"POLR3F p.Arg50Trp (R50W)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The OMIM-anchoring allele: a rare heterozygous missense change in the N-terminal region of POLR3F, in the winged-helix region of the POLR3F / POLR3C / POLR3G subcomplex required for POL III transcription initiation. Predicted damaging by PolyPhen-2 and SIFT with a CADD score of 25.8, against a mutation significance cutoff of 13.0 for this gene, and POLR3F itself appears to be under purifying selection. Critically, the mutant protein\u0027s expression and solubility are normal, so the allele impairs what the subunit DOES rather than how much of it there is.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"POLR3F+/- SH-SY5Y human neuronal cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human SH-SY5Y neuroblastoma cells engineered to POLR3F heterozygous knockout, used both as differentiated neurons in acute VZV infection and in a quiescent infection model that permits spontaneous reactivation to be quantified. This is the only model that addresses the reactivation arm directly.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Patient peripheral blood mononuclear cells with wild-type allele rescue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary patient leukocytes stimulated with the POL III agonist poly(dA:dT), with VZV-derived DNA, or infected with VZV, and compared against healthy controls. In the founding study the defective phenotypes were rescued by transduction with the relevant wild-type allele, which is what converts an association into a causal claim.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"RNA Polymerase III Subunit Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rare heterozygous missense variants in genes encoding subunits of RNA polymerase III. Four subunits have been implicated in VZV susceptibility: POLR3A and POLR3C in children with severe primary VZV disease, POLR3A and POLR3E in adults with VZV CNS infection after reactivation, and POLR3F \\u2014 the subunit on which OMIM anchors IMD101 \\u2014 in monozygotic twins with recurrent VZV CNS vasculitis. The variants are damaging but not null: the functional assays show impaired, not abolished, responses, and POL III\u0027s housekeeping transcription of tRNAs and other small RNAs is evidently preserved enough to be compatible with life and with otherwise normal health.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"POLR3A\", \"POLR3C\", \"POLR3E\", \"POLR3F\"], \"gene_terms\": [{\"label\": \"POLR3A\", \"id\": \"hgnc:30074\"}, {\"label\": \"POLR3C\", \"id\": \"hgnc:30076\"}, {\"label\": \"POLR3E\", \"id\": \"hgnc:30347\"}, {\"label\": \"POLR3F\", \"id\": \"hgnc:15763\"}], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"The genetic context is written for POLR3F because that is the subunit on which OMIM and MedGen anchor the numbered IMD101 entity; the twins carried the heterozygous R50W substitution. PARTIAL_LOSS_OF_FUNCTION rather than LOSS_OF_FUNCTION is the honest category: the reported functional consequence is impaired antiviral and inflammatory responses and increased viral replication relative to controls, not abolished POL III function, and the housekeeping transcription these subunits also serve is evidently retained. The same category applies to the POLR3A, POLR3C and POLR3E alleles listed on this node.\", \"gene_terms\": [{\"label\": \"POLR3F\", \"id\": \"hgnc:15763\"}]}, \"role\": \"trigger\"}}, {\"id\": \"RNA polymerase III subunit variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"POLR3F\"], \"gene_terms\": [{\"label\": \"POLR3F\", \"id\": \"hgnc:15763\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"Severe Primary VZV Disease of the CNS and Lungs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The paediatric arm: otherwise healthy children who, on first meeting VZV, develop CNS disease or pneumonitis instead of uncomplicated varicella. This is a rare outcome at population level \\u2014 CNS infection and pneumonia complicate roughly 0.02% and 0.25% of childhood primary infections \\u2014 which is what made a monogenic explanation worth looking for. This node is retained even though the OMIM definition of IMD101 is written around adult reactivation; see the nosology discussion.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"central nervous system\"]}}, {\"id\": \"VZV Reactivation from Latency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VZV establishes latency in sensory ganglia after primary infection and reactivates from there. In POL III deficiency the reactivation arm is what produces the defining adult phenotype, and a neuronal knockout model shows both higher viral gene expression and more spontaneous reactivation in POLR3F-heterozygous cells. Note the model\u0027s own framing: it supports POL III mattering to VZV immunity MAINLY UPON REACTIVATION, which is a claim about where in the viral life cycle the sensor is rate-limiting and should not be flattened into \\\"POL III controls VZV\\\".\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"POLR3F+/- SH-SY5Y human neuronal cell model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"POLR3F-heterozygous neuronal cells show higher viral gene expression and more spontaneous VZV reactivation than wild type, which the authors describe as reflecting the patient phenotype.\"}]}}, {\"id\": \"VZV Vasculopathy of Cerebral Arteries\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Productive VZV infection of cerebral arteries produces a vasculitis affecting large vessels, small vessels, or both. The consequence is ischemic injury, which is why an immunodeficiency presents to a stroke service. Cerebrospinal fluid in the reported twins showed pleocytosis with intrathecal VZV antibody production, and brain MRI showed ischemic lesions.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"artery\", \"brain\"]}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dizziness during the recurrent episodes. Curated against the closest HPO term; the source says \\\"dizziness\\\", which is not necessarily vestibular vertigo.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002321\"}}], \"edges\": [{\"source\": \"RNA Polymerase III Subunit Missense Variant\", \"target\": \"Impaired Cytosolic Sensing of AT-Rich VZV DNA\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variants sit in the sensor itself, so the function that fails is recognition of AT-rich cytosolic DNA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytosolic Sensing of AT-Rich VZV DNA\", \"target\": \"Deficient Type I Interferon Induction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of sensing means the interferon response that sensing normally triggers is not mounted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Type I Interferon Induction\", \"target\": \"Failure to Restrict VZV Replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without an adequate interferon response the cell does not establish the antiviral state that limits VZV replication.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict VZV Replication\", \"target\": \"VZV Reactivation from Latency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cell-intrinsic restraint in neurons permits reactivation from latency, which is the arm that produces the adult presentation on which the numbered OMIM entity is defined. The direct evidence is a neuronal cell model rather than patient tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure to Restrict VZV Replication\", \"target\": \"Severe Primary VZV Disease of the CNS and Lungs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In children meeting the virus for the first time, the same failure of restraint permits severe primary disease rather than uncomplicated varicella.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Reactivation from Latency\", \"target\": \"VZV Vasculopathy of Cerebral Arteries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactivated VZV productively infects cerebral arteries, which is the lesion behind the stroke-like presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Cerebral vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The arterial inflammation is itself the curated phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Ischemic stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasculitic occlusion of cerebral arteries produces ischemic lesions and the stroke-like episodes that bring these patients to attention.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Headache was a recurrent presenting symptom of the vasculitic episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dizziness accompanied the recurrent episodes in the reported twins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"CSF pleocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammation of the cerebral vasculature and meninges produces a cerebrospinal fluid pleocytosis with intrathecal VZV antibody.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Primary VZV Disease of the CNS and Lungs\", \"target\": \"Infectious encephalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS involvement in severe primary VZV disease manifests as cerebellitis, encephalitis or stroke.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acyclovir\", \"target\": \"Failure to Restrict VZV Replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroids During Acute Vasculitic Episodes\", \"target\": \"VZV Vasculopathy of Cerebral Arteries\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"POLR3F+/- SH-SY5Y human neuronal cell model\", \"target\": \"VZV Reactivation from Latency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"POLR3F-heterozygous neuronal cells show higher viral gene expression and more spontaneous VZV reactivation than wild type, which the authors describe as reflecting the patient phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"SH-SY5Y is a neuroblastoma line rather than a sensory ganglion neuron, and the quiescent-infection system is a surrogate for latency rather than latency itself. The genotype is an engineered heterozygous knockout, not the patients\u0027 R50W missense allele, so the model tests gene dosage rather than the specific human variant. Effects were noted in early-passage cells.\"}, {\"source\": \"Patient peripheral blood mononuclear cells with wild-type allele rescue\", \"target\": \"Deficient Type I Interferon Induction\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Direct measurement in patient cells of the interferon and cytokine defect, with genetic rescue.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Peripheral blood mononuclear cells are not the cell type in which the disease manifests \\u2014 the lesion presents in cerebral arteries and neurons \\u2014 so the assay establishes the cell-intrinsic defect rather than its tissue consequence. Rescue was reported for the founding POLR3A/POLR3C patients; no equivalent rescue is reported for the POLR3F twins.\"}, {\"source\": \"RNA polymerase III subunit variants\", \"target\": \"RNA Polymerase III Subunit Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"POLR3F p.Arg50Trp (R50W)\", \"target\": \"RNA polymerase III subunit variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acyclovir\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiviral therapy is the mainstay, and OMIM\u0027s own summary of IMD101 states that treatment with acyclovir is effective. Two qualifiers belong with that word. Even with acyclovir, the incidence and severity of sequelae after severe VZV infection are considerable, so effective is not curative, and nothing available treats the underlying sensing defect. And in the reported twins the benefit was not durable: both had a good clinical response during episodes but relapsed with new symptoms AND new MRI lesions when acyclovir was discontinued. In a host whose cell-intrinsic control of VZV is permanently impaired, that is what one would expect, and it is the argument for continued rather than episodic antiviral therapy - though no trial has tested a suppression strategy in this disorder.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"aciclovir\"]}}, {\"id\": \"CSF pleocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebrospinal fluid pleocytosis with intrathecal VZV antibody production, which is what establishes the infection as intrathecal rather than incidental.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012229\"}}, {\"id\": \"Cerebral vasculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammation of cerebral arteries caused by productive VZV infection following reactivation. In the reported POLR3F twins it was recurrent.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005318\"}}, {\"id\": \"Corticosteroids During Acute Vasculitic Episodes\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corticosteroids were given alongside acyclovir during acute episodes in the reported twins, on the reasoning that the presentation is an inflammatory vasculitis and not simply viral replication. The index patient received prednisolone 50 mg daily for 10 days with acyclovir 10 mg/kg three times daily for 14 days, and the authors report good clinical response to the combination. Two cautions belong with this. The contribution of the steroid cannot be separated from that of the antiviral in a two-patient series. And immunosuppression in a patient who already fails to control VZV is not a neutral act - it is given here for the vasculitic component, under antiviral cover, not as monotherapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"prednisolone\"]}}, {\"id\": \"Deficient Type I Interferon Induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient leukocytes mount a poor interferon response to synthetic AT-rich DNA, to VZV-derived DNA, and to VZV infection itself. That the defect is demonstrable with a synthetic agonist as well as with the virus is what separates a sensing defect from a downstream failure of viral handling. The causal weight of this node rests on a rescue experiment: transducing patient cells with the relevant wild-type allele restored the phenotype.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"leukocyte\"], \"biological_processes\": [\"positive regulation of type I interferon production\", \"type I interferon production\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient peripheral blood mononuclear cells with wild-type allele rescue\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Direct measurement in patient cells of the interferon and cytokine defect, with genetic rescue.\"}]}}, {\"id\": \"Diplopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Double vision accompanying an episode of hemiparesis and impaired balance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000651\"}}, {\"id\": \"Failure to Restrict VZV Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient cells permit more VZV replication than control cells. This is the convergence point of the disease: whatever the subunit and whichever phase of the viral life cycle, the cell fails to hold the virus down, and everything downstream is a consequence of uncontrolled VZV in a particular tissue.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"defense response to virus\"], \"role\": \"effector\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent headache accompanying the vasculitic episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hemiparesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unilateral weakness during vasculitic episodes; the first episode in the index twin was left-sided hemiparesis with headache at age 25, and a later episode was right-sided.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001269\"}}, {\"id\": \"Impaired Cytosolic Sensing of AT-Rich VZV DNA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNA polymerase III has a second job beyond housekeeping transcription: in the cytosol it transcribes AT-rich double-stranded DNA into 5\u0027-triphosphate RNA, which is a ligand for RIG-I and thus a trigger for type I interferon. This node is the failure of that recognition step. It is also the best available explanation for the disease\u0027s most striking feature \\u2014 that the susceptibility is confined to one virus. VZV has an AT-rich genome, so it is the pathogen most dependent on this particular sensing route; patients do not have increased susceptibility to other infections.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"leukocyte\"], \"biological_processes\": [\"innate immune response\", \"transcription by RNA polymerase III\"], \"role\": \"central_effector\"}}, {\"id\": \"Infectious encephalitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"VZV encephalitis, part of the CNS disease spectrum in both the paediatric primary-infection and the adult reactivation presentations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002383\"}}, {\"id\": \"Ischemic stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stroke-like episodes with ischemic lesions on brain MRI, the presentation that typically brings an adult with this condition to medical attention.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002140\"}}, {\"id\": \"Myelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal cord involvement was demonstrated in the second twin, with lesions at C6 and Th2 on MRI - evidence that the vasculopathy is not confined to the brain.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012486\"}}, {\"id\": \"POLR3F p.Arg50Trp (R50W)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The OMIM-anchoring allele: a rare heterozygous missense change in the N-terminal region of POLR3F, in the winged-helix region of the POLR3F / POLR3C / POLR3G subcomplex required for POL III transcription initiation. Predicted damaging by PolyPhen-2 and SIFT with a CADD score of 25.8, against a mutation significance cutoff of 13.0 for this gene, and POLR3F itself appears to be under purifying selection. Critically, the mutant protein\u0027s expression and solubility are normal, so the allele impairs what the subunit DOES rather than how much of it there is.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"POLR3F+/- SH-SY5Y human neuronal cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human SH-SY5Y neuroblastoma cells engineered to POLR3F heterozygous knockout, used both as differentiated neurons in acute VZV infection and in a quiescent infection model that permits spontaneous reactivation to be quantified. This is the only model that addresses the reactivation arm directly.\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Paresthesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory disturbance of the limbs and face during episodes, in both twins.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003401\"}}, {\"id\": \"Patient peripheral blood mononuclear cells with wild-type allele rescue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary patient leukocytes stimulated with the POL III agonist poly(dA:dT), with VZV-derived DNA, or infected with VZV, and compared against healthy controls. In the founding study the defective phenotypes were rescued by transduction with the relevant wild-type allele, which is what converts an association into a causal claim.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Pneumonitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"VZV pneumonitis, the non-CNS manifestation of severe primary infection in the paediatric arm.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002090\"}}, {\"id\": \"RNA Polymerase III Subunit Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rare heterozygous missense variants in genes encoding subunits of RNA polymerase III. Four subunits have been implicated in VZV susceptibility: POLR3A and POLR3C in children with severe primary VZV disease, POLR3A and POLR3E in adults with VZV CNS infection after reactivation, and POLR3F \\u2014 the subunit on which OMIM anchors IMD101 \\u2014 in monozygotic twins with recurrent VZV CNS vasculitis. The variants are damaging but not null: the functional assays show impaired, not abolished, responses, and POL III\u0027s housekeeping transcription of tRNAs and other small RNAs is evidently preserved enough to be compatible with life and with otherwise normal health.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"POLR3A\", \"POLR3C\", \"POLR3E\", \"POLR3F\"], \"gene_terms\": [{\"label\": \"POLR3A\", \"id\": \"hgnc:30074\"}, {\"label\": \"POLR3C\", \"id\": \"hgnc:30076\"}, {\"label\": \"POLR3E\", \"id\": \"hgnc:30347\"}, {\"label\": \"POLR3F\", \"id\": \"hgnc:15763\"}], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"The genetic context is written for POLR3F because that is the subunit on which OMIM and MedGen anchor the numbered IMD101 entity; the twins carried the heterozygous R50W substitution. PARTIAL_LOSS_OF_FUNCTION rather than LOSS_OF_FUNCTION is the honest category: the reported functional consequence is impaired antiviral and inflammatory responses and increased viral replication relative to controls, not abolished POL III function, and the housekeeping transcription these subunits also serve is evidently retained. The same category applies to the POLR3A, POLR3C and POLR3E alleles listed on this node.\", \"gene_terms\": [{\"label\": \"POLR3F\", \"id\": \"hgnc:15763\"}]}, \"role\": \"trigger\"}}, {\"id\": \"RNA polymerase III subunit variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"POLR3F\"], \"gene_terms\": [{\"label\": \"POLR3F\", \"id\": \"hgnc:15763\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"Severe Primary VZV Disease of the CNS and Lungs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The paediatric arm: otherwise healthy children who, on first meeting VZV, develop CNS disease or pneumonitis instead of uncomplicated varicella. This is a rare outcome at population level \\u2014 CNS infection and pneumonia complicate roughly 0.02% and 0.25% of childhood primary infections \\u2014 which is what made a monogenic explanation worth looking for. This node is retained even though the OMIM definition of IMD101 is written around adult reactivation; see the nosology discussion.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"central nervous system\"]}}, {\"id\": \"VZV Reactivation from Latency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VZV establishes latency in sensory ganglia after primary infection and reactivates from there. In POL III deficiency the reactivation arm is what produces the defining adult phenotype, and a neuronal knockout model shows both higher viral gene expression and more spontaneous reactivation in POLR3F-heterozygous cells. Note the model\u0027s own framing: it supports POL III mattering to VZV immunity MAINLY UPON REACTIVATION, which is a claim about where in the viral life cycle the sensor is rate-limiting and should not be flattened into \\\"POL III controls VZV\\\".\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"POLR3F+/- SH-SY5Y human neuronal cell model\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"POLR3F-heterozygous neuronal cells show higher viral gene expression and more spontaneous VZV reactivation than wild type, which the authors describe as reflecting the patient phenotype.\"}]}}, {\"id\": \"VZV Vasculopathy of Cerebral Arteries\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Productive VZV infection of cerebral arteries produces a vasculitis affecting large vessels, small vessels, or both. The consequence is ischemic injury, which is why an immunodeficiency presents to a stroke service. Cerebrospinal fluid in the reported twins showed pleocytosis with intrathecal VZV antibody production, and brain MRI showed ischemic lesions.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"artery\", \"brain\"]}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dizziness during the recurrent episodes. Curated against the closest HPO term; the source says \\\"dizziness\\\", which is not necessarily vestibular vertigo.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002321\"}}], \"edges\": [{\"source\": \"RNA Polymerase III Subunit Missense Variant\", \"target\": \"Impaired Cytosolic Sensing of AT-Rich VZV DNA\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variants sit in the sensor itself, so the function that fails is recognition of AT-rich cytosolic DNA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytosolic Sensing of AT-Rich VZV DNA\", \"target\": \"Deficient Type I Interferon Induction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of sensing means the interferon response that sensing normally triggers is not mounted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Type I Interferon Induction\", \"target\": \"Failure to Restrict VZV Replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without an adequate interferon response the cell does not establish the antiviral state that limits VZV replication.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Restrict VZV Replication\", \"target\": \"VZV Reactivation from Latency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cell-intrinsic restraint in neurons permits reactivation from latency, which is the arm that produces the adult presentation on which the numbered OMIM entity is defined. The direct evidence is a neuronal cell model rather than patient tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure to Restrict VZV Replication\", \"target\": \"Severe Primary VZV Disease of the CNS and Lungs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In children meeting the virus for the first time, the same failure of restraint permits severe primary disease rather than uncomplicated varicella.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Reactivation from Latency\", \"target\": \"VZV Vasculopathy of Cerebral Arteries\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactivated VZV productively infects cerebral arteries, which is the lesion behind the stroke-like presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Hemiparesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unilateral weakness during vasculitic episodes \\u2014 the presenting event in the index twin at 25, and the clearest clinical expression of cerebral arterial involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Diplopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Double vision accompanying an episode of hemiparesis and impaired balance, from brainstem or cranial nerve territory involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Paresthesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory disturbance of limbs and face during episodes, in both twins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Myelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spinal cord lesions at C6 and Th2 on MRI in the second twin. Drawn from the same vasculopathy node because that is what the finding demonstrates: the vascular process is not confined to the cerebral circulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Cerebral vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The arterial inflammation is itself the curated phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Ischemic stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasculitic occlusion of cerebral arteries produces ischemic lesions and the stroke-like episodes that bring these patients to attention.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Headache was a recurrent presenting symptom of the vasculitic episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dizziness accompanied the recurrent episodes in the reported twins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VZV Vasculopathy of Cerebral Arteries\", \"target\": \"CSF pleocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammation of the cerebral vasculature and meninges produces a cerebrospinal fluid pleocytosis with intrathecal VZV antibody.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Primary VZV Disease of the CNS and Lungs\", \"target\": \"Pneumonitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VZV pneumonitis, the non-CNS manifestation of severe primary infection, and the reason this node names the lungs alongside the CNS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Primary VZV Disease of the CNS and Lungs\", \"target\": \"Infectious encephalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS involvement in severe primary VZV disease manifests as cerebellitis, encephalitis or stroke.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acyclovir\", \"target\": \"Failure to Restrict VZV Replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroids During Acute Vasculitic Episodes\", \"target\": \"VZV Vasculopathy of Cerebral Arteries\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"POLR3F+/- SH-SY5Y human neuronal cell model\", \"target\": \"VZV Reactivation from Latency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"POLR3F-heterozygous neuronal cells show higher viral gene expression and more spontaneous VZV reactivation than wild type, which the authors describe as reflecting the patient phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"SH-SY5Y is a neuroblastoma line rather than a sensory ganglion neuron, and the quiescent-infection system is a surrogate for latency rather than latency itself. The genotype is an engineered heterozygous knockout, not the patients\u0027 R50W missense allele, so the model tests gene dosage rather than the specific human variant. Effects were noted in early-passage cells.\"}, {\"source\": \"Patient peripheral blood mononuclear cells with wild-type allele rescue\", \"target\": \"Deficient Type I Interferon Induction\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Direct measurement in patient cells of the interferon and cytokine defect, with genetic rescue.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"Peripheral blood mononuclear cells are not the cell type in which the disease manifests \\u2014 the lesion presents in cerebral arteries and neurons \\u2014 so the assay establishes the cell-intrinsic defect rather than its tissue consequence. Rescue was reported for the founding POLR3A/POLR3C patients; no equivalent rescue is reported for the POLR3F twins.\"}, {\"source\": \"RNA polymerase III subunit variants\", \"target\": \"RNA Polymerase III Subunit Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"POLR3F p.Arg50Trp (R50W)\", \"target\": \"RNA polymerase III subunit variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6339,6 +6461,9 @@ This clinical feature is Cerebral vasculitis (HP:0005318), qualified as temporal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6403,6 +6528,9 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6486,6 +6614,9 @@ This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6559,6 +6690,9 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6642,6 +6776,9 @@ This clinical feature is Myelitis (HP:0012486). HP:0012486 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6706,6 +6843,9 @@ This clinical feature is Infectious encephalitis (HP:0002383). HP:0002383 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6777,6 +6917,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6878,6 +7021,9 @@ This clinical feature is Headache (HP:0002315), qualified as temporality recurre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6942,6 +7088,9 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7016,6 +7165,9 @@ This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7080,6 +7232,9 @@ This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7200,6 +7355,9 @@ This disease-associated gene is POLR3F (hgnc:15763). hgnc:15763 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7301,6 +7459,12 @@ This disease-associated gene is POLR3F (hgnc:15763). hgnc:15763 is a gene from t
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The OMIM-anchoring allele: a rare heterozygous missense change in the N-terminal region of POLR3F, in the winged-helix region of the POLR3F / POLR3C / POLR3G subcomplex required for POL III transcription initiation. Predicted damaging by PolyPhen-2 and SIFT with a CADD score of 25.8, against a mutation significance cutoff of 13.0 for this gene, and POLR3F itself appears to be under purifying selection. Critically, the mutant protein&#39;s expression and solubility are normal, so the allele impairs what the subunit DOES rather than how much of it there is.</div>
@@ -7467,6 +7631,9 @@ This treatment uses aciclovir, annotated with acyclovir (CHEBI:2453). CHEBI:2453
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7477,6 +7644,9 @@ This treatment uses aciclovir, annotated with acyclovir (CHEBI:2453). CHEBI:2453
 
 
     </div>
+
+
+
 
 
 
@@ -7673,6 +7843,9 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7683,6 +7856,9 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7835,6 +8011,9 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7845,6 +8024,9 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9115,6 +9297,32 @@ classifications:
       Placed with the immune disorders because the entity is an inborn error of
       innate antiviral immunity; the presenting illness is neurological, but the
       lesion is immunological and the susceptibility is what defines the disease.
+  iuis_category:
+    classification_value: innate immunity defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification Table 6 (defects in intrinsic and
+      innate immunity), section 3 (Predisposition to Severe Viral Infection):
+      the three-gene &#34;RNA polymerase III deficiency&#34; row (POLR3A AD 614258,
+      POLR3C AD 617454, POLR3F AD 617455) — those three numbers are the
+      POLR3A, POLR3C and POLR3F *gene* records, not phenotype MIMs; OMIM
+      #619872 and MedGen anchor IMD101 itself on POLR3F. Scope: the
+      classification is anchored on the POLR3F arm, which is the arm this
+      entry&#39;s disease_term resolves through. The entry does model the wider
+      POL III allelic series as one mechanism and its trigger node binds
+      POLR3A, POLR3C, POLR3E and POLR3F, so this is an anchoring statement
+      rather than a claim that the other arms are out of scope.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;RNA polymerase III deficiency POLR3F AD 617455 Leukocytes and other cells Impaired viral recognition and IFN induction in response to VZV or poly I:C Severe VZV infection&#34;
+      explanation: &gt;-
+        The RNA polymerase III deficiency row of IUIS 2022 Table 6, section 3,
+        read at its POLR3F arm. In the typeset table the row label &#34;RNA
+        polymerase III deficiency&#34; wraps across the three gene lines, so the
+        quote runs from the label through the POLR3F gene entry to the shared
+        affected-function and associated-feature columns.
 infectious_agent:
 - name: Varicella zoster virus
   infectious_agent_term:
@@ -9620,6 +9828,22 @@ pathophysiology:
       States that the stroke-like presentation of VZV CNS disease is
       vasculitic in mechanism.
   downstream:
+  - target: Hemiparesis
+    causal_link_type: DIRECT
+    description: &gt;-
+      Unilateral weakness during vasculitic episodes — the presenting event in the index twin at 25, and the clearest clinical expression of cerebral arterial involvement.
+  - target: Diplopia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Double vision accompanying an episode of hemiparesis and impaired balance, from brainstem or cranial nerve territory involvement.
+  - target: Paresthesia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Sensory disturbance of limbs and face during episodes, in both twins.
+  - target: Myelitis
+    causal_link_type: DIRECT
+    description: &gt;-
+      Spinal cord lesions at C6 and Th2 on MRI in the second twin. Drawn from the same vasculopathy node because that is what the finding demonstrates: the vascular process is not confined to the cerebral circulation.
   - target: Cerebral vasculitis
     causal_link_type: DIRECT
     description: &gt;-
@@ -9722,6 +9946,10 @@ pathophysiology:
       (&#34;The frequencies of VZV CNS infec-tion&#34;) are hyphenated across a line
       break in the cached typeset text.
   downstream:
+  - target: Pneumonitis
+    causal_link_type: DIRECT
+    description: &gt;-
+      VZV pneumonitis, the non-CNS manifestation of severe primary infection, and the reason this node names the lungs alongside the CNS.
   - target: Infectious encephalitis
     causal_link_type: DIRECT
     description: &gt;-
@@ -10763,6 +10991,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11250,7 +11480,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Immunodeficiency 101 (Varicella Zoster Virus-Specific)", "mondoId": "MONDO:0030813", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_101_Varicella_Zoster_Virus-Specific", "yamlRevision": "5c153aa9a240"};
+        const OS_CONFIG = {"diseaseName": "Immunodeficiency 101 (Varicella Zoster Virus-Specific)", "mondoId": "MONDO:0030813", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_101_Varicella_Zoster_Virus-Specific", "yamlRevision": "7cb3ebbd74f5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

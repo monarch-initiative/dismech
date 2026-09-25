@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5219,6 +5272,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chd8-haploinsufficiency" data-dismech-node="CHD8 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CHD8 Haploinsufficiency</div>
 
+
                 <div class="item-desc">A heterozygous loss-of-function variant in CHD8 (nonsense, frameshift, splice, or a whole-gene 14q11.2 deletion) reduces functional chromodomain helicase DNA-binding protein 8 to roughly half of the normal dose. CHD8 is the root molecular lesion of the syndrome; the disorder is a dosage disease rather than a dominant-negative or gain-of-function condition, and truncating variants are essentially absent from population controls.</div>
 
 
@@ -5312,6 +5366,8 @@ This genetic context concerns CHD8 (hgnc:20153). hgnc:20153 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5324,6 +5380,9 @@ This genetic context concerns CHD8 (hgnc:20153). hgnc:20153 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">De novo heterozygous truncating CHD8 alleles and microdeletions. Recorded as LOSS_OF_FUNCTION (haploinsufficiency).</div>
 
@@ -5520,6 +5579,7 @@ This pathophysiological event involves decreased chromatin binding (GO:0003682).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-chromatin-remodelling-at-chd8-target-promoters" data-dismech-node="Failure of Chromatin Remodelling at CHD8 Target Promoters" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Chromatin Remodelling at CHD8 Target Promoters</div>
+
 
                 <div class="item-desc">CHD8 binds chromatin very widely - thousands of replicated promoter-proximal sites in neural progenitors - and its target set is strongly enriched for other autism risk genes and for chromatin-modification and transcription-regulation genes. Reduced CHD8 dose therefore acts as a hub lesion: a limited set of direct binding-site effects is amplified into a far larger secondary transcriptional network.</div>
 
@@ -5725,6 +5785,7 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulation-of-neurodevelopmental-gene-networks" data-dismech-node="Dysregulation of Neurodevelopmental Gene Networks" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulation of Neurodevelopmental Gene Networks</div>
+
 
                 <div class="item-desc">Reducing CHD8 to single-allele levels perturbs the expression of well over a thousand genes. Directly bound genes are dominated by chromatin and transcriptional regulators, while the indirectly down-regulated secondary network is dominated by brain-development programmes - synapse formation, neuron differentiation, cell adhesion, and axon guidance. This secondary network, not any single target, is the proximate cause of the neurodevelopmental phenotype.</div>
 
@@ -5986,6 +6047,7 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-wnt-beta-catenin-signal-transduction" data-dismech-node="Impaired Wnt/beta-Catenin Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Wnt/beta-Catenin Signal Transduction</div>
 
+
                 <div class="item-desc">CHD8 interacts with beta-catenin and regulates the expression of key transducers of the Wnt pathway. Chd8 knockdown disrupts Wnt signalling during cortical development, and restoring Wnt signalling rescues the resulting transcriptional and behavioural deficits, making this a mechanistically load-bearing branch rather than a correlate. Wnt/chromatin-remodelling connectivity is also the network into which the most disruptive de novo autism mutations fall.</div>
 
 
@@ -6123,6 +6185,7 @@ This pathophysiological event involves abnormal canonical Wnt signaling pathway 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rest-mediated-repression-of-neuronal-genes" data-dismech-node="REST-Mediated Repression of Neuronal Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">REST-Mediated Repression of Neuronal Genes</div>
 
+
                 <div class="item-desc">CHD8 physically interacts with the RE-1 silencing transcription factor (REST). When CHD8 is reduced, REST is abnormally activated and represses the transcription of many neuronal genes, providing one route by which a chromatin dosage lesion is converted into a global delay of the neuronal differentiation programme. REST activation has also been observed in autism brain tissue.</div>
 
 
@@ -6234,6 +6297,7 @@ This pathophysiological event involves increased negative regulation of transcri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-neural-progenitor-proliferation-and-delayed-neuronal-differentiation" data-dismech-node="Altered Neural Progenitor Proliferation and Delayed Neuronal Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Neural Progenitor Proliferation and Delayed Neuronal Differentiation</div>
+
 
                 <div class="item-desc">The convergent cellular consequence of the transcriptional lesion. CHD8 normally stimulates cell-cycle gene transcription while restraining premature induction of neural-specific genes; at reduced dose the balance between progenitor proliferation and differentiation is disturbed and neurodevelopment is globally delayed. In mouse models the effect is dosage-graded: heterozygous and mildly hypomorphic animals show increased proliferation of intermediate progenitors and brain hyperplasia, whereas severe depletion flips the phenotype to p53-driven apoptosis and brain hypoplasia.</div>
 
@@ -6543,6 +6607,7 @@ This pathophysiological event involves abnormal cell cycle (GO:0007049). GO:0007
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brain-overgrowth-and-megalencephaly" data-dismech-node="Brain Overgrowth and Megalencephaly" data-dismech-type="pathophysiology">
                 <div class="item-name">Brain Overgrowth and Megalencephaly</div>
 
+
                 <div class="item-desc">Expansion of the progenitor pool translates into increased brain size, which is the tissue-level substrate of the clinical macrocephaly. This is one of the most robustly cross-validated nodes in the entry: chd8 suppression enlarges the forebrain/midbrain in zebrafish, Chd8 heterozygous mice have increased brain size, and CHD8-haploinsufficient human cerebral organoids are enlarged.</div>
 
 
@@ -6728,6 +6793,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitatory-inhibitory-neuronal-trajectory-imbalance" data-dismech-node="Excitatory-Inhibitory Neuronal Trajectory Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitatory-Inhibitory Neuronal Trajectory Imbalance</div>
 
+
                 <div class="item-desc">In isogenic human cerebral organoids, CHD8 haploinsufficiency accelerates generation of inhibitory neurons and delays generation of excitatory neurons, producing symmetrically opposite, time-dependent distortions of their proportions. The effect is cell-autonomous and reflects abnormal proliferation and alternative-splicing programmes rather than a static shift in cell identity.</div>
 
 
@@ -6912,6 +6978,7 @@ This pathophysiological event involves abnormal cerebral cortex neuron different
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-long-range-functional-connectivity" data-dismech-node="Aberrant Long-Range Functional Connectivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Long-Range Functional Connectivity</div>
 
+
                 <div class="item-desc">Downregulation of the cell-adhesion and axon-guidance programme that builds long-range projections is followed by measurable changes in functional brain connectivity. Resting-state fMRI in Chd8 heterozygous mice shows increased synchronised activity in cortico-hippocampal and auditory-parietal networks, suggesting that CHD8-NDD is a subtype of autism characterised by long-range OVER-connectivity, in contrast to the under-connectivity more often reported in idiopathic autism.</div>
 
 
@@ -7049,6 +7116,7 @@ This pathophysiological event involves decreased axon guidance (GO:0007411). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autistic-cognitive-and-neuropsychiatric-phenotype" data-dismech-node="Autistic, Cognitive and Neuropsychiatric Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Autistic, Cognitive and Neuropsychiatric Phenotype</div>
 
+
                 <div class="item-desc">The organism-level neurobehavioural endpoint: autism spectrum disorder, developmental delay with disproportionate speech and motor involvement, intellectual disability usually in the mild-to-moderate range, and neuropsychiatric comorbidity including anxiety, ADHD, and aggressive or self-injurious behaviour. Chd8 heterozygous mice recapitulate the behavioural domain with increased anxiety, repetitive behaviour and altered social behaviour.</div>
 
 
@@ -7134,6 +7202,7 @@ This pathophysiological event involves decreased axon guidance (GO:0007411). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enteric-neural-crest-and-gut-epithelial-dysfunction" data-dismech-node="Enteric Neural Crest and Gut Epithelial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Enteric Neural Crest and Gut Epithelial Dysfunction</div>
+
 
                 <div class="item-desc">CHD8 is also required outside the CNS. In zebrafish, chd8 loss reduces the number of vagal neural crest cells and enteric neural/glial progenitors emigrating from the neural tube and impairs their early migration, later yielding fewer serotonergic enteric neurons and enterochromaffin cells, a thinner intestinal epithelium and fewer goblet cells. In mice, Chd8L haploinsufficiency increases intestinal permeability and reduces tuft and goblet cell counts. This is the mechanistic basis of the gastrointestinal arm of the syndrome, which is not explained by the CNS phenotype.</div>
 
@@ -7403,6 +7472,7 @@ This pathophysiological event involves abnormal enteric nervous system developme
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gastrointestinal-dysmotility-and-barrier-dysfunction" data-dismech-node="Gastrointestinal Dysmotility and Barrier Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Gastrointestinal Dysmotility and Barrier Dysfunction</div>
 
+
                 <div class="item-desc">The clinical gastrointestinal endpoint: impaired gut motility (clinically, constipation with or without diarrhoea) attributable to reduced postmitotic enteric innervation, together with barrier compromise and altered microbial load. Gut-restricted manipulations in mice show this arm also feeds back on behaviour, though that gut-brain link remains a model-organism finding.</div>
 
 
@@ -7509,6 +7579,7 @@ This pathophysiological event occurs in intestine (UBERON:0000160). UBERON:00001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-gliogenesis-and-white-matter-expansion" data-dismech-node="Increased Gliogenesis and White Matter Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Gliogenesis and White Matter Expansion</div>
+
 
                 <div class="item-desc">A primate-specific arm of the overgrowth mechanism. CRISPR/Cas9 disruption of CHD8 in cynomolgus monkey embryos increases gliogenesis and the number of glial cells in newborn monkeys, and knockdown in organotypic newborn-monkey brain slices enhances glial proliferation. Because rodent studies gave inconsistent accounts of how CHD8 loss enlarges the brain - and because mouse cortex is enlarged without a proportionate increase in neuron number - glial expansion rather than neuronal excess may be the dominant driver of megalencephaly in primates, including humans. This node is retained deliberately as a parallel, species-qualified route into brain overgrowth; see the HUMAN_MODEL_MISMATCH discussion.</div>
 
@@ -7706,6 +7777,7 @@ This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glial-and-serotonergic-disruption-of-sleep-architecture" data-dismech-node="Glial and Serotonergic Disruption of Sleep Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Glial and Serotonergic Disruption of Sleep Architecture</div>
 
+
                 <div class="item-desc">A mechanistically distinct arm accounting for the sleep phenotype. In Drosophila, the single CHD8/CHD7 ortholog kismet is required in glia - specifically the subperineurial glia that constitute the blood-brain barrier - for both developmental and adult sleep architecture, and the sleep disturbance is caused by elevated serotonin during development. Critically, despite this developmental origin the defect is reversible in adulthood by a behavioural regime resembling human sleep restriction therapy, which supplies a mechanistic rationale for the behavioural sleep interventions GeneReviews already recommends empirically.</div>
 
 
@@ -7865,6 +7937,7 @@ This pathophysiological event involves blood-brain-barrier glia (Drosophila subp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-striatal-circuit-dysfunction" data-dismech-node="Striatal Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Striatal Circuit Dysfunction</div>
+
 
                 <div class="item-desc">Chd8 heterozygous mice show brain-region-specific dysregulation of chromatin modification, mRNA/protein processing, Wnt signalling and cell-cycle regulation, together with altered synaptic physiology in medium spiny neurons of the nucleus accumbens. Perturbing Chd8 in adult mice reproduces an altered motor-learning phenotype, indicating an ongoing adult striatal requirement for CHD8 rather than a purely developmental one.</div>
 
@@ -8091,6 +8164,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8212,6 +8288,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8292,6 +8371,9 @@ This clinical feature is Macrotia (HP:0000400). HP:0000400 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8365,6 +8447,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8470,6 +8555,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8596,6 +8684,9 @@ This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8660,6 +8751,9 @@ This clinical feature is Prominent supraorbital ridges (HP:0000336). HP:0000336 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8734,6 +8828,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8798,6 +8895,9 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8872,6 +8972,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8936,6 +9039,9 @@ This clinical feature is Pointed chin (HP:0000307). HP:0000307 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9016,6 +9122,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9144,6 +9253,9 @@ This clinical feature is Abnormality of the musculoskeletal system (HP:0033127).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9249,6 +9361,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9345,6 +9460,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9411,6 +9529,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9525,6 +9646,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as seve
 
 
                     </div>
+
+
+
 
 
 
@@ -9653,6 +9777,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -9771,6 +9898,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9899,6 +10029,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10015,6 +10148,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10141,6 +10277,9 @@ This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10205,6 +10344,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10331,6 +10473,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10420,6 +10565,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10523,6 +10671,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10619,6 +10770,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10694,6 +10848,9 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10817,6 +10974,9 @@ This clinical feature is Overweight (HP:0025502). HP:0025502 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10962,6 +11122,9 @@ This disease-associated gene is CHD8 (hgnc:20153). hgnc:20153 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -11073,6 +11236,7 @@ This disease-associated gene is CHD8 (hgnc:20153). hgnc:20153 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11094,7 +11258,13 @@ This variant is in CHD8 (hgnc:20153). hgnc:20153 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Constitutive truncating variants in the helicase-C domain of CHD8 are seen in individuals with autism (and, somatically, in cancer) but not in the general population, and are associated with the most severe end of the CHD8-NDD phenotypic spectrum, including lower verbal IQ and a consistent overgrowth pattern.</div>
@@ -11155,6 +11325,7 @@ This variant is in CHD8 (hgnc:20153). hgnc:20153 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11176,7 +11347,13 @@ This variant is in CHD8 (hgnc:20153). hgnc:20153 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense variants are the most common non-truncating CHD8 change reported in autism, and they are the principal variant-interpretation problem in this disorder. Functional testing across biochemical activity, embryonic stem cell neural differentiation and mouse behaviour showed that only high-prediction-score missense alleles produce autism-like phenotypes, so a CHD8 missense variant must not be assumed pathogenic without in silico support and, ideally, functional or episignature data.</div>
@@ -11288,6 +11465,9 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11298,6 +11478,9 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -11393,6 +11576,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11403,6 +11589,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11541,6 +11730,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11551,6 +11743,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
     </div>
+
+
+
 
 
 
@@ -11670,6 +11865,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11680,6 +11878,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11775,6 +11976,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11785,6 +11989,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -11880,6 +12087,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11890,6 +12100,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -12010,6 +12223,9 @@ This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12020,6 +12236,9 @@ This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -12137,6 +12356,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12147,6 +12369,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -16976,6 +17201,38 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Provenance. Deep research was run with the `claude_code` provider (`just research-disorder claude_code CHD8-Related_Neurodevelopmental_Disorder_with_Overgrowth`; report at research/CHD8-Related_Neurodevelopmental_Disorder_with_Overgrowth-deep-research-claude_code.md, 1,602 lines, 29 web searches, 78 turns). The report itself warns that its quoted snippets are model-summarised rather than verbatim; accordingly EVERY PMID cited in this entry was independently fetched with `just fetch-reference` and every snippet was copy-pasted from the cached abstract and verified by `just validate-references`. Several claims present in the research report were dropped because the cached abstract did not contain a quotable sentence for them (see items 1 and 2 below).
+NEC boundary. The mandatory preflight was re-run before any content was written: `uv run runoak -i sqlite:obo:mondo info MONDO:0014017 -O obo` returns `relationship: RO:0004003 HGNC:20153 ! CHD8` and `xref: OMIM:615032`, matching the target exactly. Every citation in this entry was checked to be about CHD8 and not a CHD paralogue; CHD7 (CHARGE), CHD2 (developmental and epileptic encephalopathy) and CHD4 (Sifrim-Hitz-Weiss) are recorded as explicit differential diagnoses for that reason. The one genuine cross-gene citation, PMID:34088660, studies Drosophila `kismet`, which is the SOLE ortholog of both CHD8 and CHD7 - this is stated in the node description rather than glossed over, and the node is marked MODEL_ORGANISM. PMID:33175317 is a multi-gene autism-risk-gene cohort, not a CHD8 cohort, and is marked PARTIAL for that reason.
+Deliberate omissions and honest gaps.
+(1) No `prevalence` record is asserted. No population-based prevalence estimate for CHD8-NDD exists. The figures in circulation (about 0.2%-0.4% of autism cohorts, about 2% of macrocephalic autism probands, 1.7% of overgrowth-plus-intellectual-disability) are diagnostic YIELDS within ascertained cohorts, not population occurrence, and the structured Prevalence class would misrepresent them. Those yields also appear only in the GeneReviews chapter body, not in the cached structured abstract, so no verified snippet is available for them either. Orphanet has a record for this entity (Orphanet:642675, &#34;CHD8 overgrowth syndrome&#34;) but it is absent from this repository&#39;s ORPHA reference cache, so no ORPHA-sourced epidemiology row could be quoted.
+(2) CORRECTED at review (PR #7603). This note previously claimed that figures appearing only in a paper&#39;s body text were unquotable because the cache holds only the abstract. That is wrong for PMID:36182950: its cache is a full-text capture and the reference validator matches against the whole cached body, not just the abstract. The Dingemans body-text figures are therefore now cited directly - macrocephaly at examination 52% (46/88), tall stature 50% (39/78), and overweight 34% (24/71), the last of which is curated as its own Growth phenotype (`HP:0025502`, FREQUENT: 24/71 = 33.8%). The correction does NOT extend to GeneReviews: the PMID:36302072 cache is a 92-line structured summary, not the full chapter, so the Table 2 percentage grid is genuinely absent from it and remains uncited. The distinction is per-reference - each cache must be checked for what it actually contains rather than assumed to be abstract-only. Frequency bands that still rest on cross-cohort judgement rather than a single figure are explained in the `chd8_frequency_ascertainment_discrepancy` discussion.
+(3) Frequency bands were set on the figure defensible across cohorts rather than the highest available. Macrocephaly and autism spectrum disorder are banded FREQUENT, not VERY_FREQUENT, because the quantified series bracket rather than clear the 80% threshold. Hypotonia is banded OCCASIONAL because two independent cohorts report 27% and 29% against the GeneReviews &#34;about 30%&#34;. Several phenotypes carry no band at all - diarrhoea, anxiety, ADHD, self-injurious behaviour and every craniofacial feature - because the sources describe them qualitatively only.
+(4) The distinctive facial gestalt is curated as individual HPO-bound features rather than one &#34;characteristic facies&#34; phenotype, because that is what the primary series enumerate. Reported forehead- and dental-abnormality rates near 90% are not curated: their denominators (18 and 11) reflect assessment only when a dysmorphologist examined the patient, which makes them uninterpretable as population frequencies.
+(5) No tumour phenotype and no tumour surveillance are asserted, despite an 11% neoplasia figure in one retrospective aggregation and a separate somatic CHD8-in-cancer literature. See the `chd8_neoplasia_not_established` discussion for the full reasoning; this is a deliberate refusal, not an oversight.
+(6) The mechanism graph is single-rooted at CHD8 Haploinsufficiency, with all 15 nodes reachable from it over 20 causal edges. Terminal edges into the behavioural outcome are typed INDIRECT_UNKNOWN_INTERMEDIATES because the causal step from brain overgrowth, altered connectivity, striatal dysfunction or disrupted sleep to the behavioural phenotype is not experimentally established in humans.
+(7) Much of the mechanistic evidence is MODEL_ORGANISM (mouse, zebrafish, cynomolgus monkey, Drosophila) or IN_VITRO (human neural progenitors, cerebral organoids); this is flagged per evidence item. Human-clinical evidence is used for every phenotype claim. Model evidence supports mechanism nodes and corroborates phenotypes but never stands alone for a human phenotype. Model fidelity is itself qualified: PMID:36738737 shows the same Chd8 lesion produces opposite-direction effects and even resilience on different mouse backgrounds, which is why no single mouse result is treated as decisive here.
+(8) Two named agents in the dystonia literature (tizanidine, botulinum toxin) and the levodopa trials are described in the deep-research report from the papers&#39; case tables, not their abstracts, so no `therapeutic_agent` bindings are asserted for them; the dystonia treatment entry cites only the deep brain stimulation outcome, which IS in the abstract. Similarly, no melatonin, methylphenidate or antipsychotic agent is curated, because no CHD8-specific source names them - the sleep and behavioural treatments are kept at the level GeneReviews actually states.
+(9) No `conforms_to` module reference is declared. No existing kb/modules/ module captures the chromatin-remodeller-dosage-to-neurodevelopment pattern; a future &#34;chromatinopathy&#34; module would be the natural home and would also serve SETD5, the other CHD paralogue disorders, and the KMT2 disorders.
+(10) A `biochemical` record for the DNA-methylation episignature was considered and not created: the episignature is a diagnostic classifier rather than an analyte with a reference interval, so it is curated under `diagnosis` instead.
+(11) `clinical_course: PROGRESSIVE` on anxiety was considered at review and NOT asserted. PMID:38622540 is now cited for the age-anxiety association, but that association is estimated across the pooled three-gene sample (N=65; CHD8 n=18), reported hedged as &#34;may worsen with increasing age&#34;, and derived from a cross-sectional design. GeneReviews names anxiety only as a surveillance target and says nothing about its trajectory. The finding is therefore carried in the phenotype description and in a PARTIAL evidence row rather than as a structured course qualifier.
+(12) A `CGDS:HGNC_20153` ClinGen dosage evidence row was attempted at review and could not be produced: `just clingen-dosage-refresh` fails with a checksum mismatch against the pinned snapshot in data/clingen-dosage/MANIFEST.yaml, and re-pinning that repository-wide snapshot is out of scope for a single disorder entry. The haploinsufficiency mechanism remains supported by the primary literature already cited.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: CHD8-Related_Neurodevelopmental_Disorder_with_Overgrowth</strong> · 2026-08-01T06:13:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CHD8-Related_Neurodevelopmental_Disorder_with_Overgrowth/2026-08-01T061349Z-claude-code-c06f11.yaml">View source</a></p>
+                        <p class="research-review-text">Created the monogenic CHD8 haploinsufficiency syndrome entry (MONDO:0014017 / OMIM:615032 / RO:0004003 HGNC:20153, all three anchors re-verified with OAK before writing). Deep research was run with the claude_code provider (just research-disorder claude_code ...; 1602-line report, 29 web searches, 78 turns) and read in full; because that report warns its own snippets are model-summarised, every one of the 30 cited PMIDs was independently fetched with just fetch-reference and every snippet copy-pasted from the cached abstract. GeneReviews baseline PMID:36302072 was found, fetched, tagged GeneReviews, and every Clinical Characteristics phenotype cross-checked into the entry. Curated: a single-rooted 15-node / 20-edge pathograph from CHD8 haploinsufficiency through chromatin-remodelling failure, neurodevelopmental network dysregulation, Wnt and REST branches, progenitor proliferation, brain overgrowth, primate gliogenesis, E/I trajectory imbalance, long-range connectivity, striatal circuits, a glial/serotonergic sleep arm, and a parallel enteric neural crest / gut epithelial arm; 26 HPO-bound phenotypes with cohort-defensible frequency bands; two mechanistic_hypotheses (canonical haploinsufficiency; remodelling-independent missense mechanism); genetic and variant records including the HELIC-domain correlate and the missense-causality caveat; molecular diagnosis with DNA-methylation episignature; 8 treatments including deep brain stimulation for refractory dystonia; mouse/zebrafish/primate animal models and cerebral-organoid experimental models; 8 differential diagnoses covering the NEC boundaries (multifactorial ASD, CHD7/CHARGE, CHD2/DEE, CHD4/Sifrim-Hitz-Weiss, 14q11.2 duplication, PTEN, overgrowth-ID syndromes); 8 discussions including a HUMAN_MODEL_MISMATCH on rodent-versus-primate megalencephaly mechanism. Validation: just validate clean (schema no issues, term validation passed, 154/154 snippets verified against cached references); just validate-references clean; just compliance 92.3 percent global / 92.5 percent weighted. Deliberate omissions (prevalence, unquotable table frequencies, tumour risk, inferred drug agents) are documented in the entry notes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5154,6 +5207,7 @@ The discussion stays OPEN because the science is unsettled, not because the cura
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-susceptibility-to-generalized-absence-epilepsy" data-dismech-node="Polygenic Susceptibility to Generalized Absence Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic Susceptibility to Generalized Absence Epilepsy</div>
 
+
                 <div class="item-desc">JAE is highly heritable but, in the great majority of patients, is not monogenic. Susceptibility is conferred by common variants of individually small effect together with rarer variants in genes encoding thalamic and cortical voltage-gated calcium channels and GABA-A receptor subunits. No single gene is necessary or sufficient, and the individual gene associations that were asserted most confidently in the early literature have not all survived replication.</div>
 
 
@@ -5271,6 +5325,7 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-thalamic-low-threshold-calcium-bursting" data-dismech-node="Altered Thalamic Low-Threshold Calcium Bursting" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Thalamic Low-Threshold Calcium Bursting</div>
+
 
                 <div class="item-desc">Thalamic relay and reticular neurons carry a low-voltage-activated T-type calcium current that, when a neuron is hyperpolarized and then released, produces a low-threshold calcium spike crowned by a high-frequency burst of action potentials. This burst mode is the cellular substrate of the spike component of the spike-wave discharge, and it is the target of the first-line absence drug ethosuximide.</div>
 
@@ -5443,6 +5498,7 @@ This pathophysiological event involves increased T-type calcium current in thala
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-gabaergic-inhibition-in-the-thalamic-reticular-nucleus" data-dismech-node="Aberrant GABAergic Inhibition in the Thalamic Reticular Nucleus" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant GABAergic Inhibition in the Thalamic Reticular Nucleus</div>
 
+
                 <div class="item-desc">The thalamic reticular nucleus is a GABAergic shell that inhibits thalamic relay neurons. The rhythmic hyperpolarization it imposes is what de-inactivates T-type calcium channels in relay cells and licenses the next burst, making reticular GABAergic output the pacemaker candidate for the spike-wave rhythm. Recordings in genetic models show reticular neurons fire synchronized bursts locked to the EEG spike while retaining intranuclear lateral inhibition.</div>
 
 
@@ -5595,6 +5651,7 @@ This pathophysiological event involves abnormal gamma-aminobutyric acid signalin
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticothalamic-drive-from-deep-layer-cortical-neurons" data-dismech-node="Corticothalamic Drive from Deep-Layer Cortical Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticothalamic Drive from Deep-Layer Cortical Neurons</div>
 
+
                 <div class="item-desc">Layer VI pyramidal neurons supply the sole descending cortical input to thalamic relay and reticular cells. Selectively removing P/Q-type calcium channels from these neurons alone is sufficient to produce a spontaneous, ethosuximide-responsive spike-wave absence phenotype, showing that the cortical arm of the loop is not merely a passive recipient of a thalamic rhythm.</div>
 
 
@@ -5702,6 +5759,7 @@ This pathophysiological event involves layer VI corticothalamic projection neuro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypersynchronous-thalamocortical-oscillation" data-dismech-node="Hypersynchronous Thalamocortical Oscillation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypersynchronous Thalamocortical Oscillation</div>
+
 
                 <div class="item-desc">Recurrent excitation and inhibition around the cortex-thalamus-reticular loop entrains large neuronal populations into a pathological synchronized rhythm. Network analyses in drug-naive JAE patients show the reorganization is not confined to the seizure itself: interictal network efficiency is already abnormal between seizures.</div>
 
@@ -5827,6 +5885,7 @@ This pathophysiological event involves layer VI corticothalamic projection neuro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-spike-wave-discharges" data-dismech-node="Generalized Spike-Wave Discharges" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Spike-Wave Discharges</div>
 
+
                 <div class="item-desc">Bilaterally synchronous generalized spike-wave activity is the electrographic signature of the syndrome. The ILAE places the acceptable frequency band for generalized spike-wave in the idiopathic generalized epilepsies at 2.5 to 5.5 Hz; JAE discharges are typically at the faster end of the classic 3 Hz absence rhythm.</div>
 
 
@@ -5911,6 +5970,7 @@ This pathophysiological event involves layer VI corticothalamic projection neuro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-seizures" data-dismech-node="Absence Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence Seizures</div>
 
+
                 <div class="item-desc">Behavioral arrest with impairment of awareness, time-locked to the generalized spike-wave discharge. In JAE these are less frequent than the pyknoleptic, many-times-daily absences of childhood absence epilepsy.</div>
 
 
@@ -5971,6 +6031,7 @@ This pathophysiological event involves layer VI corticothalamic projection neuro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-tonic-clonic-seizures" data-dismech-node="Generalized Tonic-Clonic Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Tonic-Clonic Seizures</div>
+
 
                 <div class="item-desc">Most patients with JAE also have generalized tonic-clonic seizures, which distinguishes the syndrome clinically from childhood absence epilepsy and is a principal driver of the need for long-term treatment.</div>
 
@@ -6132,6 +6193,9 @@ This clinical feature is Typical absence seizure (HP:0011147), qualified as juve
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6221,6 +6285,9 @@ This clinical feature is Bilateral tonic-clonic seizure with generalized onset (
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6322,6 +6389,9 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6386,6 +6456,9 @@ This clinical feature is Typical absence status epilepticus (HP:0032863). HP:003
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6485,6 +6558,9 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6554,6 +6630,9 @@ This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6618,6 +6697,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6737,6 +6819,9 @@ This disease-associated gene is GABRG2 (hgnc:4087). hgnc:4087 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6807,6 +6892,9 @@ This disease-associated gene is CACNA1H (hgnc:1395). hgnc:1395 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6958,6 +7046,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6968,6 +7059,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -7125,6 +7219,9 @@ This treatment uses ethosuximide (CHEBI:4887). CHEBI:4887 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7135,6 +7232,9 @@ This treatment uses ethosuximide (CHEBI:4887). CHEBI:4887 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7267,6 +7367,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7277,6 +7380,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7393,6 +7499,9 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7403,6 +7512,9 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7519,6 +7631,9 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7529,6 +7644,9 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7870,10 +7988,10 @@ Not evidenced here. The GABA-elevating agents vigabatrin and tiagabine, and the 
 
                 </div>
 
-                <div class="evidence-snippet">"Among these patients, 38 (65.5 %) achieved seizure freedom for at least 2 years."</div>
+                <div class="evidence-snippet">"Juvenile absence epilepsy is a common idiopathic generalized epilepsy syndrome that often requires long-term antiseizure medications (ASMs). ... This retrospective study included 58 patients diagnosed with JAE, with a mean age at epilepsy onset of 11.86 ± 3.87 years. The median follow-up..."</div>
 
 
-                <div class="evidence-explanation">Quantifies the seizure-freedom rate in a JAE-specific long-term cohort.</div>
+                <div class="evidence-explanation">Identifies the JAE cohort, onset and follow-up ages, seizure freedom, attempted versus completed medication withdrawal, and EEG improvement. Nine patients fully discontinued treatment; eighteen had no recurrence during tapering.</div>
 
 
 
@@ -9212,10 +9330,20 @@ progression:
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
-          Among these patients, 38 (65.5 %) achieved seizure freedom for at least
-          2 years.
+          Juvenile absence epilepsy is a common idiopathic generalized epilepsy syndrome that often
+          requires long-term antiseizure medications (ASMs). ... This retrospective study included
+          58 patients diagnosed with JAE, with a mean age at epilepsy onset of 11.86 ± 3.87 years.
+          The median follow-up duration was 9.57 years (range, 3-27 years). Among these patients, 38
+          (65.5 %) achieved seizure freedom for at least 2 years. ... ASMs withdrawal was attempted
+          in 28 patients (48.3 %) and 18 of them did not experience seizure recurrence during the
+          tapering process. Among these 18 patients, ASMs were discontinued in 9 patients at the
+          last follow-up. ... After a median EEG follow-up period of 6 years, abnormal EEG improved
+          in 34 of the 58 patients (58.6 %). Additionally, 14 of the 58 patients (24.1 %) had normal
+          EEG in subsequent recordings.
         explanation: &gt;-
-          Quantifies the seizure-freedom rate in a JAE-specific long-term cohort.
+          Identifies the JAE cohort, onset and follow-up ages, seizure freedom, attempted versus
+          completed medication withdrawal, and EEG improvement. Nine patients fully discontinued
+          treatment; eighteen had no recurrence during tapering.
       - reference: PMID:40945312
         reference_title: &gt;-
           Long-term seizure outcomes and the likelihood of antiseizure medication
@@ -10110,6 +10238,27 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Juvenile Absence Epilepsy (MONDO:0800453)</strong> · 2026-08-05T03:15:58Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Juvenile_Absence_Epilepsy/2026-08-05T031558Z-claude-code-2c5797.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of juvenile absence epilepsy, one of the four ILAE idiopathic generalized epilepsy syndromes and previously absent from dismech (the sibling Childhood_Absence_Epilepsy entry existed; JAE did not).
+
+Deep research: claude_code provider (just research-disorder claude_code Juvenile_Absence_Epilepsy), producing a 112 KB report with 38 unique PMIDs; report and citations sidecar committed under research/. DR output was treated as leads only. Every PMID was independently fetched with just fetch-reference and every snippet verified as an exact substring of the cached abstract; several DR figures explicitly flagged as paraphrase (the ~20 percent absence-status rate, StatPearls-derived academic percentages) were deliberately NOT curated as frequencies.
+
+Model: a seven-node thalamocortical pathograph running polygenic susceptibility to altered thalamic low-threshold T-type calcium bursting and aberrant reticular-thalamic GABAergic inhibition, converging with a corticothalamic layer-VI drive node on hypersynchronous thalamocortical oscillation, then to generalized spike-wave discharges and the two terminal seizure phenotypes. Both the thalamic and cortical arms are modelled as contributing nodes rather than asserting a single site of ictogenesis.
+
+Four discussions: (1) CONTROVERSY on thalamic pacemaker versus cortical focus ictogenesis, with evidence on both sides; (2) HUMAN_MODEL_MISMATCH on whether the rodent peri-oral somatosensory cortical focus has any human counterpart in JAE; (3) CONTROVERSY on CACNA1H, retained with relationship_type SUSCEPTIBILITY but carrying the ClinGen-disputed refutation as REFUTE evidence rather than an uncontested legacy association; (4) KNOWLEDGE_GAP on whether the CAE/JAE age-of-onset boundary marks a real mechanistic discontinuity.
+
+Validation: just validate passes (schema, terms, references) with 42/42 snippets verified against cached references. Compliance 76.2 percent global, 76.4 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11588,7 +11737,7 @@ Wang X, Zhang X, Wei J, et al. "Long-term seizure outcomes and the likelihood of
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Juvenile Absence Epilepsy", "mondoId": "MONDO:0800453", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile_Absence_Epilepsy", "yamlRevision": "21ca2611da03"};
+        const OS_CONFIG = {"diseaseName": "Juvenile Absence Epilepsy", "mondoId": "MONDO:0800453", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile_Absence_Epilepsy", "yamlRevision": "ef5c3ba7f28a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4365,6 +4418,7 @@ Two features make this entry more than the IFNAR2 story with a different chain. 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ifnar1-loss-of-function" data-dismech-node="IFNAR1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">IFNAR1 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic IFNAR1 variants abolish a functional low-affinity chain of the type I interferon receptor. Reported lesions include nonsense, frameshift and essential splice-site alleles that remove or truncate the protein, and the Western Polynesian founder nonsense allele c.1156G&gt;T (p.Glu386*). Because IFNAR2 and the downstream JAK-STAT components are intact, the lesion is confined to assembly of a competent IFNAR1-IFNAR2 heterodimer.</div>
 
 
@@ -4387,9 +4441,14 @@ Two features make this entry more than the IFNAR2 story with a different chain. 
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4485,6 +4544,7 @@ Two features make this entry more than the IFNAR2 story with a different chain. 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-type-i-interferon-receptor-signaling" data-dismech-node="Absent Type I Interferon Receptor Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Type I Interferon Receptor Signaling</div>
+
 
                 <div class="item-desc">With no functional receptor, type I interferons cannot initiate JAK-STAT signalling. Patient fibroblasts are unresponsive to recombinant IFN-alpha2 and IFN-beta alike, so the block is complete rather than partial and is not specific to any one interferon subtype. The defect is cell-intrinsic and reversible: transduction with wild-type IFNAR1 restores responsiveness, which is what establishes the variant as causal rather than merely associated.</div>
 
@@ -4659,6 +4719,7 @@ This pathophysiological event involves decreased Cellular response to type I int
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-jak-stat-isgf3-activation" data-dismech-node="Failure of JAK-STAT ISGF3 Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of JAK-STAT ISGF3 Activation</div>
 
+
                 <div class="item-desc">The step between the receptor and the genome. In a competent cell, ternary complex formation brings JAK1 and TYK2 together; they cross-phosphorylate each other, the receptor chains and STAT1/STAT2, and the phosphorylated STATs assemble with IRF9 into ISGF3, which binds interferon-stimulated response elements. None of this occurs without a receptor to nucleate it. The node is recorded separately because it is where the diagnostic assay reads out: phospho-STAT1 flow cytometry measures this step, not the one above or below it.</div>
 
 
@@ -4773,6 +4834,7 @@ This pathophysiological event involves decreased Type I interferon-mediated sign
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-interferon-stimulated-gene-induction" data-dismech-node="Failure of Interferon-Stimulated Gene Induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Interferon-Stimulated Gene Induction</div>
 
+
                 <div class="item-desc">Interferon-stimulated genes encode the effectors that make a cell hostile to viral replication. Because they are never induced, the cell-intrinsic antiviral state cannot be established at all rather than merely being blunted, leaving infected cells with no interferon-dependent restriction of incoming virus.</div>
 
 
@@ -4851,6 +4913,7 @@ This pathophysiological event involves decreased Antiviral defense response, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unrestricted-viral-replication-in-permissive-cells" data-dismech-node="Unrestricted Viral Replication in Permissive Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestricted Viral Replication in Permissive Cells</div>
+
 
                 <div class="item-desc">Without an interferon-dependent brake, a replicating virus that would be contained in a healthy host expands unchecked. The causal direction is established by rescue rather than by correlation: transducing wild-type IFNAR1 into patient-genotype cells restores control of infection.</div>
 
@@ -4961,6 +5024,7 @@ This pathophysiological event involves decreased Antiviral defense response, ann
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disseminated-viral-disease" data-dismech-node="Disseminated Viral Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Disseminated Viral Disease</div>
 
+
                 <div class="item-desc">The organism-level consequence: a replicating virus spreads beyond the tissue it would normally be confined to. In the index cases this was severe measles vaccine disease and yellow fever viscerotropic disease; in later cohorts it extends to naturally circulating viruses.</div>
 
 
@@ -5021,6 +5085,7 @@ This pathophysiological event involves decreased Antiviral defense response, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-virus-induced-systemic-hyperinflammation" data-dismech-node="Virus-Induced Systemic Hyperinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Virus-Induced Systemic Hyperinflammation</div>
+
 
                 <div class="item-desc">A hyperinflammatory syndrome overlapping haemophagocytic lymphohistiocytosis, described in the Oceania guideline under the name virus-induced systemic hyperinflammation. It is a major contributor to mortality and is a distinct clinical problem from the viral disease that triggers it, which is why it is modelled as its own node rather than as a severity grade of the one above.</div>
 
@@ -5108,6 +5173,7 @@ This pathophysiological event involves decreased Antiviral defense response, ann
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ifnar1-negative-dominance" data-dismech-node="IFNAR1 Negative Dominance" data-dismech-type="pathophysiology">
                 <div class="item-name">IFNAR1 Negative Dominance</div>
 
+
                 <div class="item-desc">A mechanistically separate arm. Certain in-frame IFNAR1 alleles are expressed and interfere with the wild-type product, so heterozygotes show a defect rather than being silent carriers. The dominance is by negative dominance and not by haploinsufficiency, and the resulting lesion is partial and subtype-selective rather than a complete signalling null.</div>
 
 
@@ -5130,9 +5196,14 @@ This pathophysiological event involves decreased Antiviral defense response, ann
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
 
 
@@ -5203,6 +5274,7 @@ This pathophysiological event involves decreased Antiviral defense response, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subtype-selective-loss-of-ifn-alpha-and-ifn-omega-responsiveness" data-dismech-node="Subtype-Selective Loss of IFN-alpha and IFN-omega Responsiveness" data-dismech-type="pathophysiology">
                 <div class="item-name">Subtype-Selective Loss of IFN-alpha and IFN-omega Responsiveness</div>
+
 
                 <div class="item-desc">A partial cellular defect, distinct from the complete block of the recessive disease. Responses to IFN-alpha and IFN-omega - the abundant, leukocyte-derived type I interferons - are impaired or abolished, while the IFN-beta response is preserved. Carriers of these alleles are prone to viral disease, which is what makes the residual IFN-beta arm insufficient on its own.</div>
 
@@ -5404,6 +5476,9 @@ This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5482,6 +5557,9 @@ This clinical feature is Disseminated infection with live vaccine virus (HP:0031
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5551,6 +5629,9 @@ This clinical feature is Severe viral infection (HP:0031691). HP:0031691 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5615,6 +5696,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5736,6 +5820,9 @@ This clinical feature is Increased inflammatory response (HP:0012649). HP:001264
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5875,6 +5962,9 @@ This disease-associated gene is IFNAR1 (hgnc:5432). hgnc:5432 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6032,6 +6122,9 @@ This treatment is avoidance of live attenuated viral vaccination, annotated with
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6042,6 +6135,9 @@ This treatment is avoidance of live attenuated viral vaccination, annotated with
 
 
     </div>
+
+
+
 
 
 
@@ -6154,6 +6250,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6164,6 +6263,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6277,6 +6379,9 @@ This treatment is genetic screening (NCIT:C92803). NCIT:C92803 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6287,6 +6392,9 @@ This treatment is genetic screening (NCIT:C92803). NCIT:C92803 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -6934,10 +7042,10 @@ Binding note: NCIT:C17455 (Enzyme Immunoassay) is the exact concept for this ass
 
                 </div>
 
-                <div class="evidence-snippet">"It is more common in people of Western Polynesian ancestry, with estimates of around one in six thousand live births affected"</div>
+                <div class="evidence-snippet">"Autosomal recessive interferon alpha and beta receptor subunit 1 (IFNAR1) deficiency is a rare and heritable inborn error of immunity (IEI) predisposing individuals to severe and life-threatening viral infections. It is more common in people of Western Polynesian ancestry, with estimates of..."</div>
 
 
-                <div class="evidence-explanation">The source estimate for the regional birth prevalence.</div>
+                <div class="evidence-explanation">The regional estimate is approximately one affected live birth in 6,000 among people of Western Polynesian ancestry, linked to homozygosity for IFNAR1 p.Glu386*. It is not a worldwide prevalence estimate.</div>
 
 
 
@@ -7855,8 +7963,17 @@ prevalence:
     reference_title: &#34;Guideline for the Diagnosis and Management of Heritable IFNAR1 Deficiency in Oceania.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;It is more common in people of Western Polynesian ancestry, with estimates of around one in six thousand live births affected&#34;
-    explanation: The source estimate for the regional birth prevalence.
+    snippet: &gt;-
+      Autosomal recessive interferon alpha and beta receptor subunit 1 (IFNAR1) deficiency is
+      a rare and heritable inborn error of immunity (IEI) predisposing individuals to severe
+      and life-threatening viral infections. It is more common in people of Western Polynesian
+      ancestry, with estimates of around one in six thousand live births affected, due to
+      being homozygous for or having two copies of the regionally relevant pathogenic IFNAR1
+      variant c.1156G&gt;T, p.Glu386*.
+    explanation: &gt;-
+      The regional estimate is approximately one affected live birth in 6,000 among people of
+      Western Polynesian ancestry, linked to homozygosity for IFNAR1 p.Glu386*. It is not a
+      worldwide prevalence estimate.
 - population: Samoa
   measure_type: POINT_PREVALENCE
   prevalence_class: BAND_1_5_PER_10000
@@ -8108,6 +8225,28 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Relationship to sibling entries. IFNAR2_Deficiency and STAT2_Deficiency cover the other components of the same pathway and are curated separately; the phenotype and pathophysiology naming here deliberately parallels IFNAR2_Deficiency so the three can be read against each other. The clinical phenotypes overlap almost completely, and the discriminating test is genetic rather than functional.
+Deep-research provenance. The openscientist report for this disease is committed alongside this entry. Its reference validation resolved 21 of 21 citations with a confabulation rate of 0.0, but its term validation returned needs_review: true, and two of the flagged bindings were real errors rather than parsing artefacts - HP:0032251 offered as &#34;Abnormal susceptibility to viral infection&#34; (the ontology label is &#34;Abnormal immune system morphology&#34;) and NCIT:C15320 offered as &#34;Supportive Care&#34; (the ontology label is &#34;Study Design&#34;). Neither CURIE was bound here. Every term in this entry was read from OLS at the time it was written.
+A third report error is worth recording because neither of those checks covers it. The report&#39;s identifier section gives this disease&#39;s OMIM entry as &#34;#619304 (Immunodeficiency 45)&#34;. Immunodeficiency 45 is the IFNAR2 disease, curated separately here as IFNAR2_Deficiency against MONDO:0014727, and MONDO cross-references MONDO:0030970 to a different OMIM entry. That is Named Entity Confusion in the identifier layer, and just preflight-dr is what surfaced it - the report&#39;s own reference validation (21 of 21 verified, confabulation rate 0.0) and its term validation both pass over OMIM numbers entirely, because neither treats OMIM as an identifier class it checks. No OMIM identifier is recorded in this entry.
+On haematopoietic cell transplantation. The deep-research report names HSCT as a &#34;rational curative option&#34; for severe cases and the reasoning is sound - it would restore an interferon-competent haematopoietic compartment. It is not curated as a treatment here because the report supplies no citation for it and none of the references used reports a transplanted IFNAR1-deficient patient. Recorded so the omission is legible as a decision rather than an oversight. Note also that the rationale is weaker here than it looks: IFNAR1 is ubiquitously expressed and the fibroblast work shows the defect is cell-intrinsic in non-haematopoietic cells, so replacing the marrow would not restore interferon responsiveness in the tissues the virus actually replicates in.
+Two things this entry deliberately does not claim. Prevalence figures are population-specific and are recorded as such; there is no worldwide rate in the sources used. And the negative-dominance arm is modelled as a second molecular route to the same downstream nodes rather than as a milder grade of the recessive disease, because the defect it produces is qualitatively different - subtype-selective rather than complete.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: IFNAR1_Deficiency (MONDO:0030970)</strong> · 2026-09-13T21:12:57Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/IFNAR1_Deficiency/2026-09-13T211257Z-claude-code-755a1c.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of autosomal recessive and dominant-negative IFNAR1 deficiency (immunodeficiency 106). Deep research: one openscientist report, committed alongside the entry (research/IFNAR1_Deficiency-deep-research-openscientist.md). Report reference validation resolved 21/21 citations with confabulation_rate 0.0; term validation returned needs_review: true with six mislabelled terms, two of which were real wrong bindings rather than parsing artefacts - HP:0032251 offered as &#39;Abnormal susceptibility to viral infection&#39; (ontology label: Abnormal immune system morphology) and NCIT:C15320 offered as &#39;Supportive Care&#39; (ontology label: Study Design). Neither was bound. NCIT:C15747 was used for supportive care instead, read from OLS. Separately, just preflight-dr flagged that the report gives this disease&#39;s OMIM entry as &#39;#619304 (Immunodeficiency 45)&#39;; immunodeficiency 45 is the IFNAR2 disease already curated here as IFNAR2_Deficiency, and MONDO cross-references MONDO:0030970 to a different OMIM entry. No OMIM identifier was recorded in the entry. Every ontology CURIE in the entry was resolved against OLS at the time of writing; one label error of my own (HP:0001751) was caught by just validate-terms in a sibling entry in the same session. Structure follows the curated sibling IFNAR2_Deficiency deliberately so the type I interferon pathway entries read against each other. Two molecular arms are modelled: the recessive complete signalling null, and the negative-dominance allele class that impairs IFN-alpha and IFN-omega responses while sparing IFN-beta. Validation: just validate passes schema, term and reference checks with 45/45 snippets verified against cached references; check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms and check-enum-values all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8795,7 +8934,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "IFNAR1 Deficiency", "mondoId": "MONDO:0030970", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "IFNAR1_Deficiency", "yamlRevision": "1f7621afeb6a"};
+        const OS_CONFIG = {"diseaseName": "IFNAR1 Deficiency", "mondoId": "MONDO:0030970", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "IFNAR1_Deficiency", "yamlRevision": "c0dd8460a45c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

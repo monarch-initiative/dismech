@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5022,6 +5075,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ccbe1-loss-of-function" data-dismech-node="CCBE1 loss of function" data-dismech-type="pathophysiology">
                 <div class="item-name">CCBE1 loss of function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function mutations in CCBE1 reduce the activity of a secreted extracellular-matrix protein required for lymphangiogenesis.</div>
 
 
@@ -5213,6 +5267,7 @@ This pathophysiological event involves CCBE1 (hgnc:29426). hgnc:29426 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pro-vegf-c-proteolytic-activation" data-dismech-node="Impaired pro-VEGF-C proteolytic activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired pro-VEGF-C proteolytic activation</div>
 
+
                 <div class="item-desc">CCBE1 and the protease ADAMTS3 form a complex that cleaves the poorly active 29/31-kDa form of pro-VEGF-C into the mature 21/23-kDa ligand. Loss of CCBE1 removes the cofactor, so this proteolytic maturation step fails and little active VEGF-C is produced. CCBE1&#39;s two domains contribute differently: the C-terminal collagen-like domain drives the cleavage activity, while the N-terminal EGF-like domain colocalizes pro-VEGF-C with its protease at the lymphatic endothelial cell surface.</div>
 
 
@@ -5396,6 +5451,7 @@ This pathophysiological event involves decreased metalloendopeptidase activity o
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-lymphangiogenesis" data-dismech-node="Failed lymphangiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed lymphangiogenesis</div>
+
 
                 <div class="item-desc">Without VEGF-C/VEGFR-3 drive, lymphatic endothelial cells are still specified but fail to bud, migrate and assemble into lymphatic vessels.</div>
 
@@ -5605,6 +5661,7 @@ This pathophysiological event involves decreased lymphangiogenesis (GO:0001946).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-lymphatic-dysplasia" data-dismech-node="Generalized lymphatic dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized lymphatic dysplasia</div>
 
+
                 <div class="item-desc">Widespread lymphatic vessel dysplasia impairs lymph drainage and underlies the intestinal lymphangiectasia, lymphedema, and serous effusions of the syndrome.</div>
 
 
@@ -5786,6 +5843,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-lymphangiectasia" data-dismech-node="Intestinal lymphangiectasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Intestinal lymphangiectasia</div>
 
+
                 <div class="item-desc">Dilated intestinal lymphatics leak protein-rich lymph into the gut, producing protein-losing enteropathy with hypoalbuminemia and hypogammaglobulinemia. Lymphocyte loss is a recognized complication of intestinal lymphangiectasia generally but is not established as total lymphopenia in the reviewed CCBE1 cases.</div>
 
 
@@ -5863,6 +5921,7 @@ This pathophysiological event involves lymphatic endothelial cell, annotated wit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-losing-enteropathy" data-dismech-node="Protein-losing enteropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein-losing enteropathy</div>
+
 
                 <div class="item-desc">Enteric loss of protein-rich lymph depletes serum albumin and immunoglobulins and can compromise nutrition and growth.</div>
 
@@ -6068,6 +6127,9 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6175,6 +6237,9 @@ This clinical feature is Intestinal lymphangiectasia (HP:0002593). HP:0002593 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6268,6 +6333,9 @@ This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6380,6 +6448,9 @@ This clinical feature is Protein-losing enteropathy (HP:0002243). HP:0002243 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6478,6 +6549,9 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6544,6 +6618,9 @@ This clinical feature is Chylous ascites (HP:0012281). HP:0012281 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6647,6 +6724,9 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6713,6 +6793,9 @@ This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6798,6 +6881,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6873,6 +6959,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6958,6 +7047,9 @@ This clinical feature is Flat midface, annotated with Midface retrusion (HP:0011
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7024,6 +7116,9 @@ This clinical feature is Flat nasal bridge, annotated with Depressed nasal bridg
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7100,6 +7195,9 @@ This clinical feature is Cystic hygroma (HP:0000476). HP:0000476 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7166,6 +7264,9 @@ This clinical feature is Epicanthal folds, annotated with Epicanthus (HP:0000286
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7242,6 +7343,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7308,6 +7412,9 @@ This clinical feature is Metopic synostosis (HP:0011330). HP:0011330 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7406,6 +7513,9 @@ This clinical feature is Lymphedema (HP:0001004), qualified as temporality chron
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Edema is often described as progressive in Hennekam syndrome, but the course is not uniformly progressive in CCBE1 disease. Peripheral lymphedema regressed after dietary optimization in a molecularly confirmed adult, so no uniform PROGRESSIVE qualifier is assigned.</div>
@@ -7538,6 +7648,9 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7631,6 +7744,9 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7734,6 +7850,9 @@ This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7814,6 +7933,9 @@ This clinical feature is Congenital diaphragmatic hernia (HP:0000776). HP:000077
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7889,6 +8011,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7992,6 +8117,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8067,6 +8195,9 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8152,6 +8283,9 @@ This clinical feature is Growth retardation, annotated with Growth delay (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8218,6 +8352,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8338,6 +8475,9 @@ This disease-associated gene is CCBE1 (hgnc:29426). hgnc:29426 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8439,6 +8579,12 @@ This disease-associated gene is CCBE1 (hgnc:29426). hgnc:29426 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Maternally inherited pathogenic loss-of-function frameshift CCBE1 variant; listed in gnomAD in 14 of 277,032 chromosomes, consistent with a rare recessive disease allele.</div>
 
 
@@ -8521,6 +8667,12 @@ This disease-associated gene is CCBE1 (hgnc:29426). hgnc:29426 is a gene from th
         p.Arg158Cys (c.472C&gt;T)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent missense CCBE1 allele, reported homozygous in an infant with intestinal lymphangiectasia and ascites and separately as one half of a compound heterozygous genotype (with c.521G&gt;A) in a second child.</div>
@@ -8607,6 +8759,12 @@ This disease-associated gene is CCBE1 (hgnc:29426). hgnc:29426 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Recurrent homozygous missense CCBE1 allele, reported in two Turkish siblings of consanguineous parents and previously in a Dutch kindred. It is one of a cluster of alleles hitting cysteine residues in the EGF domain, whose disulfide linkages make them likely to disrupt the domain&#39;s tertiary structure. Functionally it is notable for a split result: in transfected cells the mutant protein shows increased intracellular expression and increased secretion, yet CCBE1 is scarce in the patients&#39; own intestinal tissue by immunohistochemistry. The authors leave the reconciliation open between a secreted-but-misfolded protein and one that is rapidly degraded in vivo, so this allele is not loss-of-expression at the synthesis level without being a protein that is present where it is needed.</div>
 
 
@@ -8689,6 +8847,12 @@ This disease-associated gene is CCBE1 (hgnc:29426). hgnc:29426 is a gene from th
         p.Cys98Trp (p.C98W)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense CCBE1 allele identified in a consanguineous family. Notable because the child had lymphatic dysplasia with protein-losing enteropathy but no intellectual disability and no dysmorphism, marking the mild end of the HKLLS1 spectrum.</div>
@@ -8775,6 +8939,12 @@ This disease-associated gene is CCBE1 (hgnc:29426). hgnc:29426 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Paternally inherited missense CCBE1 allele in two affected brothers with primary lymphedema, in trans with p.Leu27Pro. It sits adjacent to other known pathogenic CCBE1 mutations, and zebrafish assay showed loss of function.</div>
 
 
@@ -8859,6 +9029,12 @@ This disease-associated gene is CCBE1 (hgnc:29426). hgnc:29426 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Maternally inherited missense CCBE1 allele in the CCBE1 signal peptide, in trans with p.Asp104Asn. The signal peptide had not previously been implicated in disease, so this allele extends the mutable region of the protein beyond the collagen and EGF domains.</div>
 
 
@@ -8916,6 +9092,12 @@ This disease-associated gene is CCBE1 (hgnc:29426). hgnc:29426 is a gene from th
         p.Thr112Ile (c.335C&gt;T)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Paternally inherited likely-pathogenic missense CCBE1 variant, in trans with the frameshift allele (compound heterozygosity).</div>
@@ -9034,6 +9216,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9044,6 +9229,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9248,6 +9436,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9258,6 +9449,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -9383,6 +9577,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Management is symptomatic and multidisciplinary, including nutritional support, monitoring for hypoalbuminemia and immunodeficiency, and developmental and educational support according to the individual&#39;s findings.</div>
 
 
@@ -9465,6 +9665,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9589,6 +9795,9 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9599,6 +9808,9 @@ This treatment uses human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a thera
 
 
     </div>
+
+
+
 
 
 
@@ -9826,6 +10038,9 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9836,6 +10051,9 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -14419,6 +14637,103 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Augment: Hennekam lymphangiectasia-lymphedema syndrome 1 (CCBE1)</strong> · 2026-09-02T06:28:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hennekam_Lymphangiectasia-Lymphedema_Syndrome_1/2026-09-02T062814Z-claude-code-3cea49.yaml">View source</a></p>
+                        <p class="research-review-text">Augmentation of the existing CCBE1 HKLLS1 entry (created 2026-08-02, PR #7834); no new entry was created.
+
+DEEP RESEARCH. falcon was requested per the /curate default and is UNREACHABLE in this
+environment (403 ProviderAuthError; EDISON_API_KEY present but rejected). Rather than
+substituting a provider by hand, the run was re-issued with &#39;just dr_fallback=--fallback
+research-disorder falcon ...&#39; so the substitution is recorded by the run itself. openscientist
+produced the report: research/Hennekam_Lymphangiectasia-Lymphedema_Syndrome_1-deep-research-openscientist.md,
+frontmatter fell_back: true, requested_provider: falcon, provider_attempts listing the falcon 403.
+Its validation is clean: 37/37 references resolved, confabulation_rate 0.0, 14/14 quoted claims
+found in source, 0 off topic. Term validation 35/37 resolved, 0 named as a different term; the two
+&#39;worth a second look&#39; entries are benign (HP:0001888 called &#39;Lymphopenia&#39;, which is how this entry
+already uses it as preferred_term against the canonical label &#39;Decreased total lymphocyte count&#39;;
+and a paraphrase of GO:0004175). ORPHA has no resolver and was not checked either way.
+The recipe renamed the falcon output path to the openscientist name, which displaced the
+previously committed 2026-08-02 falcon report; that report was restored from origin/main, so the
+openscientist report is additive and both are committed. The falcon report gained only a
+template_sha stamp.
+
+GENEREVIEWS. Searched PubMed for a GeneReviews chapter (&#39;Hennekam syndrome GeneReviews[All Fields]&#39;
+and &#39;lymphedema GeneReviews[TI]&#39;); no article exists for this disorder, so no GeneReviews baseline
+was available. Recorded per Step 3b rather than left silent.
+
+WHAT WAS ADDED.
+- classifications: harrisons_chapter GENETICS_ENVIRONMENT_DISEASE + CARDIOVASCULAR, each with a
+  recorded reason.
+- animal_models (new section, 3 models, all with modeled_mechanisms + readouts): Ccbe1-null mouse
+  (PMID:21778431), ccbe1 mutant zebrafish (PMID:19287381), CCBE1 domain-deletion knock-in mice
+  (PMID:25814692). These grounded the mechanism chain that previously had no model layer.
+- Evidence added to 6 previously uncited pathophysiology downstream causal edges.
+- treatments: immunoglobulin replacement (NCIT:C62710 + NCIT:C80829) and octreotide for refractory
+  PLE (CHEBI:7726), both with target_mechanisms links carrying their own evidence.
+- clinical_burden (HIGH), progression (3 phases), discussions (1 HUMAN_MODEL_MISMATCH +
+  2 KNOWLEDGE_GAP).
+- Evidence added to both differential_diagnoses and to the Hypoalbuminemia and Lymphopenia
+  phenotypes.
+- DOI:10.1161/CIRCRESAHA.116.304949 upgraded to PMID:25814692. The entry now has zero DOI-keyed
+  evidence items, so every snippet is checked by the gating validator.
+
+RED-TEAM PASS. A subagent review against dismech-pr-review found 11 issues; all substantive ones
+were fixed before commit. Most important: PMID:18294365 (Vignes, primary intestinal lymphangiectasia
+/ Waldmann disease) had been used as the SOLE evidence on the Hypoalbuminemia and Lymphopenia
+phenotypes, and that review explicitly lists Hennekam syndrome as a SEPARATE entity from its own
+subject - a wrong-disease citation. Replaced with on-disease evidence: PMID:32629717 (homozygous
+CCBE1 c.472C&gt;T infant with documented hypoproteinemia, hypoalbuminemia, hypogammaglobulinemia) for
+Hypoalbuminemia, and PMID:29560340 for Lymphopenia. No source reporting lymphocyte counts in a
+molecularly confirmed HKLLS1 patient could be found (PubMed searched), so the lymphopenia item is
+graded INDIRECT and its explanation says so. The PIL review is retained only as a secondary
+shared-mechanism citation whose explanation now names the disease boundary. Also fixed: 4 PIL
+causal-edge items regraded DIRECT -&gt; INDIRECT for consistency with the same inference step graded
+INDIRECT elsewhere; a clinical_burden rationale sentence claiming the three syndrome arms co-occur
+in all reported families, contradicted by this entry&#39;s own material (rewritten to argue severity,
+not universality); an uncited &#39;33% of patients have seizures&#39; figure in progression (now cited to
+PMID:29560340); a Ccbe1-null model evidence item that quoted the paper&#39;s RATIONALE gap statement
+(&#39;mouse models for the disease do not exist&#39;) rather than a finding; a corneal-micropocket readout
+filed as a measurement of the null mouse when it is an exogenous recombinant-protein assay (demoted
+to link-level evidence with the provenance stated); fidelity HIGH -&gt; MODERATE on that link because
+the same paper reports VEGFR-3 activation unaltered in mutants; an uncited claim that the zebrafish
+is the standard rescue-testing model; a differential-diagnosis overclaim that HKLLS1 and HKLLS2 are
+clinically indistinguishable; and evidence_source IN_VITRO -&gt; OTHER on an attributive sentence.
+An unsourced allele nickname (&#39;full of fluid&#39;) was removed from the zebrafish model name because it
+is not in the cached abstract.
+
+DELIBERATELY NOT DONE.
+- datasets stays empty. &#39;just discover-datasets&#39; returned only 2 GENE_ONLY candidates (GSE307112,
+  GSE307351), both alveolar stem-niche studies matching on CCBE1 alone and unrelated to lymphatic
+  disease - the Named Entity Confusion case CLAUDE.md warns about. Both deep-research reports also
+  state no disease-specific omics signature exists.
+- No conforms_to: there is no lymphangiogenesis or lymphatic-development module in kb/modules/.
+- classifications.harrisons_chapter carries no evidence items; a nosology assignment has no citable
+  finding, and the exemplar entries do not carry one either.
+
+VALIDATION. just validate-disorders (schema + terms + references, the CI gate) passed. Snippets
+99/99 verified, and 99/99 again with --unskip-prefix DOI. check-entity-refs, check-causal-targets,
+check-enum-values, check-duplicate-keys, check-qualifier-terms, check-qualifier-terms-online,
+check-snippet-length, check-snippet-grading, check-title-snippets, check-folded-hyphens,
+check-term-cache-integrity, check-cache-order all OK with no new findings. pytest 10620 passed
+(model-readout, entity-ref, unique-name and treatment selectors). Compliance rose 92.3% -&gt; 98.6%
+(weighted 92.8% -&gt; 99.1%). Two term errors were caught by the validator during curation and fixed:
+NCIT:C594 is Iodine (not Immunoglobulin) and NCIT:C572 is not in the ChemicalEntityTerm enum.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hennekam lymphangiectasia-lymphedema syndrome 1 CCBE1</strong> · 2026-08-02T01:41:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hennekam_Lymphangiectasia-Lymphedema_Syndrome_1/2026-08-02T014107Z-claude-code-a8b7a0.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of CCBE1-related Hennekam syndrome MONDO:0009337, OMIM 235510. Deep research via Edison falcon provider. Curated the CCBE1/ADAMTS3/pro-VEGF-C activation/VEGFR-3 lymphangiogenesis mechanism, generalized lymphatic dysplasia, intestinal lymphangiectasia with protein-losing enteropathy, lymphedema, flat facial gestalt, intellectual disability, and severe prenatal nonimmune hydrops presentation. Evidence from primary literature: Alders 2009 PMID:19935664, Hennekam 1989 PMID:2624276, Jeltsch 2014 PMID:24552833, Le Guen 2014 PMID:24523457, Roukens 2015, Melber 2018 hydrops. Validated with just validate; schema, terms and references all pass; DOI snippets manually confirmed as exact substrings.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

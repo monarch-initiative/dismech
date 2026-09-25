@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4563,6 +4616,13 @@ What this entry does about it. dismech curates SPGF43 as its own record while re
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spef2-loss-of-function" data-dismech-node="SPEF2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">SPEF2 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic loss-of-function variants remove or truncate SPEF2, a component of the C1b projection of the ciliary and flagellar central pair apparatus. The variants reported in affected men fall in the long, testis-expressed SPEF2 transcripts that encode the IFT20-binding domain, and patient spermatozoa show markedly reduced or absent SPEF2 protein on western blot and immunofluorescence.</div>
 
 
@@ -4623,6 +4683,8 @@ This pathophysiological event involves SPEF2 (hgnc:26293). hgnc:26293 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4633,6 +4695,9 @@ This pathophysiological event involves SPEF2 (hgnc:26293). hgnc:26293 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline biallelic nonsense, frameshift, canonical-splice and deleterious missense variants, absent or extremely rare in population databases.</div>
 
@@ -4776,6 +4841,13 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-manchette-and-intraflagellar-cargo-transport" data-dismech-node="Impaired Manchette and Intraflagellar Cargo Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Manchette and Intraflagellar Cargo Transport</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">SPEF2 binds the intraflagellar transport protein IFT20 and cytoplasmic dynein 1, and localises to the Golgi complex, manchette and basal body of differentiating spermatids. In the male-germ-cell-specific Spef2 knockout mouse, IFT20 transport from the Golgi to the manchette is delayed and the manchette fails to migrate, so SPEF2 acts as a cargo linker for dynein-1-mediated transport along the microtubule tracks that build the tail. The human evidence for this step is the IFT20 and RSPH9 binding shown in a heterologous assay plus the transcript localisation of the patient alleles; the transport defect itself has been demonstrated in mouse rather than in human spermatids, which is why this node is marked PROVISIONAL rather than ESTABLISHED.</div>
 
@@ -5024,6 +5096,13 @@ This pathophysiological event involves sperm flagellum (GO:0036126). GO:0036126 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sperm-flagellar-central-pair-apparatus-failure" data-dismech-node="Sperm Flagellar Central Pair Apparatus Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sperm Flagellar Central Pair Apparatus Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The sperm axoneme is assembled without its central pair. Transmission electron microscopy of patient spermatozoa shows a 9+0 rather than the normal 9+2 configuration and disorganised accessory structures, and immunofluorescence shows loss of SPEF2 itself together with other central pair and axonemal proteins, including the MMAF-associated CFAP69. Sperm proteomics from three SPEF2-mutant men found over a thousand differentially expressed proteins, so the lesion propagates well beyond the C1b projection.</div>
 
 
@@ -5252,6 +5331,13 @@ This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multiple-morphological-abnormalities-of-the-sperm-flagella" data-dismech-node="Multiple Morphological Abnormalities of the Sperm Flagella" data-dismech-type="pathophysiology">
                 <div class="item-name">Multiple Morphological Abnormalities of the Sperm Flagella</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The malformed axoneme yields the MMAF phenotype — absent, short, coiled, bent and irregular-calibre tails with severely reduced motility — together with mitochondrial-sheath and accessory-structure disorganisation. This is the sperm-flagellar instance of the motile-axoneme beat failure that produces impaired ciliary beating in the airway, which is why the node conforms to the motile-cilia arm of the ciliopathy module. The conformance is a claim about shared mechanism, not about the patient having airway disease; note also that in SPEF2 disease the two tissues are not affected identically, since respiratory cilia of the same men retain a normal 9+2 ultrastructure while their sperm flagella do not.</div>
 
@@ -5495,6 +5581,13 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-male-infertility" data-dismech-node="Male Infertility" data-dismech-type="pathophysiology">
                 <div class="item-name">Male Infertility</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint, and the route by which these men are ascertained. Affected men present in a reproductive clinic with severe asthenoteratozoospermia; the underlying failure is of spermiogenesis rather than of transport out of the tract.</div>
 
 
@@ -5623,7 +5716,7 @@ This pathophysiological event involves decreased cilium movement (GO:0003341). G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Sperm Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple morphological abnormalities of the sperm flagella: absent, short, coiled, bent and irregular-calibre tails, the MMAF pattern, with disorganised axonemal and accessory structures on electron microscopy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012864\"}}, {\"id\": \"Abnormal Sperm Tail Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The morphological defect is localised to the flagellum. Patient spermatozoa show a 9+0 axoneme lacking the central pair, together with disorganised mitochondrial sheath and other accessory structures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012868\"}}, {\"id\": \"Absent Sperm Axoneme Central Pair Complex\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The specific ultrastructural lesion. Transmission electron microscopy of patient spermatozoa shows the central pair of singlet microtubules missing from the flagellar axoneme, leaving a 9+0 rather than a 9+2 configuration.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033525\"}}, {\"id\": \"Impaired Manchette and Intraflagellar Cargo Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SPEF2 binds the intraflagellar transport protein IFT20 and cytoplasmic dynein 1, and localises to the Golgi complex, manchette and basal body of differentiating spermatids. In the male-germ-cell-specific Spef2 knockout mouse, IFT20 transport from the Golgi to the manchette is delayed and the manchette fails to migrate, so SPEF2 acts as a cargo linker for dynein-1-mediated transport along the microtubule tracks that build the tail. The human evidence for this step is the IFT20 and RSPH9 binding shown in a heterologous assay plus the transcript localisation of the patient alleles; the transport defect itself has been demonstrated in mouse rather than in human spermatids, which is why this node is marked PROVISIONAL rather than ESTABLISHED.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"spermatid\"], \"biological_processes\": [\"intraciliary transport\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Male germ cell-specific Spef2 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Spef2 conditional knockout, male germ cell-specific\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of SPEF2 in male germ cells delays IFT20 transport from the Golgi complex to the manchette and causes the manchette to fail to migrate, which is the transport failure this node asserts.\"}]}}, {\"id\": \"Intracytoplasmic Sperm Injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"ICSI bypasses the motility and morphology defect by injecting a single spermatozoon directly into the oocyte. Every man in the largest reported SPEF2 series to undergo ICSI achieved a live birth, so a SPEF2 diagnosis carries a usable prognostic message and not only an explanatory one. The series is three men, so this is a favourable signal rather than a success rate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Male Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting feature. Men are ascertained through infertility clinics after failure to conceive, with normal genital examination.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003251\", \"animal_models\": [{\"name\": \"Spef2 big giant head (bgh) mouse\", \"species\": \"Mouse\", \"genotype\": \"Spef2 bgh, homozygous nonsense\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous males are infertile, matching the human endpoint. But they are infertile as one component of full PCD \\u2014 hydrocephalus and sinusitis alongside \\u2014 rather than in isolation.\"}]}}, {\"id\": \"Male germ cell-specific Spef2 conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A germ-cell-restricted Spef2 knockout, which isolates the spermiogenesis phenotype from the hydrocephalus and airway disease of the whole-animal mutant. It is the model that demonstrated the transport function of SPEF2.\"}, {\"id\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The malformed axoneme yields the MMAF phenotype \\u2014 absent, short, coiled, bent and irregular-calibre tails with severely reduced motility \\u2014 together with mitochondrial-sheath and accessory-structure disorganisation. This is the sperm-flagellar instance of the motile-axoneme beat failure that produces impaired ciliary beating in the airway, which is why the node conforms to the motile-cilia arm of the ciliopathy module. The conformance is a claim about shared mechanism, not about the patient having airway disease; note also that in SPEF2 disease the two tissues are not affected identically, since respiratory cilia of the same men retain a normal 9+2 ultrastructure while their sperm flagella do not.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Sperm\"], \"biological_processes\": [\"cilium movement\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Spef2 big giant head (bgh) mouse\", \"species\": \"Mouse\", \"genotype\": \"Spef2 bgh, homozygous nonsense\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous males are infertile with shortened flagella and disorganised axonemal and accessory structures in elongating spermatids and mature sperm, matching the human flagellar phenotype.\"}]}}, {\"id\": \"Reduced Sperm Motility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe asthenozoospermia is the functional counterpart of the flagellar defect; men are ascertained through severe asthenozoospermia or asthenoteratozoospermia rather than through azoospermia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012207\"}}, {\"id\": \"SPEF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"SPEF2\"], \"gene_terms\": [{\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"frequency\": \"2 of 42 MMAF probands in the founding cohort; separately 4 of 45 families with severe asthenozoospermia\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SPEF2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants remove or truncate SPEF2, a component of the C1b projection of the ciliary and flagellar central pair apparatus. The variants reported in affected men fall in the long, testis-expressed SPEF2 transcripts that encode the IFT20-binding domain, and patient spermatozoa show markedly reduced or absent SPEF2 protein on western blot and immunofluorescence.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SPEF2\"], \"gene_terms\": [{\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline biallelic nonsense, frameshift, canonical-splice and deleterious missense variants, absent or extremely rare in population databases.\"}, \"role\": \"trigger\"}}, {\"id\": \"Spef2 big giant head (bgh) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A spontaneous mouse mutant positionally cloned to a nonsense variant in Spef2. It is the model that established SPEF2 as a motile-ciliopathy gene, and it is informative for this entry in two directions: it reproduces the flagellar assembly defect, and it demonstrates that whole-animal loss of SPEF2 produces full primary ciliary dyskinesia rather than isolated infertility.\"}, {\"id\": \"Sperm Flagellar Central Pair Apparatus Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The sperm axoneme is assembled without its central pair. Transmission electron microscopy of patient spermatozoa shows a 9+0 rather than the normal 9+2 configuration and disorganised accessory structures, and immunofluorescence shows loss of SPEF2 itself together with other central pair and axonemal proteins, including the MMAF-associated CFAP69. Sperm proteomics from three SPEF2-mutant men found over a thousand differentially expressed proteins, so the lesion propagates well beyond the C1b projection.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Sperm\"], \"biological_processes\": [\"sperm axoneme assembly\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"SPEF2 Loss of Function\", \"target\": \"Impaired Manchette and Intraflagellar Cargo Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SPEF2 is the linker; losing it is what removes the transport function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Manchette and Intraflagellar Cargo Transport\", \"target\": \"Sperm Flagellar Central Pair Apparatus Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cargo that is not delivered to the growing tail cannot be built into the axoneme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sperm Flagellar Central Pair Apparatus Failure\", \"target\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An axoneme assembled without its central pair produces a malformed flagellum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sperm Flagellar Central Pair Apparatus Failure\", \"target\": \"Absent Sperm Axoneme Central Pair Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical expression of this node: the missing central pair is what a pathologist sees on transmission electron microscopy of patient sperm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Male Infertility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Flagella built this way cannot propel the spermatozoon.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Abnormal Sperm Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical expression of this node in a routine semen analysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Abnormal Sperm Tail Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same finding localised to the flagellum on detailed tail morphology scoring.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Reduced Sperm Motility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A flagellum that cannot beat normally is a spermatozoon that cannot swim.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracytoplasmic Sperm Injection\", \"target\": \"Male Infertility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spef2 big giant head (bgh) mouse\", \"target\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Homozygous males are infertile with shortened flagella and disorganised axonemal and accessory structures in elongating spermatids and mature sperm, matching the human flagellar phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A nonsense allele in mouse is not equivalent to the compound heterozygous and missense genotypes reported in men, and the mouse also has hydrocephalus and sinusitis, which are not part of the curated human reproductive phenotype.\"}, {\"source\": \"Spef2 big giant head (bgh) mouse\", \"target\": \"Male Infertility\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Homozygous males are infertile, matching the human endpoint. But they are infertile as one component of full PCD \\u2014 hydrocephalus and sinusitis alongside \\u2014 rather than in isolation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse phenotype is broader than the curated human phenotype. It cannot be used to argue that isolated spermatogenic failure is the expected consequence of SPEF2 loss; that mismatch is the substance of the open phenotypic-boundary discussion on this entry.\"}, {\"source\": \"Male germ cell-specific Spef2 conditional knockout mouse\", \"target\": \"Impaired Manchette and Intraflagellar Cargo Transport\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of SPEF2 in male germ cells delays IFT20 transport from the Golgi complex to the manchette and causes the manchette to fail to migrate, which is the transport failure this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The transport measurements are in mouse spermatids; the equivalent experiment has not been done in human germ cells, where the evidence is limited to protein-protein interaction in a heterologous cell line and to the transcript position of the patient alleles. A complete germ-cell knockout also does not model the hypomorphic missense alleles seen in some men.\"}, {\"source\": \"SPEF2\", \"target\": \"SPEF2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Sperm Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple morphological abnormalities of the sperm flagella: absent, short, coiled, bent and irregular-calibre tails, the MMAF pattern, with disorganised axonemal and accessory structures on electron microscopy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012864\"}}, {\"id\": \"Abnormal Sperm Tail Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The morphological defect is localised to the flagellum. Patient spermatozoa show a 9+0 axoneme lacking the central pair, together with disorganised mitochondrial sheath and other accessory structures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012868\"}}, {\"id\": \"Absent Sperm Axoneme Central Pair Complex\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The specific ultrastructural lesion. Transmission electron microscopy of patient spermatozoa shows the central pair of singlet microtubules missing from the flagellar axoneme, leaving a 9+0 rather than a 9+2 configuration.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033525\"}}, {\"id\": \"Impaired Manchette and Intraflagellar Cargo Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SPEF2 binds the intraflagellar transport protein IFT20 and cytoplasmic dynein 1, and localises to the Golgi complex, manchette and basal body of differentiating spermatids. In the male-germ-cell-specific Spef2 knockout mouse, IFT20 transport from the Golgi to the manchette is delayed and the manchette fails to migrate, so SPEF2 acts as a cargo linker for dynein-1-mediated transport along the microtubule tracks that build the tail. The human evidence for this step is the IFT20 and RSPH9 binding shown in a heterologous assay plus the transcript localisation of the patient alleles; the transport defect itself has been demonstrated in mouse rather than in human spermatids, which is why this node is marked PROVISIONAL rather than ESTABLISHED.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"spermatid\"], \"biological_processes\": [\"intraciliary transport\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Male germ cell-specific Spef2 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Spef2 conditional knockout, male germ cell-specific\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of SPEF2 in male germ cells delays IFT20 transport from the Golgi complex to the manchette and causes the manchette to fail to migrate, which is the transport failure this node asserts.\"}]}}, {\"id\": \"Intracytoplasmic Sperm Injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"ICSI bypasses the motility and morphology defect by injecting a single spermatozoon directly into the oocyte. Every man in the largest reported SPEF2 series to undergo ICSI achieved a live birth, so a SPEF2 diagnosis carries a usable prognostic message and not only an explanatory one. The series is three men, so this is a favourable signal rather than a success rate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Male Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting feature. Men are ascertained through infertility clinics after failure to conceive, with normal genital examination.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003251\", \"animal_models\": [{\"name\": \"Spef2 big giant head (bgh) mouse\", \"species\": \"Mouse\", \"genotype\": \"Spef2 bgh, homozygous nonsense\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous males are infertile, matching the human endpoint. But they are infertile as one component of full PCD \\u2014 hydrocephalus and sinusitis alongside \\u2014 rather than in isolation.\"}]}}, {\"id\": \"Male germ cell-specific Spef2 conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A germ-cell-restricted Spef2 knockout, which isolates the spermiogenesis phenotype from the hydrocephalus and airway disease of the whole-animal mutant. It is the model that demonstrated the transport function of SPEF2.\"}, {\"id\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The malformed axoneme yields the MMAF phenotype \\u2014 absent, short, coiled, bent and irregular-calibre tails with severely reduced motility \\u2014 together with mitochondrial-sheath and accessory-structure disorganisation. This is the sperm-flagellar instance of the motile-axoneme beat failure that produces impaired ciliary beating in the airway, which is why the node conforms to the motile-cilia arm of the ciliopathy module. The conformance is a claim about shared mechanism, not about the patient having airway disease; note also that in SPEF2 disease the two tissues are not affected identically, since respiratory cilia of the same men retain a normal 9+2 ultrastructure while their sperm flagella do not.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Sperm\"], \"biological_processes\": [\"cilium movement\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Spef2 big giant head (bgh) mouse\", \"species\": \"Mouse\", \"genotype\": \"Spef2 bgh, homozygous nonsense\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Homozygous males are infertile with shortened flagella and disorganised axonemal and accessory structures in elongating spermatids and mature sperm, matching the human flagellar phenotype.\"}]}}, {\"id\": \"Reduced Sperm Motility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe asthenozoospermia is the functional counterpart of the flagellar defect; men are ascertained through severe asthenozoospermia or asthenoteratozoospermia rather than through azoospermia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012207\"}}, {\"id\": \"SPEF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"SPEF2\"], \"gene_terms\": [{\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"frequency\": \"2 of 42 MMAF probands in the founding cohort; separately 4 of 45 families with severe asthenozoospermia\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SPEF2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants remove or truncate SPEF2, a component of the C1b projection of the ciliary and flagellar central pair apparatus. The variants reported in affected men fall in the long, testis-expressed SPEF2 transcripts that encode the IFT20-binding domain, and patient spermatozoa show markedly reduced or absent SPEF2 protein on western blot and immunofluorescence.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"SPEF2\"], \"gene_terms\": [{\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline biallelic nonsense, frameshift, canonical-splice and deleterious missense variants, absent or extremely rare in population databases.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Spef2 big giant head (bgh) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A spontaneous mouse mutant positionally cloned to a nonsense variant in Spef2. It is the model that established SPEF2 as a motile-ciliopathy gene, and it is informative for this entry in two directions: it reproduces the flagellar assembly defect, and it demonstrates that whole-animal loss of SPEF2 produces full primary ciliary dyskinesia rather than isolated infertility.\"}, {\"id\": \"Sperm Flagellar Central Pair Apparatus Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The sperm axoneme is assembled without its central pair. Transmission electron microscopy of patient spermatozoa shows a 9+0 rather than the normal 9+2 configuration and disorganised accessory structures, and immunofluorescence shows loss of SPEF2 itself together with other central pair and axonemal proteins, including the MMAF-associated CFAP69. Sperm proteomics from three SPEF2-mutant men found over a thousand differentially expressed proteins, so the lesion propagates well beyond the C1b projection.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Sperm\"], \"biological_processes\": [\"sperm axoneme assembly\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"SPEF2 Loss of Function\", \"target\": \"Impaired Manchette and Intraflagellar Cargo Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SPEF2 is the linker; losing it is what removes the transport function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Manchette and Intraflagellar Cargo Transport\", \"target\": \"Sperm Flagellar Central Pair Apparatus Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cargo that is not delivered to the growing tail cannot be built into the axoneme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sperm Flagellar Central Pair Apparatus Failure\", \"target\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An axoneme assembled without its central pair produces a malformed flagellum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sperm Flagellar Central Pair Apparatus Failure\", \"target\": \"Absent Sperm Axoneme Central Pair Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical expression of this node: the missing central pair is what a pathologist sees on transmission electron microscopy of patient sperm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Male Infertility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Flagella built this way cannot propel the spermatozoon.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Abnormal Sperm Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical expression of this node in a routine semen analysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Abnormal Sperm Tail Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same finding localised to the flagellum on detailed tail morphology scoring.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"target\": \"Reduced Sperm Motility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A flagellum that cannot beat normally is a spermatozoon that cannot swim.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracytoplasmic Sperm Injection\", \"target\": \"Male Infertility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spef2 big giant head (bgh) mouse\", \"target\": \"Multiple Morphological Abnormalities of the Sperm Flagella\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Homozygous males are infertile with shortened flagella and disorganised axonemal and accessory structures in elongating spermatids and mature sperm, matching the human flagellar phenotype.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A nonsense allele in mouse is not equivalent to the compound heterozygous and missense genotypes reported in men, and the mouse also has hydrocephalus and sinusitis, which are not part of the curated human reproductive phenotype.\"}, {\"source\": \"Spef2 big giant head (bgh) mouse\", \"target\": \"Male Infertility\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Homozygous males are infertile, matching the human endpoint. But they are infertile as one component of full PCD \\u2014 hydrocephalus and sinusitis alongside \\u2014 rather than in isolation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse phenotype is broader than the curated human phenotype. It cannot be used to argue that isolated spermatogenic failure is the expected consequence of SPEF2 loss; that mismatch is the substance of the open phenotypic-boundary discussion on this entry.\"}, {\"source\": \"Male germ cell-specific Spef2 conditional knockout mouse\", \"target\": \"Impaired Manchette and Intraflagellar Cargo Transport\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of SPEF2 in male germ cells delays IFT20 transport from the Golgi complex to the manchette and causes the manchette to fail to migrate, which is the transport failure this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The transport measurements are in mouse spermatids; the equivalent experiment has not been done in human germ cells, where the evidence is limited to protein-protein interaction in a heterologous cell line and to the transcript position of the patient alleles. A complete germ-cell knockout also does not model the hypomorphic missense alleles seen in some men.\"}, {\"source\": \"SPEF2\", \"target\": \"SPEF2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5664,6 +5757,9 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5738,6 +5834,9 @@ This clinical feature is Abnormal sperm morphology (HP:0012864). HP:0012864 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5807,6 +5906,9 @@ This clinical feature is Abnormal sperm tail morphology (HP:0012868). HP:0012868
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5871,6 +5973,9 @@ This clinical feature is Absent sperm axoneme central pair complex (HP:0033525).
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5965,6 +6070,9 @@ This clinical feature is Reduced sperm motility (HP:0012207). HP:0012207 is a ph
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6080,6 +6188,9 @@ This disease-associated gene is SPEF2 (hgnc:26293). hgnc:26293 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6237,6 +6348,9 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6247,6 +6361,9 @@ This treatment is intracytoplasmic sperm injection (NCIT:C185482). NCIT:C185482 
 
 
     </div>
+
+
+
 
 
 
@@ -6394,6 +6511,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6404,6 +6524,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9197,6 +9320,94 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Spermatogenic failure 43 (MONDO:0032898, SPEF2)</strong> · 2026-09-03T20:45:57Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spermatogenic_Failure_43/2026-09-03T204557Z-claude-code-9d9a6f.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for spermatogenic failure 43 (MONDO:0032898), the male reproductive
+presentation of biallelic SPEF2 disease. Stub entry_type resolved as DISEASE:
+MONDO:0032898 is a distinct MONDO concept with its own OMIM entry (618751), it is
+bound nowhere else in kb/, and Spermatogenic_Failure_98 already established the
+standalone per-gene spermatogenic-failure entry as the convention here.
+
+The SPEF2 / PCD boundary, which was the substance of the claim. SPEF2 causes both
+this disorder and primary ciliary dyskinesia, and the two are not cleanly
+separable, so the boundary was set explicitly rather than by default:
+
+  * This entry does NOT claim the respiratory phenotype. No airway phenotype
+    (recurrent airway infection, bronchitis, rhinosinusitis, bronchiectasis)
+    appears in its phenotypes block. Reasons: the airway mechanism is already
+    curated in Primary_Ciliary_Dyskinesia.yaml, which carries SPEF2 with the
+    ClinGen Definitive assertion; MONDO keys SPGF43 and PCD separately and
+    dismech entries follow MONDO; and Spermatogenic_Failure_98 made the same
+    split for CFAP54 in a structurally identical situation.
+  * The exclusion is the harder call, not the easy one, and the entry says so.
+    In PMID:31942643 -- the only SPEF2 infertility cohort that took a
+    respiratory history systematically -- all six biallelic men had PCD-like
+    symptoms, and all three men in PMID:38568462 had infertility with PCD or
+    likely PCD. That is stated in the entry description, in the differential
+    diagnosis, and in the open discussion, so the co-occurrence is visible
+    rather than hidden by the scope decision.
+  * The question itself is curated as an OPEN KNOWLEDGE_GAP discussion
+    (spgf43_reproductive_versus_pcd_spectrum) attaching to the SPEF2 Loss of
+    Function and Male Infertility nodes, with evidence on both sides: the 6/6
+    PCD-like symptom finding and ClinGen&#39;s formal lumping recommendation
+    (recorded as REFUTE against the split) against the ClinGen statement that
+    some probands had respiratory features confirmed absent, and the
+    tissue-level dissociation in which respiratory cilia keep a normal 9+2
+    axoneme while sperm flagella are 9+0. Two proposed experiments accompany it.
+
+Pathograph. Five nodes: SPEF2 Loss of Function (MOLECULAR, trigger) -&gt; Impaired
+Manchette and Intraflagellar Cargo Transport (CELLULAR, PROVISIONAL -- the
+transport defect is demonstrated in mouse, with human evidence limited to
+heterologous-cell interaction and allele transcript position) -&gt; Sperm Flagellar
+Central Pair Apparatus Failure -&gt; Multiple Morphological Abnormalities of the
+Sperm Flagella (conforms_to ciliopathy_dysfunction#Motile Cilia Beat Dysfunction)
+-&gt; Male Infertility (ORGANISM, consequence).
+
+Models. Both go in animal_models with modeled_mechanisms links: the spontaneous
+Spef2 bgh mouse (RECAPITULATES the flagellar node with two histology readouts;
+PARTIALLY_RECAPITULATES Male Infertility, because the mouse has full PCD rather
+than isolated infertility) and the male-germ-cell conditional knockout
+(RECAPITULATES the transport node, two readouts).
+
+Deep research. research/Spermatogenic_Failure_43-deep-research-falcon.md, falcon
+provider, 686 s, 31 citations, 5/5 references resolved, preflight-dr PASS
+(SPEF2 mentioned 68 times, OMIM 618751 matches MONDO). Used as leads only. Its
+suggested HPO terms were checked through OLS and four were wrong: HP:0032223 was
+offered as &#39;Chronic wet cough&#39; but is &#39;Blood group&#39;; HP:0011961 was offered as
+&#39;Asthenozoospermia&#39; but is &#39;Non-obstructive azoospermia&#39;; HP:0012864 was offered
+as &#39;Teratozoospermia&#39; and HP:0000798 as &#39;Oligospermia&#39;, neither of which is the
+canonical label. None was used as offered. Every CURIE bound in this entry was
+resolved through the OLS API and its label copied from the response.
+
+Denominators. The cohort yields in the genetic section (2/42, 2/50, 4/45) have
+MMAF or severe-asthenozoospermia denominators, not SPGF43, so they are recorded
+as free-text frequency plus notes rather than as case_fractions, and no
+prevalence record is created. PMID:39753944&#39;s ART outcome percentages are pooled
+across FSIP2 and SPEF2 probands, so only its qualitative conclusion is cited and
+the numbers are not curated as SPEF2 outcomes.
+
+Reference cache. The ClinGen SPEF2 record
+(CGGV:assertion_e137eed5-...-2025-01-09T170000.000Z) was regenerated with
+&#39;just clingen-rebuild --id&#39;, which added the Evidence summary narrative the
+committed copy lacked. That narrative is the source of the lumping and
+confirmed-absence-of-respiratory-features quotes. It was regenerated through the
+sanctioned recipe, not hand-edited.
+
+Validation. just validate, validate-terms, validate-disorders, check-duplicate-keys,
+check-entity-refs, check-causal-targets, check-folded-hyphens, check-snippet-length,
+check-title-snippets, check-snippet-grading, check-environmental-evidence,
+check-stubs, check-reference-titles, check-reference-cache-frontmatter and
+validate-history all exit 0. Reference validation reports 53/53 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

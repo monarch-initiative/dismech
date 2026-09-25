@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3820,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hepatocellular%20Carcinoma"
@@ -3979,7 +4032,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4015,7 +4068,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -4024,7 +4077,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">24</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4816,7 +4869,149 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_phthalate_class_hepatocarcinogenesis_scope">
+                <div class="item-name">Does the phthalate class act on hepatocellular carcinoma through a shared mechanism that this entry should represent as one environmental pathway, or is monomethyl phthalate&#39;s MMP9 route compound-specific and not generalizable to the other plasticizers people are exposed to alongside it?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_phthalate_class_hepatocarcinogenesis_scope</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#environmental-monomethyl-phthalate-exposure">environmental#Monomethyl phthalate exposure</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-mmp9-upregulation">pathophysiology#MMP9 Upregulation</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The monomethyl phthalate arm curated here rests on one publication, and the obvious next move - generalizing it to a phthalate or endocrine-disruptor exposure pathway - is exactly what the rest of the literature does not yet license. The three phthalates with recent hepatocellular carcinoma work nominate three different targets: monomethyl phthalate is reported to act through MMP9, di(2-ethylhexyl) phthalate and its metabolite through PPARG and a lipid-storage program, and diisononyl phthalate produces liver tumours in rodents through PPAR-alpha. So there is no shared node to factor out, and a single environmental-chemical node would assert a convergence nobody has shown. The diisononyl assessment cuts the other way as well, and is the reason this is recorded as open rather than as pending work: a systematic integration of human, animal and mechanistic evidence concludes that compound is unlikely to be a human carcinogen, with its rodent liver tumours attributed to a mode of action held not to translate. Class membership therefore does not carry hepatocarcinogenic risk by itself, and the human evidence for the monomethyl route is a Mendelian randomization estimate the authors themselves call preliminary. What would settle it is whether the MMP9 response is reproduced for other phthalate metabolites in human hepatocyte systems, and whether any exposure cohort measuring phthalate metabolites reports hepatocellular carcinoma incidence directly rather than through genetic instruments.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42094681" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42094681" target="_blank">PMID:42094681</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multiple evidence stream integration and interpretation support that DINP elicits rodent-specific liver tumors through the peroxisome proliferator-activated receptor alpha, a MoA widely considered to lack human relevance."</div>
+
+
+                <div class="evidence-explanation">The core reason the class question is open: a phthalate that does produce liver tumours does so by a route the assessors judge not to operate in humans. It is this systematic review&#39;s integration of rodent bioassay and mechanistic data rather than a result it generated, which is what the quote role records.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42094681" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42094681" target="_blank">PMID:42094681</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Evidence from epidemiological studies is limited, but does not indicate an association between DINP exposure and cancer"</div>
+
+
+                <div class="evidence-explanation">The human counterpart of the same point. It bears on hepatocellular carcinoma by inference rather than assertion, since the epidemiological studies the review is summarising here report breast and prostate cancer outcomes rather than liver outcomes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42674152" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42674152" target="_blank">PMID:42674152</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PPARG was upregulated in HCC tissues, and higher expression was associated with poorer overall survival in the TCGA-LIHC cohort."</div>
+
+
+                <div class="evidence-explanation">A second phthalate nominating a different hepatocellular carcinoma target, which is what makes the class a question rather than a pathway. The quote establishes that target&#39;s standing in human tumours; it does not itself show the phthalate acting on it, so it reaches the gap by inference.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_rpp40_trna_processing_mtor_myc_causality">
@@ -6141,7 +6336,7 @@ This readout is measured by live-cell viability assay.</span>
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -6170,10 +6365,10 @@ This readout is measured by live-cell viability assay.</span>
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40533478" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:40413743" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533478" target="_blank">PMID:40533478</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40413743" target="_blank">PMID:40413743</a>
                     </span>
 
 
@@ -6186,15 +6381,17 @@ This readout is measured by live-cell viability assay.</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Here we report that rapid depletion of RNase MRP, a deeply conserved RNA-based enzyme required for rRNA biosynthesis, induces a long-term yet reversible proliferative arrest in human cells. Severely compromised biogenesis of rRNAs along with acute transcriptional reprogramming precede a gradual..."</div>
+                <div class="evidence-snippet">"We show that Rmp24 and Rmp64 are required for pre-rRNA ITS1 site 2 processing and associate with MRP RNA but are not required for RNase P activity and do not associate with RNase P-specific H1 RNA."</div>
 
 
-                <div class="evidence-explanation">The temporal sequence after rapid RNase MRP depletion supports early RNA-processing measurements and cautions against interpreting later proliferative arrest as an HCC-specific mTOR/MYC mechanism.</div>
+                <div class="evidence-explanation">An independent human genome-wide screen shows that the RNase MRP-specific subunits are dispensable for RNase P activity and do not join the RNase P holoenzyme, which is the property the RNase-MRP-specific perturbation arm depends on for branch assignment. It does not address RPP40, mTOR/MYC, or HCC.</div>
 
 
 
             </div>
 
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -6214,7 +6411,7 @@ This readout is measured by live-cell viability assay.</span>
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (6 references)
+            Show evidence (8 references)
         </summary>
         <div class="evidence-list">
 
@@ -6238,6 +6435,31 @@ This readout is measured by live-cell viability assay.</span>
 
 
                 <div class="evidence-explanation">The seed paper explicitly identifies the unresolved HCC mechanism while separating RPP40&#39;s known canonical role from the HCC-specific question.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16723659" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16723659" target="_blank">PMID:16723659</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Rpp20 and Rpp25 appear to be associated with only a subset of RNase MRP particles, in contrast to hPop1, Rpp40, Rpp38, and Rpp30 (and possibly also hPop5), which are probably associated with all RNase MRP complexes."</div>
+
+
+                <div class="evidence-explanation">Human complex-partitioning biochemistry substantiates the shared-subunit premise of this gap: RPP40 partitions with essentially all RNase MRP particles as well as RNase P, so an RPP40 gain-of-function or loss-of-function experiment perturbs both complexes and cannot by itself assign an HCC phenotype to the RNase P branch. It reports complex composition only, and tests neither HCC nor mTOR/MYC signaling.</div>
 
 
 
@@ -6268,33 +6490,8 @@ This readout is measured by live-cell viability assay.</span>
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41933259" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41933259" target="_blank">PMID:41933259</a>
-                    </span>
 
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"RPP40 expression was significantly upregulated in most cancers and their subtypes"</div>
-
-
-                <div class="evidence-explanation">Pan-cancer patient-tumor expression supports a broadly shared association and motivates testing HCC selectivity. It does not establish dependency, directionality, or an HCC-specific processing mechanism.</div>
-
-
-
-            </div>
-
-
-            <div class="evidence-more">+ 3 more references</div>
+            <div class="evidence-more">+ 5 more references</div>
 
         </div>
     </details>
@@ -6517,11 +6714,12 @@ This experiment is of type protein acetylation and metabolic switching mechanism
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">11</span>
+                <span class="card-count">17</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-liver-injury-and-cirrhosis" data-dismech-node="Chronic Liver Injury and Cirrhosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Liver Injury and Cirrhosis</div>
+
 
                 <div class="item-desc">Most HCC arises in the context of chronic liver disease and cirrhosis. Persistent hepatocyte death and regeneration in an inflammatory environment promotes accumulation of genetic alterations. Cirrhosis itself is a premalignant condition with ongoing oxidative stress and genomic instability.</div>
 
@@ -6660,6 +6858,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-telomere-dysfunction-and-genomic-instability" data-dismech-node="Telomere Dysfunction and Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Telomere Dysfunction and Genomic Instability</div>
 
+
                 <div class="item-desc">Chronic hepatocyte proliferation leads to telomere shortening, causing genomic instability. TERT promoter mutations, which are the most common HCC mutations, reactivate telomerase to enable unlimited replication. This creates a checkpoint bypass allowing survival of genetically unstable cells.</div>
 
 
@@ -6739,6 +6938,7 @@ This pathophysiological event involves abnormal telomere maintenance (GO:0000723
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-driver-mutations" data-dismech-node="Accumulation of Driver Mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Driver Mutations</div>
 
+
                 <div class="item-desc">Multiple driver genes are recurrently mutated in HCC, including TERT promoter (60%), TP53 (30%), CTNNB1 (30%), AXIN1 (10%), and ARID1A (10%). These mutations affect telomere maintenance, cell cycle control, WNT signaling, and chromatin remodeling.</div>
 
 
@@ -6817,6 +7017,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-pathway-activation" data-dismech-node="WNT/Beta-Catenin Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">WNT/Beta-Catenin Pathway Activation</div>
+
 
                 <div class="item-desc">Activating mutations in CTNNB1 (beta-catenin) or inactivating mutations in AXIN1 lead to constitutive WNT pathway activation. This drives cell proliferation and is associated with a distinct molecular subclass of HCC with specific clinical features including cholestasis and immune exclusion.</div>
 
@@ -6902,8 +7103,792 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-mlkl-upregulation" data-dismech-node="Hepatocyte MLKL Upregulation" data-dismech-type="pathophysiology">
+                <div class="item-name">Hepatocyte MLKL Upregulation</div>
+
+
+                <div class="item-desc">In MASLD-associated HCC, long-term Western diet raises hepatocyte MLKL protein. This is an abundance change, not a change in catalytic activity: MLKL is a catalytically dead pseudokinase whose established role is as the terminal executioner of necroptosis, and the observation here is that it accumulates. Hepatocyte-specific MLKL knockout mice on the same diet develop fewer and smaller tumours, so the accumulation is the entry point of this arm rather than a bystander finding. Elevated MLKL also marks worse outcome in human HCC, and pharmacological MLKL inhibition suppresses xenograft growth.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        hepatocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000182</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MLKL
+
+
+    <a href="https://bioregistry.io/hgnc:26617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:26617</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MLKL (hgnc:26617). hgnc:26617 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Necroptosis-Independent MLKL Function</span>
+
+	                            <span class="crosslink-desc">The accumulated MLKL acts without engaging the necroptotic pathway it normally executes.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">MFN2 Suppression and Impaired Mitochondrial Fusion</span>
+
+	                            <span class="crosslink-desc">Hepatocyte MLKL is required for the diet-induced loss of MFN2; MLKL deficiency restores MFN2 post-translationally.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WD increased hepatocyte MLKL protein expression without detectable necroptosis activation, indicating a necroptosis-independent role."</div>
+
+
+                <div class="evidence-explanation">Reports the abundance change this node records - Western diet raises hepatocyte MLKL protein - in the hepatocyte-specific knockout model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WD-fed MlklHepKO mice developed fewer and smaller tumors with reduced incidence, multiplicity, proliferation, and stemness."</div>
+
+
+                <div class="evidence-explanation">Loss-of-function arm: removing hepatocyte MLKL reduces tumour burden, which is what makes the accumulation causal for this arm rather than incidental. The quote reports the tumour outcome of deleting MLKL, so it reaches the abundance claim by inference rather than asserting it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The human MLKL inhibitor necrosulfonamide (NSA) suppressed HepG2 xenograft growth"</div>
+
+
+                <div class="evidence-explanation">Pharmacological counterpart of the genetic loss-of-function arm: inhibiting MLKL suppresses tumour growth in vivo. A xenograft is grown in mice, so this is animal work and not a cell-culture result. It supports the node by inference, through the consequence of blocking MLKL rather than through the abundance measurement.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-necroptosis-independent-mlkl-function" data-dismech-node="Necroptosis-Independent MLKL Function" data-dismech-type="pathophysiology">
+                <div class="item-name">Necroptosis-Independent MLKL Function</div>
+
+
+                <div class="item-desc">The headline finding of this arm, and what separates it from the necroptotic cell-death route MLKL is normally invoked for: the diet-induced MLKL accumulation proceeds without detectable necroptosis activation, and removing hepatocyte MLKL leaves Western-diet inflammation, fibrosis and liver injury unchanged - the readouts a necroptosis-driven mechanism would be expected to move. MLKL instead localises to nuclear and mitochondrial compartments, consistent with the organelle-intrinsic function modelled downstream.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        necroptotic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0070266</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves absent necroptotic process (GO:0070266). GO:0070266 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ∅ ABSENT
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WD increased hepatocyte MLKL protein expression without detectable necroptosis activation, indicating a necroptosis-independent role."</div>
+
+
+                <div class="evidence-explanation">States the negative result this node records: MLKL rises without necroptosis being activated, which is the authors&#39; own basis for calling the role necroptosis-independent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MLKL deficiency did not alter WD-induced inflammation, fibrosis, or liver injury"</div>
+
+
+                <div class="evidence-explanation">Corroborates the negative result from the other direction - the injury readouts a necroptotic mechanism would move are unchanged by removing MLKL.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MLKL localized to nuclear and mitochondrial compartments, consistent with organelle-intrinsic functions."</div>
+
+
+                <div class="evidence-explanation">Localisation evidence for the alternative, organelle-intrinsic function this node asserts in place of necroptosis execution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mfn2-suppression-and-impaired-mitochondrial-fusion" data-dismech-node="MFN2 Suppression and Impaired Mitochondrial Fusion" data-dismech-type="pathophysiology">
+                <div class="item-name">MFN2 Suppression and Impaired Mitochondrial Fusion</div>
+
+
+                <div class="item-desc">Western diet suppresses the mitochondrial fusion protein and tumour suppressor MFN2, and hepatocyte MLKL is required for that suppression: MLKL deficiency restores MFN2 post-translationally. MFN2 is the fusion machinery itself, so its loss is a loss of mitochondrial fusion, and this node records that single molecular event. What the depleted mitochondrial network then fails to do is the node downstream.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MFN2
+
+
+    <a href="https://bioregistry.io/hgnc:16877" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:16877</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MFN2 (hgnc:16877). hgnc:16877 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        mitochondrial fusion
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008053" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0008053</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial fusion (GO:0008053). GO:0008053 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired Mitochondrial Oxidative Phosphorylation</span>
+
+	                            <span class="crosslink-desc">Loss of the fusion protein leaves the mitochondrial network unable to sustain respiratory capacity.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WD suppressed the mitochondrial fusion protein and tumor suppressor MFN2, whereas MLKL deficiency restored MFN2 expression post-translationally."</div>
+
+
+                <div class="evidence-explanation">The mouse arm of the MFN2 claim: diet suppresses MFN2 and hepatocyte MLKL is required for that suppression. The quote names MFN2 as the fusion protein, which is the identification this node rests on.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-oxidative-phosphorylation" data-dismech-node="Impaired Mitochondrial Oxidative Phosphorylation" data-dismech-type="pathophysiology">
+                <div class="item-name">Impaired Mitochondrial Oxidative Phosphorylation</div>
+
+
+                <div class="item-desc">The bioenergetic consequence of the MFN2 loss above. Removing hepatocyte MLKL raises oxidative phosphorylation pathway expression in mouse liver and improves mitochondrial respiration in HCC cells, and deleting MFN2 reverses that improvement, which places the respiratory deficit downstream of the MLKL-MFN2 axis rather than beside it.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        oxidative phosphorylation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0006119</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aerobic Glycolytic Shift in MASLD-Associated HCC</span>
+
+	                            <span class="crosslink-desc">Reduced respiratory capacity accompanies the shift to glycolysis; in HCC cells both are reversed by MFN2 deletion.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Transcriptomic analysis revealed upregulation of mitochondrial oxidative phosphorylation pathways in MlklHepKO livers."</div>
+
+
+                <div class="evidence-explanation">Shows the respiratory deficit is MLKL-dependent - removing MLKL raises oxidative phosphorylation pathway expression. The measurement is transcriptomic, so it reports pathway expression rather than respiration itself.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In HCC cells, MLKL deletion reduced proliferation, improved mitochondrial respiration, and decreased glycolysis; these effects were reversed by MFN2 deletion."</div>
+
+
+                <div class="evidence-explanation">The cell-line arm, kept as a separate item because it is a different evidence source from the mouse work above. Respiration is the measured quantity here, and the MFN2-deletion rescue is what places MFN2 between MLKL and the respiratory change.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-aerobic-glycolytic-shift-in-masld-associated-hcc" data-dismech-node="Aerobic Glycolytic Shift in MASLD-Associated HCC" data-dismech-type="pathophysiology">
+                <div class="item-name">Aerobic Glycolytic Shift in MASLD-Associated HCC</div>
+
+
+                <div class="item-desc">The MFN2-dependent respiratory deficit accompanies increased glycolytic flux, the Warburg phenotype of this arm. MLKL deletion in HCC cells decreases glycolysis and reduces proliferation, and MFN2 deletion reverses both, placing the glycolytic shift downstream of the MLKL-MFN2 axis rather than beside it.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        glycolytic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0006096</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Enhanced Hepatocyte Proliferation</span>
+
+	                            <span class="crosslink-desc">The glycolytic shift accompanies the increased proliferation and stemness that MLKL loss reduces in both the mouse tumours and the HCC cell lines.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In HCC cells, MLKL deletion reduced proliferation, improved mitochondrial respiration, and decreased glycolysis; these effects were reversed by MFN2 deletion."</div>
+
+
+                <div class="evidence-explanation">Glycolysis falls when MLKL is deleted and returns when MFN2 is also deleted, which is the evidence for an increased glycolytic flux dependent on the MLKL-MFN2 axis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-akt-mtor-pathway-activation" data-dismech-node="PI3K/AKT/mTOR Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K/AKT/mTOR Pathway Activation</div>
+
 
                 <div class="item-desc">PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt activation is reported in 40-60% of HCC tissue, and dysregulated pathway-associated genes and upstream receptor inputs increase AKT/TOR signaling, supporting hepatocyte survival, anabolic growth, proliferation, and immune infiltration patterns relevant to targeted therapy and immunotherapy response.</div>
 
@@ -6926,11 +7911,11 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0031929</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6960,11 +7945,11 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0048015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0048015</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased phosphatidylinositol-mediated signaling (GO:0048015). GO:0048015 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7094,6 +8079,7 @@ This pathophysiological event involves increased phosphatidylinositol-mediated s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-pathway-inactivation" data-dismech-node="TP53 Pathway Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53 Pathway Inactivation</div>
 
+
                 <div class="item-desc">TP53 mutations are common in HCC, particularly in HBV-associated and aflatoxin-associated tumors. Loss of p53 function removes a critical checkpoint, allowing survival of cells with DNA damage and promoting genomic instability.</div>
 
 
@@ -7115,11 +8101,11 @@ This pathophysiological event involves increased phosphatidylinositol-mediated s
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0006915</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7158,6 +8144,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-hepatocyte-proliferation" data-dismech-node="Enhanced Hepatocyte Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Hepatocyte Proliferation</div>
 
+
                 <div class="item-desc">Combined effects of telomerase reactivation, cell cycle checkpoint loss, and mitogenic signaling drive uncontrolled hepatocyte proliferation and tumor growth.</div>
 
 
@@ -7179,11 +8166,11 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0008283</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7222,6 +8209,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiogenesis-and-vegf-signaling" data-dismech-node="Angiogenesis and VEGF Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Angiogenesis and VEGF Signaling</div>
 
+
                 <div class="item-desc">HCC is a highly vascular tumor dependent on angiogenesis. VEGF signaling promotes new blood vessel formation supplying the tumor. VEGF also has immunosuppressive effects, contributing to the immune-excluded microenvironment. This provides the rationale for anti-VEGF therapy in combination with immunotherapy.</div>
 
 
@@ -7243,11 +8231,11 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0001525</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7334,6 +8322,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion-and-immunosuppressive-microenvironment" data-dismech-node="Immune Evasion and Immunosuppressive Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Evasion and Immunosuppressive Microenvironment</div>
 
+
                 <div class="item-desc">HCC develops in a chronically inflamed liver with an inherently immunosuppressive microenvironment. Tumor cells upregulate PD-L1, VEGF-mediated immunosuppression excludes effector T cells, and recruitment of regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages creates an immune-tolerant niche. The combination of anti-PD-L1 with anti-VEGF addresses both the checkpoint-mediated and VEGF-mediated immunosuppression.</div>
 
 
@@ -7348,11 +8337,11 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0000625</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7389,11 +8378,11 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0002710</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Negative Regulation of T Cell Mediated Immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7492,6 +8481,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aerobic-glycolysis-and-metabolic-reprogramming" data-dismech-node="Aerobic Glycolysis and Metabolic Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Aerobic Glycolysis and Metabolic Reprogramming</div>
 
+
                 <div class="item-desc">HCC cells reprogram metabolism from oxidative phosphorylation to aerobic glycolysis (Warburg effect), enabling rapid ATP regeneration and providing carbon intermediates for biosynthesis. This metabolic shift is driven by oncogenic signaling (PI3K/AKT, MYC) and supports the high proliferative rate of hepatocellular carcinomas. The mechanism linking mitochondrial acetyl-CoA homeostasis to pyruvate transport and glycolytic switching remains incompletely characterized.</div>
 
 
@@ -7513,11 +8503,11 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0006096</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Glycolytic Process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7628,8 +8618,204 @@ This pathophysiological event involves increased Glycolytic Process (GO:0006096)
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-mmp9-upregulation" data-dismech-node="MMP9 Upregulation" data-dismech-type="pathophysiology">
+                <div class="item-name">MMP9 Upregulation</div>
+
+
+                <div class="item-desc">Matrix metalloproteinase 9 is a secreted zinc endopeptidase that degrades basement-membrane and interstitial collagen, and it is the effector through which monomethyl phthalate exposure reaches hepatocellular carcinoma behaviour in the only study that has tested that link. The node records the abundance and activity change alone. Its standing rests on three separate observations: MMP9 is high in human hepatocellular carcinoma tissue and tracks with worse survival, monomethyl phthalate raises it in hepatocellular carcinoma cells, and blocking it removes the growth and migration the exposure produces in HuH-7. That last arm is what makes the upregulation the exposure&#39;s point of entry rather than a correlate of it. The invasion the enzyme enables is the node downstream, not this one.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MMP9
+
+
+    <a href="https://bioregistry.io/hgnc:7176" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:7176</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MMP9 (hgnc:7176). hgnc:7176 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        metalloendopeptidase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004222" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-43">GO:0004222</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased metalloendopeptidase activity (GO:0004222). GO:0004222 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Portal Vein Invasion and Tumor Thrombus</span>
+
+	                            <span class="crosslink-desc">Matrix degradation by MMP9 is one of the steps by which tumour cells cross the vascular barrier into the portal vein. The cited work reads out portal vein tumour thrombus in mice after knocking MMP9 down together with heparanase, so it establishes MMP9 as a contributor to this edge alongside another enzyme rather than isolating it.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Enhanced Hepatocyte Proliferation</span>
+
+	                            <span class="crosslink-desc">The same MMP9 inhibition that removes the exposure&#39;s migration effect also removes its proliferation effect in HuH-7 cells, so the enzyme reaches the growth node and not only the invasion node.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42435151" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42435151" target="_blank">PMID:42435151</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MMP9 was highly expressed in HCC and associated with poor prognosis"</div>
+
+
+                <div class="evidence-explanation">Places the abundance change this node records in human hepatocellular carcinoma tissue and ties it to outcome. The quote is trimmed to the clause carrying that claim: the sentence it sits in opens with the paper&#39;s network-toxicology target identification, which is a computational step and would grade differently.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42435151" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42435151" target="_blank">PMID:42435151</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Inhibition of MMP9 significantly reversed the MMP-induced pro-carcinogenic effects, indicating that MMP promotes HCC by upregulating MMP9 expression."</div>
+
+
+                <div class="evidence-explanation">Loss-of-function arm in the paper&#39;s cell model: removing MMP9 activity abolishes what the exposure does. The abstract names HuH-7 for the dose-response arm and does not say which line carried the inhibition experiment, so the line is left unnamed here. It reaches this node&#39;s abundance claim through the consequence of blocking the enzyme rather than by measuring the enzyme, so it supports the node by inference.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-portal-vein-invasion-and-tumor-thrombus" data-dismech-node="Portal Vein Invasion and Tumor Thrombus" data-dismech-type="pathophysiology">
                 <div class="item-name">Portal Vein Invasion and Tumor Thrombus</div>
+
 
                 <div class="item-desc">Vascular invasion is a defining step in metastatic HCC. Tumor cells leave the cancer nest, traverse extracellular matrix and vascular barriers, and colonize the portal vein, creating portal vein tumor thrombus and enabling dissemination.</div>
 
@@ -7652,11 +8838,11 @@ This pathophysiological event involves increased Glycolytic Process (GO:0006096)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-44">GO:0016477</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7686,11 +8872,11 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0030335</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-45">GO:0030335</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased positive regulation of cell migration (GO:0030335). GO:0030335 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7843,7 +9029,7 @@ This pathophysiological event involves increased positive regulation of cell mig
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Driver Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple driver genes are recurrently mutated in HCC, including TERT promoter (60%), TP53 (30%), CTNNB1 (30%), AXIN1 (10%), and ARID1A (10%). These mutations affect telomere maintenance, cell cycle control, WNT signaling, and chromatin remodeling.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Aerobic Glycolysis and Metabolic Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC cells reprogram metabolism from oxidative phosphorylation to aerobic glycolysis (Warburg effect), enabling rapid ATP regeneration and providing carbon intermediates for biosynthesis. This metabolic shift is driven by oncogenic signaling (PI3K/AKT, MYC) and supports the high proliferative rate of hepatocellular carcinomas. The mechanism linking mitochondrial acetyl-CoA homeostasis to pyruvate transport and glycolytic switching remains incompletely characterized.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Glycolytic Process\"]}}, {\"id\": \"Alcohol and aflatoxin exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Angiogenesis and VEGF Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC is a highly vascular tumor dependent on angiogenesis. VEGF signaling promotes new blood vessel formation supplying the tumor. VEGF also has immunosuppressive effects, contributing to the immune-excluded microenvironment. This provides the rationale for anti-VEGF therapy in combination with immunotherapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Atezolizumab plus Bevacizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line standard of care for unresectable HCC based on IMbrave150 trial. Anti-PD-L1 (atezolizumab) combined with anti-VEGF (bevacizumab) demonstrated superior overall survival compared to sorafenib. Requires adequate liver function (Child-Pugh A) and no high-risk varices. Immunotherapy trials in HCC require careful interpretation due to delayed treatment effects and potential violations of proportional hazard assumptions, which may affect the apparent magnitude of benefit from surrogate endpoints like PFS.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"atezolizumab\", \"bevacizumab\"]}}, {\"id\": \"Chronic Liver Injury and Cirrhosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most HCC arises in the context of chronic liver disease and cirrhosis. Persistent hepatocyte death and regeneration in an inflammatory environment promotes accumulation of genetic alterations. Cirrhosis itself is a premalignant condition with ongoing oxidative stress and genomic instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Chronic hepatitis B or C infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Durvalumab plus Tremelimumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative first-line immunotherapy option. HIMALAYA trial demonstrated durvalumab (anti-PD-L1) with single priming dose of tremelimumab (anti-CTLA-4) improves survival compared to sorafenib. Option for patients who cannot receive bevacizumab. Like other HCC immunotherapy trials, trial interpretation requires careful consideration of delayed treatment effects and proportional hazards violations when assessing surrogate endpoints.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"durvalumab\", \"tremelimumab\"]}}, {\"id\": \"Enhanced Hepatocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined effects of telomerase reactivation, cell cycle checkpoint loss, and mitogenic signaling drive uncontrolled hepatocyte proliferation and tumor growth.\", \"meta\": {\"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC develops in a chronically inflamed liver with an inherently immunosuppressive microenvironment. Tumor cells upregulate PD-L1, VEGF-mediated immunosuppression excludes effector T cells, and recruitment of regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages creates an immune-tolerant niche. The combination of anti-PD-L1 with anti-VEGF addresses both the checkpoint-mediated and VEGF-mediated immunosuppression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Lenvatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multi-kinase inhibitor with activity against VEGFR, FGFR, PDGFR, RET, and KIT. Non-inferior to sorafenib in first line. Alternative when immunotherapy not appropriate.\", \"meta\": {\"therapeutic_agents\": [\"lenvatinib\"]}}, {\"id\": \"PI3K/AKT/mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt activation is reported in 40-60% of HCC tissue, and dysregulated pathway-associated genes and upstream receptor inputs increase AKT/TOR signaling, supporting hepatocyte survival, anabolic growth, proliferation, and immune infiltration patterns relevant to targeted therapy and immunotherapy response.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\", \"phosphatidylinositol-mediated signaling\"]}}, {\"id\": \"Portal Vein Invasion and Tumor Thrombus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular invasion is a defining step in metastatic HCC. Tumor cells leave the cancer nest, traverse extracellular matrix and vascular barriers, and colonize the portal vein, creating portal vein tumor thrombus and enabling dissemination.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell migration\", \"positive regulation of cell migration\"]}}, {\"id\": \"Sorafenib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multi-kinase inhibitor targeting RAF, VEGFR, and PDGFR. Was first systemic therapy to improve survival in HCC. Now used in second line or when immunotherapy is contraindicated.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sorafenib\"]}}, {\"id\": \"Telomere Dysfunction and Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte proliferation leads to telomere shortening, causing genomic instability. TERT promoter mutations, which are the most common HCC mutations, reactivate telomerase to enable unlimited replication. This creates a checkpoint bypass allowing survival of genetically unstable cells.\", \"meta\": {\"biological_processes\": [\"telomere maintenance\"]}}, {\"id\": \"WNT/Beta-Catenin Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in CTNNB1 (beta-catenin) or inactivating mutations in AXIN1 lead to constitutive WNT pathway activation. This drives cell proliferation and is associated with a distinct molecular subclass of HCC with specific clinical features including cholestasis and immune exclusion.\", \"meta\": {\"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Telomere Dysfunction and Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated hepatocyte division leads to telomere shortening\"}, {\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Accumulation of Driver Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic regeneration promotes mutation accumulation\"}, {\"source\": \"Telomere Dysfunction and Genomic Instability\", \"target\": \"WNT/Beta-Catenin Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic instability promotes acquisition of pathway-activating mutations\"}, {\"source\": \"Accumulation of Driver Mutations\", \"target\": \"PI3K/AKT/mTOR Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic and expression-level pathway changes select for oncogenic growth signaling.\"}, {\"source\": \"WNT/Beta-Catenin Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT signaling drives cell proliferation and stemness\"}, {\"source\": \"WNT/Beta-Catenin Pathway Activation\", \"target\": \"Portal Vein Invasion and Tumor Thrombus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wnt/beta-catenin activation promotes hepatocyte migration and survival and can contribute to vascular invasion and metastatic progression in a subset of HCCs.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR activation promotes tumor-cell growth and survival signaling.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathway-associated signatures correlate with immune infiltration and checkpoint expression.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Aerobic Glycolysis and Metabolic Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic PI3K/AKT/mTOR signaling drives the anabolic, glycolytic reprogramming modeled by the deregulated-cellular-energetics module.\"}, {\"source\": \"Angiogenesis and VEGF Signaling\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VEGF-mediated immunosuppression contributes to T cell exclusion and checkpoint upregulation\"}, {\"source\": \"Aerobic Glycolysis and Metabolic Reprogramming\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The glycolytic shift supplies the ATP and biosynthetic carbon that sustain the high proliferative rate; PMID:42520527 reports impaired mitochondrial pyruvate transport promoting glycolysis and cell proliferation together.\"}, {\"source\": \"Chronic hepatitis B or C infection\", \"target\": \"Chronic Liver Injury and Cirrhosis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Persistent viral hepatitis is one of the chronic liver injury states this node is made of, supplying the regenerative pressure and inflammation on which the tumour arises. The exposure constitutes the node rather than acting on it from outside.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alcohol and aflatoxin exposure\", \"target\": \"Chronic Liver Injury and Cirrhosis\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the hepatitis and cirrhosis links into this same node for two reasons that are worth stating rather than leaving to inference: the cited sentence covers only the aflatoxin half of this bundled exposure and says nothing about alcohol, and it is hedged as a belief about prevalence rather than a measured interaction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Durvalumab plus Tremelimumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sorafenib\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lenvatinib\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Driver Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple driver genes are recurrently mutated in HCC, including TERT promoter (60%), TP53 (30%), CTNNB1 (30%), AXIN1 (10%), and ARID1A (10%). These mutations affect telomere maintenance, cell cycle control, WNT signaling, and chromatin remodeling.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Aerobic Glycolysis and Metabolic Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC cells reprogram metabolism from oxidative phosphorylation to aerobic glycolysis (Warburg effect), enabling rapid ATP regeneration and providing carbon intermediates for biosynthesis. This metabolic shift is driven by oncogenic signaling (PI3K/AKT, MYC) and supports the high proliferative rate of hepatocellular carcinomas. The mechanism linking mitochondrial acetyl-CoA homeostasis to pyruvate transport and glycolytic switching remains incompletely characterized.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Glycolytic Process\"]}}, {\"id\": \"Aerobic Glycolytic Shift in MASLD-Associated HCC\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The MFN2-dependent respiratory deficit accompanies increased glycolytic flux, the Warburg phenotype of this arm. MLKL deletion in HCC cells decreases glycolysis and reduces proliferation, and MFN2 deletion reverses both, placing the glycolytic shift downstream of the MLKL-MFN2 axis rather than beside it.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\"], \"subtypes\": [\"MASLD-Associated HCC\"]}}, {\"id\": \"Alcohol and aflatoxin exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Angiogenesis and VEGF Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC is a highly vascular tumor dependent on angiogenesis. VEGF signaling promotes new blood vessel formation supplying the tumor. VEGF also has immunosuppressive effects, contributing to the immune-excluded microenvironment. This provides the rationale for anti-VEGF therapy in combination with immunotherapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Atezolizumab plus Bevacizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line standard of care for unresectable HCC based on IMbrave150 trial. Anti-PD-L1 (atezolizumab) combined with anti-VEGF (bevacizumab) demonstrated superior overall survival compared to sorafenib. Requires adequate liver function (Child-Pugh A) and no high-risk varices. Immunotherapy trials in HCC require careful interpretation due to delayed treatment effects and potential violations of proportional hazard assumptions, which may affect the apparent magnitude of benefit from surrogate endpoints like PFS.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"atezolizumab\", \"bevacizumab\"]}}, {\"id\": \"Chronic Liver Injury and Cirrhosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most HCC arises in the context of chronic liver disease and cirrhosis. Persistent hepatocyte death and regeneration in an inflammatory environment promotes accumulation of genetic alterations. Cirrhosis itself is a premalignant condition with ongoing oxidative stress and genomic instability.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Chronic hepatitis B or C infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Durvalumab plus Tremelimumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative first-line immunotherapy option. HIMALAYA trial demonstrated durvalumab (anti-PD-L1) with single priming dose of tremelimumab (anti-CTLA-4) improves survival compared to sorafenib. Option for patients who cannot receive bevacizumab. Like other HCC immunotherapy trials, trial interpretation requires careful consideration of delayed treatment effects and proportional hazards violations when assessing surrogate endpoints.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"durvalumab\", \"tremelimumab\"]}}, {\"id\": \"Enhanced Hepatocyte Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined effects of telomerase reactivation, cell cycle checkpoint loss, and mitogenic signaling drive uncontrolled hepatocyte proliferation and tumor growth.\", \"meta\": {\"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Hepatocyte MLKL Upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In MASLD-associated HCC, long-term Western diet raises hepatocyte MLKL protein. This is an abundance change, not a change in catalytic activity: MLKL is a catalytically dead pseudokinase whose established role is as the terminal executioner of necroptosis, and the observation here is that it accumulates. Hepatocyte-specific MLKL knockout mice on the same diet develop fewer and smaller tumours, so the accumulation is the entry point of this arm rather than a bystander finding. Elevated MLKL also marks worse outcome in human HCC, and pharmacological MLKL inhibition suppresses xenograft growth.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"MLKL\"], \"gene_terms\": [{\"label\": \"MLKL\", \"id\": \"hgnc:26617\"}], \"subtypes\": [\"MASLD-Associated HCC\"]}}, {\"id\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCC develops in a chronically inflamed liver with an inherently immunosuppressive microenvironment. Tumor cells upregulate PD-L1, VEGF-mediated immunosuppression excludes effector T cells, and recruitment of regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages creates an immune-tolerant niche. The combination of anti-PD-L1 with anti-VEGF addresses both the checkpoint-mediated and VEGF-mediated immunosuppression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Impaired Mitochondrial Oxidative Phosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The bioenergetic consequence of the MFN2 loss above. Removing hepatocyte MLKL raises oxidative phosphorylation pathway expression in mouse liver and improves mitochondrial respiration in HCC cells, and deleting MFN2 reverses that improvement, which places the respiratory deficit downstream of the MLKL-MFN2 axis rather than beside it.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\"], \"subtypes\": [\"MASLD-Associated HCC\"]}}, {\"id\": \"Lenvatinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multi-kinase inhibitor with activity against VEGFR, FGFR, PDGFR, RET, and KIT. Non-inferior to sorafenib in first line. Alternative when immunotherapy not appropriate.\", \"meta\": {\"therapeutic_agents\": [\"lenvatinib\"]}}, {\"id\": \"Long-term Western diet feeding\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"MFN2 Suppression and Impaired Mitochondrial Fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Western diet suppresses the mitochondrial fusion protein and tumour suppressor MFN2, and hepatocyte MLKL is required for that suppression: MLKL deficiency restores MFN2 post-translationally. MFN2 is the fusion machinery itself, so its loss is a loss of mitochondrial fusion, and this node records that single molecular event. What the depleted mitochondrial network then fails to do is the node downstream.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial fusion\"], \"genes\": [\"MFN2\"], \"gene_terms\": [{\"label\": \"MFN2\", \"id\": \"hgnc:16877\"}], \"subtypes\": [\"MASLD-Associated HCC\"]}}, {\"id\": \"MMP9 Upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matrix metalloproteinase 9 is a secreted zinc endopeptidase that degrades basement-membrane and interstitial collagen, and it is the effector through which monomethyl phthalate exposure reaches hepatocellular carcinoma behaviour in the only study that has tested that link. The node records the abundance and activity change alone. Its standing rests on three separate observations: MMP9 is high in human hepatocellular carcinoma tissue and tracks with worse survival, monomethyl phthalate raises it in hepatocellular carcinoma cells, and blocking it removes the growth and migration the exposure produces in HuH-7. That last arm is what makes the upregulation the exposure\u0027s point of entry rather than a correlate of it. The invasion the enzyme enables is the node downstream, not this one.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"metalloendopeptidase activity\"], \"genes\": [\"MMP9\"], \"gene_terms\": [{\"label\": \"MMP9\", \"id\": \"hgnc:7176\"}]}}, {\"id\": \"Monomethyl phthalate exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Necroptosis-Independent MLKL Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The headline finding of this arm, and what separates it from the necroptotic cell-death route MLKL is normally invoked for: the diet-induced MLKL accumulation proceeds without detectable necroptosis activation, and removing hepatocyte MLKL leaves Western-diet inflammation, fibrosis and liver injury unchanged - the readouts a necroptosis-driven mechanism would be expected to move. MLKL instead localises to nuclear and mitochondrial compartments, consistent with the organelle-intrinsic function modelled downstream.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"necroptotic process\"], \"subtypes\": [\"MASLD-Associated HCC\"]}}, {\"id\": \"PI3K/AKT/mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt activation is reported in 40-60% of HCC tissue, and dysregulated pathway-associated genes and upstream receptor inputs increase AKT/TOR signaling, supporting hepatocyte survival, anabolic growth, proliferation, and immune infiltration patterns relevant to targeted therapy and immunotherapy response.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"TOR signaling\", \"phosphatidylinositol-mediated signaling\"]}}, {\"id\": \"Portal Vein Invasion and Tumor Thrombus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular invasion is a defining step in metastatic HCC. Tumor cells leave the cancer nest, traverse extracellular matrix and vascular barriers, and colonize the portal vein, creating portal vein tumor thrombus and enabling dissemination.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell migration\", \"positive regulation of cell migration\"]}}, {\"id\": \"Sorafenib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multi-kinase inhibitor targeting RAF, VEGFR, and PDGFR. Was first systemic therapy to improve survival in HCC. Now used in second line or when immunotherapy is contraindicated.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sorafenib\"]}}, {\"id\": \"Telomere Dysfunction and Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte proliferation leads to telomere shortening, causing genomic instability. TERT promoter mutations, which are the most common HCC mutations, reactivate telomerase to enable unlimited replication. This creates a checkpoint bypass allowing survival of genetically unstable cells.\", \"meta\": {\"biological_processes\": [\"telomere maintenance\"]}}, {\"id\": \"WNT/Beta-Catenin Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in CTNNB1 (beta-catenin) or inactivating mutations in AXIN1 lead to constitutive WNT pathway activation. This drives cell proliferation and is associated with a distinct molecular subclass of HCC with specific clinical features including cholestasis and immune exclusion.\", \"meta\": {\"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Telomere Dysfunction and Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated hepatocyte division leads to telomere shortening\"}, {\"source\": \"Chronic Liver Injury and Cirrhosis\", \"target\": \"Accumulation of Driver Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic regeneration promotes mutation accumulation\"}, {\"source\": \"Telomere Dysfunction and Genomic Instability\", \"target\": \"WNT/Beta-Catenin Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic instability promotes acquisition of pathway-activating mutations\"}, {\"source\": \"Accumulation of Driver Mutations\", \"target\": \"PI3K/AKT/mTOR Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic and expression-level pathway changes select for oncogenic growth signaling.\"}, {\"source\": \"WNT/Beta-Catenin Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"WNT signaling drives cell proliferation and stemness\"}, {\"source\": \"WNT/Beta-Catenin Pathway Activation\", \"target\": \"Portal Vein Invasion and Tumor Thrombus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wnt/beta-catenin activation promotes hepatocyte migration and survival and can contribute to vascular invasion and metastatic progression in a subset of HCCs.\"}, {\"source\": \"Hepatocyte MLKL Upregulation\", \"target\": \"Necroptosis-Independent MLKL Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The accumulated MLKL acts without engaging the necroptotic pathway it normally executes.\"}, {\"source\": \"Hepatocyte MLKL Upregulation\", \"target\": \"MFN2 Suppression and Impaired Mitochondrial Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte MLKL is required for the diet-induced loss of MFN2; MLKL deficiency restores MFN2 post-translationally.\"}, {\"source\": \"MFN2 Suppression and Impaired Mitochondrial Fusion\", \"target\": \"Impaired Mitochondrial Oxidative Phosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the fusion protein leaves the mitochondrial network unable to sustain respiratory capacity.\"}, {\"source\": \"Impaired Mitochondrial Oxidative Phosphorylation\", \"target\": \"Aerobic Glycolytic Shift in MASLD-Associated HCC\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced respiratory capacity accompanies the shift to glycolysis; in HCC cells both are reversed by MFN2 deletion.\"}, {\"source\": \"Aerobic Glycolytic Shift in MASLD-Associated HCC\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The glycolytic shift accompanies the increased proliferation and stemness that MLKL loss reduces in both the mouse tumours and the HCC cell lines.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K/AKT/mTOR activation promotes tumor-cell growth and survival signaling.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathway-associated signatures correlate with immune infiltration and checkpoint expression.\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Aerobic Glycolysis and Metabolic Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic PI3K/AKT/mTOR signaling drives the anabolic, glycolytic reprogramming modeled by the deregulated-cellular-energetics module.\"}, {\"source\": \"Angiogenesis and VEGF Signaling\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VEGF-mediated immunosuppression contributes to T cell exclusion and checkpoint upregulation\"}, {\"source\": \"Aerobic Glycolysis and Metabolic Reprogramming\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The glycolytic shift supplies the ATP and biosynthetic carbon that sustain the high proliferative rate; PMID:42520527 reports impaired mitochondrial pyruvate transport promoting glycolysis and cell proliferation together.\"}, {\"source\": \"MMP9 Upregulation\", \"target\": \"Portal Vein Invasion and Tumor Thrombus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Matrix degradation by MMP9 is one of the steps by which tumour cells cross the vascular barrier into the portal vein. The cited work reads out portal vein tumour thrombus in mice after knocking MMP9 down together with heparanase, so it establishes MMP9 as a contributor to this edge alongside another enzyme rather than isolating it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MMP9 Upregulation\", \"target\": \"Enhanced Hepatocyte Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same MMP9 inhibition that removes the exposure\u0027s migration effect also removes its proliferation effect in HuH-7 cells, so the enzyme reaches the growth node and not only the invasion node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic hepatitis B or C infection\", \"target\": \"Chronic Liver Injury and Cirrhosis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Persistent viral hepatitis is one of the chronic liver injury states this node is made of, supplying the regenerative pressure and inflammation on which the tumour arises. The exposure constitutes the node rather than acting on it from outside.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alcohol and aflatoxin exposure\", \"target\": \"Chronic Liver Injury and Cirrhosis\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the hepatitis and cirrhosis links into this same node for two reasons that are worth stating rather than leaving to inference: the cited sentence covers only the aflatoxin half of this bundled exposure and says nothing about alcohol, and it is hedged as a belief about prevalence rather than a measured interaction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Long-term Western diet feeding\", \"target\": \"Hepatocyte MLKL Upregulation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The diet is the exposure that raises hepatocyte MLKL protein in the MASLD-HCC model, and it is the only incoming edge this arm has. The measurement is made in diet-fed mice, so the edge is asserted for the model system the paper reports and not for a human dietary pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Monomethyl phthalate exposure\", \"target\": \"MMP9 Upregulation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Monomethyl phthalate raises MMP9 in the paper\u0027s hepatocellular carcinoma cell model, and inhibiting MMP9 removes what the exposure does to those cells. Graded as exacerbation rather than as a trigger on purpose. The experiment is run in an established hepatocellular carcinoma line, so what it demonstrates is the exposure worsening a tumour that already exists, which is how the paper titles its own finding. Reading it as a trigger would additionally enter this node as a non-mutational origin of the cancer under the cell-of-origin derivation, a claim nothing here supports. The edge is asserted for the cell model and not for a measured human exposure response: the human arm is a Mendelian randomization estimate against hepatocellular carcinoma risk, which does not measure MMP9.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atezolizumab plus Bevacizumab\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Durvalumab plus Tremelimumab\", \"target\": \"Immune Evasion and Immunosuppressive Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sorafenib\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lenvatinib\", \"target\": \"Angiogenesis and VEGF Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7895,15 +9081,18 @@ This pathophysiological event involves increased positive regulation of cell mig
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7931,15 +9120,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001541</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8002,15 +9194,18 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000952</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000952</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8073,15 +9268,18 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8118,15 +9316,18 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8189,15 +9390,18 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8234,15 +9438,18 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8304,6 +9511,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8361,10 +9571,10 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:11998</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8372,6 +9582,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8433,10 +9646,10 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                         Gene: CTNNB1
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:2514</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8444,6 +9657,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8505,10 +9721,10 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
                         Gene: AXIN1
 
 
-    <a href="https://bioregistry.io/hgnc:903" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:903</a>
+    <a href="https://bioregistry.io/hgnc:903" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:903</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is AXIN1 (hgnc:903). hgnc:903 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8516,6 +9732,9 @@ This disease-associated gene is AXIN1 (hgnc:903). hgnc:903 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -8542,10 +9761,10 @@ This disease-associated gene is AXIN1 (hgnc:903). hgnc:903 is a gene from the HU
                         Gene: ARID1A
 
 
-    <a href="https://bioregistry.io/hgnc:11110" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:11110</a>
+    <a href="https://bioregistry.io/hgnc:11110" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:11110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8553,6 +9772,9 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -8587,7 +9809,7 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8629,11 +9851,11 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C106250</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C106250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses atezolizumab (NCIT:C106250). NCIT:C106250 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8646,16 +9868,22 @@ This treatment uses atezolizumab (NCIT:C106250). NCIT:C106250 is a therapeutic a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C2039</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C2039</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8873,7 +10101,7 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8915,11 +10143,11 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C103194" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C103194</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C103194" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-61">NCIT:C103194</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses durvalumab (NCIT:C103194). NCIT:C103194 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8932,16 +10160,22 @@ This treatment uses durvalumab (NCIT:C103194). NCIT:C103194 is a therapeutic age
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49085" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C49085</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49085" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C49085</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses tremelimumab (NCIT:C49085). NCIT:C49085 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -9084,7 +10318,7 @@ This treatment uses tremelimumab (NCIT:C49085). NCIT:C49085 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9126,16 +10360,22 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:50924</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-64">CHEBI:50924</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses sorafenib (CHEBI:50924). CHEBI:50924 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -9218,7 +10458,7 @@ This treatment uses sorafenib (CHEBI:50924). CHEBI:50924 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9260,16 +10500,22 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:85994</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-66">CHEBI:85994</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses lenvatinib (CHEBI:85994). CHEBI:85994 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -9317,7 +10563,7 @@ This treatment uses lenvatinib (CHEBI:85994). CHEBI:85994 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">hepatic resection<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">hepatic resection<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is hepatic resection, annotated with Hepatectomy (NCIT:C15249). NCIT:C15249 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9358,6 +10604,12 @@ This treatment is hepatic resection, annotated with Hepatectomy (NCIT:C15249). N
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Potentially curative for early-stage HCC in patients with preserved liver function (Child-Pugh A). Limited by underlying cirrhosis in many patients. Requires adequate future liver remnant.</div>
 
 
@@ -9376,7 +10628,7 @@ This treatment is hepatic resection, annotated with Hepatectomy (NCIT:C15249). N
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9412,6 +10664,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9422,6 +10677,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -9446,7 +10704,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9487,6 +10745,12 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Locoregional therapy delivering chemotherapy directly to tumor via hepatic artery followed by embolization. Standard for intermediate-stage HCC (BCLC-B). Can be used as bridge to transplant or with systemic therapy.</div>
 
 
@@ -9505,7 +10769,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">ablation therapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-70">ablation therapy<span class="pill-tip" role="tooltip" id="pill-tip-70">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9546,6 +10810,12 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Thermal ablation for small tumors (typically less than 3 cm). Effective alternative to resection for early-stage HCC, particularly in patients with limited liver function.</div>
 
 
@@ -9565,7 +10835,7 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-chronic-hepatitis-b-or-c-infection" data-dismech-node="Chronic hepatitis B or C infection" data-dismech-type="environmental">
@@ -9782,6 +11052,297 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
 
             </div>
 
+            <div class="item-box environmental-box anchor-target" id="environmental-long-term-western-diet-feeding" data-dismech-node="Long-term Western diet feeding" data-dismech-type="environmental">
+                <div class="item-name">Long-term Western diet feeding</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        long-term Western diet exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0090010" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-71">ECTO:0090010</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is increased long-term Western diet exposure, annotated with exposure to lipid in food (ECTO:0090010). ECTO:0090010 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">ECTO has no live term for a Western or high-fat dietary pattern - the diet-pattern classes in that branch are obsolete - so the exposure is bound to the lipid-in-food term, which covers the fat component only and not the sugar component. This follows the binding already used for the same problem in Coronary_Artery_Disease and Autosomal_Dominant_Hypercholesterolemia_3, and the preferred term carries the specificity the ontology cannot.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WD increased hepatocyte MLKL protein expression without detectable necroptosis activation, indicating a necroptosis-independent role."</div>
+
+
+                <div class="evidence-explanation">Names long-term Western diet as an exposure that changes hepatocyte biology in this MASLD-HCC model, which is what makes it an environmental entry here. The quote reports the diet&#39;s effect on hepatocytes; it does not by itself report a tumour count, so the tumour-level consequence is left to the nodes downstream.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hepatocyte MLKL Upregulation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The diet is the exposure that raises hepatocyte MLKL protein in the MASLD-HCC model, and it is the only incoming edge this arm has. The measurement is made in diet-fed mice, so the edge is asserted for the model system the paper reports and not for a human dietary pattern.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42549799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42549799" target="_blank">PMID:42549799</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WD increased hepatocyte MLKL protein expression without detectable necroptosis activation, indicating a necroptosis-independent role."</div>
+
+
+                <div class="evidence-explanation">Names the diet as the thing that raises hepatocyte MLKL protein, which is exactly the edge from this exposure to that node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-monomethyl-phthalate-exposure" data-dismech-node="Monomethyl phthalate exposure" data-dismech-type="environmental">
+                <div class="item-name">Monomethyl phthalate exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to monomethyl phthalate
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000906" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-72">ECTO:9000906</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is increased exposure to monomethyl phthalate, annotated with exposure to phthalate ester (ECTO:9000906). ECTO:9000906 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">ECTO has no monomethyl phthalate class. Searching the ECTO build with l~phthalate returns eleven exposure classes: ECTO:0900272, ECTO:9000522, ECTO:9000637, ECTO:9000906, ECTO:9001090, ECTO:9001433, ECTO:9001525, ECTO:9002263, ECTO:9002271, ECTO:9002559 and ECTO:9002632. Nine of them name a specific compound or polymer that is not this one, leaving two class-level candidates: ECTO:9000522 exposure to phthalate and ECTO:9000906 exposure to phthalate ester. l~monomethyl returns nothing at all; l~monoester returns only CHEBI rows and no ECTO class; l~plasticiser returns two rows, the chemical CHEBI:79056 and the exposure class ECTO:9002071, which is broader than either candidate. The ester class is the correct parent rather than the shorter-named ECTO:9000522: monomethyl phthalate is CHEBI:89749, a phthalic acid monoester (CHEBI:132610) and so a descendant of CHEBI:35484 phthalate ester, whereas the stimulus of ECTO:9000522 is CHEBI:26092 phthalate, which CHEBI places under carboxylic acid anion and which is therefore not an ancestor of the monoester. ECTO:9001090 exposure to Dimethyl phthalate was rejected on positive grounds although monomethyl phthalate is that compound&#39;s primary hepatic metabolite: the study measures and administers the metabolite, so binding the parent diester would assert an exposure route it never measured.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42435151" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42435151" target="_blank">PMID:42435151</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MR analysis provided preliminary genetic evidence for a positive association between MMP exposure and elevated HCC risk, with no significant heterogeneity or horizontal pleiotropy detected."</div>
+
+
+                <div class="evidence-explanation">The human arm that makes this an environmental risk factor rather than a cell-culture observation. The authors call it preliminary genetic evidence and it is a two-sample Mendelian randomization estimate, not a measured exposure cohort, so it supports association with disease risk and not the mechanism recorded on the edge above.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42435151" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42435151" target="_blank">PMID:42435151</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monomethyl phthalate (MMP), the primary hepatic metabolite of dimethyl phthalate, possesses endocrine-disrupting and immunosuppressive properties"</div>
+
+
+                <div class="evidence-explanation">Identifies the compound and where it comes from, which is what makes an exposure entry keyed on a metabolite coherent. The sentence is the paper restating established chemistry and toxicology in its opening rather than reporting its own result, so it is marked as background and graded OTHER - no study design of any kind stands behind this particular claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">MMP9 Upregulation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Monomethyl phthalate raises MMP9 in the paper&#39;s hepatocellular carcinoma cell model, and inhibiting MMP9 removes what the exposure does to those cells. Graded as exacerbation rather than as a trigger on purpose. The experiment is run in an established hepatocellular carcinoma line, so what it demonstrates is the exposure worsening a tumour that already exists, which is how the paper titles its own finding. Reading it as a trigger would additionally enter this node as a non-mutational origin of the cancer under the cell-of-origin derivation, a claim nothing here supports. The edge is asserted for the cell model and not for a measured human exposure response: the human arm is a Mendelian randomization estimate against hepatocellular carcinoma risk, which does not measure MMP9.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42435151" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42435151" target="_blank">PMID:42435151</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Inhibition of MMP9 significantly reversed the MMP-induced pro-carcinogenic effects, indicating that MMP promotes HCC by upregulating MMP9 expression."</div>
+
+
+                <div class="evidence-explanation">States the edge itself - the exposure acts by upregulating MMP9 - and grounds it in the inhibition experiment that establishes the direction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -9867,11 +11428,11 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
         ultrasonography procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19337" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C19337</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19337" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-73">NCIT:C19337</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9959,11 +11520,11 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-63">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-74">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -10074,11 +11635,11 @@ This treatment is ablation therapy (NCIT:C20985). NCIT:C20985 is a clinical inte
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-64">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-75">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-75">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -10757,6 +12318,271 @@ pathophysiology:
       Wnt/beta-catenin activation promotes hepatocyte migration and survival and
       can contribute to vascular invasion and metastatic progression in a subset
       of HCCs.
+- name: Hepatocyte MLKL Upregulation
+  description: &gt;-
+    In MASLD-associated HCC, long-term Western diet raises hepatocyte MLKL protein.
+    This is an abundance change, not a change in catalytic activity: MLKL is a
+    catalytically dead pseudokinase whose established role is as the terminal
+    executioner of necroptosis, and the observation here is that it accumulates.
+    Hepatocyte-specific MLKL knockout mice on the same diet develop fewer and
+    smaller tumours, so the accumulation is the entry point of this arm rather
+    than a bystander finding. Elevated MLKL also marks worse outcome in human HCC,
+    and pharmacological MLKL inhibition suppresses xenograft growth.
+  biological_scale: MOLECULAR
+  subtypes:
+  - MASLD-Associated HCC
+  genes:
+  - preferred_term: MLKL
+    term:
+      id: hgnc:26617
+      label: MLKL
+  cell_types:
+  - preferred_term: hepatocyte
+    term:
+      id: CL:0000182
+      label: hepatocyte
+  evidence:
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      WD increased hepatocyte MLKL protein expression without detectable necroptosis
+      activation, indicating a necroptosis-independent role.
+    explanation: &gt;-
+      Reports the abundance change this node records - Western diet raises hepatocyte
+      MLKL protein - in the hepatocyte-specific knockout model.
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      WD-fed MlklHepKO mice developed fewer and smaller tumors with reduced incidence,
+      multiplicity, proliferation, and stemness.
+    explanation: &gt;-
+      Loss-of-function arm: removing hepatocyte MLKL reduces tumour burden, which is
+      what makes the accumulation causal for this arm rather than incidental. The
+      quote reports the tumour outcome of deleting MLKL, so it reaches the abundance
+      claim by inference rather than asserting it.
+    directness: INDIRECT
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      The human MLKL inhibitor necrosulfonamide (NSA) suppressed HepG2 xenograft growth
+    explanation: &gt;-
+      Pharmacological counterpart of the genetic loss-of-function arm: inhibiting MLKL
+      suppresses tumour growth in vivo. A xenograft is grown in mice, so this is animal
+      work and not a cell-culture result. It supports the node by inference, through the
+      consequence of blocking MLKL rather than through the abundance measurement.
+    directness: INDIRECT
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      elevated MLKL expression in human HCC correlated with poorer overall survival
+    explanation: &gt;-
+      Correlative human tissue data placing the same marker in human disease. It
+      establishes association with outcome, not the mechanism modelled downstream,
+      so it bears on this node by inference.
+    directness: INDIRECT
+  downstream:
+  - target: Necroptosis-Independent MLKL Function
+    description: &gt;-
+      The accumulated MLKL acts without engaging the necroptotic pathway it normally
+      executes.
+  - target: MFN2 Suppression and Impaired Mitochondrial Fusion
+    description: &gt;-
+      Hepatocyte MLKL is required for the diet-induced loss of MFN2; MLKL deficiency
+      restores MFN2 post-translationally.
+- name: Necroptosis-Independent MLKL Function
+  description: &gt;-
+    The headline finding of this arm, and what separates it from the necroptotic
+    cell-death route MLKL is normally invoked for: the diet-induced MLKL accumulation
+    proceeds without detectable necroptosis activation, and removing hepatocyte MLKL
+    leaves Western-diet inflammation, fibrosis and liver injury unchanged - the
+    readouts a necroptosis-driven mechanism would be expected to move. MLKL instead
+    localises to nuclear and mitochondrial compartments, consistent with the
+    organelle-intrinsic function modelled downstream.
+  biological_scale: MOLECULAR
+  subtypes:
+  - MASLD-Associated HCC
+  biological_processes:
+  - preferred_term: necroptotic process
+    modifier: ABSENT
+    term:
+      id: GO:0070266
+      label: necroptotic process
+  evidence:
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      WD increased hepatocyte MLKL protein expression without detectable necroptosis
+      activation, indicating a necroptosis-independent role.
+    explanation: &gt;-
+      States the negative result this node records: MLKL rises without necroptosis
+      being activated, which is the authors&#39; own basis for calling the role
+      necroptosis-independent.
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      MLKL deficiency did not alter WD-induced inflammation, fibrosis, or liver injury
+    explanation: &gt;-
+      Corroborates the negative result from the other direction - the injury readouts a
+      necroptotic mechanism would move are unchanged by removing MLKL.
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      MLKL localized to nuclear and mitochondrial compartments, consistent with
+      organelle-intrinsic functions.
+    explanation: &gt;-
+      Localisation evidence for the alternative, organelle-intrinsic function this node
+      asserts in place of necroptosis execution.
+- name: MFN2 Suppression and Impaired Mitochondrial Fusion
+  description: &gt;-
+    Western diet suppresses the mitochondrial fusion protein and tumour suppressor
+    MFN2, and hepatocyte MLKL is required for that suppression: MLKL deficiency
+    restores MFN2 post-translationally. MFN2 is the fusion machinery itself, so its
+    loss is a loss of mitochondrial fusion, and this node records that single
+    molecular event. What the depleted mitochondrial network then fails to do is the
+    node downstream.
+  biological_scale: MOLECULAR
+  subtypes:
+  - MASLD-Associated HCC
+  genes:
+  - preferred_term: MFN2
+    term:
+      id: hgnc:16877
+      label: MFN2
+  biological_processes:
+  - preferred_term: mitochondrial fusion
+    modifier: DECREASED
+    term:
+      id: GO:0008053
+      label: mitochondrial fusion
+  evidence:
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      WD suppressed the mitochondrial fusion protein and tumor suppressor MFN2, whereas
+      MLKL deficiency restored MFN2 expression post-translationally.
+    explanation: &gt;-
+      The mouse arm of the MFN2 claim: diet suppresses MFN2 and hepatocyte MLKL is
+      required for that suppression. The quote names MFN2 as the fusion protein, which
+      is the identification this node rests on.
+  downstream:
+  - target: Impaired Mitochondrial Oxidative Phosphorylation
+    description: &gt;-
+      Loss of the fusion protein leaves the mitochondrial network unable to sustain
+      respiratory capacity.
+- name: Impaired Mitochondrial Oxidative Phosphorylation
+  description: &gt;-
+    The bioenergetic consequence of the MFN2 loss above. Removing hepatocyte MLKL
+    raises oxidative phosphorylation pathway expression in mouse liver and improves
+    mitochondrial respiration in HCC cells, and deleting MFN2 reverses that
+    improvement, which places the respiratory deficit downstream of the MLKL-MFN2
+    axis rather than beside it.
+  biological_scale: CELLULAR
+  subtypes:
+  - MASLD-Associated HCC
+  biological_processes:
+  - preferred_term: oxidative phosphorylation
+    modifier: DECREASED
+    term:
+      id: GO:0006119
+      label: oxidative phosphorylation
+  evidence:
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Transcriptomic analysis revealed upregulation of mitochondrial oxidative
+      phosphorylation pathways in MlklHepKO livers.
+    explanation: &gt;-
+      Shows the respiratory deficit is MLKL-dependent - removing MLKL raises oxidative
+      phosphorylation pathway expression. The measurement is transcriptomic, so it
+      reports pathway expression rather than respiration itself.
+    directness: INDIRECT
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      In HCC cells, MLKL deletion reduced proliferation, improved mitochondrial respiration,
+      and decreased glycolysis; these effects were reversed by MFN2 deletion.
+    explanation: &gt;-
+      The cell-line arm, kept as a separate item because it is a different evidence
+      source from the mouse work above. Respiration is the measured quantity here, and
+      the MFN2-deletion rescue is what places MFN2 between MLKL and the respiratory
+      change.
+  downstream:
+  - target: Aerobic Glycolytic Shift in MASLD-Associated HCC
+    description: &gt;-
+      Reduced respiratory capacity accompanies the shift to glycolysis; in HCC cells both
+      are reversed by MFN2 deletion.
+- name: Aerobic Glycolytic Shift in MASLD-Associated HCC
+  conforms_to: &#34;deregulated_cellular_energetics#Aerobic Glycolysis (Warburg Effect)&#34;
+  description: &gt;-
+    The MFN2-dependent respiratory deficit accompanies increased glycolytic flux, the
+    Warburg phenotype of this arm. MLKL deletion in HCC cells decreases glycolysis and
+    reduces proliferation, and MFN2 deletion reverses both, placing the glycolytic shift
+    downstream of the MLKL-MFN2 axis rather than beside it.
+  biological_scale: CELLULAR
+  subtypes:
+  - MASLD-Associated HCC
+  notes: &gt;-
+    Kept separate from this entry&#39;s other Warburg node, Aerobic Glycolysis and
+    Metabolic Reprogramming, which carries the same conforms_to anchor and the same
+    GO:0006096 term. They are two upstream routes to one phenotype, not a duplicate:
+    that node is driven by oncogenic PI3K/AKT and MYC signalling and is written for
+    HCC generally, while this one is MASLD-specific and its glycolytic shift is
+    MFN2-dependent, which is the claim the MFN2-deletion rescue supports. Both
+    converge on Enhanced Hepatocyte Proliferation. Folding them together would mean
+    dropping either the subtype scope or the MFN2 dependence.
+  biological_processes:
+  - preferred_term: glycolytic process
+    modifier: INCREASED
+    term:
+      id: GO:0006096
+      label: glycolytic process
+  evidence:
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      In HCC cells, MLKL deletion reduced proliferation, improved mitochondrial respiration,
+      and decreased glycolysis; these effects were reversed by MFN2 deletion.
+    explanation: &gt;-
+      Glycolysis falls when MLKL is deleted and returns when MFN2 is also deleted, which is
+      the evidence for an increased glycolytic flux dependent on the MLKL-MFN2 axis.
+  downstream:
+  - target: Enhanced Hepatocyte Proliferation
+    description: &gt;-
+      The glycolytic shift accompanies the increased proliferation and stemness that MLKL
+      loss reduces in both the mouse tumours and the HCC cell lines.
+    evidence:
+    - reference: PMID:42549799
+      reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        WD-fed MlklHepKO mice developed fewer and smaller tumors with reduced incidence,
+        multiplicity, proliferation, and stemness.
+      explanation: &gt;-
+        Proliferation and stemness are the tumour-level outcomes that fall when the upstream
+        MLKL-MFN2 axis is removed.
 - name: PI3K/AKT/mTOR Pathway Activation
   description: &gt;-
     PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt
@@ -10935,6 +12761,104 @@ pathophysiology:
       The glycolytic shift supplies the ATP and biosynthetic carbon that sustain
       the high proliferative rate; PMID:42520527 reports impaired mitochondrial
       pyruvate transport promoting glycolysis and cell proliferation together.
+- name: MMP9 Upregulation
+  description: &gt;-
+    Matrix metalloproteinase 9 is a secreted zinc endopeptidase that degrades
+    basement-membrane and interstitial collagen, and it is the effector through
+    which monomethyl phthalate exposure reaches hepatocellular carcinoma
+    behaviour in the only study that has tested that link. The node records the
+    abundance and activity change alone. Its standing rests on three separate
+    observations: MMP9 is high in human hepatocellular carcinoma tissue and
+    tracks with worse survival, monomethyl phthalate raises it in
+    hepatocellular carcinoma cells, and blocking it removes the growth and
+    migration the exposure produces in HuH-7. That
+    last arm is what makes the upregulation the exposure&#39;s point of entry rather
+    than a correlate of it. The invasion the enzyme enables is the node
+    downstream, not this one.
+  biological_scale: MOLECULAR
+  genes:
+  - preferred_term: MMP9
+    term:
+      id: hgnc:7176
+      label: MMP9
+  molecular_functions:
+  - preferred_term: metalloendopeptidase activity
+    modifier: INCREASED
+    term:
+      id: GO:0004222
+      label: metalloendopeptidase activity
+  evidence:
+  - reference: PMID:42435151
+    reference_title: &#34;Monomethyl phthalate promotes hepatocellular carcinoma progression through MMP9 upregulation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: DIRECT
+    snippet: &gt;-
+      MMP9 was highly expressed in HCC and associated with poor prognosis
+    explanation: &gt;-
+      Places the abundance change this node records in human hepatocellular
+      carcinoma tissue and ties it to outcome. The quote is trimmed to the
+      clause carrying that claim: the sentence it sits in opens with the
+      paper&#39;s network-toxicology target identification, which is a
+      computational step and would grade differently.
+  - reference: PMID:42435151
+    reference_title: &#34;Monomethyl phthalate promotes hepatocellular carcinoma progression through MMP9 upregulation.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    directness: INDIRECT
+    snippet: &gt;-
+      Inhibition of MMP9 significantly reversed the MMP-induced pro-carcinogenic
+      effects, indicating that MMP promotes HCC by upregulating MMP9 expression.
+    explanation: &gt;-
+      Loss-of-function arm in the paper&#39;s cell model: removing MMP9 activity
+      abolishes what the exposure does. The abstract names HuH-7 for the
+      dose-response arm and does not say which line carried the inhibition
+      experiment, so the line is left unnamed here. It reaches this node&#39;s abundance claim through the
+      consequence of blocking the enzyme rather than by measuring the enzyme, so
+      it supports the node by inference.
+  downstream:
+  - target: Portal Vein Invasion and Tumor Thrombus
+    causal_link_type: DIRECT
+    description: &gt;-
+      Matrix degradation by MMP9 is one of the steps by which tumour cells cross
+      the vascular barrier into the portal vein. The cited work reads out portal
+      vein tumour thrombus in mice after knocking MMP9 down together with
+      heparanase, so it establishes MMP9 as a contributor to this edge alongside
+      another enzyme rather than isolating it.
+    evidence:
+    - reference: PMID:40961618
+      reference_title: &#34;Heparanase and MMP-9 synergistically induce endothelial-mesenchymal transition in portal vein microvessels to promote hepatocellular carcinoma metastasis.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      directness: INDIRECT
+      snippet: &gt;-
+        Nude mouse experiments showed that double knockdown HCCLM3 cells led to
+        the lowest liver metastasis and PVTT rates.
+      explanation: &gt;-
+        Removing MMP9 together with heparanase lowers portal vein tumour thrombus
+        rates in vivo. It reaches this edge by inference rather than assertion,
+        because the quoted arm is a combined knockdown and so does not separate
+        MMP9&#39;s contribution from heparanase&#39;s.
+  - target: Enhanced Hepatocyte Proliferation
+    causal_link_type: DIRECT
+    description: &gt;-
+      The same MMP9 inhibition that removes the exposure&#39;s migration effect also
+      removes its proliferation effect in HuH-7 cells, so the enzyme reaches the
+      growth node and not only the invasion node.
+    evidence:
+    - reference: PMID:42435151
+      reference_title: &#34;Monomethyl phthalate promotes hepatocellular carcinoma progression through MMP9 upregulation.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      directness: INDIRECT
+      snippet: &gt;-
+        Inhibition of MMP9 significantly reversed the MMP-induced pro-carcinogenic
+        effects, indicating that MMP promotes HCC by upregulating MMP9 expression.
+      explanation: &gt;-
+        The pro-carcinogenic effects reversed here are the proliferation and
+        migration the same abstract reports, so the quote reaches the growth node
+        through the paper&#39;s own definition of those effects rather than by naming
+        proliferation in the sentence itself.
 - name: Portal Vein Invasion and Tumor Thrombus
   conforms_to: &#34;invasion_and_metastasis#Local Invasion and Intravasation&#34;
   description: &gt;-
@@ -11520,6 +13444,84 @@ classifications:
       snippet: &#34;Hepatocellular carcinoma (HCC) is the most common primary hepatic malignancy and a leading cause of cancer related death worldwide.&#34;
       explanation: The same review locates HCC in the liver, supporting an additional Harrison&#39;s Gastrointestinal classification since hepatic cancers are addressed in the GI Part.
 discussions:
+- discussion_id: gap_phthalate_class_hepatocarcinogenesis_scope
+  prompt: &gt;-
+    Does the phthalate class act on hepatocellular carcinoma through a shared
+    mechanism that this entry should represent as one environmental pathway, or
+    is monomethyl phthalate&#39;s MMP9 route compound-specific and not
+    generalizable to the other plasticizers people are exposed to alongside it?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - environmental#Monomethyl phthalate exposure
+  - pathophysiology#MMP9 Upregulation
+  rationale: &gt;-
+    The monomethyl phthalate arm curated here rests on one publication, and the
+    obvious next move - generalizing it to a phthalate or endocrine-disruptor
+    exposure pathway - is exactly what the rest of the literature does not yet
+    license. The three phthalates with recent hepatocellular carcinoma work
+    nominate three different targets: monomethyl phthalate is reported to act
+    through MMP9, di(2-ethylhexyl) phthalate and its metabolite through PPARG
+    and a lipid-storage program, and diisononyl phthalate produces liver tumours
+    in rodents through PPAR-alpha. So there is no shared node to factor out, and
+    a single environmental-chemical node would assert a convergence nobody has
+    shown. The diisononyl assessment cuts the other way as well, and is the
+    reason this is recorded as open rather than as pending work: a systematic
+    integration of human, animal and mechanistic evidence concludes that
+    compound is unlikely to be a human carcinogen, with its rodent liver tumours
+    attributed to a mode of action held not to translate. Class membership
+    therefore does not carry hepatocarcinogenic risk by itself, and the human
+    evidence for the monomethyl route is a Mendelian randomization estimate the
+    authors themselves call preliminary. What would settle it is whether the
+    MMP9 response is reproduced for other phthalate metabolites in human
+    hepatocyte systems, and whether any exposure cohort measuring phthalate
+    metabolites reports hepatocellular carcinoma incidence directly rather than
+    through genetic instruments.
+  evidence:
+  - reference: PMID:42094681
+    reference_title: &#34;Evaluating the potential carcinogenic hazard of diisononyl phthalate in humans via systematic integration of human, animal cancer studies, and mechanistic data.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    quote_role: REVIEW_SYNTHESIS
+    directness: DIRECT
+    snippet: &gt;-
+      Multiple evidence stream integration and interpretation support that DINP
+      elicits rodent-specific liver tumors through the peroxisome
+      proliferator-activated receptor alpha, a MoA widely considered to lack
+      human relevance.
+    explanation: &gt;-
+      The core reason the class question is open: a phthalate that does produce
+      liver tumours does so by a route the assessors judge not to operate in
+      humans. It is this systematic review&#39;s integration of rodent bioassay and
+      mechanistic data rather than a result it generated, which is what the
+      quote role records.
+  - reference: PMID:42094681
+    reference_title: &#34;Evaluating the potential carcinogenic hazard of diisononyl phthalate in humans via systematic integration of human, animal cancer studies, and mechanistic data.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    directness: INDIRECT
+    snippet: &gt;-
+      Evidence from epidemiological studies is limited, but does not indicate an
+      association between DINP exposure and cancer
+    explanation: &gt;-
+      The human counterpart of the same point. It bears on hepatocellular
+      carcinoma by inference rather than assertion, since the epidemiological
+      studies the review is summarising here report breast and prostate cancer
+      outcomes rather than liver outcomes.
+  - reference: PMID:42674152
+    reference_title: &#34;Di(2-ethylhexyl) phthalate and mono(2-ethylhexyl) phthalate upregulate PPARG and induce metabolic reprogramming in hepatocellular carcinoma cells: a pan-cancer and metabolomics study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: INDIRECT
+    snippet: &gt;-
+      PPARG was upregulated in HCC tissues, and higher expression was associated
+      with poorer overall survival in the TCGA-LIHC cohort.
+    explanation: &gt;-
+      A second phthalate nominating a different hepatocellular carcinoma target,
+      which is what makes the class a question rather than a pathway. The quote
+      establishes that target&#39;s standing in human tumours; it does not itself
+      show the phthalate acting on it, so it reaches the gap by inference.
 - discussion_id: gap_rpp40_trna_processing_mtor_myc_causality
   prompt: &gt;-
     Does RPP40 sustain mTOR/MYC signaling in hepatocellular carcinoma
@@ -11752,6 +13754,20 @@ discussions:
         This human-cell study supplies experimentally defined complex-specific
         perturbation handles for the primary RNase P-versus-RNase MRP
         discriminator; it does not establish an HCC mechanism.
+    - reference: PMID:40413743
+      reference_title: Identification of RMP24 and RMP64, human ribonuclease MRP-specific protein components.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        We show that Rmp24 and Rmp64 are required for pre-rRNA ITS1 site 2
+        processing and associate with MRP RNA but are not required for RNase P
+        activity and do not associate with RNase P-specific H1 RNA.
+      explanation: &gt;-
+        An independent human genome-wide screen shows that the RNase
+        MRP-specific subunits are dispensable for RNase P activity and do not
+        join the RNase P holoenzyme, which is the property the
+        RNase-MRP-specific perturbation arm depends on for branch assignment.
+        It does not address RPP40, mTOR/MYC, or HCC.
     - reference: PMID:40533478
       reference_title: Reversible proliferative arrest induced by rapid depletion of RNase MRP.
       supports: SUPPORT
@@ -11779,6 +13795,21 @@ discussions:
     explanation: &gt;-
       The seed paper explicitly identifies the unresolved HCC mechanism while
       separating RPP40&#39;s known canonical role from the HCC-specific question.
+  - reference: PMID:16723659
+    reference_title: Differential association of protein subunits with the human RNase MRP and RNase P complexes.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Rpp20 and Rpp25 appear to be associated with only a subset of RNase MRP
+      particles, in contrast to hPop1, Rpp40, Rpp38, and Rpp30 (and possibly
+      also hPop5), which are probably associated with all RNase MRP complexes.
+    explanation: &gt;-
+      Human complex-partitioning biochemistry substantiates the shared-subunit
+      premise of this gap: RPP40 partitions with essentially all RNase MRP
+      particles as well as RNase P, so an RPP40 gain-of-function or
+      loss-of-function experiment perturbs both complexes and cannot by itself
+      assign an HCC phenotype to the RNase P branch. It reports complex
+      composition only, and tests neither HCC nor mTOR/MYC signaling.
   - reference: PMID:40517827
     reference_title: Ribonuclease P/MRP subunit RPP40 coordinates the transcription of pre-rRNA and ribosomal protein genes to promote Hepatocellular carcinoma malignancy.
     supports: SUPPORT
@@ -11825,6 +13856,22 @@ discussions:
       Integrated pathway and cell-cycle analyses support the
       proliferative-state alternative, but the authors&#39; qualified inference
       does not establish causal ordering in HCC.
+  - reference: PMID:41933259
+    reference_title: Comprehensive profiling of RPP40 across human cancers reveals its essential role and multidimensional clinical correlates.
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &gt;-
+      Analysis using the CancerSEA database showed that, with the exception of
+      LIHC,RPP40expression was significantly correlated with cell cycle activity
+      score across all examined cancer types
+    explanation: &gt;-
+      The same pan-cancer analysis reports liver hepatocellular carcinoma as the
+      one examined cancer type in which the RPP40 expression-to-cell-cycle
+      correlation was not significant. That specifically weakens extrapolation
+      of the generic proliferation-correlate alternative into HCC and is a
+      reason to keep this gap open rather than close it on pan-cancer grounds.
+      The quotation reproduces the cached source text verbatim, including its
+      missing word spacing.
   - reference: PMID:37247644
     reference_title: Nucleolar HEAT Repeat Containing 1 Up-regulated by the Mechanistic Target of Rapamycin Complex 1 Signaling Promotes Hepatocellular Carcinoma Growth by Dominating Ribosome Biogenesis and Proteome Homeostasis.
     supports: SUPPORT
@@ -12495,6 +14542,138 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: The interaction of aflatoxin B1 (a contaminant found in food) with HBV infection is believed to increase the prevalence of HCC.
     explanation: This supports aflatoxin exposure as a contributor to HCC risk, particularly in the context of HBV co-infection.
+- name: Long-term Western diet feeding
+  exposure_term:
+    preferred_term: long-term Western diet exposure
+    modifier: INCREASED
+    term:
+      id: ECTO:0090010
+      label: exposure to lipid in food
+  influences_mechanisms:
+  - target: Hepatocyte MLKL Upregulation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The diet is the exposure that raises hepatocyte MLKL protein in the
+      MASLD-HCC model, and it is the only incoming edge this arm has. The
+      measurement is made in diet-fed mice, so the edge is asserted for the
+      model system the paper reports and not for a human dietary pattern.
+    evidence:
+    - reference: PMID:42549799
+      reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        WD increased hepatocyte MLKL protein expression without detectable necroptosis
+        activation, indicating a necroptosis-independent role.
+      explanation: &gt;-
+        Names the diet as the thing that raises hepatocyte MLKL protein, which is
+        exactly the edge from this exposure to that node.
+  notes: &gt;-
+    ECTO has no live term for a Western or high-fat dietary pattern - the diet-pattern
+    classes in that branch are obsolete - so the exposure is bound to the lipid-in-food
+    term, which covers the fat component only and not the sugar component. This follows
+    the binding already used for the same problem in Coronary_Artery_Disease and
+    Autosomal_Dominant_Hypercholesterolemia_3, and the preferred term carries the
+    specificity the ontology cannot.
+  evidence:
+  - reference: PMID:42549799
+    reference_title: &#34;Hepatocyte MLKL drives obesity-driven hepatocellular carcinoma progression via mitochondrial dysfunction independent of necroptosis in MASLD.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      WD increased hepatocyte MLKL protein expression without detectable necroptosis
+      activation, indicating a necroptosis-independent role.
+    explanation: &gt;-
+      Names long-term Western diet as an exposure that changes hepatocyte biology in
+      this MASLD-HCC model, which is what makes it an environmental entry here. The
+      quote reports the diet&#39;s effect on hepatocytes; it does not by itself report a
+      tumour count, so the tumour-level consequence is left to the nodes downstream.
+- name: Monomethyl phthalate exposure
+  exposure_term:
+    preferred_term: exposure to monomethyl phthalate
+    modifier: INCREASED
+    term:
+      id: ECTO:9000906
+      label: exposure to phthalate ester
+  influences_mechanisms:
+  - target: MMP9 Upregulation
+    environmental_effect: EXACERBATES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Monomethyl phthalate raises MMP9 in the paper&#39;s hepatocellular carcinoma
+      cell model, and inhibiting MMP9 removes what the exposure does to those
+      cells. Graded as exacerbation rather than as a trigger on purpose. The
+      experiment is run in an established hepatocellular carcinoma line, so what
+      it demonstrates is the exposure worsening a tumour that already exists,
+      which is how the paper titles its own finding. Reading it as a trigger
+      would additionally enter this node as a non-mutational origin of the
+      cancer under the cell-of-origin derivation, a claim nothing here supports.
+      The edge is asserted for the cell model and not for a measured human
+      exposure response: the human arm is a Mendelian randomization estimate
+      against hepatocellular carcinoma risk, which does not measure MMP9.
+    evidence:
+    - reference: PMID:42435151
+      reference_title: &#34;Monomethyl phthalate promotes hepatocellular carcinoma progression through MMP9 upregulation.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      directness: DIRECT
+      snippet: &gt;-
+        Inhibition of MMP9 significantly reversed the MMP-induced pro-carcinogenic
+        effects, indicating that MMP promotes HCC by upregulating MMP9 expression.
+      explanation: &gt;-
+        States the edge itself - the exposure acts by upregulating MMP9 - and
+        grounds it in the inhibition experiment that establishes the direction.
+  notes: &gt;-
+    ECTO has no monomethyl phthalate class. Searching the ECTO build with
+    l~phthalate returns eleven exposure classes: ECTO:0900272, ECTO:9000522,
+    ECTO:9000637, ECTO:9000906, ECTO:9001090, ECTO:9001433, ECTO:9001525,
+    ECTO:9002263, ECTO:9002271, ECTO:9002559 and ECTO:9002632. Nine of them name
+    a specific compound or polymer that is not this one, leaving two class-level
+    candidates: ECTO:9000522 exposure to phthalate and ECTO:9000906 exposure to
+    phthalate ester. l~monomethyl returns nothing at all; l~monoester returns
+    only CHEBI rows and no ECTO class; l~plasticiser returns two rows, the
+    chemical CHEBI:79056 and the exposure class ECTO:9002071, which is broader
+    than either candidate. The ester class is the correct parent rather than the
+    shorter-named ECTO:9000522: monomethyl phthalate is CHEBI:89749, a phthalic
+    acid monoester (CHEBI:132610) and so a descendant of CHEBI:35484 phthalate
+    ester, whereas the stimulus of ECTO:9000522 is CHEBI:26092 phthalate, which
+    CHEBI places under carboxylic acid anion and which is therefore not an
+    ancestor of the monoester. ECTO:9001090 exposure to Dimethyl phthalate was
+    rejected on positive grounds although monomethyl phthalate is that
+    compound&#39;s primary hepatic metabolite: the study measures and administers
+    the metabolite, so binding the parent diester would assert an exposure route
+    it never measured.
+  evidence:
+  - reference: PMID:42435151
+    reference_title: &#34;Monomethyl phthalate promotes hepatocellular carcinoma progression through MMP9 upregulation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: DIRECT
+    snippet: &gt;-
+      MR analysis provided preliminary genetic evidence for a positive
+      association between MMP exposure and elevated HCC risk, with no significant
+      heterogeneity or horizontal pleiotropy detected.
+    explanation: &gt;-
+      The human arm that makes this an environmental risk factor rather than a
+      cell-culture observation. The authors call it preliminary genetic evidence
+      and it is a two-sample Mendelian randomization estimate, not a measured
+      exposure cohort, so it supports association with disease risk and not the
+      mechanism recorded on the edge above.
+  - reference: PMID:42435151
+    reference_title: &#34;Monomethyl phthalate promotes hepatocellular carcinoma progression through MMP9 upregulation.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      Monomethyl phthalate (MMP), the primary hepatic metabolite of dimethyl
+      phthalate, possesses endocrine-disrupting and immunosuppressive properties
+    explanation: &gt;-
+      Identifies the compound and where it comes from, which is what makes an
+      exposure entry keyed on a metabolite coherent. The sentence is the paper
+      restating established chemistry and toxicology in its opening rather than
+      reporting its own result, so it is marked as background and graded OTHER -
+      no study design of any kind stands behind this particular claim.
 </pre>
             </div>
         </div>
@@ -15029,6 +17208,19 @@ environmental:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Curate the monomethyl phthalate to MMP9 environmental axis (issue #6395)</strong> · 2026-09-23T15:15:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hepatocellular_Carcinoma/2026-09-23T151523Z-claude-code-62b5f0.yaml">View source</a></p>
+                        <p class="research-review-text">Answers issue #6395, which asked whether the entry represents environmental toxin exposure pathways and whether the phthalate-MMP9 axis should be added as an extrinsic risk-factor mechanism. It did not, and now does. Added one pathophysiology node (MMP9 Upregulation, MOLECULAR, bound to hgnc:7176 and GO:0004222) with downstream edges to Portal Vein Invasion and Tumor Thrombus and to Enhanced Hepatocyte Proliferation; one environmental entry (Monomethyl phthalate exposure, bound to ECTO:9000906 exposure to phthalate ester) whose influences_mechanisms edge reaches the MMP9 node with environmental_effect EXACERBATES; and one KNOWLEDGE_GAP discussion recording why the phthalate class is not generalizable to a single environmental-chemical pathway. Note that an earlier bot comment on the issue reported this work as completed in commit b38bcf2, but that commit is not reachable from main and no phthalate content existed in the entry. Evidence: PMID:42435151 (the issue&#39;s paper; Mendelian randomization graded HUMAN_CLINICAL per KB precedent, cell-line arms IN_VITRO), PMID:40961618 (MMP-9 and heparanase combined knockdown lowering portal vein tumour thrombus in mice, MODEL_ORGANISM, graded INDIRECT because the arm is a combined knockdown), PMID:42674152 and PMID:42094681 (a second and third phthalate nominating different targets, used only in the knowledge-gap discussion). Deep research: just dr_fallback=--fallback research-disorder falcon Hepatocellular_Carcinoma. Falcon is unconfigured in this environment (no EDISON_API_KEY), so the run fell back to openscientist and recorded fell_back, requested_provider and provider_attempts in the report frontmatter. That report contained zero mentions of phthalate or MMP9 and contributed nothing to this entry, and its output path collided with the already-committed openscientist HCC report, so the tooling refused to overwrite and no research artifact is included in this change; the committed falcon and openscientist reports are untouched. Curation therefore worked from the issue&#39;s primary paper plus targeted PubMed searches. A red-team review pass before commit found and fixed six defects, two of them blocking: a notes field that named five ECTO search results when the query actually returns eleven classes (rewritten after re-running every query it cites), and environmental_effect TRIGGERS, which would have asserted non-mutational tumour initiation and entered the node into the cell-of-origin derivation on the strength of an experiment run in an already-transformed line. Validated with just validate (109/109 snippets verified), just validate-terms, check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-enum-values, check-reference-titles, check-snippet-grading, check-snippet-length, check-title-snippets, check-folded-hyphens, check-environmental-evidence, check-coarse-phenotypes and check-case-collisions, all clean; just check-cancer-origin still reports a single hepatocyte origin.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -16545,7 +18737,7 @@ Dysplastic nodule ──► Hepatocellular carcinoma ──► vascular invasion
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatocellular_Carcinoma", "yamlRevision": "c83cb5a44c63"};
+        const OS_CONFIG = {"diseaseName": "Hepatocellular Carcinoma", "mondoId": "MONDO:0007256", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatocellular_Carcinoma", "yamlRevision": "17240af3651e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Periodic%20Fever%2C%20Immunodeficiency%2C%20and%20Thrombocytopenia%20Syndrome"
@@ -3998,7 +4051,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">20</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4382,6 +4435,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-wdr1-loss-of-function" data-dismech-node="Biallelic WDR1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic WDR1 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic WDR1 variants reduce the function of actin-interacting protein 1 (Aip1). The index PFIT family carries a homozygous missense substitution affecting both transcripts; the neutrophil-dysfunction families carry biallelic variants affecting distinct antiparallel beta-strands of the protein.</div>
 
 
@@ -4433,6 +4487,8 @@ This genetic context concerns WDR1 (hgnc:12754). hgnc:12754 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4446,6 +4502,9 @@ This genetic context concerns WDR1 (hgnc:12754). hgnc:12754 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4541,6 +4600,7 @@ This genetic context concerns WDR1 (hgnc:12754). hgnc:12754 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cofilin-mediated-actin-filament-disassembly" data-dismech-node="Impaired Cofilin-Mediated Actin Filament Disassembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cofilin-Mediated Actin Filament Disassembly</div>
+
 
                 <div class="item-desc">Aip1/WDR1 preferentially disassembles cofilin-decorated actin filaments. With Aip1 function reduced, filaments that cofilin has already decorated are not cleared, and polymerised actin accumulates. Patient neutrophils carry roughly four times the normal F-actin content.</div>
 
@@ -4732,6 +4792,13 @@ This pathophysiological event involves decreased actin filament depolymerization
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyrin-sequestration-by-mutant-wdr1-aggregates" data-dismech-node="Pyrin Sequestration by Mutant WDR1 Aggregates" data-dismech-type="pathophysiology">
                 <div class="item-name">Pyrin Sequestration by Mutant WDR1 Aggregates</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">In HEK293T cells co-transfected with pyrin and mutant WDR1, the mutant protein forms aggregates that accumulate pyrin. The proposal is that this concentrates pyrin and so nucleates inflammasome assembly. This is an overexpression experiment in a heterologous cell line and the authors themselves state it only as a possibility, so the node is marked PROVISIONAL rather than asserted.</div>
 
 
@@ -4809,6 +4876,7 @@ This pathophysiological event involves decreased actin filament depolymerization
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammasome-hyperactivation-in-monocytes" data-dismech-node="Inflammasome Hyperactivation in Monocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammasome Hyperactivation in Monocytes</div>
+
 
                 <div class="item-desc">Patient monocytes show increased caspase-1 cleavage, the biochemical signature of inflammasome activation.</div>
 
@@ -4958,6 +5026,7 @@ This pathophysiological event involves increased inflammasome-mediated signaling
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excess-interleukin-18-production" data-dismech-node="Excess Interleukin-18 Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Excess Interleukin-18 Production</div>
 
+
                 <div class="item-desc">The autoinflammatory arm of PFIT runs through IL-18, not IL-1-beta. Serum IL-18 is high without a matching rise in IL-18-binding protein, so free bioactive IL-18 is increased, and patient cells secrete more IL-18 but not more IL-1-beta in culture. This is the mechanistic reason IL-1 blockade is only partially effective.</div>
 
 
@@ -5079,6 +5148,7 @@ This pathophysiological event involves increased positive regulation of interleu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-neutrophil-motility-and-polarization" data-dismech-node="Defective Neutrophil Motility and Polarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Neutrophil Motility and Polarization</div>
+
 
                 <div class="item-desc">Patient neutrophils cannot polarise, spread or move directionally, yet kill staphylococci normally once contact is made and mount an increased oxidative burst. The defect is therefore in getting to the infection, not in dealing with it, which is the distinctive shape of this immunodeficiency. Neutrophil nuclear lobes herniate and cytosolic regions are agranular.
 This node is contested across cohorts, and the REFUTE items below record it. The motility defect is the Kuhns cohort&#39;s central finding, but the founding PFIT family was measured in a Dunn chamber and showed no difference in velocity or chemotactic index, with the authors concluding that neutrophil dysfunction alone cannot account for the phenotype. The node is kept because the defect is real where it was found, not because the disagreement is settled.</div>
@@ -5313,6 +5383,7 @@ This pathophysiological event involves decreased neutrophil chemotaxis (GO:00305
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-innate-host-defense-at-barrier-surfaces" data-dismech-node="Impaired Innate Host Defense at Barrier Surfaces" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Innate Host Defense at Barrier Surfaces</div>
 
+
                 <div class="item-desc">Failure of neutrophil recruitment produces recurrent infection and, strikingly, severe oral inflammation that can scar to oral stenosis, plus impaired wound healing.</div>
 
 
@@ -5398,6 +5469,7 @@ This pathophysiological event involves decreased neutrophil chemotaxis (GO:00305
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-immunological-synapse-formation-in-lymphocytes" data-dismech-node="Defective Immunological Synapse Formation in Lymphocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Immunological Synapse Formation in Lymphocytes</div>
+
 
                 <div class="item-desc">The arm of the disease that the founding reports missed. Patient T cells accumulate atypical actin structures at the immunological synapse, with reduced calcium flux and mildly impaired proliferation on T-cell receptor stimulation. The B-cell compartment is affected more severely still: peripheral B lymphopenia, few marrow B-cell progenitors, no switched memory B cells, reduced clonal diversity, abnormal spreading, and increased apoptosis on receptor stimulation. So the immunodeficiency in PFIT is not only a neutrophil delivery problem; it has an adaptive component with its own mechanism at the same molecular step.</div>
 
@@ -5615,6 +5687,7 @@ This pathophysiological event involves immunological synapse (GO:0001772). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-megakaryocyte-maturation-and-platelet-shedding" data-dismech-node="Defective Megakaryocyte Maturation and Platelet Shedding" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Megakaryocyte Maturation and Platelet Shedding</div>
+
 
                 <div class="item-desc">Bone marrow from a PFIT patient contained small atypical megakaryocytes that had failed to develop a demarcating membrane system, the structure from which proplatelets are extended. Thrombocytopenia in PFIT is therefore a production defect at the shedding step, not peripheral destruction.</div>
 
@@ -5858,7 +5931,7 @@ This pathophysiological event involves decreased platelet formation (GO:0030220)
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal neutrophil morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Herniation of the neutrophil nuclear lobes and agranular regions within the cytosol, present in every patient examined and, being visible on a routine smear, potentially the cheapest pointer to the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011992\"}}, {\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacing the mutant haematopoietic compartment addresses all three arms of the disease at once, because the neutrophil, monocyte and megakaryocyte defects are all cell-intrinsic to bone-marrow-derived cells. One PFIT patient transplanted at age 8 remained well and off all medication three years later, and transplantation corrected the immunological defect in one patient of the neutrophil-dysfunction cohort.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Biallelic WDR1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic WDR1 variants reduce the function of actin-interacting protein 1 (Aip1). The index PFIT family carries a homozygous missense substitution affecting both transcripts; the neutrophil-dysfunction families carry biallelic variants affecting distinct antiparallel beta-strands of the protein.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"allele_type\": \"missense\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"WDR1\", \"id\": \"hgnc:12754\"}]}}}, {\"id\": \"Decreased total B cell count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral B lymphopenia with loss of switched memory B cells, in the third reported cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010976\"}}, {\"id\": \"Defective Immunological Synapse Formation in Lymphocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arm of the disease that the founding reports missed. Patient T cells accumulate atypical actin structures at the immunological synapse, with reduced calcium flux and mildly impaired proliferation on T-cell receptor stimulation. The B-cell compartment is affected more severely still: peripheral B lymphopenia, few marrow B-cell progenitors, no switched memory B cells, reduced clonal diversity, abnormal spreading, and increased apoptosis on receptor stimulation. So the immunodeficiency in PFIT is not only a neutrophil delivery problem; it has an adaptive component with its own mechanism at the same molecular step.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\", \"T cell\"]}}, {\"id\": \"Defective Megakaryocyte Maturation and Platelet Shedding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bone marrow from a PFIT patient contained small atypical megakaryocytes that had failed to develop a demarcating membrane system, the structure from which proplatelets are extended. Thrombocytopenia in PFIT is therefore a production defect at the shedding step, not peripheral destruction.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Megakaryocyte\"], \"biological_processes\": [\"platelet formation\"], \"animal_models\": [{\"name\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"species\": \"Mouse\", \"genotype\": \"Wdr1 hypomorphic allele, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse establishes the causal chain from Wdr1 hypomorphism through megakaryocyte maturation failure to defective platelet shedding.\"}]}}, {\"id\": \"Defective Neutrophil Motility and Polarization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient neutrophils cannot polarise, spread or move directionally, yet kill staphylococci normally once contact is made and mount an increased oxidative burst. The defect is therefore in getting to the infection, not in dealing with it, which is the distinctive shape of this immunodeficiency. Neutrophil nuclear lobes herniate and cytosolic regions are agranular.\\nThis node is contested across cohorts, and the REFUTE items below record it. The motility defect is the Kuhns cohort\u0027s central finding, but the founding PFIT family was measured in a Dunn chamber and showed no difference in velocity or chemotactic index, with the authors concluding that neutrophil dysfunction alone cannot account for the phenotype. The node is kept because the defect is real where it was found, not because the disagreement is settled.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\"], \"animal_models\": [{\"name\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"species\": \"Mouse\", \"genotype\": \"Wdr1 hypomorphic allele, homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Wdr1 mutant mouse neutrophils show impaired cytoskeletal responses and accumulate polymerised actin, as human patient neutrophils do.\"}]}}, {\"id\": \"Excess Interleukin-18 Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autoinflammatory arm of PFIT runs through IL-18, not IL-1-beta. Serum IL-18 is high without a matching rise in IL-18-binding protein, so free bioactive IL-18 is increased, and patient cells secrete more IL-18 but not more IL-1-beta in culture. This is the mechanistic reason IL-1 blockade is only partially effective.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of interleukin-18 production\"]}}, {\"id\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aip1/WDR1 preferentially disassembles cofilin-decorated actin filaments. With Aip1 function reduced, filaments that cofilin has already decorated are not cleared, and polymerised actin accumulates. Patient neutrophils carry roughly four times the normal F-actin content.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"actin filament depolymerization\"]}}, {\"id\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of neutrophil recruitment produces recurrent infection and, strikingly, severe oral inflammation that can scar to oral stenosis, plus impaired wound healing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired neutrophil chemotaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040238\"}}, {\"id\": \"Increased circulating interleukin 18 concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum IL-18 without a matching rise in IL-18-binding protein. This is the biomarker that identifies the autoinflammatory arm as IL-18-driven.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034447\"}}, {\"id\": \"Inflammasome Hyperactivation in Monocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient monocytes show increased caspase-1 cleavage, the biochemical signature of inflammasome activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Monocyte\"], \"biological_processes\": [\"inflammasome-mediated signaling pathway\"]}}, {\"id\": \"Poor wound healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001058\"}}, {\"id\": \"Pyrin Sequestration by Mutant WDR1 Aggregates\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In HEK293T cells co-transfected with pyrin and mutant WDR1, the mutant protein forms aggregates that accumulate pyrin. The proposal is that this concentrates pyrin and so nucleates inflammasome assembly. This is an overexpression experiment in a heterologous cell line and the authors themselves state it only as a possibility, so the node is marked PROVISIONAL rather than asserted.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent bacterial infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infection, the immunodeficiency component of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002718\"}}, {\"id\": \"Recurrent fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Periodic fevers from the first weeks of life, lasting 3 to 7 days and recurring every 6 to 12 weeks, with complete normalisation of inflammatory markers between episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Stomatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe stomatitis, which in this cohort scarred to oral stenosis. The severity of the oral disease relative to the modest neutrophil count is a diagnostic clue that the defect is functional rather than numerical.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010280\"}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intermittent thrombocytopenia, deepening during febrile episodes and during inflammatory responses to intercurrent infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}, {\"id\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An allelic series at the mouse Wdr1 locus. Severe loss of function is embryonic lethal; hypomorphic alleles give autoinflammatory disease and macrothrombocytopenia. This model preceded and predicted the human syndrome, including its IL-18 dependence.\"}], \"edges\": [{\"source\": \"Biallelic WDR1 Loss of Function\", \"target\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aip1 is the accelerator of cofilin-mediated filament severing, so reduced Aip1 function slows actin filament turnover.\"}, {\"source\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"target\": \"Defective Immunological Synapse Formation in Lymphocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B-cell and T-cell immunological synapses depend on Aip1-driven actin turnover.\"}, {\"source\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"target\": \"Pyrin Sequestration by Mutant WDR1 Aggregates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant WDR1 protein aggregates, and the aggregates appear to trap pyrin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"target\": \"Defective Neutrophil Motility and Polarization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil chemotaxis and polarisation depend on continuous actin turnover at the leading edge.\"}, {\"source\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"target\": \"Defective Megakaryocyte Maturation and Platelet Shedding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Megakaryocyte maturation and proplatelet shedding require cofilin/Aip1 actin dynamics.\"}, {\"source\": \"Pyrin Sequestration by Mutant WDR1 Aggregates\", \"target\": \"Inflammasome Hyperactivation in Monocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Concentrating pyrin is proposed to lower the threshold for inflammasome assembly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Hyperactivation in Monocytes\", \"target\": \"Excess Interleukin-18 Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated caspase-1 matures pro-IL-18.\"}, {\"source\": \"Excess Interleukin-18 Production\", \"target\": \"Recurrent fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic IL-18-driven autoinflammation manifests as periodic febrile episodes with an extreme acute-phase response.\"}, {\"source\": \"Excess Interleukin-18 Production\", \"target\": \"Increased circulating interleukin 18 concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The directly measured serum correlate of this node.\"}, {\"source\": \"Defective Neutrophil Motility and Polarization\", \"target\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophils that cannot reach a site of infection cannot clear it.\"}, {\"source\": \"Defective Neutrophil Motility and Polarization\", \"target\": \"Impaired neutrophil chemotaxis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Neutrophil Motility and Polarization\", \"target\": \"Abnormal neutrophil morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"target\": \"Recurrent bacterial infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"target\": \"Stomatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"target\": \"Poor wound healing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Immunological Synapse Formation in Lymphocytes\", \"target\": \"Decreased total B cell count\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Immunological Synapse Formation in Lymphocytes\", \"target\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of switched memory B cells and B lymphopenia add an antibody-side contribution to the same clinical infection burden.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Megakaryocyte Maturation and Platelet Shedding\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Defective Neutrophil Motility and Polarization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Inflammasome Hyperactivation in Monocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"target\": \"Defective Megakaryocyte Maturation and Platelet Shedding\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse establishes the causal chain from Wdr1 hypomorphism through megakaryocyte maturation failure to defective platelet shedding.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse phenotype is uniform macrothrombocytopenia; in humans platelet size transfers only partly, with one of the two index siblings showing mean platelet volume consistently above the reference range and the other consistently within it. The human thrombocytopenia is otherwise described as intermittent and moderate.\"}, {\"source\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"target\": \"Defective Neutrophil Motility and Polarization\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Wdr1 mutant mouse neutrophils show impaired cytoskeletal responses and accumulate polymerised actin, as human patient neutrophils do.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Whether the mouse is functionally immunodeficient was never established: the animals were housed in a relatively protected environment, so the clinical consequence that defines the human disease was not tested. The mouse inflammatory lesions are neutrophil-rich infiltrates, which is close to the opposite of the human picture of neutrophils failing to arrive.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal neutrophil morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Herniation of the neutrophil nuclear lobes and agranular regions within the cytosol, present in every patient examined and, being visible on a routine smear, potentially the cheapest pointer to the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011992\"}}, {\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacing the mutant haematopoietic compartment addresses all three arms of the disease at once, because the neutrophil, monocyte and megakaryocyte defects are all cell-intrinsic to bone-marrow-derived cells. One PFIT patient transplanted at age 8 remained well and off all medication three years later, and transplantation corrected the immunological defect in one patient of the neutrophil-dysfunction cohort.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Biallelic WDR1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic WDR1 variants reduce the function of actin-interacting protein 1 (Aip1). The index PFIT family carries a homozygous missense substitution affecting both transcripts; the neutrophil-dysfunction families carry biallelic variants affecting distinct antiparallel beta-strands of the protein.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"allele_type\": \"missense\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"WDR1\", \"id\": \"hgnc:12754\"}]}}}, {\"id\": \"Decreased total B cell count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral B lymphopenia with loss of switched memory B cells, in the third reported cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010976\"}}, {\"id\": \"Defective Immunological Synapse Formation in Lymphocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arm of the disease that the founding reports missed. Patient T cells accumulate atypical actin structures at the immunological synapse, with reduced calcium flux and mildly impaired proliferation on T-cell receptor stimulation. The B-cell compartment is affected more severely still: peripheral B lymphopenia, few marrow B-cell progenitors, no switched memory B cells, reduced clonal diversity, abnormal spreading, and increased apoptosis on receptor stimulation. So the immunodeficiency in PFIT is not only a neutrophil delivery problem; it has an adaptive component with its own mechanism at the same molecular step.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\", \"T cell\"]}}, {\"id\": \"Defective Megakaryocyte Maturation and Platelet Shedding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bone marrow from a PFIT patient contained small atypical megakaryocytes that had failed to develop a demarcating membrane system, the structure from which proplatelets are extended. Thrombocytopenia in PFIT is therefore a production defect at the shedding step, not peripheral destruction.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Megakaryocyte\"], \"biological_processes\": [\"platelet formation\"], \"animal_models\": [{\"name\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"species\": \"Mouse\", \"genotype\": \"Wdr1 hypomorphic allele, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse establishes the causal chain from Wdr1 hypomorphism through megakaryocyte maturation failure to defective platelet shedding.\"}]}}, {\"id\": \"Defective Neutrophil Motility and Polarization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient neutrophils cannot polarise, spread or move directionally, yet kill staphylococci normally once contact is made and mount an increased oxidative burst. The defect is therefore in getting to the infection, not in dealing with it, which is the distinctive shape of this immunodeficiency. Neutrophil nuclear lobes herniate and cytosolic regions are agranular.\\nThis node is contested across cohorts, and the REFUTE items below record it. The motility defect is the Kuhns cohort\u0027s central finding, but the founding PFIT family was measured in a Dunn chamber and showed no difference in velocity or chemotactic index, with the authors concluding that neutrophil dysfunction alone cannot account for the phenotype. The node is kept because the defect is real where it was found, not because the disagreement is settled.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\"], \"animal_models\": [{\"name\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"species\": \"Mouse\", \"genotype\": \"Wdr1 hypomorphic allele, homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Wdr1 mutant mouse neutrophils show impaired cytoskeletal responses and accumulate polymerised actin, as human patient neutrophils do.\"}]}}, {\"id\": \"Excess Interleukin-18 Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autoinflammatory arm of PFIT runs through IL-18, not IL-1-beta. Serum IL-18 is high without a matching rise in IL-18-binding protein, so free bioactive IL-18 is increased, and patient cells secrete more IL-18 but not more IL-1-beta in culture. This is the mechanistic reason IL-1 blockade is only partially effective.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of interleukin-18 production\"]}}, {\"id\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aip1/WDR1 preferentially disassembles cofilin-decorated actin filaments. With Aip1 function reduced, filaments that cofilin has already decorated are not cleared, and polymerised actin accumulates. Patient neutrophils carry roughly four times the normal F-actin content.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"actin filament depolymerization\"]}}, {\"id\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of neutrophil recruitment produces recurrent infection and, strikingly, severe oral inflammation that can scar to oral stenosis, plus impaired wound healing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired neutrophil chemotaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040238\"}}, {\"id\": \"Increased circulating interleukin 18 concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised serum IL-18 without a matching rise in IL-18-binding protein. This is the biomarker that identifies the autoinflammatory arm as IL-18-driven.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034447\"}}, {\"id\": \"Inflammasome Hyperactivation in Monocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient monocytes show increased caspase-1 cleavage, the biochemical signature of inflammasome activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Monocyte\"], \"biological_processes\": [\"inflammasome-mediated signaling pathway\"]}}, {\"id\": \"Poor wound healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001058\"}}, {\"id\": \"Pyrin Sequestration by Mutant WDR1 Aggregates\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In HEK293T cells co-transfected with pyrin and mutant WDR1, the mutant protein forms aggregates that accumulate pyrin. The proposal is that this concentrates pyrin and so nucleates inflammasome assembly. This is an overexpression experiment in a heterologous cell line and the authors themselves state it only as a possibility, so the node is marked PROVISIONAL rather than asserted.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Recurrent bacterial infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infection, the immunodeficiency component of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002718\"}}, {\"id\": \"Recurrent fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Periodic fevers from the first weeks of life, lasting 3 to 7 days and recurring every 6 to 12 weeks, with complete normalisation of inflammatory markers between episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Stomatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe stomatitis, which in this cohort scarred to oral stenosis. The severity of the oral disease relative to the modest neutrophil count is a diagnostic clue that the defect is functional rather than numerical.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010280\"}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intermittent thrombocytopenia, deepening during febrile episodes and during inflammatory responses to intercurrent infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}, {\"id\": \"WDR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"WDR1\"], \"gene_terms\": [{\"label\": \"WDR1\", \"id\": \"hgnc:12754\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An allelic series at the mouse Wdr1 locus. Severe loss of function is embryonic lethal; hypomorphic alleles give autoinflammatory disease and macrothrombocytopenia. This model preceded and predicted the human syndrome, including its IL-18 dependence.\"}], \"edges\": [{\"source\": \"Biallelic WDR1 Loss of Function\", \"target\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aip1 is the accelerator of cofilin-mediated filament severing, so reduced Aip1 function slows actin filament turnover.\"}, {\"source\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"target\": \"Defective Immunological Synapse Formation in Lymphocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B-cell and T-cell immunological synapses depend on Aip1-driven actin turnover.\"}, {\"source\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"target\": \"Pyrin Sequestration by Mutant WDR1 Aggregates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant WDR1 protein aggregates, and the aggregates appear to trap pyrin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"target\": \"Defective Neutrophil Motility and Polarization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil chemotaxis and polarisation depend on continuous actin turnover at the leading edge.\"}, {\"source\": \"Impaired Cofilin-Mediated Actin Filament Disassembly\", \"target\": \"Defective Megakaryocyte Maturation and Platelet Shedding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Megakaryocyte maturation and proplatelet shedding require cofilin/Aip1 actin dynamics.\"}, {\"source\": \"Pyrin Sequestration by Mutant WDR1 Aggregates\", \"target\": \"Inflammasome Hyperactivation in Monocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Concentrating pyrin is proposed to lower the threshold for inflammasome assembly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Hyperactivation in Monocytes\", \"target\": \"Excess Interleukin-18 Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated caspase-1 matures pro-IL-18.\"}, {\"source\": \"Excess Interleukin-18 Production\", \"target\": \"Recurrent fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic IL-18-driven autoinflammation manifests as periodic febrile episodes with an extreme acute-phase response.\"}, {\"source\": \"Excess Interleukin-18 Production\", \"target\": \"Increased circulating interleukin 18 concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The directly measured serum correlate of this node.\"}, {\"source\": \"Defective Neutrophil Motility and Polarization\", \"target\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophils that cannot reach a site of infection cannot clear it.\"}, {\"source\": \"Defective Neutrophil Motility and Polarization\", \"target\": \"Impaired neutrophil chemotaxis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Neutrophil Motility and Polarization\", \"target\": \"Abnormal neutrophil morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"target\": \"Recurrent bacterial infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"target\": \"Stomatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"target\": \"Poor wound healing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Immunological Synapse Formation in Lymphocytes\", \"target\": \"Decreased total B cell count\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Immunological Synapse Formation in Lymphocytes\", \"target\": \"Impaired Innate Host Defense at Barrier Surfaces\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of switched memory B cells and B lymphopenia add an antibody-side contribution to the same clinical infection burden.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Megakaryocyte Maturation and Platelet Shedding\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Defective Neutrophil Motility and Polarization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Inflammasome Hyperactivation in Monocytes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"target\": \"Defective Megakaryocyte Maturation and Platelet Shedding\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse establishes the causal chain from Wdr1 hypomorphism through megakaryocyte maturation failure to defective platelet shedding.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse phenotype is uniform macrothrombocytopenia; in humans platelet size transfers only partly, with one of the two index siblings showing mean platelet volume consistently above the reference range and the other consistently within it. The human thrombocytopenia is otherwise described as intermittent and moderate.\"}, {\"source\": \"Wdr1 hypomorphic (rd/rd) mouse\", \"target\": \"Defective Neutrophil Motility and Polarization\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Wdr1 mutant mouse neutrophils show impaired cytoskeletal responses and accumulate polymerised actin, as human patient neutrophils do.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Whether the mouse is functionally immunodeficient was never established: the animals were housed in a relatively protected environment, so the clinical consequence that defines the human disease was not tested. The mouse inflammatory lesions are neutrophil-rich infiltrates, which is close to the opposite of the human picture of neutrophils failing to arrive.\"}, {\"source\": \"WDR1\", \"target\": \"Biallelic WDR1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5941,6 +6014,9 @@ This clinical feature is Thrombocytopenia (HP:0001873), qualified as temporality
 
 
                     </div>
+
+
+
 
 
 
@@ -6033,6 +6109,9 @@ This clinical feature is Decreased total neutrophil count (HP:0001875), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6097,6 +6176,9 @@ This clinical feature is Abnormal neutrophil morphology (HP:0011992). HP:0011992
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6171,6 +6253,9 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6235,6 +6320,9 @@ This clinical feature is Impaired neutrophil chemotaxis (HP:0040238). HP:0040238
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6318,6 +6406,9 @@ This clinical feature is Stomatitis (HP:0010280). HP:0010280 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6396,6 +6487,9 @@ This clinical feature is Increased circulating interleukin 18 concentration (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6460,6 +6554,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6552,6 +6649,9 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6630,6 +6730,9 @@ This clinical feature is Poor wound healing (HP:0001058). HP:0001058 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6694,6 +6797,9 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6795,6 +6901,9 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6851,6 +6960,9 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
 
 
                     </div>
+
+
+
 
 
 
@@ -6965,6 +7077,9 @@ This disease-associated gene is WDR1 (hgnc:12754). hgnc:12754 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -7097,6 +7212,9 @@ This treatment is allogeneic haematopoietic stem cell transplantation, annotated
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7107,6 +7225,9 @@ This treatment is allogeneic haematopoietic stem cell transplantation, annotated
 
 
     </div>
+
+
+
 
 
 
@@ -7306,6 +7427,9 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7316,6 +7440,9 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -9206,6 +9333,28 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">On the deep-research report. An openscientist report was generated for this disease and reconciled into the entry after the first draft. It passed the Named Entity Confusion preflight (WDR1 mentioned 45 times, no rival gene, and the OMIM identifier matched MONDO&#39;s xref). Its most valuable contribution was PMID:29751004, a third cohort establishing a lymphoid arm that neither founding report describes; that node and its phenotypes exist because of the report. Every PMID taken from it was verified against PubMed before citation.
+One report-cited reference was deliberately not used: PMID:24840128, a cardiomyocyte-specific Wdr1 conditional knockout with cardiac hypertrophy and QT prolongation. No cardiac phenotype is reported in any human PFIT patient, so curating it would import an organ the disease does not involve. It is not cited and not committed.
+Three cohorts describe this disease from different ends and have never been formally reconciled. PMID:27994071 named PFIT from two siblings whose dominant problem was autoinflammation; PMID:27557945 described four children whose dominant problem was neutrophil dysfunction and named it a primary immunodeficiency, without using the term PFIT; PMID:29751004 described six patients whose dominant problem was lymphoid, and framed WDR1 deficiency as an adaptive-immunity disorder. This entry curates them as one disease because the gene, the biochemical lesion and the cell types are the same, but the three papers do not share a phenotype definition, and whether the phenotypic weighting reflects allele severity is unknown.
+Not curated, and why. No `datasets:` and no `clinical_trials:` - no verified accessions or trial registrations exist for a disease with twelve reported patients. No `environmental:` - no exposure is implicated. No `biochemical:` reference ranges - serum IL-18 is carried as a phenotype rather than a biomarker readout because no reference interval for it is given in either source. `directness` is set only where it was actually assessed. No count is given: this sentence said &#34;four&#34; and was correct until the previous review round added a fifth item, which is the second time a count in prose here has gone stale.
+On the OMIM 150550 cross-reference. MONDO:0007883 carries a historical xref to OMIM 150550, whose title is &#34;lazy leukocyte syndrome&#34;. That looks alarming and is not: MONDO&#39;s own label for 0007883 is &#34;periodic fever, immunodeficiency, and thrombocytopenia syndrome&#34;, so the binding is to the right concept and 150550 is a retitled MIM number rather than a different disease. Recorded here so the next curator does not re-litigate it. No `mappings:` block is added, because the entry cites no source that states the MIM number and its role, and the deep-research report is a lead rather than a citable authority for an identifier.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Reconcile openscientist deep-research report into PFIT entry</strong> · 2026-09-06T19:51:38Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Periodic_Fever_Immunodeficiency_and_Thrombocytopenia_Syndrome/2026-09-06T195138Z-claude-code-567ad8.yaml">View source</a></p>
+                        <p class="research-review-text">Reconciled the openscientist deep-research report, which returned after the entry was first written. The report passed the Named Entity Confusion preflight. Its principal contribution was PMID:29751004, a third cohort establishing a lymphoid arm of the disease that neither founding report describes: a new pathophysiology node for defective immunological synapse formation in T and B lymphocytes, two new phenotypes (decreased total B cell count, skin ulcer), and a corrected patient count of twelve across seven families. Also added PMID:25448002 refining what the lost Aip1 activity is (a cofilin-dependent depolymerisation factor, not a barbed-end capper) and PMID:39644982 placing PFIT in the monogenic autoinflammatory actinopathy class. PMID:24840128, a cardiomyocyte-specific Wdr1 conditional knockout the report cited, was deliberately not curated because no human PFIT patient has a cardiac phenotype. Snippet count rose from 37/37 to 48/48 verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

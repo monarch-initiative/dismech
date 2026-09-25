@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5971,6 +6024,7 @@ It is not an academic question. If the impairment is seizure-driven, then seizur
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kcnt1-gain-of-function-missense-variant" data-dismech-node="KCNT1 Gain-of-Function Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">KCNT1 Gain-of-Function Missense Variant</div>
 
+
                 <div class="item-desc">A heterozygous missense variant in KCNT1, almost always de novo, altering the Slack (KNa1.1) sodium-activated potassium channel subunit. Variants concentrate in the C-terminal regulator-of-potassium-conductance (RCK) domains around the putative NAD+-binding site and in the S5 transmembrane segment. No nonsense or other truncating variant has been reported, which is itself evidence that the mechanism is altered channel function rather than loss of the protein.</div>
 
 
@@ -6135,6 +6189,7 @@ This pathophysiological event involves Slack (KNa1.1) sodium-activated potassium
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-cooperative-slack-channel-gating" data-dismech-node="Increased Cooperative Slack Channel Gating" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Cooperative Slack Channel Gating</div>
 
+
                 <div class="item-desc">Variant Slack channels in a membrane patch open in a strongly coordinated fashion. The degree of cooperative gating is far greater for every mutant tested than for wild type, and it explains the current increase even for a variant whose single-channel conductance is reduced. Channel protein abundance is essentially unchanged, so this is a gating change and not an expression change.</div>
 
 
@@ -6246,6 +6301,7 @@ This pathophysiological event involves Slack (KNa1.1) sodium-activated potassium
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-sodium-activated-potassium-current" data-dismech-node="Elevated Sodium-Activated Potassium Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Sodium-Activated Potassium Current</div>
+
 
                 <div class="item-desc">The functional common denominator of every pathogenic KCNT1 variant tested: a large increase in outward KNa current, reported up to 22-fold over wild type. The magnitude differs systematically between the syndromes — variants associated with the severe infantile presentation confer greater gain than those associated with the sleep-related hypermotor presentation — but the correlation is a group difference and does not predict an individual&#39;s syndrome.</div>
 
@@ -6474,6 +6530,7 @@ This pathophysiological event involves increased potassium ion efflux through Sl
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-gabaergic-interneuron-excitability" data-dismech-node="Impaired GABAergic Interneuron Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired GABAergic Interneuron Excitability</div>
 
+
                 <div class="item-desc">Cortical inhibitory interneurons, and particularly non-fast-spiking ones, are selectively disabled: the extra subthreshold potassium conductance opposes depolarization toward threshold, so fewer action potentials are generated for a given input. Because these cells supply the inhibition that constrains cortical activity, their silencing releases the network. This is the step that resolves the disorder&#39;s central paradox, in which a potassium channel gain of function produces hyperexcitability rather than the hypoexcitability naive reasoning predicts.</div>
 
 
@@ -6668,6 +6725,7 @@ This pathophysiological event involves decreased GABAergic synaptic transmission
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shortened-action-potential-with-enhanced-afterhyperpolarization" data-dismech-node="Shortened Action Potential with Enhanced Afterhyperpolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Shortened Action Potential with Enhanced Afterhyperpolarization</div>
 
+
                 <div class="item-desc">In human iPSC-derived neurons carrying a pathogenic KCNT1 variant, the excess KNa current shortens each action potential and deepens the following afterhyperpolarization. Rather than damping the neuron, this raises the number of spikes evoked by a depolarizing input and raises the maximum firing rate — the deeper afterhyperpolarization speeds recovery from sodium channel inactivation.</div>
 
 
@@ -6853,6 +6911,7 @@ This pathophysiological event involves dysregulated regulation of neuronal membr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-synaptic-rewiring" data-dismech-node="Aberrant Synaptic Rewiring" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Synaptic Rewiring</div>
 
+
                 <div class="item-desc">Beyond the acute excitability change, cortex carrying a pathogenic KCNT1 variant reorganizes its connectivity, with increased homotypic synaptic connections. This is a structural, developmentally accumulated contribution to the epileptic network rather than a moment-to-moment excitability effect, and it is one reason DEE14 seizures are so resistant to drugs that act only on excitability.</div>
 
 
@@ -6964,6 +7023,7 @@ This pathophysiological event involves dysregulated synapse organization (GO:005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability-and-hypersynchrony" data-dismech-node="Cortical Network Hyperexcitability and Hypersynchrony" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability and Hypersynchrony</div>
+
 
                 <div class="item-desc">The convergent tissue-level state: cortical networks that are both more excitable and more synchronous than normal, generating spontaneous seizures and abundant interictal discharge. In the knock-in mouse this is demonstrable as motor cortex hyperexcitability with early-onset seizures closely resembling the human disorder.</div>
 
@@ -7154,6 +7214,7 @@ This pathophysiological event involves dysregulated regulation of neuronal membr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurodevelopment" data-dismech-node="Impaired Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurodevelopment</div>
+
 
                 <div class="item-desc">The mechanism behind the &#34;developmental&#34; half of developmental and epileptic encephalopathy, kept distinct from the clinical plateau it produces. Two contributions are in play and the literature does not apportion them: the seizure burden itself, and the channel defect acting directly on development. Two findings support the second. KCNT1 has a non-conducting function, its C-terminus binding cytoplasmic proteins in developmental signalling pathways; and functional KNa1.1 conductance is already present and developmentally regulated in prenatal human neurons, so a gain-of-function variant is acting on the brain long before the first seizure.</div>
 
@@ -7391,6 +7452,9 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7466,6 +7530,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7576,6 +7643,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7676,6 +7746,9 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7753,6 +7826,9 @@ This clinical feature is Drug-resistant focal epilepsy, annotated with Refractor
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7863,6 +7939,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7960,6 +8039,9 @@ This clinical feature is Migrating focal seizure (HP:0032786), qualified as temp
 
 
                     </div>
+
+
+
 
 
 
@@ -8070,6 +8152,9 @@ This clinical feature is Focal tonic seizure (HP:0011167). HP:0011167 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8154,6 +8239,9 @@ This clinical feature is Nocturnal seizures (HP:0031951), qualified as temporali
 
 
                     </div>
+
+
+
 
 
 
@@ -8259,6 +8347,9 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8325,6 +8416,9 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8401,6 +8495,9 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8467,6 +8564,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8543,6 +8643,9 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8611,6 +8714,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8735,6 +8841,9 @@ This clinical feature is Convulsive status epilepticus, annotated with Status ep
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -8824,6 +8933,9 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8882,6 +8994,9 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left unbound deliberately. HPO&#39;s mortality terms (HP:0003819 Death in childhood, HP:0001522 Death in infancy) sit under Mortality/Aging, which is a clinical-modifier branch and is not reachable from HP:0000118 Phenotypic abnormality, so they are not members of the PhenotypeTerm enum and fail validation. Binding a seizure term such as HP:0002133 Status epilepticus here instead would name the usual mechanism of death rather than the death, which is the claim this phenotype makes.</div>
@@ -8990,6 +9105,9 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left unbound for the same reason as the childhood-mortality phenotype: HP:0033258 Sudden unexpected death in epilepsy sits outside the PhenotypeTerm enum&#39;s Phenotypic abnormality root.</div>
@@ -9156,6 +9274,9 @@ This disease-associated gene is KCNT1 (hgnc:18865). hgnc:18865 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -9334,6 +9455,9 @@ This treatment uses quinidine (CHEBI:28593). CHEBI:28593 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9344,6 +9468,9 @@ This treatment uses quinidine (CHEBI:28593). CHEBI:28593 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -9565,6 +9692,9 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9575,6 +9705,9 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -9720,6 +9853,9 @@ This treatment is ketogenic dietary therapy, annotated with Dietary Intervention
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9730,6 +9866,9 @@ This treatment is ketogenic dietary therapy, annotated with Dietary Intervention
 
 
     </div>
+
+
+
 
 
 
@@ -9915,6 +10054,9 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9925,6 +10067,9 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -10044,6 +10189,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10056,10 +10204,13 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: Unconjugated</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
 
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -10308,6 +10459,9 @@ This treatment is embolization therapy (NCIT:C15230). NCIT:C15230 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10318,6 +10472,9 @@ This treatment is embolization therapy (NCIT:C15230). NCIT:C15230 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -10412,6 +10569,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10422,6 +10582,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10516,6 +10679,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10526,6 +10692,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -14237,6 +14406,51 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Correction: DOI reference caches were committed after all</strong> · 2026-09-07T07:48:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_And_Epileptic_Encephalopathy_14/2026-09-07T074853Z-claude-code-3fea1f.yaml">View source</a></p>
+                        <p class="research-review-text">Corrects one statement in the CREATE record for this entry, which is append-only and is left as written.
+
+That record states that thirteen DOI cache files generated by the deep-research report&#39;s own reference validation were deliberately not committed, on the grounds that the entry cites no DOIs and they are not needed for deterministic CI. That was the decision taken and it was accurate when the curation commit was made. It is no longer accurate about the repository. An automated post-session hook, reacting to the files being untracked, committed them immediately afterwards as 58b3a1318 and pushed them. That commit was not authored as part of the curation work and its message is the hook&#39;s, not the curator&#39;s.
+
+The files are being kept rather than reverted. They back the citation validation of the deep-research report that this branch also commits, so under the repository&#39;s own guidance that references_cache/*.md is committed for deterministic reference validation, their presence is defensible even though no kb/ entry cites them. Reverting would churn the pull request without changing what CI does. Nothing about the disorder entry, its evidence, or its validation depends on them either way.
+
+One incidental finding worth recording because it outlives this branch. Two of the committed files, DOI_10.1212_WNL.0000000000207080.md and DOI_10.1212_wnl.0000000000207080.md, are the same DOI cached twice under different letter case. This is not an artifact of this session: the repository already carries the same collision on main for a different paper, where DOI_10.1172_JCI97350.md and DOI_10.1172_jci97350.md are both tracked and both cited from Autosomal_Recessive_Nonsyndromic_Hearing_Loss_26.yaml, so one entry cites one paper twice through two casings of its identifier. The reference fetcher does not normalize DOI case, so every casing variant gets its own cache file, and such pairs will collide on a case-insensitive filesystem. Fixing it needs normalization in the fetcher plus a one-off deduplication of the existing pairs and the entries citing them, which is tooling work outside the scope of a curation change and is not attempted here.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Developmental and Epileptic Encephalopathy 14 (KCNT1)</strong> · 2026-09-07T03:59:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_And_Epileptic_Encephalopathy_14/2026-09-07T035930Z-claude-code-3c3586.yaml">View source</a></p>
+                        <p class="research-review-text">New etiology-defined entry for DEE14 (MONDO:0013989), the KCNT1-related developmental and epileptic encephalopathy.
+
+Scope decision. Two syndrome-defined entries already existed and overlap this one: Epilepsy_of_Infancy_with_Migrating_Focal_Seizures (MONDO:0017385) and Familial_Sleep_Related_Hypermotor_Epilepsy (MONDO:0000030, which carries a KCNT1 ENFL5 subtype). Neither claimed MONDO:0013989. DEE14 was curated as a separate DISEASE entry because it is defined by etiology rather than syndrome and neither contains nor is contained by the other two: KCNT1 accounts for about half of EIMFS, and the KCNT1 phenotype spans EIMFS, sleep-related hypermotor epilepsy, other early-onset encephalopathies and non-encephalopathic focal epilepsy. The reasoning is recorded in the entry&#39;s top-level notes. Duplicate preflight over origin/main, all PRs and all issues found no existing coverage; the stubs/ entry for this disease is deleted by this change.
+
+Deep research: falcon (Edison), 790s, report at research/Developmental_And_Epileptic_Encephalopathy_14-deep-research-falcon.md with citations sidecar and one artifact. Its own validation reported 15/15 references resolved, 0 unresolved, 0 off topic, and 32/33 terms resolved. The single flagged &#39;mislabelled&#39; term is a template artifact: the prompt string &#39;MONDO:0013989 (if available)&#39; caused the validator to read &#39;if available&#39; as the reported label. No real mislabelling, and no CURIE from the report was bound without independent checking.
+
+GeneReviews baseline: PMID:30234941 (KCNT1-Related Epilepsy) fetched, cached, and tagged GeneReviews in the top-level references block. Its Clinical Characteristics were cross-referenced against the phenotypes section; every phenotype it lists is captured (migrating focal seizures, nocturnal hypermotor seizures, drug resistance, developmental plateau/regression, profound delay, axial hypotonia, progressive microcephaly, strabismus, autonomic manifestations, cognitive/psychiatric comorbidity, cardiac arrhythmia, pulmonary hemorrhage). Its Agents/Circumstances to Avoid guidance is curated as a Seizure-Safety Precautions treatment quoting the recommendation directly.
+
+Sources beyond the report. The report cites by author-year key with no PMIDs in the body, so its sources were looked up in PubMed individually. Two lookups changed the entry materially: the Bonardi 248-individual spectrum series (PMID:34114611) supplied the four-group phenotype structure used for has_subtypes with real denominators (EIMFS 152, non-EIMFS DEE 37, ADSHE 53, other 6), and following the GEO dataset&#39;s linked publications surfaced PMID:41981306 and PMID:42056090 - the antisense-oligonucleotide work the report could only cite as a 2024 preprint has since been peer-reviewed and published, including first-in-human results. That changed the ASO treatment from preclinical-only to carrying human efficacy (seizure reduction in two children with p.R474H) and, importantly, human toxicity (ventricular enlargement or hydrocephalus in both, goals-of-care redirection in one), which is recorded as a REFUTE item alongside the efficacy.
+
+Pathophysiology is built as a causal chain, not a list: KCNT1 gain-of-function variant -&gt; increased cooperative Slack channel gating -&gt; elevated KNa current -&gt; branching into impaired GABAergic interneuron excitability (mouse, network-dependent) and shortened action potential with enhanced afterhyperpolarization (human iPSC neurons, explicitly cell-autonomous) -&gt; aberrant synaptic rewiring -&gt; cortical network hyperexcitability and hypersynchrony -&gt; seizure phenotypes and developmental plateau. The branch is deliberate: the two mechanisms are recorded as competing mechanistic_hypotheses (interneuron_disinhibition CANONICAL, cell_autonomous_firing ALTERNATIVE) with a HUMAN_MODEL_MISMATCH discussion, because neither study tests the other&#39;s mechanism and no human tissue measurement arbitrates.
+
+Evidence discipline. Quinidine deliberately carries evidence in both directions - the randomized trial (PMID:29196578) and prospective neonatal series (PMID:30182418) refute efficacy, the open-label cohort and case report support it - with the reconciliation (variant-specific sensitivity, marginal brain concentrations, and phenotype: pooled benefit is confined to EIMFS and is nil in sleep-related hypermotor epilepsy) recorded in notes rather than resolved by dropping one side. One claim from the falcon report was deliberately NOT curated: its KCNT1-specific status epilepticus rate (6/10) comes from the Donnan full text, and the cached abstract does not contain it, so no snippet could be quoted.
+
+Datasets: geo:GSE297948 (human, KCNT1 ASO knockdown), located by searching GEO for the gene rather than the disease. just discover-datasets returned only SCN8A, CDKL5, PNPLA8 and SCN1A datasets - Named Entity Confusion through a disease-name search - and those were reviewed and rejected; the rejection is recorded in the dataset notes.
+
+Self-review round before PR. A fresh-context red-team review against the dismech-pr-review skill was run and its findings acted on in this same change rather than deferred. What it changed. The entry now declares conforms_to against epilepsy_excitation_inhibition_imbalance for its interneuron and network nodes, so the mechanism is integrated with the module rather than restated. A diagnosis section was added after the review found GeneReviews only partially mined, along with its previously unquoted Surveillance and Pregnancy management guidance and developmental support. HP:0020174 Refractory drug response replaced HP:0007359 Focal-onset seizure on the drug-resistance phenotype, and the entry&#39;s claim that HPO had no term for pharmacoresistance was simply wrong and was deleted; that term is used 12 times elsewhere in this KB. Four claims quoting the literature-review introduction of a mouse paper were regraded from HUMAN_CLINICAL to OTHER with directness INDIRECT, since they describe the EIMFS syndrome rather than the KCNT1-defined entity. Two explanations claiming seizure-independent developmental causation were softened to what their snippets actually support. The etiologic fraction misfiled as a prevalence record moved to genetic case_fractions. variant_origin was unset because the slot is single-valued and this entry spans de novo, inherited and mosaic origins. mondo_mappings were added recording MONDO:0014002 as narrowMatch and MONDO:0017385 as relatedMatch, so the scope claim is machine-checkable rather than only prose. Sequelae edges were added to connect the previously orphaned status epilepticus, mortality and microcephaly phenotypes. A convulsive status epilepticus phenotype was added, at 6/10 KCNT1 individuals from Donnan 2023. A knowledge gap on the origin of the developmental phenotype was added, the review having noted that the entry stated the uncertainty in prose while modelling only one branch. The ASO section gained the countervailing on-target tolerability datum so the safety picture is not one-sided.
+
+Two corrections the review made to my own scope argument are worth recording. The notes block asserted that this entry curates the KCNT1 mechanism once rather than three times. That was false about the repository, because the EIMFS entry already carries its own KCNT1 mechanism chain, KCNT1 genetics and quinidine treatment, and this change does not edit it. The notes now state the intent and say plainly that the mechanism is at present curated in two places, with reconciliation deferred to a follow-up rather than bundled into a new-entry PR, and they now also record why a Grouping was considered and rejected. Separately, the HUMAN_MODEL_MISMATCH rationale overstated its case. It claimed neither study tests the other&#39;s mechanism, when the mouse study did measure excitatory-neuron KNa current and found the subthreshold increase absent there, and it omitted the gene-dose confound, namely that the iPSC neurons are homozygous while patients are heterozygous, which is the leading benign explanation for the discrepancy. Both are now recorded.
+
+Validation. just validate, just validate-disorders (the batched gate CI runs), just verify-datasets, check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-enum-values, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence and check-stubs all pass. 133/133 evidence snippets verified against the local reference cache. Weighted compliance 90.5%, down from 92.7% before the review round because that round added structure faster than it added evidence; the new diagnosis section, sequelae edges and third knowledge gap each introduce slots the scorer counts. 24 PMIDs, 3 ClinicalTrials.gov records, 1 GEO accession. Thirteen DOI cache files generated by the report&#39;s own reference validation are deliberately not committed, because the entry cites no DOIs and they are not needed for deterministic CI.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

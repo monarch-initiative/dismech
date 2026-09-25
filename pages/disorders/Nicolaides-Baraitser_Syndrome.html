@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4562,6 +4615,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-truncating-smarca2-variants-clustered-in-the-atpase-region" data-dismech-node="Non-Truncating SMARCA2 Variants Clustered in the ATPase Region" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Truncating SMARCA2 Variants Clustered in the ATPase Region</div>
 
+
                 <div class="item-desc">The NCBRS-causing alleles are a tightly constrained class: heterozygous non-truncating (missense and in-frame) variants clustered within sequences encoding ultra-conserved motifs of the catalytic ATPase region of SMARCA2. This allelic specificity is what separates NCBRS from the other SMARCA2 disorders - truncating alleles do not produce NCBRS, and variants clustered outside the helicase domains cause a different blepharophimosis syndrome. Independent support comes from DNA methylation signature work, in which variants of uncertain significance falling within the ATPase/helicase domain classified as pathogenic while a variant distal to that domain did not.</div>
 
 
@@ -4730,6 +4784,7 @@ This pathophysiological event involves SMARCA2 (hgnc:11098). hgnc:11098 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-impairment-of-baf-complex-atpase-activity" data-dismech-node="Dominant-Negative Impairment of BAF Complex ATPase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Impairment of BAF Complex ATPase Activity</div>
+
 
                 <div class="item-desc">SMARCA2 is one of the two mutually exclusive alternative catalytic ATPases (with SMARCA4) of the SWI/SNF (BAF) ATP-dependent chromatin remodelling complex. The NCBRS variants are predicted not to impair SWI/SNF complex assembly but to disrupt ATPase activity, so a catalytically dead subunit is incorporated into otherwise intact complexes. This is the basis for the dominant-negative interpretation and is why NCBRS is not a haploinsufficiency disorder - a distinction with direct diagnostic consequences, since truncating SMARCA2 alleles do not cause this phenotype. An important qualification: the only direct functional test of NCBRS alleles in an isogenic human system found INCREASED mutant SMARCA2 chromatin binding with global retargeting of the alternative ATPase SMARCA4, which is a redistribution-of-targeting effect rather than a straightforwardly catalytically-dead subunit. The dominant-negative label is therefore retained as the field&#39;s working description but not asserted as established; see `discussions`.</div>
 
@@ -4931,6 +4986,7 @@ This pathophysiological event involves decreased ATP hydrolysis activity (GO:001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-chromatin-remodelling-and-transcriptional-programs" data-dismech-node="Disrupted Chromatin Remodelling and Transcriptional Programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Chromatin Remodelling and Transcriptional Programs</div>
 
+
                 <div class="item-desc">BAF-dependent nucleosome remodelling controls the accessibility of developmental gene programs. In NCBRS the downstream consequence is measurable as a genome-wide DNA methylation signature: 429 differentially methylated CpG sites distinguish affected individuals from controls, and the genes those sites map to are involved in cell differentiation, calcium signalling and neuronal function - consistent with the disorder&#39;s neurodevelopmental and multisystem phenotype. The signature is sufficiently specific to classify variants of uncertain significance with 100% sensitivity and specificity in a validation cohort, so it is both a mechanistic readout and a diagnostic tool.</div>
 
 
@@ -5111,6 +5167,7 @@ This pathophysiological event involves abnormal regulation of DNA-templated tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurodevelopment" data-dismech-node="Impaired Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurodevelopment</div>
+
 
                 <div class="item-desc">The neurodevelopmental consequence is intellectual disability of variable but generally marked severity, with absent speech in a substantial minority, acquired microcephaly, behavioural abnormalities, and epilepsy that is often difficult to control. Severity within the disorder is internally correlated: the severity of intellectual disability tracks with the presence of seizures, absent speech, short stature and microcephaly, indicating a shared dose of the underlying lesion rather than independent organ-specific effects. Brain MRI is mainly unremarkable, and the epilepsy is characterised as genetic rather than structural.</div>
 
@@ -5351,6 +5408,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ectodermal-and-skeletal-development" data-dismech-node="Impaired Ectodermal and Skeletal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ectodermal and Skeletal Development</div>
+
 
                 <div class="item-desc">Outside the nervous system, the same chromatin-remodelling lesion produces a distinctive ectodermal and skeletal phenotype: sparse scalp hair (which may be present only at certain ages), coarse facial features, delayed tooth eruption with hypo- or oligodontia, and a characteristic hand phenotype of brachydactyly with prominence of the interphalangeal joints and distal phalanges caused by decreased subcutaneous fat. Radiographs show cone-shaped epiphyses, metaphyseal flaring, and shortening of phalanges, metacarpals and metatarsals, especially of the 4th and 5th rays.</div>
 
@@ -5673,6 +5731,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5746,6 +5807,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5856,6 +5920,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5938,6 +6005,9 @@ This clinical feature is Abnormality of refraction (HP:0000539). HP:0000539 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6013,6 +6083,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6116,6 +6189,9 @@ This clinical feature is Secondary microcephaly (HP:0005484), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6207,6 +6283,9 @@ This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6321,6 +6400,9 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
                     </div>
+
+
+
 
 
 
@@ -6447,6 +6529,9 @@ This clinical feature is Everted lower lip vermilion (HP:0000232). HP:0000232 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6513,6 +6598,9 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6589,6 +6677,9 @@ This clinical feature is Long eyelashes (HP:0000527). HP:0000527 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6655,6 +6746,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6728,6 +6822,9 @@ This clinical feature is Delayed eruption of teeth (HP:0000684). HP:0000684 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6827,6 +6924,9 @@ This clinical feature is Hypodontia or oligodontia, annotated with Hypodontia (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6902,6 +7002,9 @@ This clinical feature is Eczematous dermatitis, annotated with Eczematoid dermat
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7010,6 +7113,9 @@ This clinical feature is Reduced subcutaneous adipose tissue (HP:0003758). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7085,6 +7191,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7181,6 +7290,9 @@ This clinical feature is Prominent interphalangeal joints (HP:0006237). HP:00062
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7289,6 +7401,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7385,6 +7500,9 @@ This clinical feature is Cone-shaped epiphysis (HP:0010579). HP:0010579 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7449,6 +7567,9 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7529,6 +7650,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7630,6 +7754,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7701,6 +7828,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7767,6 +7897,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7893,6 +8026,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7961,6 +8097,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8062,6 +8201,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8126,6 +8268,9 @@ This clinical feature is Hyperacusis (HP:0010780). HP:0010780 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8231,6 +8376,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8349,6 +8497,9 @@ This disease-associated gene is SMARCA2 (hgnc:11098). hgnc:11098 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 
@@ -8511,6 +8662,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy. Management is standard therapy for each manifestation - developmental delay and intellectual disability, behavioural issues, epilepsy, poor growth, myopia, astigmatism, hearing loss, dental issues, cryptorchidism and congenital heart defects - delivered by the relevant specialists.</div>
 
 
@@ -8638,6 +8795,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8648,6 +8808,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -8811,6 +8974,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8821,6 +8987,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -8963,6 +9132,9 @@ This treatment is vagus nerve stimulation, annotated with Therapeutic Procedure 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8973,6 +9145,9 @@ This treatment is vagus nerve stimulation, annotated with Therapeutic Procedure 
 
 
     </div>
+
+
+
 
 
 
@@ -9090,6 +9265,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9100,6 +9278,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9209,6 +9390,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9338,6 +9525,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Growth parameters, nutritional status and the safety of oral intake are assessed at every visit, reflecting the frequent growth deficiency and the oral sensitivity described in the behavioural phenotype.</div>
 
 
@@ -9441,6 +9634,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9570,6 +9769,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Annual audiology evaluation is recommended in childhood, reflecting the reported conductive hearing loss and the communication burden of the disorder.</div>
 
 
@@ -9673,6 +9878,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -9797,6 +10008,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9807,6 +10021,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -12257,6 +12474,24 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and disambiguation - this is the most important framing decision in this entry, because SMARCA2 sits at the intersection of three distinct entities. 1. Coffin-Siris syndrome. SMARCA2 is listed among the BAF-complex genes mutated in Coffin-Siris syndrome, and dismech already has a `Coffin_Siris_Syndrome` entry (curated on ARID1B) that names SMARCA2 in its gene list. NCBRS is nonetheless a separate entity, not a Coffin-Siris subtype: the two are clinically overlapping but distinguishable, the NCBRS-causing SMARCA2 alleles are specifically NON-TRUNCATING variants clustered in the ATPase region acting dominant-negatively, and NCBRS is clinically and genetically homogeneous in a way Coffin-Siris is not. The entries are cross-referenced under `differential_diagnoses` without duplicating the Coffin-Siris content or contradicting it. 2. SMARCA2 blepharophimosis-intellectual disability syndrome. De novo SMARCA2 variants clustered OUTSIDE the helicase/ATPase domains cause a different, recognisable syndrome with intellectual disability and blepharophimosis that is explicitly reported as phenotypically and molecularly distinct from NCBRS. That entity is out of scope here and is recorded as a differential. 3. SMARCA2 in cancer. SMARCA2/BRM loss is extensively studied as a tumour-suppressor and synthetic-lethal target in SMARCA4-deficient cancers. That literature is mechanistically unrelated to the germline non-truncating NCBRS alleles and was excluded. Module conformance. No module in kb/modules/ captures a BAF/chromatin-remodelling developmental chain. `epilepsy_excitation_inhibition_imbalance` was evaluated and declined: NCBRS epilepsy is described in the primary literature as &#34;rather genetic than structural&#34; but no excitation/inhibition-imbalance chain has been curated for SMARCA2, so declaring conformance would assert a mechanism the evidence does not establish. Unquotable phenotype gaps (SOP section 4, Option A). The deep-research report supplies Sousa 2014 full-text denominators for five phenotypes above the 10% threshold. Three of them - feeding difficulties (23/49), eczematous dermatitis (22/58) and hypotonia (19/51) - are now curated above as phenotype entries from quotable NCBRS-specific sources, but WITHOUT frequency bands: the denominators themselves are not quotable, so asserting a band would be unsupported (evidence-guidelines Pattern D). Two remain uncurated because no quotable source for them exists at all: non-scalp hypertrichosis 22/50 (44%, HP:0000998) and frequent infections 13/48 (27.1%, HP:0002719). Sousa 2014 (PMID:25169058) is cached abstract-only and its abstract contains neither figure; the GeneReviews chapter (PMID:26468571) mentions neither feature; a sweep of all 82 PubMed records tagged Nicolaides-Baraitser and an Europe PMC open-access query found only Coffin-Siris-specific statements of hypertrichosis and frequent infections, plus one mixed SWI/SNF cohort (PMID:34706719, hypertrichosis 8/12) containing a single NCBRS patient, none of which can be attributed to NCBRS; and the Orphanet route the reviewer proposed remains unavailable because Orphadata upstream has drifted from the sha256 pinned in `data/orphadata/MANIFEST.yaml`, so `just refresh-orphadata` still fails its checksum gate (observed sha256 df8d562a... vs pinned fb2fbe8c...) and `ORPHA_3051.md` cannot be regenerated - and hand-writing a cache file is forbidden. Note that a rebuilt file would also be stamped with the manifest&#39;s `2025-12-09` snapshot date while being derived from a different snapshot, so bypassing the gate would put false provenance into the cache. Re-adding the two remaining phenotypes (with their bands) becomes a mechanical follow-up as soon as the Orphadata manifest is re-pinned repo-wide.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Nicolaides-Baraitser_Syndrome</strong> · 2026-07-31T18:47:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Nicolaides-Baraitser_Syndrome/2026-07-31T184723Z-claude-code-e4502f.yaml">View source</a></p>
+                        <p class="research-review-text">Created the Nicolaides-Baraitser syndrome entry (intellectual disability-sparse hair-brachydactyly syndrome; MONDO:0011053; OMIM 601358; SMARCA2) for issue #7217. Deep research provider falcon/Edison. NEC preflight passed - MONDO:0011053 carries OMIM:601358 and the SMARCA2 gene association. The entry is scoped against three attractors documented in notes: Coffin-Siris syndrome, which dismech already curates and which lists SMARCA2 among its BAF genes; the allelic SMARCA2 blepharophimosis-intellectual disability syndrome caused by variants outside the helicase domains; and the unrelated SMARCA2/BRM cancer literature. NCBRS is modelled as the distinct entity it is - de novo NON-TRUNCATING variants clustered in the ATPase region, acting by a mechanism that is deliberately left open. GeneReviews chapter PMID:26468571 fetched and tagged, with all four abstract sections mined including Genetic Counseling. Curated 5 pathophysiology nodes, 23 phenotypes with HPO terms, 2 structured prevalence records, genetics, 2 diagnostic modalities including the DNA methylation episignature, 11 treatments including a separate lamotrigine agents-to-use-with-caution item, and a KNOWLEDGE_GAP discussion on the dominant-negative versus SMARCA4-retargeting mechanism dispute. No conforms_to declared - epilepsy_excitation_inhibition_imbalance was evaluated and declined for lack of any excitation/inhibition evidence in SMARCA2. Validation: just validate PASS, just validate-terms PASS, programmatic snippet check 79 of 79 exact whitespace-normalised substrings with 0 mismatches, 0 dangling refs and 0 orphan nodes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

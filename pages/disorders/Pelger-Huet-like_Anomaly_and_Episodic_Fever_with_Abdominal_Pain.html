@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4585,6 +4638,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cebpe-p-arg219his-substitution-in-the-dna-binding-domain" data-dismech-node="CEBPE p.Arg219His Substitution in the DNA-Binding Domain" data-dismech-type="pathophysiology">
                 <div class="item-name">CEBPE p.Arg219His Substitution in the DNA-Binding Domain</div>
 
+
                 <div class="item-desc">A homozygous c.656G&gt;A change in CEBPE exon 2 substitutes histidine for arginine at residue 219, within the highly conserved carboxy-terminal DNA-binding region of the basic leucine zipper shared by all four C/EBP-epsilon isoforms. The variant cosegregated with disease in the index kindred and was the only homozygous rare variant shared by all three genotyped patients.</div>
 
 
@@ -4679,6 +4733,8 @@ This genetic context concerns CEBPE (hgnc:1836). hgnc:1836 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4694,6 +4750,9 @@ This genetic context concerns CEBPE (hgnc:1836). hgnc:1836 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: NEOMORPHIC</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated NEOMORPHIC on the authors&#39; own analysis: the substitution was predicted to abolish DNA binding, but in patients&#39; granulocytes it instead produced a large increase in chromatin occupancy with an unchanged recognition motif, alongside a loss-of-function effect on protein-protein interactions. The paper describes the resulting entity as the first human monogenic neomorphic inflammasomopathy.</div>
 
@@ -4850,6 +4909,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-c-ebp-epsilon-association-with-transcriptional-repressors" data-dismech-node="Loss of C/EBP-epsilon Association with Transcriptional Repressors" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of C/EBP-epsilon Association with Transcriptional Repressors</div>
 
+
                 <div class="item-desc">Of 144 C/EBP-epsilon interaction partners identified, 108 were significantly altered by the substitution and 106 of those were decreased. A large share of the lost partners are transcriptional repressors, including several SWI/SNF chromatin-remodelling subunits, which is the proposed reason the mutant factor is no longer restrained on chromatin.</div>
 
 
@@ -4965,6 +5025,7 @@ This pathophysiological event involves decreased association with transcriptiona
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-c-ebp-epsilon-chromatin-occupancy" data-dismech-node="Increased C/EBP-epsilon Chromatin Occupancy" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased C/EBP-epsilon Chromatin Occupancy</div>
+
 
                 <div class="item-desc">Chromatin immunoprecipitation sequencing of patient granulocytes found about three times as many C/EBP-epsilon binding sites as in controls, with heterozygous carriers intermediate — a dose-dependent occupancy gradient across the three genotypes. De novo motif analysis found essentially the same consensus sequence in mutant and wild type.</div>
 
@@ -5115,6 +5176,7 @@ This pathophysiological event involves increased chromatin binding (GO:0003682).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genome-wide-transcriptional-dysregulation-in-granulocytes" data-dismech-node="Genome-Wide Transcriptional Dysregulation in Granulocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Genome-Wide Transcriptional Dysregulation in Granulocytes</div>
+
 
                 <div class="item-desc">464 genes are differentially transcribed in unstimulated patient granulocytes, 198 of them interferon-related, with NLRP3 up more than eightfold. Interferon stimulation widens rather than normalizes the difference, and NLRP12 — a suppressor of neutrophil migration — rises 13.6-fold after type I interferon.</div>
 
@@ -5406,6 +5468,7 @@ This pathophysiological event involves abnormal response to type II interferon (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-caspase-5-expression-and-noncanonical-inflammasome-priming" data-dismech-node="Constitutive Caspase-5 Expression and Noncanonical Inflammasome Priming" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Caspase-5 Expression and Noncanonical Inflammasome Priming</div>
 
+
                 <div class="item-desc">Resting patient macrophages express caspase-5 without interferon priming, and peripheral blood mononuclear cells show both increased pro-caspase-5 and more processed caspase-5. The canonical NLRP3 pathway is untouched: whole-blood canonical activation and monocyte caspase-1 activity are normal, and priming control cells with interferon abolishes the difference — so the defect is specifically that the noncanonical arm is pre-primed.</div>
 
 
@@ -5583,6 +5646,7 @@ This pathophysiological event involves increased non-canonical inflammasome comp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperinflammatory-response-to-bacterial-stimuli" data-dismech-node="Hyperinflammatory Response to Bacterial Stimuli" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperinflammatory Response to Bacterial Stimuli</div>
 
+
                 <div class="item-desc">Clinically, attacks of aseptic fever, abdominal pain and systemic inflammation lasting four to five days, accompanied by an acute-phase response. Attacks became more prominent at puberty and subsided after menopause in the affected women of the index kindred.</div>
 
 
@@ -5700,6 +5764,7 @@ This pathophysiological event involves increased non-canonical inflammasome comp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neutrophil-chemotaxis-with-reduced-cd66b" data-dismech-node="Impaired Neutrophil Chemotaxis with Reduced CD66b" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neutrophil Chemotaxis with Reduced CD66b</div>
+
 
                 <div class="item-desc">The oldest measured abnormality in this kindred: patient polymorphonuclear cells migrate slowly both spontaneously and toward a chemoattractant, a defect the 1979 investigators localized to intrinsic locomotor capacity rather than to cell deformability or receptor responsiveness. The 2019 study supplies a candidate molecular basis in reduced surface CD66b together with strongly increased NLRP12 transcription.</div>
 
@@ -5955,6 +6020,7 @@ This pathophysiological event involves decreased neutrophil chemotaxis (GO:00305
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-nuclear-hyposegmentation" data-dismech-node="Neutrophil Nuclear Hyposegmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Nuclear Hyposegmentation</div>
 
+
                 <div class="item-desc">About one in five patient neutrophils has a hyposegmented nucleus on Wright-stained smears. This is the feature that led to the disorder being called an atypical Pelger-Huet anomaly for four decades, and it remains the most accessible diagnostic clue.</div>
 
 
@@ -6066,6 +6132,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-neutrophil-granule-content" data-dismech-node="Preserved Neutrophil Granule Content" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Neutrophil Granule Content</div>
+
 
                 <div class="item-desc">Electron microscopy and Wright staining show normal azurophilic, specific and tertiary granules in normal numbers, and granule-resident CD66a and CD11b reach the surface normally. This is the discriminator against neutrophil-specific granule deficiency, the other CEBPE disorder, in which granule content is the thing that is lost.</div>
 
@@ -6190,6 +6257,13 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mild-bleeding-diathesis-of-unresolved-mechanism" data-dismech-node="Mild Bleeding Diathesis of Unresolved Mechanism" data-dismech-type="pathophysiology">
                 <div class="item-name">Mild Bleeding Diathesis of Unresolved Mechanism</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Every affected member of the index kindred had a mild bleeding tendency with frequent nosebleeds and easy bruising after needle sticks and procedures. Because C/EBP-epsilon is known to control platelet granule formation, the investigators looked for a platelet granule defect and did not find one: granule and overall platelet structure were morphologically normal, with only dilated open canalicular systems and slight activation noted.</div>
 
@@ -6406,7 +6480,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent attacks of abdominal pain, the feature that names the disorder and the one that prompted the 1987 heme-synthesis investigation.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002027\"}}, {\"id\": \"Baricitinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A JAK inhibitor, given in the independently reported case after the autoinflammatory diagnosis was made, with sustained clinical improvement and normalization of cytokine levels over months. This is a single-patient result, and it is the only reported treatment for this disease that produced a durable response.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"baricitinib\"]}}, {\"id\": \"Bruising susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A tendency to form hematomas after needle sticks and procedures, reported in every affected member of the index kindred alongside the nosebleeds. It is the second half of the same bleeding tendency, and like the nosebleeds it is a clinical observation whose mechanism the investigators looked for and did not find.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"CEBPE\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CEBPE\"], \"gene_terms\": [{\"label\": \"CEBPE\", \"id\": \"hgnc:1836\"}], \"association\": \"Biallelic missense variants; the characterized allele lies in the DNA-binding domain\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A homozygous c.656G\u003eA change in CEBPE exon 2 substitutes histidine for arginine at residue 219, within the highly conserved carboxy-terminal DNA-binding region of the basic leucine zipper shared by all four C/EBP-epsilon isoforms. The variant cosegregated with disease in the index kindred and was the only homozygous rare variant shared by all three genotyped patients.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"genes\": [\"CEBPE\"], \"gene_terms\": [{\"label\": \"CEBPE\", \"id\": \"hgnc:1836\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"NEOMORPHIC\", \"description\": \"Curated NEOMORPHIC on the authors\u0027 own analysis: the substitution was predicted to abolish DNA binding, but in patients\u0027 granulocytes it instead produced a large increase in chromatin occupancy with an unchanged recognition motif, alongside a loss-of-function effect on protein-protein interactions. The paper describes the resulting entity as the first human monogenic neomorphic inflammasomopathy.\", \"gene_terms\": [{\"label\": \"CEBPE\", \"id\": \"hgnc:1836\"}]}}}, {\"id\": \"Constitutive Caspase-5 Expression and Noncanonical Inflammasome Priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resting patient macrophages express caspase-5 without interferon priming, and peripheral blood mononuclear cells show both increased pro-caspase-5 and more processed caspase-5. The canonical NLRP3 pathway is untouched: whole-blood canonical activation and monocyte caspase-1 activity are normal, and priming control cells with interferon abolishes the difference \\u2014 so the defect is specifically that the noncanonical arm is pre-primed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"non-canonical inflammasome complex assembly\"]}}, {\"id\": \"Elevated circulating C-reactive protein concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An acute-phase response accompanies the attacks; in the independently reported case CRP was elevated with normal procalcitonin, which is what redirected the diagnosis from infection to autoinflammation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011227\"}}, {\"id\": \"Epistaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent nosebleeds, the commonest expression of the mild bleeding diathesis present in all affected members.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000421\"}}, {\"id\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"464 genes are differentially transcribed in unstimulated patient granulocytes, 198 of them interferon-related, with NLRP3 up more than eightfold. Interferon stimulation widens rather than normalizes the difference, and NLRP12 \\u2014 a suppressor of neutrophil migration \\u2014 rises 13.6-fold after type I interferon.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"granulocyte\"], \"biological_processes\": [\"regulation of DNA-templated transcription\", \"response to type I interferon\", \"response to type II interferon\"]}}, {\"id\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clinically, attacks of aseptic fever, abdominal pain and systemic inflammation lasting four to five days, accompanied by an acute-phase response. Attacks became more prominent at puberty and subsided after menopause in the affected women of the index kindred.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hyposegmentation of neutrophil nuclei\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyposegmented neutrophil nuclei in about 20 percent of cells, the finding that made the syndrome look like an atypical Pelger-Huet anomaly for forty years.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011447\"}}, {\"id\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The oldest measured abnormality in this kindred: patient polymorphonuclear cells migrate slowly both spontaneously and toward a chemoattractant, a defect the 1979 investigators localized to intrinsic locomotor capacity rather than to cell deformability or receptor responsiveness. The 2019 study supplies a candidate molecular basis in reduced surface CD66b together with strongly increased NLRP12 transcription.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\"]}}, {\"id\": \"Impaired neutrophil chemotaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slow spontaneous, chemotactic and chemokinetic locomotion of patient polymorphonuclear cells, measured against asymptomatic carriers of the Pelger-Huet nuclear anomaly rather than against unrelated controls.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040238\"}}, {\"id\": \"Increased C/EBP-epsilon Chromatin Occupancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chromatin immunoprecipitation sequencing of patient granulocytes found about three times as many C/EBP-epsilon binding sites as in controls, with heterozygous carriers intermediate \\u2014 a dose-dependent occupancy gradient across the three genotypes. De novo motif analysis found essentially the same consensus sequence in mutant and wild type.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"granulocyte\"], \"molecular_functions\": [\"chromatin binding\"]}}, {\"id\": \"Increased total leukocyte count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A markedly raised white cell count in the independently reported paediatric case. This is the finding that started the disease down the wrong diagnostic path - it is what prompted the search for a haematologic malignancy, and it persisted through antimicrobial treatment, which is part of what redirected the workup toward an autoinflammatory cause. The authors\u0027 final reading is that the leukocytosis reflected infection and the inflammatory response rather than leukaemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001974\"}}, {\"id\": \"Intra-abdominal granuloma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Granulomas inside the abdomen, reported among the findings that occasionally accompanied the inflammatory attacks in the index kindred. In a disorder that also carries a neutrophil functional defect this is the feature that raises chronic granulomatous disease as a differential; no cited source reports the NADPH-oxidase testing that would settle it, and the entry does not claim a respiratory-burst defect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032252\"}}, {\"id\": \"Loss of C/EBP-epsilon Association with Transcriptional Repressors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Of 144 C/EBP-epsilon interaction partners identified, 108 were significantly altered by the substitution and 106 of those were decreased. A large share of the lost partners are transcriptional repressors, including several SWI/SNF chromatin-remodelling subunits, which is the proposed reason the mutant factor is no longer restrained on chromatin.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"association with transcriptional repressors, including SWI/SNF subunits\"]}}, {\"id\": \"Mild Bleeding Diathesis of Unresolved Mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every affected member of the index kindred had a mild bleeding tendency with frequent nosebleeds and easy bruising after needle sticks and procedures. Because C/EBP-epsilon is known to control platelet granule formation, the investigators looked for a platelet granule defect and did not find one: granule and overall platelet structure were morphologically normal, with only dilated open canalicular systems and slight activation noted.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neutrophil Nuclear Hyposegmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"About one in five patient neutrophils has a hyposegmented nucleus on Wright-stained smears. This is the feature that led to the disorder being called an atypical Pelger-Huet anomaly for four decades, and it remains the most accessible diagnostic clue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Osteomyelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteomyelitis of the right proximal humerus with further bony lesions was the presenting feature of the independently reported case, and the humeral abscess grew methicillin-resistant Staphylococcus aureus. Not reported in the index kindred, whose infections were superficial.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002754\"}}, {\"id\": \"Paronychia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent episodes of purulent paronychia, at times complicated by lymphangitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001818\"}}, {\"id\": \"Poor wound healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed wound healing recorded in the symptomatic members of the kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001058\"}}, {\"id\": \"Preserved Neutrophil Granule Content\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Electron microscopy and Wright staining show normal azurophilic, specific and tertiary granules in normal numbers, and granule-resident CD66a and CD11b reach the surface normally. This is the discriminator against neutrophil-specific granule deficiency, the other CEBPE disorder, in which granule content is the thing that is lost.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Pyoderma gangrenosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A neutrophilic dermatosis reported occasionally in the index kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025452\"}}, {\"id\": \"Recurrent abscess formation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nailbed, tongue, submandibular and gluteal abscesses in the index kindred, and in the independently reported case a humeral osteomyelitis with multiple bony abscesses that grew methicillin-resistant Staphylococcus aureus.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002722\"}}, {\"id\": \"Recurrent aphthous stomatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Buccal ulceration accompanying inflammatory attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011107\"}}, {\"id\": \"Recurrent fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aseptic fever in attacks lasting four to five days, recurring over decades; intermittent fever was also the presenting complaint in the independently reported case.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Recurrent upper respiratory tract infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Purulent upper respiratory tract infections alongside skin and mucosal infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002788\"}}], \"edges\": [{\"source\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"target\": \"Loss of C/EBP-epsilon Association with Transcriptional Repressors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substitution is proposed to change protein conformation rather than DNA recognition, stripping the factor of most of its partner interactions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"target\": \"Mild Bleeding Diathesis of Unresolved Mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"C/EBP-epsilon controls platelet granule formation, so a bleeding tendency in these patients is plausibly a direct consequence of the same allele; the platelet studies that were done did not find the expected lesion, so the edge is curated with unknown intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"target\": \"Preserved Neutrophil Granule Content\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unlike the specific-granule-deficiency alleles of the same gene, this substitution leaves granule content intact \\u2014 the observation that separates the two CEBPE disorders.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of C/EBP-epsilon Association with Transcriptional Repressors\", \"target\": \"Increased C/EBP-epsilon Chromatin Occupancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without its repressor partners the mutant factor binds far more sites, while recognizing the same DNA motif as wild type.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased C/EBP-epsilon Chromatin Occupancy\", \"target\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess occupancy at unchanged motifs translates into a large, interferon-weighted shift in the granulocyte transcriptome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"target\": \"Constitutive Caspase-5 Expression and Noncanonical Inflammasome Priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Human caspase-5 expression is normally interferon-dependent; the transcriptional shift makes it constitutive, removing the priming step that would otherwise gate noncanonical inflammasome activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"target\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same transcriptional programme raises NLRP12, a suppressor of neutrophil migration, while surface CD66b falls.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"target\": \"Neutrophil Nuclear Hyposegmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyposegmented nuclei in a fifth of patient neutrophils, the finding that gave the disorder its Pelger-Huet-like name, in a factor that governs late myeloid differentiation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Constitutive Caspase-5 Expression and Noncanonical Inflammasome Priming\", \"target\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the priming step is already satisfied, an ordinary encounter with intracellular bacterial LPS produces a disproportionate cytokine response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Recurrent fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aseptic fever is one of the two cardinal attack symptoms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal pain is the other cardinal attack symptom and names the disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Elevated circulating C-reactive protein concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attacks are accompanied by an acute-phase response; the later independent case also had elevated CRP with normal procalcitonin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Pyoderma gangrenosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A neutrophilic dermatosis reported occasionally during attacks in the index kindred.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Intra-abdominal granuloma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granulomas listed among the occasional accompaniments of the attacks. Typed with unknown intermediates because no cited source establishes whether they arise from the exaggerated inflammasome response or from defective neutrophil clearance, and the entry does not pick between them.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Increased total leukocyte count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors\u0027 own conclusion is that the raised white cell count reflected infection and the inflammatory response rather than leukaemia, which is what places it downstream of the inflammatory response rather than beside it. Typed with unknown intermediates because the source states the attribution as a conclusion, not a demonstrated mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Impaired neutrophil chemotaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chemotaxis defect is itself a recorded laboratory phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Recurrent abscess formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nailbed, tongue, submandibular and gluteal abscesses in the index kindred.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Paronychia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frequent episodes of purulent paronychia, sometimes with lymphangitis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Recurrent aphthous stomatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Buccal ulceration reported during attacks.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Recurrent upper respiratory tract infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purulent upper respiratory tract infections reported in the kindred.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Poor wound healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed wound healing recorded in the symptomatic members in 1987.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Osteomyelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deep, culture-positive bone infection in the independently reported case, read here as the severe end of the same failure of neutrophil recruitment that produces the superficial abscesses.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neutrophil Nuclear Hyposegmentation\", \"target\": \"Hyposegmentation of neutrophil nuclei\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The morphological finding as recorded on the blood film.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mild Bleeding Diathesis of Unresolved Mechanism\", \"target\": \"Epistaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frequent nosebleeds are the reported expression of the bleeding tendency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mild Bleeding Diathesis of Unresolved Mechanism\", \"target\": \"Bruising susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tendency to hematomas after needle sticks and procedures is the other reported expression of the same bleeding tendency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Baricitinib\", \"target\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CEBPE\", \"target\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent attacks of abdominal pain, the feature that names the disorder and the one that prompted the 1987 heme-synthesis investigation.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002027\"}}, {\"id\": \"Baricitinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A JAK inhibitor, given in the independently reported case after the autoinflammatory diagnosis was made, with sustained clinical improvement and normalization of cytokine levels over months. This is a single-patient result, and it is the only reported treatment for this disease that produced a durable response.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"baricitinib\"]}}, {\"id\": \"Bruising susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A tendency to form hematomas after needle sticks and procedures, reported in every affected member of the index kindred alongside the nosebleeds. It is the second half of the same bleeding tendency, and like the nosebleeds it is a clinical observation whose mechanism the investigators looked for and did not find.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"CEBPE\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CEBPE\"], \"gene_terms\": [{\"label\": \"CEBPE\", \"id\": \"hgnc:1836\"}], \"association\": \"Biallelic missense variants; the characterized allele lies in the DNA-binding domain\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A homozygous c.656G\u003eA change in CEBPE exon 2 substitutes histidine for arginine at residue 219, within the highly conserved carboxy-terminal DNA-binding region of the basic leucine zipper shared by all four C/EBP-epsilon isoforms. The variant cosegregated with disease in the index kindred and was the only homozygous rare variant shared by all three genotyped patients.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"genes\": [\"CEBPE\"], \"gene_terms\": [{\"label\": \"CEBPE\", \"id\": \"hgnc:1836\"}], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"NEOMORPHIC\", \"description\": \"Curated NEOMORPHIC on the authors\u0027 own analysis: the substitution was predicted to abolish DNA binding, but in patients\u0027 granulocytes it instead produced a large increase in chromatin occupancy with an unchanged recognition motif, alongside a loss-of-function effect on protein-protein interactions. The paper describes the resulting entity as the first human monogenic neomorphic inflammasomopathy.\", \"gene_terms\": [{\"label\": \"CEBPE\", \"id\": \"hgnc:1836\"}]}}}, {\"id\": \"Constitutive Caspase-5 Expression and Noncanonical Inflammasome Priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resting patient macrophages express caspase-5 without interferon priming, and peripheral blood mononuclear cells show both increased pro-caspase-5 and more processed caspase-5. The canonical NLRP3 pathway is untouched: whole-blood canonical activation and monocyte caspase-1 activity are normal, and priming control cells with interferon abolishes the difference \\u2014 so the defect is specifically that the noncanonical arm is pre-primed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"non-canonical inflammasome complex assembly\"]}}, {\"id\": \"Elevated circulating C-reactive protein concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An acute-phase response accompanies the attacks; in the independently reported case CRP was elevated with normal procalcitonin, which is what redirected the diagnosis from infection to autoinflammation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011227\"}}, {\"id\": \"Epistaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent nosebleeds, the commonest expression of the mild bleeding diathesis present in all affected members.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000421\"}}, {\"id\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"464 genes are differentially transcribed in unstimulated patient granulocytes, 198 of them interferon-related, with NLRP3 up more than eightfold. Interferon stimulation widens rather than normalizes the difference, and NLRP12 \\u2014 a suppressor of neutrophil migration \\u2014 rises 13.6-fold after type I interferon.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"granulocyte\"], \"biological_processes\": [\"regulation of DNA-templated transcription\", \"response to type I interferon\", \"response to type II interferon\"]}}, {\"id\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clinically, attacks of aseptic fever, abdominal pain and systemic inflammation lasting four to five days, accompanied by an acute-phase response. Attacks became more prominent at puberty and subsided after menopause in the affected women of the index kindred.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hyposegmentation of neutrophil nuclei\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyposegmented neutrophil nuclei in about 20 percent of cells, the finding that made the syndrome look like an atypical Pelger-Huet anomaly for forty years.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011447\"}}, {\"id\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The oldest measured abnormality in this kindred: patient polymorphonuclear cells migrate slowly both spontaneously and toward a chemoattractant, a defect the 1979 investigators localized to intrinsic locomotor capacity rather than to cell deformability or receptor responsiveness. The 2019 study supplies a candidate molecular basis in reduced surface CD66b together with strongly increased NLRP12 transcription.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\"]}}, {\"id\": \"Impaired neutrophil chemotaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slow spontaneous, chemotactic and chemokinetic locomotion of patient polymorphonuclear cells, measured against asymptomatic carriers of the Pelger-Huet nuclear anomaly rather than against unrelated controls.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040238\"}}, {\"id\": \"Increased C/EBP-epsilon Chromatin Occupancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chromatin immunoprecipitation sequencing of patient granulocytes found about three times as many C/EBP-epsilon binding sites as in controls, with heterozygous carriers intermediate \\u2014 a dose-dependent occupancy gradient across the three genotypes. De novo motif analysis found essentially the same consensus sequence in mutant and wild type.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"granulocyte\"], \"molecular_functions\": [\"chromatin binding\"]}}, {\"id\": \"Increased total leukocyte count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A markedly raised white cell count in the independently reported paediatric case. This is the finding that started the disease down the wrong diagnostic path - it is what prompted the search for a haematologic malignancy, and it persisted through antimicrobial treatment, which is part of what redirected the workup toward an autoinflammatory cause. The authors\u0027 final reading is that the leukocytosis reflected infection and the inflammatory response rather than leukaemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001974\"}}, {\"id\": \"Intra-abdominal granuloma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Granulomas inside the abdomen, reported among the findings that occasionally accompanied the inflammatory attacks in the index kindred. In a disorder that also carries a neutrophil functional defect this is the feature that raises chronic granulomatous disease as a differential; no cited source reports the NADPH-oxidase testing that would settle it, and the entry does not claim a respiratory-burst defect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032252\"}}, {\"id\": \"Loss of C/EBP-epsilon Association with Transcriptional Repressors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Of 144 C/EBP-epsilon interaction partners identified, 108 were significantly altered by the substitution and 106 of those were decreased. A large share of the lost partners are transcriptional repressors, including several SWI/SNF chromatin-remodelling subunits, which is the proposed reason the mutant factor is no longer restrained on chromatin.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"association with transcriptional repressors, including SWI/SNF subunits\"]}}, {\"id\": \"Mild Bleeding Diathesis of Unresolved Mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every affected member of the index kindred had a mild bleeding tendency with frequent nosebleeds and easy bruising after needle sticks and procedures. Because C/EBP-epsilon is known to control platelet granule formation, the investigators looked for a platelet granule defect and did not find one: granule and overall platelet structure were morphologically normal, with only dilated open canalicular systems and slight activation noted.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Neutrophil Nuclear Hyposegmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"About one in five patient neutrophils has a hyposegmented nucleus on Wright-stained smears. This is the feature that led to the disorder being called an atypical Pelger-Huet anomaly for four decades, and it remains the most accessible diagnostic clue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Osteomyelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteomyelitis of the right proximal humerus with further bony lesions was the presenting feature of the independently reported case, and the humeral abscess grew methicillin-resistant Staphylococcus aureus. Not reported in the index kindred, whose infections were superficial.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002754\"}}, {\"id\": \"Paronychia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent episodes of purulent paronychia, at times complicated by lymphangitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001818\"}}, {\"id\": \"Poor wound healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed wound healing recorded in the symptomatic members of the kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001058\"}}, {\"id\": \"Preserved Neutrophil Granule Content\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Electron microscopy and Wright staining show normal azurophilic, specific and tertiary granules in normal numbers, and granule-resident CD66a and CD11b reach the surface normally. This is the discriminator against neutrophil-specific granule deficiency, the other CEBPE disorder, in which granule content is the thing that is lost.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Pyoderma gangrenosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A neutrophilic dermatosis reported occasionally in the index kindred.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025452\"}}, {\"id\": \"Recurrent abscess formation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nailbed, tongue, submandibular and gluteal abscesses in the index kindred, and in the independently reported case a humeral osteomyelitis with multiple bony abscesses that grew methicillin-resistant Staphylococcus aureus.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002722\"}}, {\"id\": \"Recurrent aphthous stomatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Buccal ulceration accompanying inflammatory attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011107\"}}, {\"id\": \"Recurrent fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aseptic fever in attacks lasting four to five days, recurring over decades; intermittent fever was also the presenting complaint in the independently reported case.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Recurrent upper respiratory tract infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Purulent upper respiratory tract infections alongside skin and mucosal infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002788\"}}], \"edges\": [{\"source\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"target\": \"Loss of C/EBP-epsilon Association with Transcriptional Repressors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substitution is proposed to change protein conformation rather than DNA recognition, stripping the factor of most of its partner interactions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"target\": \"Mild Bleeding Diathesis of Unresolved Mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"C/EBP-epsilon controls platelet granule formation, so a bleeding tendency in these patients is plausibly a direct consequence of the same allele; the platelet studies that were done did not find the expected lesion, so the edge is curated with unknown intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"target\": \"Preserved Neutrophil Granule Content\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unlike the specific-granule-deficiency alleles of the same gene, this substitution leaves granule content intact \\u2014 the observation that separates the two CEBPE disorders.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of C/EBP-epsilon Association with Transcriptional Repressors\", \"target\": \"Increased C/EBP-epsilon Chromatin Occupancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without its repressor partners the mutant factor binds far more sites, while recognizing the same DNA motif as wild type.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased C/EBP-epsilon Chromatin Occupancy\", \"target\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess occupancy at unchanged motifs translates into a large, interferon-weighted shift in the granulocyte transcriptome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"target\": \"Constitutive Caspase-5 Expression and Noncanonical Inflammasome Priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Human caspase-5 expression is normally interferon-dependent; the transcriptional shift makes it constitutive, removing the priming step that would otherwise gate noncanonical inflammasome activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"target\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same transcriptional programme raises NLRP12, a suppressor of neutrophil migration, while surface CD66b falls.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation in Granulocytes\", \"target\": \"Neutrophil Nuclear Hyposegmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyposegmented nuclei in a fifth of patient neutrophils, the finding that gave the disorder its Pelger-Huet-like name, in a factor that governs late myeloid differentiation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Constitutive Caspase-5 Expression and Noncanonical Inflammasome Priming\", \"target\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the priming step is already satisfied, an ordinary encounter with intracellular bacterial LPS produces a disproportionate cytokine response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Recurrent fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aseptic fever is one of the two cardinal attack symptoms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal pain is the other cardinal attack symptom and names the disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Elevated circulating C-reactive protein concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attacks are accompanied by an acute-phase response; the later independent case also had elevated CRP with normal procalcitonin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Pyoderma gangrenosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A neutrophilic dermatosis reported occasionally during attacks in the index kindred.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Intra-abdominal granuloma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granulomas listed among the occasional accompaniments of the attacks. Typed with unknown intermediates because no cited source establishes whether they arise from the exaggerated inflammasome response or from defective neutrophil clearance, and the entry does not pick between them.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"target\": \"Increased total leukocyte count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors\u0027 own conclusion is that the raised white cell count reflected infection and the inflammatory response rather than leukaemia, which is what places it downstream of the inflammatory response rather than beside it. Typed with unknown intermediates because the source states the attribution as a conclusion, not a demonstrated mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Impaired neutrophil chemotaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chemotaxis defect is itself a recorded laboratory phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Recurrent abscess formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nailbed, tongue, submandibular and gluteal abscesses in the index kindred.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Paronychia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frequent episodes of purulent paronychia, sometimes with lymphangitis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Recurrent aphthous stomatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Buccal ulceration reported during attacks.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Recurrent upper respiratory tract infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purulent upper respiratory tract infections reported in the kindred.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Poor wound healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed wound healing recorded in the symptomatic members in 1987.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neutrophil Chemotaxis with Reduced CD66b\", \"target\": \"Osteomyelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deep, culture-positive bone infection in the independently reported case, read here as the severe end of the same failure of neutrophil recruitment that produces the superficial abscesses.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neutrophil Nuclear Hyposegmentation\", \"target\": \"Hyposegmentation of neutrophil nuclei\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The morphological finding as recorded on the blood film.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mild Bleeding Diathesis of Unresolved Mechanism\", \"target\": \"Epistaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Frequent nosebleeds are the reported expression of the bleeding tendency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mild Bleeding Diathesis of Unresolved Mechanism\", \"target\": \"Bruising susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tendency to hematomas after needle sticks and procedures is the other reported expression of the same bleeding tendency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Baricitinib\", \"target\": \"Hyperinflammatory Response to Bacterial Stimuli\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CEBPE\", \"target\": \"CEBPE p.Arg219His Substitution in the DNA-Binding Domain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6476,6 +6550,9 @@ This clinical feature is Impaired neutrophil chemotaxis (HP:0040238). HP:0040238
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6540,6 +6617,9 @@ This clinical feature is Hyposegmentation of neutrophil nuclei (HP:0011447). HP:
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Numerator/denominator here is per cell, not per patient: 20 percent of 200 consecutive leukocytes scored on Wright-stained smears from the genotyped patients.</div>
@@ -6616,6 +6696,9 @@ This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6680,6 +6763,9 @@ This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a p
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is given. The sentence says all affected members, but the denominator is the four sisters of a single kindred, and this entry does not put frequency bands on a four-patient series.</div>
@@ -6751,6 +6837,9 @@ This clinical feature is Increased total leukocyte count (HP:0001974). HP:000197
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Single reported patient, so no frequency band. The recorded count was 52800 per microliter against a stated reference range of 5000-13000; the cited source presents those figures in a table which the reference cache flattens into a run of digits, so the quoted evidence here is the surrounding prose rather than the table row.</div>
@@ -6849,6 +6938,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately not wired into the pathograph. No cited source proposes a mechanism for the anaemia - it is a single reported value in a complete blood count, and attaching it downstream of the hyperinflammatory node would assert an anaemia of inflammation that nothing here states. Single patient, so no frequency band. The cited source presents the value in a table which the reference cache flattens, so the quoted row reads as run-together figures.</div>
 
 
@@ -6918,6 +7010,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately not wired into the pathograph, for the same reason as the anaemia: no cited source gives it a mechanism. It is worth recording that this is a separate observation from the index kindred&#39;s bleeding tendency, which was investigated and found to have morphologically normal platelets - the two are not connected by any cited source, and this entry does not connect them. Single patient, so no frequency band.</div>
@@ -7003,6 +7098,9 @@ This clinical feature is Recurrent aphthous stomatitis (HP:0011107). HP:0011107 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7067,6 +7165,9 @@ This clinical feature is Recurrent upper respiratory tract infections (HP:000278
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7147,6 +7248,9 @@ This clinical feature is Intra-abdominal granuloma, annotated with Granuloma (HP
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound to the general HPO term because HPO has no abdominal-site granuloma term: `HP:0034841` gastrointestinal granulomatosis would assert gut-wall disease that the source does not localize, and `HP:0011955` hepatic granulomatosis names an organ the source does not name. The site is carried in `preferred_term` instead. Reported as an occasional accompaniment of attacks in one kindred, so no `frequency` band is asserted.</div>
 
 
@@ -7216,6 +7320,9 @@ This clinical feature is Recurrent abscess formation (HP:0002722). HP:0002722 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7312,6 +7419,9 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in a single patient — the eight-year-old homozygous for a different CEBPE allele — so no `frequency` band is asserted. Split out from `Recurrent abscess formation` because deep bone infection carries different clinical weight from the nailbed and gluteal abscesses of the index kindred, and because the bony lesions were the imaging finding initially read as chloromas.</div>
 
 
@@ -7390,6 +7500,9 @@ This clinical feature is Pyoderma gangrenosum (HP:0025452). HP:0025452 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported as an occasional accompaniment of attacks rather than a constant feature, so no `frequency` band is asserted.</div>
@@ -7484,6 +7597,9 @@ This clinical feature is Paronychia (HP:0001818), qualified as temporality recur
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7548,6 +7664,9 @@ This clinical feature is Delayed wound healing, annotated with Poor wound healin
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7644,6 +7763,9 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No `frequency` band: reported in the affected members of one Finnish kindred and in one unrelated child, which is a denominator of four at most.</div>
@@ -7770,6 +7892,9 @@ This clinical feature is Elevated circulating C-reactive protein concentration (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7886,6 +8011,9 @@ This clinical feature is Abdominal pain (HP:0002027), qualified as temporality r
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No `frequency` band: the denominator is the affected members of one kindred.</div>
@@ -8060,6 +8188,9 @@ This disease-associated gene is CEBPE (hgnc:1836). hgnc:1836 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8207,6 +8338,9 @@ This treatment uses baricitinib (CHEBI:95341). CHEBI:95341 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8217,6 +8351,9 @@ This treatment uses baricitinib (CHEBI:95341). CHEBI:95341 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -8386,6 +8523,9 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8396,6 +8536,9 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3780,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3822,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Stargardt%20Disease"
@@ -3988,7 +4041,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4013,11 +4066,19 @@
             </a>
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">25</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4752,7 +4813,9 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">1 support</span>
+                    <span class="evidence-support support-SUPPORT">2 support</span>
+
+                    <span class="evidence-support support-REFUTE">1 refute</span>
 
                 </div>
 
@@ -4788,7 +4851,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4818,6 +4881,56 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:37385300" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37385300" target="_blank">PMID:37385300</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recently, we demonstrated that ABCA4 loss of function in the RPE leads to cell-autonomous lipid homeostasis defects."</div>
+
+
+                <div class="evidence-explanation">Sources qualification 4 in the notes above, that ABCA4 has a retinal pigment epithelium-autonomous role beyond photoreceptor disc transport. Graded OTHER because the sentence is the authors restating their own earlier finding inside a Pharmacology and Therapeutics article, not the primary demonstration; the pathophysiology chain below still models ABCA4 as a photoreceptor transporter and has not been rewritten on this basis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25712131" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25712131" target="_blank">PMID:25712131</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, rapid degradation of this large misfolded mutant protein in mouse retina caused little detectable photoreceptor degeneration."</div>
+
+
+                <div class="evidence-explanation">Refutes the sufficiency limb of the canonical model as stated in the description above, which has bisretinoid lipofuscin producing progressive retinal pigment epithelial atrophy. Note this source does not support qualification 5 as written: it reports that the misfolded mutants retained normal cellular localization, so misfolding with rapid degradation is the mechanism, not endoplasmic reticulum retention.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4830,6 +4943,179 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="stgd1_lipofuscin_sufficiency_mouse_human_mismatch">
+                <div class="item-name">Why does a mouse carrying knockout-level A2E and lipofuscin fail to degenerate, and does that insufficiency also hold in human retina?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">stgd1_lipofuscin_sufficiency_mouse_human_mismatch</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-lipofuscin-and-a2e-accumulation-in-rpe">pathophysiology#Lipofuscin and A2E accumulation in RPE</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-direct-all-trans-retinal-photoreceptor-toxicity">pathophysiology#Direct all-trans-retinal photoreceptor toxicity</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The Abca4(PV/PV) knock-in mouse accumulates A2E and lipofuscin at knockout levels and shows no retinal degeneration for 12 months, while the same complex allele causes severe disease in patients. The authors read this as a species difference in the photoreceptor unfolded protein response rather than as evidence that lipofuscin is harmless. Two independent lines of human data point the same way without settling it: quantitative autofluorescence finds that lipofuscin accumulation precedes structural change and may remain without clinically relevant functional effect, while removing deposited lipofuscin rescues degeneration in an advanced Stargardt mouse. The open question is therefore what converts an accumulated burden into injury. The report proposes light-driven photo-oxidation, which is plausible and untested in humans.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25712131" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25712131" target="_blank">PMID:25712131</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These findings suggest likely differences in the unfolded protein response between murine and human photoreceptors and support development of therapies directed at increasing this capability in patients."</div>
+
+
+                <div class="evidence-explanation">The source itself frames the negative mouse result as a mouse-versus-human difference, which is what makes this a model-fidelity question rather than a refutation of the canonical chain.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="stgd1_light_exposure_human_epidemiology_gap">
+                <div class="item-name">Does ambient or occupational light exposure modify the rate of progression in human STGD1, as the mouse models predict?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">stgd1_light_exposure_human_epidemiology_gap</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#environmental-retinal-light-exposure">environmental#Retinal light exposure</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-direct-all-trans-retinal-photoreceptor-toxicity">pathophysiology#Direct all-trans-retinal photoreceptor toxicity</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Degeneration in the Abca4/Rdh8 double-knockout mouse appears only after illumination, and blocking the visual cycle before illumination is protective, yet no study has asked whether light exposure changes progression in patients. The gap matters because photoprotection is cheap, available now, and testable inside an existing natural-history registry, whereas every therapy that has reached a human readout has failed to show functional benefit. The 2026 openscientist hypothesis-search report states that its PubMed searches for this question returned nothing; that negative search is not logged in the hypothesis directory, so the absence is recorded here as an open question rather than as an established absence of literature.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33334878" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33334878" target="_blank">PMID:33334878</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"photoreceptor atrophy and ferroptosis in light-exposed Abca4-/-Rdh8-/- mice were effectively alleviated by intraperitoneally injected Fer-1, a selective inhibitor of ferroptosis"</div>
+
+
+                <div class="evidence-explanation">Establishes the light-conditioned mouse phenotype that motivates the human question, and shows the pathway is pharmacologically interruptible.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -4837,11 +5123,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abca4-transporter-dysfunction" data-dismech-node="ABCA4 transporter dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">ABCA4 transporter dysfunction</div>
+
 
                 <div class="item-desc">ABCA4 normally flips N-retinylidene-phosphatidylethanolamine across photoreceptor disc membranes. Loss of ABCA4 function impairs this outer-segment transport step and disrupts normal retinoid handling in photoreceptors.
 </div>
@@ -5075,7 +5362,7 @@ This pathophysiological event involves decreased lipid transport (GO:0006869). G
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5129,6 +5416,31 @@ This pathophysiological event involves decreased lipid transport (GO:0006869). G
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:34625547" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34625547" target="_blank">PMID:34625547</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ABCA4 is an ATP-binding cassette (ABC) transporter that flips N-retinylidene-phosphatidylethanolamine (N-Ret-PE) from the lumen to the cytoplasmic leaflet of photoreceptor membranes."</div>
+
+
+                <div class="evidence-explanation">Cryo-EM structures of substrate-free and N-Ret-PE-bound ABCA4 establish the transported substrate and the direction of transport at atomic resolution, giving the first step of this node a structural rather than an inferred basis.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5138,6 +5450,7 @@ This pathophysiological event involves decreased lipid transport (GO:0006869). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinoid-adduct-retention-and-bisretinoid-precursor-formation" data-dismech-node="Retinoid-adduct retention and bisretinoid precursor formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinoid-adduct retention and bisretinoid precursor formation</div>
+
 
                 <div class="item-desc">Failure to clear all-trans-retinal adducts from photoreceptor outer segment discs promotes retention of retinoid-phospholipid intermediates and formation of toxic bisretinoid precursors upstream of A2E and lipofuscin accumulation.
 </div>
@@ -5302,6 +5615,14 @@ This pathophysiological event involves dysregulated retinoid metabolic process (
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Direct all-trans-retinal photoreceptor toxicity</span>
+
+	                            <span class="crosslink-desc">Uncleared free all-trans-retinal is itself cytotoxic within the photoreceptor, so a second arm leaves this node without passing through the retinal pigment epithelium.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5309,7 +5630,7 @@ This pathophysiological event involves dysregulated retinoid metabolic process (
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5338,6 +5659,244 @@ This pathophysiological event involves dysregulated retinoid metabolic process (
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:10412977" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10412977" target="_blank">PMID:10412977</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mice lacking RmP show delayed dark adaptation, increased all-trans-retinaldehyde (all-trans-RAL) following light exposure, elevated phosphatidylethanolamine (PE) in outer segments, accumulation of the protonated Schiff base complex of all-trans-RAL and PE (N-retinylidene-PE), and striking..."</div>
+
+
+                <div class="evidence-explanation">The founding Abca4 knockout mouse shows each intermediate of this node directly: retained all-trans-retinal, elevated outer-segment phosphatidylethanolamine, and the N-retinylidene-PE adduct itself.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-direct-all-trans-retinal-photoreceptor-toxicity" data-dismech-node="Direct all-trans-retinal photoreceptor toxicity" data-dismech-type="pathophysiology">
+                <div class="item-name">Direct all-trans-retinal photoreceptor toxicity</div>
+
+
+                <div class="item-desc">Free all-trans-retinal that ABCA4 fails to clear from outer segment discs is cytotoxic to the photoreceptor itself, independently of bisretinoid delivered to the retinal pigment epithelium. Retinal overload raises ferrous iron, depletes glutathione, induces ACSL4, and drives lipid peroxidation, killing photoreceptors by ferroptosis. This is a parallel arm of the ABCA4 chain rather than a consequence of retinal pigment epithelial injury, and in mice it is expressed only after light exposure.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        retinal cone cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000573</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        retinal rod cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000604</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        ferroptosis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0097707" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0097707</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ferroptosis (GO:0097707). GO:0097707 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        response to oxidative stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006979</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Secondary macular photoreceptor degeneration</span>
+
+	                            <span class="crosslink-desc">Ferroptotic death of photoreceptors adds directly to macular photoreceptor loss, so some of that loss is not secondary to retinal pigment epithelial atrophy.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33334878" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33334878" target="_blank">PMID:33334878</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ferroptosis of photoreceptor cells induced by atRAL resulted from increased ferrous ion (Fe2+), elevated ACSL4 expression, system Xc- inhibition, and mitochondrial destruction."</div>
+
+
+                <div class="evidence-explanation">Specifies the ferroptotic mechanism attributed to all-trans-retinal in photoreceptor cells, which is what distinguishes this node from the retinal pigment epithelial lipofuscin arm.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5347,6 +5906,7 @@ This pathophysiological event involves dysregulated retinoid metabolic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipofuscin-and-a2e-accumulation-in-rpe" data-dismech-node="Lipofuscin and A2E accumulation in RPE" data-dismech-type="pathophysiology">
                 <div class="item-name">Lipofuscin and A2E accumulation in RPE</div>
+
 
                 <div class="item-desc">Failure to clear all-trans-retinal adducts from photoreceptor discs leads to formation of A2E and related bisretinoids that accumulate as lipofuscin in retinal pigment epithelial cells. These fluorophores are phototoxic and drive oxidative, lysosomal, and inflammatory stress in the RPE.
 </div>
@@ -5363,11 +5923,11 @@ This pathophysiological event involves dysregulated retinoid metabolic process (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0002586</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5404,11 +5964,11 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006979</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5434,11 +5994,11 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006909</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006909</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5525,7 +6085,7 @@ This pathophysiological event involves phagocytosis (GO:0006909). GO:0006909 is 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -5579,6 +6139,33 @@ This pathophysiological event involves phagocytosis (GO:0006909). GO:0006909 is 
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:35219849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35219849" target="_blank">PMID:35219849</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we show that the removal of lipofuscin after a single intravitreal injection of Remofuscin results in a rescue from retinal degeneration in a mouse model of advanced SD which is even accompanied by an amelioration of the retinal dysfunction"</div>
+
+
+                <div class="evidence-explanation">Removing already-deposited lipofuscin rescues the degeneration, which is the strongest interventional test that the deposit drives injury rather than marking it.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -5588,6 +6175,7 @@ This pathophysiological event involves phagocytosis (GO:0006909). GO:0006909 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rpe-endo-lysosomal-dysfunction" data-dismech-node="RPE endo-lysosomal dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">RPE endo-lysosomal dysfunction</div>
+
 
                 <div class="item-desc">Bisretinoid stress elevates lysosomal pH, impairs cathepsin D maturation and activity, and compromises degradation of photoreceptor outer segments in retinal pigment epithelium.
 </div>
@@ -5604,11 +6192,11 @@ This pathophysiological event involves phagocytosis (GO:0006909). GO:0006909 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0002586</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5645,11 +6233,11 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007040" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007040</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007040" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0007040</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves lysosome organization (GO:0007040). GO:0007040 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5675,11 +6263,11 @@ This pathophysiological event involves lysosome organization (GO:0007040). GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006909</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006909</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5806,6 +6394,7 @@ This pathophysiological event involves phagocytosis (GO:0006909). GO:0006909 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rpe-dysfunction-and-atrophy" data-dismech-node="RPE dysfunction and atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">RPE dysfunction and atrophy</div>
 
+
                 <div class="item-desc">Lipofuscin toxicity, oxidative stress, and lysosomal failure culminate in loss of retinal pigment epithelial homeostasis, functional decline, and progressive atrophic injury in the macula.
 </div>
 
@@ -5821,11 +6410,11 @@ This pathophysiological event involves phagocytosis (GO:0006909). GO:0006909 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0002586</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5925,6 +6514,7 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-macular-photoreceptor-degeneration" data-dismech-node="Secondary macular photoreceptor degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary macular photoreceptor degeneration</div>
 
+
                 <div class="item-desc">Loss of retinal pigment epithelial support drives progressive degeneration of macular photoreceptors, especially cones, leading to central visual dysfunction.
 </div>
 
@@ -5940,11 +6530,11 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000573</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5970,11 +6560,11 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000604</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000604</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6011,11 +6601,11 @@ This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007602" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007602</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007602" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0007602</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased phototransduction (GO:0007602). GO:0007602 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6208,7 +6798,7 @@ This pathophysiological event involves decreased phototransduction (GO:0007602).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ABCA4\"], \"gene_terms\": [{\"label\": \"ABCA4\", \"id\": \"hgnc:34\"}], \"association\": \"Causative\"}}, {\"id\": \"ABCA4 transporter dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ABCA4 normally flips N-retinylidene-phosphatidylethanolamine across photoreceptor disc membranes. Loss of ABCA4 function impairs this outer-segment transport step and disrupts normal retinoid handling in photoreceptors.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\", \"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"lipid transport\"], \"genes\": [\"ABCA4\"], \"gene_terms\": [{\"label\": \"ABCA4\", \"id\": \"hgnc:34\", \"modifier\": \"DECREASED\"}], \"experimental_models\": [{\"name\": \"Patient-derived retinal organoid model\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Organoid photoreceptor ABCA4 protein abundance tracks genotype severity, and long-read RNA-seq recapitulates the patient-specific ABCA4 retina-specific splicing defect.\"}]}}, {\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Electrophysiology may range from isolated macular dysfunction to generalized cone-rod dysfunction, with prognostic implications.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Secondary macular photoreceptor degeneration\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"ERG amplitudes as a readout of macular (and, in severe disease, generalized) photoreceptor degeneration\"}], \"term_id\": \"HP:0000512\"}}, {\"id\": \"Abnormal fundus autofluorescence\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased fundus autofluorescence from lipofuscin accumulation is an early imaging biomarker, followed by hypoautofluorescence in areas of retinal pigment epithelium atrophy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030602\"}}, {\"id\": \"Central scotoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central visual field loss corresponds to macular photoreceptor degeneration and may be a presenting symptom in adolescent-onset disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000603\"}}, {\"id\": \"Color vision defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyschromatopsia develops as cone photoreceptors in the macula degenerate and may affect both red-green and blue-yellow axes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000551\"}}, {\"id\": \"Gene therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Several ABCA4 gene replacement strategies are under investigation. The large ABCA4 cDNA exceeds standard AAV packaging capacity, motivating dual-vector and lentiviral approaches.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Lipofuscin and A2E accumulation in RPE\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear all-trans-retinal adducts from photoreceptor discs leads to formation of A2E and related bisretinoids that accumulate as lipofuscin in retinal pigment epithelial cells. These fluorophores are phototoxic and drive oxidative, lysosomal, and inflammatory stress in the RPE.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"phagocytosis\"], \"experimental_models\": [{\"name\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The disease-in-a-dish RPE model shows intracellular autofluorescent material accumulation consistent with lipofuscin loading.\"}]}}, {\"id\": \"Low vision rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Assistive devices, magnification aids, adaptive technologies, and rehabilitation strategies help maximize remaining functional vision and quality of life.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lysosomal re-acidification (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Drug-mediated lysosomal re-acidification is an RPE-targeted strategy intended to restore cathepsin D activity and improve photoreceptor outer segment degradation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Macular atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive atrophy of the macular RPE and neurosensory retina, ranging from early beaten-bronze change to frank geographic atrophy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007401\"}}, {\"id\": \"Patient-derived retinal organoid model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human retinal organoids generated from unresolved and genetically confirmed STGD1 cases to model genotype-phenotype correlations, photoreceptor-retina developmental abnormalities, and therapeutic-response hypotheses.\\n\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"Stargardt disease\", \"late-onset STGD1\", \"unaffected control\"], \"publication\": \"PMID:39971915\"}}, {\"id\": \"Photoreceptor outer segment loss on macular OCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ellipsoid zone disruption and loss of the photoreceptor outer segment layer on OCT are important structural biomarkers that correlate with visual function.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030610\"}}, {\"id\": \"RPE dysfunction and atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipofuscin toxicity, oxidative stress, and lysosomal failure culminate in loss of retinal pigment epithelial homeostasis, functional decline, and progressive atrophic injury in the macula.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"]}}, {\"id\": \"RPE endo-lysosomal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bisretinoid stress elevates lysosomal pH, impairs cathepsin D maturation and activity, and compromises degradation of photoreceptor outer segments in retinal pigment epithelium.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"lysosome organization\", \"phagocytosis\"], \"experimental_models\": [{\"name\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Patient-derived iPSC-RPE directly reproduces the elevated lysosomal pH and impaired cathepsin D maturation and activity that define this node; the node\u0027s own evidence is already built from this model.\"}]}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of central visual acuity is the dominant presenting complaint and often worsens to 20/200 or worse over time.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"Retinal flecks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic yellow-white pisciform flecks at the level of the RPE represent lipofuscin-laden cells and may extend beyond the macula in later disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012045\"}}, {\"id\": \"Retinal pigment epithelial atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of retinal pigment epithelial cells is visible as areas of hypoautofluorescence and angiographic window defects.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007722\"}}, {\"id\": \"Retinal thinning on OCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Outer retinal thinning on spectral-domain OCT reflects progressive photoreceptor layer loss and may precede visible fundus change.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030329\"}}, {\"id\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear all-trans-retinal adducts from photoreceptor outer segment discs promotes retention of retinoid-phospholipid intermediates and formation of toxic bisretinoid precursors upstream of A2E and lipofuscin accumulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\", \"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"retinoid metabolic process\"]}}, {\"id\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived induced pluripotent stem cell retinal pigment epithelium model revealing autofluorescent-material accumulation, lysosomal alkalinization, and cathepsin D dysfunction in STGD1.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"Stargardt disease\", \"confirmed STGD1 patient-derived RPE\"], \"publication\": \"PMID:38837708\"}}, {\"id\": \"Secondary macular photoreceptor degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of retinal pigment epithelial support drives progressive degeneration of macular photoreceptors, especially cones, leading to central visual dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"phototransduction\"], \"experimental_models\": [{\"name\": \"Patient-derived retinal organoid model\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Cone and rod photoreceptor mislocalisation intensifies with genotype severity, modeling photoreceptor stress that precedes overt degeneration.\"}]}}, {\"id\": \"Splice-modulating antisense oligonucleotide (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A splice-modulating antisense oligonucleotide is in preclinical development for the recurrent ABCA4 variant c.768G\u003eT, which lies at the exon 6 splice junction and creates a 35-nucleotide aberrant elongation of exon 6 that leads to premature protein termination. The lead 2\u0027-O-methoxyethyl oligonucleotide (A7 21-mer) occludes the mutant splice site to restore normal ABCA4 splicing, offering a mutation-specific alternative to whole-gene replacement.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Stem cell therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transplantation of retinal pigment epithelial cells derived from pluripotent stem cells is being explored to replace degenerated RPE and preserve retinal structure.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Visual cycle modulators (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmacologic strategies such as emixustat and deuterated vitamin A derivatives aim to slow the visual cycle and reduce bisretinoid formation.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ABCA4 transporter dysfunction\", \"target\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired ABCA4 activity retains retinoid-phospholipid adducts in outer segment discs and promotes toxic bisretinoid precursor formation.\"}, {\"source\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"target\": \"Lipofuscin and A2E accumulation in RPE\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bisretinoid precursors formed in photoreceptor outer segments are transferred to the retinal pigment epithelium during outer segment turnover and accumulate as lipofuscin fluorophores.\"}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"RPE endo-lysosomal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipofuscin-loaded lysosomes become dysfunctional and less able to degrade photoreceptor outer segment cargo.\"}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic bisretinoid toxicity injures the retinal pigment epithelium and drives progressive functional decline and atrophic damage.\"}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"Retinal flecks\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipofuscin accumulation in the retinal pigment epithelium produces the characteristic Stargardt flecks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"Abnormal fundus autofluorescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autofluorescent lipofuscin accumulation in RPE cells explains abnormal fundus autofluorescence imaging.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RPE endo-lysosomal dysfunction\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic failure of RPE degradative function produces cell stress and progressive atrophic injury.\"}, {\"source\": \"RPE dysfunction and atrophy\", \"target\": \"Secondary macular photoreceptor degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of RPE support propagates secondary degeneration of overlying macular photoreceptors.\"}, {\"source\": \"RPE dysfunction and atrophy\", \"target\": \"Retinal pigment epithelial atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RPE dysfunction and cell loss are represented clinically by retinal pigment epithelial atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Macular atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive central photoreceptor loss contributes to macular atrophy.\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of macular photoreceptors causes progressive decline in central visual acuity.\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Central scotoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal macular photoreceptor loss creates a central visual field defect.\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Color vision defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cone-predominant macular degeneration impairs color vision in Stargardt disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Macular cone photoreceptor degeneration\"]}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Retinal thinning on OCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor and outer retinal layer loss are represented by retinal thinning on OCT.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Photoreceptor outer segment loss on macular OCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of macular photoreceptor structure is directly visible as outer segment/layer loss on OCT.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low vision rehabilitation\", \"target\": \"Reduced visual acuity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low vision rehabilitation\", \"target\": \"Central scotoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Splice-modulating antisense oligonucleotide (investigational)\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Visual cycle modulators (investigational)\", \"target\": \"Lipofuscin and A2E accumulation in RPE\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Stem cell therapy (investigational)\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lysosomal re-acidification (investigational)\", \"target\": \"RPE endo-lysosomal dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived retinal organoid model\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Organoid photoreceptor ABCA4 protein abundance tracks genotype severity, and long-read RNA-seq recapitulates the patient-specific ABCA4 retina-specific splicing defect.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Patient-derived retinal organoid model\", \"target\": \"Secondary macular photoreceptor degeneration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Cone and rod photoreceptor mislocalisation intensifies with genotype severity, modeling photoreceptor stress that precedes overt degeneration.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The organoid attributes photoreceptor mislocalisation to a secondary stress response from harbouring mutated ABCA4 rather than to a direct effect of ABCA4 loss, and CASP3-mediated apoptosis was explicitly ruled out as the cause. A 220-day developmental organoid also has no route to the decades-long lipofuscin-to-RPE-to-photoreceptor axis that drives human macular degeneration, so the model bypasses the middle of this arm of the pathograph.\"}, {\"source\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"target\": \"RPE endo-lysosomal dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient-derived iPSC-RPE directly reproduces the elevated lysosomal pH and impaired cathepsin D maturation and activity that define this node; the node\u0027s own evidence is already built from this model.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"target\": \"Lipofuscin and A2E accumulation in RPE\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The disease-in-a-dish RPE model shows intracellular autofluorescent material accumulation consistent with lipofuscin loading.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The paper reports accumulation of autofluorescent material and phosphatidylethanolamine (PE), not A2E specifically, so this model supports the broader lipofuscin-loading claim but not the A2E bisretinoid identity asserted by this node\u0027s name.\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"ERG amplitudes as a readout of macular (and, in severe disease, generalized) photoreceptor degeneration\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ABCA4\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 8, \"genes\": [\"ABCA4\"], \"gene_terms\": [{\"label\": \"ABCA4\", \"id\": \"hgnc:34\"}], \"association\": \"Causative\"}}, {\"id\": \"ABCA4 transporter dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ABCA4 normally flips N-retinylidene-phosphatidylethanolamine across photoreceptor disc membranes. Loss of ABCA4 function impairs this outer-segment transport step and disrupts normal retinoid handling in photoreceptors.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"photoreceptor cell\", \"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"lipid transport\"], \"genes\": [\"ABCA4\"], \"gene_terms\": [{\"label\": \"ABCA4\", \"id\": \"hgnc:34\", \"modifier\": \"DECREASED\"}], \"experimental_models\": [{\"name\": \"Patient-derived retinal organoid model\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Organoid photoreceptor ABCA4 protein abundance tracks genotype severity, and long-read RNA-seq recapitulates the patient-specific ABCA4 retina-specific splicing defect.\"}]}}, {\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Electrophysiology may range from isolated macular dysfunction to generalized cone-rod dysfunction, with prognostic implications.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"Secondary macular photoreceptor degeneration\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"ERG amplitudes as a readout of macular (and, in severe disease, generalized) photoreceptor degeneration\"}], \"term_id\": \"HP:0000512\"}}, {\"id\": \"Abnormal fundus autofluorescence\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased fundus autofluorescence from lipofuscin accumulation is an early imaging biomarker, followed by hypoautofluorescence in areas of retinal pigment epithelium atrophy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030602\"}}, {\"id\": \"Central scotoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central visual field loss corresponds to macular photoreceptor degeneration and may be a presenting symptom in adolescent-onset disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000603\"}}, {\"id\": \"Color vision defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyschromatopsia develops as cone photoreceptors in the macula degenerate and may affect both red-green and blue-yellow axes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000551\"}}, {\"id\": \"Direct all-trans-retinal photoreceptor toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Free all-trans-retinal that ABCA4 fails to clear from outer segment discs is cytotoxic to the photoreceptor itself, independently of bisretinoid delivered to the retinal pigment epithelium. Retinal overload raises ferrous iron, depletes glutathione, induces ACSL4, and drives lipid peroxidation, killing photoreceptors by ferroptosis. This is a parallel arm of the ABCA4 chain rather than a consequence of retinal pigment epithelial injury, and in mice it is expressed only after light exposure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"ferroptosis\", \"response to oxidative stress\"]}}, {\"id\": \"Gene therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Several ABCA4 gene replacement strategies are under investigation. The large ABCA4 cDNA exceeds standard AAV packaging capacity, motivating dual-vector and lentiviral approaches.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Lipofuscin and A2E accumulation in RPE\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear all-trans-retinal adducts from photoreceptor discs leads to formation of A2E and related bisretinoids that accumulate as lipofuscin in retinal pigment epithelial cells. These fluorophores are phototoxic and drive oxidative, lysosomal, and inflammatory stress in the RPE.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"phagocytosis\"], \"experimental_models\": [{\"name\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The disease-in-a-dish RPE model shows intracellular autofluorescent material accumulation consistent with lipofuscin loading.\"}]}}, {\"id\": \"Low vision rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Assistive devices, magnification aids, adaptive technologies, and rehabilitation strategies help maximize remaining functional vision and quality of life.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lysosomal re-acidification (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Drug-mediated lysosomal re-acidification is an RPE-targeted strategy intended to restore cathepsin D activity and improve photoreceptor outer segment degradation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Macular atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive atrophy of the macular RPE and neurosensory retina, ranging from early beaten-bronze change to frank geographic atrophy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007401\"}}, {\"id\": \"Patient-derived retinal organoid model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human retinal organoids generated from unresolved and genetically confirmed STGD1 cases to model genotype-phenotype correlations, photoreceptor-retina developmental abnormalities, and therapeutic-response hypotheses.\\n\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"Stargardt disease\", \"late-onset STGD1\", \"unaffected control\"], \"publication\": \"PMID:39971915\"}}, {\"id\": \"Photoreceptor outer segment loss on macular OCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ellipsoid zone disruption and loss of the photoreceptor outer segment layer on OCT are important structural biomarkers that correlate with visual function.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030610\"}}, {\"id\": \"RPE dysfunction and atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipofuscin toxicity, oxidative stress, and lysosomal failure culminate in loss of retinal pigment epithelial homeostasis, functional decline, and progressive atrophic injury in the macula.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"]}}, {\"id\": \"RPE endo-lysosomal dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bisretinoid stress elevates lysosomal pH, impairs cathepsin D maturation and activity, and compromises degradation of photoreceptor outer segments in retinal pigment epithelium.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"lysosome organization\", \"phagocytosis\"], \"experimental_models\": [{\"name\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Patient-derived iPSC-RPE directly reproduces the elevated lysosomal pH and impaired cathepsin D maturation and activity that define this node; the node\u0027s own evidence is already built from this model.\"}]}}, {\"id\": \"Reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of central visual acuity is the dominant presenting complaint and often worsens to 20/200 or worse over time.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"Retinal flecks\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic yellow-white pisciform flecks at the level of the RPE represent lipofuscin-laden cells and may extend beyond the macula in later disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012045\"}}, {\"id\": \"Retinal light exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Light drives the phototransduction cycle that generates the all-trans-retinal ABCA4 fails to clear, and it photo-oxidizes bisretinoid once deposited. In mice lacking both Abca4 and Rdh8 the degeneration is expressed only after illumination, and blocking the visual cycle with retinylamine before illumination preserves retinal structure and function. Whether light exposure modifies progression in human STGD1 has never been tested; see the linked knowledge-gap discussion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Retinal pigment epithelial atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive loss of retinal pigment epithelial cells is visible as areas of hypoautofluorescence and angiographic window defects.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007722\"}}, {\"id\": \"Retinal thinning on OCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Outer retinal thinning on spectral-domain OCT reflects progressive photoreceptor layer loss and may precede visible fundus change.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030329\"}}, {\"id\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear all-trans-retinal adducts from photoreceptor outer segment discs promotes retention of retinoid-phospholipid intermediates and formation of toxic bisretinoid precursors upstream of A2E and lipofuscin accumulation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\", \"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"retinoid metabolic process\"]}}, {\"id\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived induced pluripotent stem cell retinal pigment epithelium model revealing autofluorescent-material accumulation, lysosomal alkalinization, and cathepsin D dysfunction in STGD1.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"Stargardt disease\", \"confirmed STGD1 patient-derived RPE\"], \"publication\": \"PMID:38837708\"}}, {\"id\": \"Secondary macular photoreceptor degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of retinal pigment epithelial support drives progressive degeneration of macular photoreceptors, especially cones, leading to central visual dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"phototransduction\"], \"experimental_models\": [{\"name\": \"Patient-derived retinal organoid model\", \"model_type\": \"ORGANOID\", \"namo_type\": \"namo:Organoid\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Cone and rod photoreceptor mislocalisation intensifies with genotype severity, modeling photoreceptor stress that precedes overt degeneration.\"}]}}, {\"id\": \"Splice-modulating antisense oligonucleotide (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A splice-modulating antisense oligonucleotide is in preclinical development for the recurrent ABCA4 variant c.768G\u003eT, which lies at the exon 6 splice junction and creates a 35-nucleotide aberrant elongation of exon 6 that leads to premature protein termination. The lead 2\u0027-O-methoxyethyl oligonucleotide (A7 21-mer) occludes the mutant splice site to restore normal ABCA4 splicing, offering a mutation-specific alternative to whole-gene replacement.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Stem cell therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transplantation of retinal pigment epithelial cells derived from pluripotent stem cells is being explored to replace degenerated RPE and preserve retinal structure.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Visual cycle modulators (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmacologic strategies such as emixustat and deuterated vitamin A derivatives aim to slow the visual cycle and reduce bisretinoid formation.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ABCA4 transporter dysfunction\", \"target\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired ABCA4 activity retains retinoid-phospholipid adducts in outer segment discs and promotes toxic bisretinoid precursor formation.\"}, {\"source\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"target\": \"Lipofuscin and A2E accumulation in RPE\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bisretinoid precursors formed in photoreceptor outer segments are transferred to the retinal pigment epithelium during outer segment turnover and accumulate as lipofuscin fluorophores.\"}, {\"source\": \"Retinoid-adduct retention and bisretinoid precursor formation\", \"target\": \"Direct all-trans-retinal photoreceptor toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncleared free all-trans-retinal is itself cytotoxic within the photoreceptor, so a second arm leaves this node without passing through the retinal pigment epithelium.\"}, {\"source\": \"Direct all-trans-retinal photoreceptor toxicity\", \"target\": \"Secondary macular photoreceptor degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ferroptotic death of photoreceptors adds directly to macular photoreceptor loss, so some of that loss is not secondary to retinal pigment epithelial atrophy.\"}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"RPE endo-lysosomal dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipofuscin-loaded lysosomes become dysfunctional and less able to degrade photoreceptor outer segment cargo.\"}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic bisretinoid toxicity injures the retinal pigment epithelium and drives progressive functional decline and atrophic damage.\"}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"Retinal flecks\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipofuscin accumulation in the retinal pigment epithelium produces the characteristic Stargardt flecks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lipofuscin and A2E accumulation in RPE\", \"target\": \"Abnormal fundus autofluorescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autofluorescent lipofuscin accumulation in RPE cells explains abnormal fundus autofluorescence imaging.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RPE endo-lysosomal dysfunction\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic failure of RPE degradative function produces cell stress and progressive atrophic injury.\"}, {\"source\": \"RPE dysfunction and atrophy\", \"target\": \"Secondary macular photoreceptor degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of RPE support propagates secondary degeneration of overlying macular photoreceptors.\"}, {\"source\": \"RPE dysfunction and atrophy\", \"target\": \"Retinal pigment epithelial atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RPE dysfunction and cell loss are represented clinically by retinal pigment epithelial atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Macular atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive central photoreceptor loss contributes to macular atrophy.\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of macular photoreceptors causes progressive decline in central visual acuity.\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Central scotoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal macular photoreceptor loss creates a central visual field defect.\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Color vision defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cone-predominant macular degeneration impairs color vision in Stargardt disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Macular cone photoreceptor degeneration\"]}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Retinal thinning on OCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor and outer retinal layer loss are represented by retinal thinning on OCT.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Photoreceptor outer segment loss on macular OCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of macular photoreceptor structure is directly visible as outer segment/layer loss on OCT.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal light exposure\", \"target\": \"Direct all-trans-retinal photoreceptor toxicity\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Light generates the all-trans-retinal load that this node acts on, so the photoreceptor toxicity arm is expressed only in illuminated animals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low vision rehabilitation\", \"target\": \"Reduced visual acuity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low vision rehabilitation\", \"target\": \"Central scotoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Splice-modulating antisense oligonucleotide (investigational)\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Visual cycle modulators (investigational)\", \"target\": \"Lipofuscin and A2E accumulation in RPE\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Stem cell therapy (investigational)\", \"target\": \"RPE dysfunction and atrophy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lysosomal re-acidification (investigational)\", \"target\": \"RPE endo-lysosomal dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived retinal organoid model\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Organoid photoreceptor ABCA4 protein abundance tracks genotype severity, and long-read RNA-seq recapitulates the patient-specific ABCA4 retina-specific splicing defect.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Patient-derived retinal organoid model\", \"target\": \"Secondary macular photoreceptor degeneration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Cone and rod photoreceptor mislocalisation intensifies with genotype severity, modeling photoreceptor stress that precedes overt degeneration.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The organoid attributes photoreceptor mislocalisation to a secondary stress response from harbouring mutated ABCA4 rather than to a direct effect of ABCA4 loss, and CASP3-mediated apoptosis was explicitly ruled out as the cause. A 220-day developmental organoid also has no route to the decades-long lipofuscin-to-RPE-to-photoreceptor axis that drives human macular degeneration, so the model bypasses the middle of this arm of the pathograph.\"}, {\"source\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"target\": \"RPE endo-lysosomal dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient-derived iPSC-RPE directly reproduces the elevated lysosomal pH and impaired cathepsin D maturation and activity that define this node; the node\u0027s own evidence is already built from this model.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\"}, {\"source\": \"STGD1 iPSC-derived RPE disease-in-a-dish model\", \"target\": \"Lipofuscin and A2E accumulation in RPE\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The disease-in-a-dish RPE model shows intracellular autofluorescent material accumulation consistent with lipofuscin loading.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The paper reports accumulation of autofluorescent material and phosphatidylethanolamine (PE), not A2E specifically, so this model supports the broader lipofuscin-loading claim but not the A2E bisretinoid identity asserted by this node\u0027s name.\"}, {\"source\": \"Secondary macular photoreceptor degeneration\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"ERG amplitudes as a readout of macular (and, in severe disease, generalized) photoreceptor degeneration\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ABCA4\", \"target\": \"ABCA4 transporter dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6242,15 +6832,18 @@ This pathophysiological event involves decreased phototransduction (GO:0007602).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0007754</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0007754</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macular dystrophy (HP:0007754), qualified as located in macula. HP:0007754 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6313,15 +6906,18 @@ This clinical feature is Macular dystrophy (HP:0007754), qualified as located in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007401</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0007401</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macular atrophy (HP:0007401), qualified as located in macula. HP:0007401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6384,15 +6980,18 @@ This clinical feature is Macular atrophy (HP:0007401), qualified as located in m
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012045</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012045</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinal flecks (HP:0012045), qualified as located in retina. HP:0012045 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6455,15 +7054,18 @@ This clinical feature is Retinal flecks (HP:0012045), qualified as located in re
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0007663</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6526,15 +7128,18 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000603</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000603</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6597,15 +7202,18 @@ This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000551</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000551</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Color vision defect (HP:0000551). HP:0000551 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6668,15 +7276,18 @@ This clinical feature is Color vision defect (HP:0000551). HP:0000551 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0030602</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030602</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal fundus autofluorescence imaging (HP:0030602). HP:0030602 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6739,15 +7350,18 @@ This clinical feature is Abnormal fundus autofluorescence imaging (HP:0030602). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0011504</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011504</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bull&#39;s eye maculopathy (HP:0011504), qualified as located in macula. HP:0011504 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6810,15 +7424,18 @@ This clinical feature is Bull&#39;s eye maculopathy (HP:0011504), qualified as l
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0007722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0007722</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinal pigment epithelial atrophy (HP:0007722), qualified as located in retinal pigment epithelium. HP:0007722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6881,15 +7498,18 @@ This clinical feature is Retinal pigment epithelial atrophy (HP:0007722), qualif
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007814" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0007814</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007814" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0007814</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinal pigment epithelial mottling (HP:0007814), qualified as located in retinal pigment epithelium. HP:0007814 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6952,15 +7572,18 @@ This clinical feature is Retinal pigment epithelial mottling (HP:0007814), quali
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000512</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000512</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7048,15 +7671,18 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030329" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0030329</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030329" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0030329</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinal thinning on OCT (HP:0030329), qualified as located in retina. HP:0030329 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7119,15 +7745,18 @@ This clinical feature is Retinal thinning on OCT (HP:0030329), qualified as loca
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030610" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030610</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030610" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0030610</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Photoreceptor outer segment loss on macular OCT (HP:0030610), qualified as located in macula. HP:0030610 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7190,15 +7819,18 @@ This clinical feature is Photoreceptor outer segment loss on macular OCT (HP:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000662</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7261,15 +7893,18 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000613</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000613</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7347,10 +7982,10 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
                         Gene: ABCA4
 
 
-    <a href="https://bioregistry.io/hgnc:34" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:34</a>
+    <a href="https://bioregistry.io/hgnc:34" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:34</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ABCA4 (hgnc:34). hgnc:34 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7362,9 +7997,12 @@ This disease-associated gene is ABCA4 (hgnc:34). hgnc:34 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (8 references)
         </summary>
         <div class="evidence-list">
 
@@ -7445,7 +8083,7 @@ This disease-associated gene is ABCA4 (hgnc:34). hgnc:34 is a gene from the HUGO
             </div>
 
 
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 5 more references</div>
 
         </div>
     </details>
@@ -7472,10 +8110,10 @@ This disease-associated gene is ABCA4 (hgnc:34). hgnc:34 is a gene from the HUGO
                         Gene: ELOVL4
 
 
-    <a href="https://bioregistry.io/hgnc:14415" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:14415</a>
+    <a href="https://bioregistry.io/hgnc:14415" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:14415</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ELOVL4 (hgnc:14415). hgnc:14415 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7483,6 +8121,9 @@ This disease-associated gene is ELOVL4 (hgnc:14415). hgnc:14415 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -7544,10 +8185,10 @@ This disease-associated gene is ELOVL4 (hgnc:14415). hgnc:14415 is a gene from t
                         Gene: PROM1
 
 
-    <a href="https://bioregistry.io/hgnc:9454" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:9454</a>
+    <a href="https://bioregistry.io/hgnc:9454" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:9454</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PROM1 (hgnc:9454). hgnc:9454 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7555,6 +8196,9 @@ This disease-associated gene is PROM1 (hgnc:9454). hgnc:9454 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -7624,7 +8268,7 @@ This disease-associated gene is PROM1 (hgnc:9454). hgnc:9454 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">low vision rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">low vision rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is low vision rehabilitation, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7665,6 +8309,12 @@ This treatment is low vision rehabilitation, annotated with Supportive Care (NCI
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Assistive devices, magnification aids, adaptive technologies, and rehabilitation strategies help maximize remaining functional vision and quality of life.
 </div>
 
@@ -7681,11 +8331,11 @@ This treatment is low vision rehabilitation, annotated with Supportive Care (NCI
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0007663</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7698,11 +8348,11 @@ This treatment targets Reduced visual acuity (HP:0007663). HP:0007663 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000603</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000603</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7758,7 +8408,7 @@ This treatment targets Central scotoma (HP:0000603). HP:0000603 is a phenotype f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7785,6 +8435,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7852,7 +8508,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7888,6 +8544,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7898,6 +8557,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -7923,7 +8585,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -7947,6 +8609,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                 <div class="evidence-explanation">This review supports gene therapy as a strategy to restore ABCA4-dependent retinal function.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35248547" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35248547" target="_blank">PMID:35248547</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"No patients had any clinically significant changes in best-corrected visual acuity, static perimetry, kinetic perimetry, total field hill of vision, full field electroretinogram, or multifocal ERG attributable to the treatment."</div>
+
+
+                <div class="evidence-explanation">The only ABCA4 gene-replacement product taken to a three-year human readout restored no measurable function across 22 patients and three dose levels, and hypoautofluorescent change was worse in the treated eye in six of them. Restoration of ABCA4 function is still the aim of this treatment, not a demonstrated human effect.</div>
 
 
 
@@ -8036,7 +8723,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8071,6 +8758,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8083,12 +8773,15 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: Unconjugated</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
 
 
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: 2′-MOE</span>
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -8108,11 +8801,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         ABCA4
 
 
-    <a href="https://bioregistry.io/hgnc:34" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:34</a>
+    <a href="https://bioregistry.io/hgnc:34" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:34</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this treatment base-pairs with the transcript of this gene
 This treatment base-pairs with the transcript of ABCA4 (hgnc:34). hgnc:34 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -8255,7 +8948,7 @@ This treatment base-pairs with the transcript of ABCA4 (hgnc:34). hgnc:34 is a g
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">visual cycle modulator pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">visual cycle modulator pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is visual cycle modulator pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8283,6 +8976,12 @@ This treatment is visual cycle modulator pharmacotherapy, annotated with Pharmac
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8403,7 +9102,7 @@ This treatment is visual cycle modulator pharmacotherapy, annotated with Pharmac
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">stem cell therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">stem cell therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is stem cell therapy, annotated with Cellular Therapy (NCIT:C70601), qualified as has participant retinal pigment epithelial cell. NCIT:C70601 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8444,6 +9143,12 @@ This treatment is stem cell therapy, annotated with Cellular Therapy (NCIT:C7060
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Transplantation of retinal pigment epithelial cells derived from pluripotent stem cells is being explored to replace degenerated RPE and preserve retinal structure.
 </div>
 
@@ -8463,7 +9168,7 @@ This treatment is stem cell therapy, annotated with Cellular Therapy (NCIT:C7060
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -8487,6 +9192,31 @@ This treatment is stem cell therapy, annotated with Cellular Therapy (NCIT:C7060
 
 
                 <div class="evidence-explanation">This review supports stem cell therapy as a restorative strategy directed at RPE and photoreceptor loss.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29884405" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29884405" target="_blank">PMID:29884405</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Microperimetry demonstrated no evidence of benefit at 12 months in the 12 participants."</div>
+
+
+                <div class="evidence-explanation">The trial that measured retinal function topographically in the treated area found no functional benefit, and attributed the borderline acuity gains in four participants to changes that were unsustained or matched in the untreated eye. The &#34;preliminary efficacy&#34; summarized in the review above does not survive that analysis in advanced STGD1.</div>
 
 
 
@@ -8551,7 +9281,7 @@ This treatment is stem cell therapy, annotated with Cellular Therapy (NCIT:C7060
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">lysosomal re-acidification pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">lysosomal re-acidification pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is lysosomal re-acidification pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8579,6 +9309,12 @@ This treatment is lysosomal re-acidification pharmacotherapy, annotated with Pha
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8699,7 +9435,7 @@ This treatment is lysosomal re-acidification pharmacotherapy, annotated with Pha
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">complement inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">complement inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8727,6 +9463,12 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -8795,7 +9537,7 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-spaceflight-microgravity-and-cosmic-radiation" data-dismech-node="Spaceflight microgravity and cosmic radiation" data-dismech-type="environmental">
@@ -8900,6 +9642,163 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
     </details>
 
 
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-retinal-light-exposure" data-dismech-node="Retinal light exposure" data-dismech-type="environmental">
+                <div class="item-name">Retinal light exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to visible light radiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000007" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-53">ECTO:0000007</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to visible light radiation (ECTO:0000007). ECTO:0000007 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Curated as EXACERBATES rather than TRIGGERS on purpose. The mouse evidence would support light as a necessary cofactor in that model, but the report generalizing it to human STGD1 has no human epidemiology behind it, and the entry should not assert a stronger environmental claim than the species it was measured in.</div>
+
+
+                <div class="item-desc">Light drives the phototransduction cycle that generates the all-trans-retinal ABCA4 fails to clear, and it photo-oxidizes bisretinoid once deposited. In mice lacking both Abca4 and Rdh8 the degeneration is expressed only after illumination, and blocking the visual cycle with retinylamine before illumination preserves retinal structure and function. Whether light exposure modifies progression in human STGD1 has never been tested; see the linked knowledge-gap discussion.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33334878" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33334878" target="_blank">PMID:33334878</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We observed that ferroptosis was indeed present in neural retina of Abca4-/-Rdh8-/- mice after light exposure."</div>
+
+
+                <div class="evidence-explanation">Places the ferroptotic photoreceptor death of the atRAL-clearance mouse after illumination rather than at baseline.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26225634" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26225634" target="_blank">PMID:26225634</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Manganese-enhanced MRI contrast in the retina was high in nonilluminated and illuminated Ret-NH2-treated mice, whereas no enhancement was evident in the retina of the light-illuminated mice without Ret-NH2 treatment (P &lt; 0.0005)."</div>
+
+
+                <div class="evidence-explanation">Non-illuminated double-knockout retinas retained normal manganese uptake while illuminated untreated ones lost it, and visual-cycle blockade before illumination prevented the loss. Indirect support: the study was designed to qualify an imaging readout, not to test whether light is necessary.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Direct all-trans-retinal photoreceptor toxicity</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Light generates the all-trans-retinal load that this node acts on, so the photoreceptor toxicity arm is expressed only in illuminated animals.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33334878" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33334878" target="_blank">PMID:33334878</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Abca4-/-Rdh8-/- mice exhibiting defects in atRAL clearance is an animal model for dry AMD and STGD1. We observed that ferroptosis was indeed present in neural retina of Abca4-/-Rdh8-/- mice after light exposure."</div>
+
+
+                <div class="evidence-explanation">Directly links illumination to the appearance of ferroptosis in the retina of the atRAL-clearance model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9008,7 +9907,7 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -9032,6 +9931,56 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
 
 
                 <div class="evidence-explanation">Patient-derived iPSC-RPE models directly show accumulation of autofluorescent material consistent with lipofuscin burden.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32891696" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32891696" target="_blank">PMID:32891696</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most patients (76.6%) had qAF levels &gt;95% prediction interval of the age-related control group, with best discrimination between cases and control subjects in younger patients."</div>
+
+
+                <div class="evidence-explanation">Quantitative fundus autofluorescence measures the lipofuscin burden in living patients, so this is the direct human counterpart of the iPSC-RPE and mouse observations above.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32891696" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32891696" target="_blank">PMID:32891696</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The accumulation of lipofuscin depends on the severity of ABCA4 variants, precedes other structural changes, and may remain without clinically relevant effect on retinal function."</div>
+
+
+                <div class="evidence-explanation">Ties the marker to allele severity and places it before structural change, while recording the study&#39;s own caveat that an elevated burden need not translate into measurable functional loss.</div>
 
 
 
@@ -9183,11 +10132,11 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-54">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9272,11 +10221,11 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
         optical coherence tomography
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20828" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C20828</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20828" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-55">NCIT:C20828</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9389,11 +10338,11 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9531,11 +10480,11 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
         fluorescein angiography
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C190541" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C190541</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C190541" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C190541</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -10092,11 +11041,11 @@ This treatment is complement inhibitor therapy, annotated with Pharmacotherapy (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-53">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-58">UBERON:0000966</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples retinal organoid, annotated with retina (UBERON:0000966). UBERON:0000966 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -10278,11 +11227,11 @@ This dataset samples retinal organoid, annotated with retina (UBERON:0000966). U
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-54">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-59">UBERON:0000966</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples retinal organoid, annotated with retina (UBERON:0000966). UBERON:0000966 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -10464,11 +11413,11 @@ This dataset samples retinal organoid, annotated with retina (UBERON:0000966). U
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-55">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-60">UBERON:0000966</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples retina (UBERON:0000966). UBERON:0000966 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -10652,11 +11601,11 @@ This dataset samples retina (UBERON:0000966). UBERON:0000966 is a sample type fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-56">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-61">UBERON:0000966</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples retina (UBERON:0000966). UBERON:0000966 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -10881,11 +11830,11 @@ This dataset samples retina (UBERON:0000966). UBERON:0000966 is a sample type fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-57">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-62">UBERON:0000966</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples retina (UBERON:0000966). UBERON:0000966 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -11006,7 +11955,7 @@ This dataset samples retina (UBERON:0000966). UBERON:0000966 is a sample type fr
 
             <div class="item-box dataset-box anchor-target" id="dataset-doi-10-3390-ijms24087362">
                 <div class="item-name">
-                    SpaceX-24 Mouse Retina ERG and Oxidative Stress: Antioxidant Countermeasure Trial After 35-Day ISS Spaceflight
+                    Evidence of Spaceflight-Induced Adverse Effects on Photoreceptors and Retinal Function in the Mouse Eye
 
                     <span class="dataset-accession">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms24087362" target="_blank">DOI:10.3390/ijms24087362</a>
@@ -11040,11 +11989,11 @@ This dataset samples retina (UBERON:0000966). UBERON:0000966 is a sample type fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-58">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-63">UBERON:0000966</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples retina (UBERON:0000966). UBERON:0000966 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -11228,11 +12177,11 @@ This dataset samples retina (UBERON:0000966). UBERON:0000966 is a sample type fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0007401</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0007401</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Macular atrophy (HP:0007401). HP:0007401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11305,11 +12254,11 @@ This clinical trial targets Macular atrophy (HP:0007401). HP:0007401 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0007401</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0007401</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Macular atrophy (HP:0007401). HP:0007401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11579,11 +12528,11 @@ This clinical trial targets Macular atrophy (HP:0007401). HP:0007401 is a phenot
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-61">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-66">NCBITaxon:9606</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-61">NCBI Taxonomy (NCBITaxon)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-66">NCBI Taxonomy (NCBITaxon)
 Relation: this experimental model is built in this organism
 This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
@@ -11599,11 +12548,11 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                             retina
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-62">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-67">UBERON:0000966</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-62">Uberon multi-species anatomy ontology (UBERON)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-67">Uberon multi-species anatomy ontology (UBERON)
 Relation: this experimental model uses this anatomical location
 This experimental model uses retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
@@ -12112,11 +13061,11 @@ This experimental model uses retina (UBERON:0000966). UBERON:0000966 is an anato
                         retinal pigment epithelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-63">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-68">CL:0002586</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -12135,11 +13084,11 @@ This experimental model uses retinal pigment epithelial cell (CL:0002586). CL:00
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-64">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-69">NCBITaxon:9606</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-64">NCBI Taxonomy (NCBITaxon)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-69">NCBI Taxonomy (NCBITaxon)
 Relation: this experimental model is built in this organism
 This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
@@ -12155,11 +13104,11 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                             retina
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-65">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-70">UBERON:0000966</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-65">Uberon multi-species anatomy ontology (UBERON)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-70">Uberon multi-species anatomy ontology (UBERON)
 Relation: this experimental model uses this anatomical location
 This experimental model uses retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
@@ -12939,6 +13888,34 @@ mechanistic_hypotheses:
       Existing canonical mechanism citation in the dismech
       knowledge base, used as the seed for the hypothesis-search
       deep-research run.
+  - reference: PMID:37385300
+    reference_title: Retina and RPE lipid profile changes linked with ABCA4 associated Stargardt&#39;s maculopathy.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Recently, we demonstrated that ABCA4 loss of function in the RPE leads to
+      cell-autonomous lipid homeostasis defects.
+    explanation: &gt;-
+      Sources qualification 4 in the notes above, that ABCA4 has a retinal pigment
+      epithelium-autonomous role beyond photoreceptor disc transport. Graded OTHER
+      because the sentence is the authors restating their own earlier finding
+      inside a Pharmacology and Therapeutics article, not the primary
+      demonstration; the pathophysiology chain below still models ABCA4 as a
+      photoreceptor transporter and has not been rewritten on this basis.
+  - reference: PMID:25712131
+    reference_title: Protein misfolding and the pathogenesis of ABCA4-associated retinal degenerations.
+    supports: REFUTE
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Thus, rapid degradation of this large misfolded mutant protein in mouse
+      retina caused little detectable photoreceptor degeneration.
+    explanation: &gt;-
+      Refutes the sufficiency limb of the canonical model as stated in the
+      description above, which has bisretinoid lipofuscin producing progressive
+      retinal pigment epithelial atrophy. Note this source does not support
+      qualification 5 as written: it reports that the misfolded mutants retained
+      normal cellular localization, so misfolding with rapid degradation is the
+      mechanism, not endoplasmic reticulum retention.
 pathophysiology:
 - name: ABCA4 transporter dysfunction
   conforms_to: &#34;retinoid_visual_cycle_disruption#Visual Cycle Enzyme or Transporter Defect&#34;
@@ -12994,6 +13971,18 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;STGD1 is an autosomal recessive disorder caused by multiple pathogenic sequence variants in the large ABCA4 gene (OMIM 601691).&#34;
     explanation: This review confirms ABCA4 as the principal causative gene in autosomal recessive STGD1.
+  - reference: PMID:34625547
+    reference_title: Cryo-EM structures of the ABCA4 importer reveal mechanisms underlying substrate binding and Stargardt disease.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      ABCA4 is an ATP-binding cassette (ABC) transporter that flips
+      N-retinylidene-phosphatidylethanolamine (N-Ret-PE) from the lumen to the
+      cytoplasmic leaflet of photoreceptor membranes.
+    explanation: &gt;-
+      Cryo-EM structures of substrate-free and N-Ret-PE-bound ABCA4 establish the
+      transported substrate and the direction of transport at atomic resolution,
+      giving the first step of this node a structural rather than an inferred basis.
 - name: Retinoid-adduct retention and bisretinoid precursor formation
   conforms_to: &#34;retinoid_visual_cycle_disruption#Chromophore Insufficiency and Retinoid Intermediate Accumulation&#34;
   description: &gt;
@@ -13029,6 +14018,23 @@ pathophysiology:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Lipofuscin accumulates in the retinal pigment epithelium (RPE), causing RPE cell dysfunction, and consequent photoreceptor death.&#34;
       explanation: This review supports transfer of toxic retinoid byproducts to the RPE with subsequent lipofuscin accumulation.
+  - target: Direct all-trans-retinal photoreceptor toxicity
+    description: &gt;-
+      Uncleared free all-trans-retinal is itself cytotoxic within the
+      photoreceptor, so a second arm leaves this node without passing through the
+      retinal pigment epithelium.
+    evidence:
+    - reference: PMID:33334878
+      reference_title: Ferroptosis drives photoreceptor degeneration in mice with defects in all-trans-retinal clearance.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        we reveal that the overload of atRAL leads to photoreceptor degeneration
+        through activating ferroptosis, a nonapoptotic form of cell death
+      explanation: &gt;-
+        Places photoreceptor death downstream of retained all-trans-retinal
+        itself, rather than downstream of the retinal pigment epithelium branch
+        of this node.
   evidence:
   - reference: PMID:28941524
     reference_title: &#34;Juvenile Macular Degenerations.&#34;
@@ -13036,6 +14042,89 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The malfunction of this transporter leads to accumulation of all-trans retinal, which results in increased concentration of a toxic byproduct, N-retinylidene-N-retinyl-ethanolamine (A2E), which is a major component of lipofuscin.&#34;
     explanation: This review directly supports toxic retinoid-adduct and bisretinoid precursor formation downstream of ABCA4 dysfunction.
+  - reference: PMID:10412977
+    reference_title: Insights into the function of Rim protein in photoreceptors and etiology of Stargardt&#39;s disease from the phenotype in abcr knockout mice.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Mice lacking RmP show delayed dark adaptation, increased all-trans-retinaldehyde
+      (all-trans-RAL) following light exposure, elevated phosphatidylethanolamine (PE)
+      in outer segments, accumulation of the protonated Schiff base complex of
+      all-trans-RAL and PE (N-retinylidene-PE), and striking deposition of a major
+      lipofuscin fluorophore (A2-E) in retinal pigment epithelium (RPE).
+    explanation: &gt;-
+      The founding Abca4 knockout mouse shows each intermediate of this node
+      directly: retained all-trans-retinal, elevated outer-segment
+      phosphatidylethanolamine, and the N-retinylidene-PE adduct itself.
+- name: Direct all-trans-retinal photoreceptor toxicity
+  biological_scale: CELLULAR
+  description: &gt;-
+    Free all-trans-retinal that ABCA4 fails to clear from outer segment discs is
+    cytotoxic to the photoreceptor itself, independently of bisretinoid delivered
+    to the retinal pigment epithelium. Retinal overload raises ferrous iron,
+    depletes glutathione, induces ACSL4, and drives lipid peroxidation, killing
+    photoreceptors by ferroptosis. This is a parallel arm of the ABCA4 chain
+    rather than a consequence of retinal pigment epithelial injury, and in mice it
+    is expressed only after light exposure.
+  cell_types:
+  - preferred_term: retinal cone cell
+    term:
+      id: CL:0000573
+      label: retinal cone cell
+  - preferred_term: retinal rod cell
+    term:
+      id: CL:0000604
+      label: retinal rod cell
+  biological_processes:
+  - preferred_term: ferroptosis
+    modifier: INCREASED
+    term:
+      id: GO:0097707
+      label: ferroptosis
+  - preferred_term: response to oxidative stress
+    modifier: INCREASED
+    term:
+      id: GO:0006979
+      label: response to oxidative stress
+  downstream:
+  - target: Secondary macular photoreceptor degeneration
+    description: &gt;-
+      Ferroptotic death of photoreceptors adds directly to macular photoreceptor
+      loss, so some of that loss is not secondary to retinal pigment epithelial
+      atrophy.
+    evidence:
+    - reference: PMID:33334878
+      reference_title: Ferroptosis drives photoreceptor degeneration in mice with defects in all-trans-retinal clearance.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        photoreceptor atrophy and ferroptosis in light-exposed Abca4-/-Rdh8-/- mice
+        were effectively alleviated by intraperitoneally injected Fer-1, a selective
+        inhibitor of ferroptosis
+      explanation: &gt;-
+        Blocking ferroptosis rescues photoreceptor atrophy in the atRAL-clearance
+        mouse, which makes this arm causal for photoreceptor loss rather than a
+        bystander correlate.
+  evidence:
+  - reference: PMID:33334878
+    reference_title: Ferroptosis drives photoreceptor degeneration in mice with defects in all-trans-retinal clearance.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Ferroptosis of photoreceptor cells induced by atRAL resulted from increased
+      ferrous ion (Fe2+), elevated ACSL4 expression, system Xc- inhibition, and
+      mitochondrial destruction.
+    explanation: &gt;-
+      Specifies the ferroptotic mechanism attributed to all-trans-retinal in
+      photoreceptor cells, which is what distinguishes this node from the retinal
+      pigment epithelial lipofuscin arm.
+  notes: &gt;-
+    Added from the 2026 openscientist hypothesis-search report as the parallel
+    photoreceptor death axis the canonical model lacked. The evidence is
+    mouse and 661W cell line only. The report also lists GSDME pyroptosis, NLRP3
+    inflammasome activation, ER stress, and ferritinophagy as further limbs of
+    this axis; those were not source-checked during that review and are
+    deliberately not curated here.
 - name: Lipofuscin and A2E accumulation in RPE
   conforms_to: &#34;retinoid_visual_cycle_disruption#RPE Lipofuscin Loading and Retinal Pigment Epithelium Dysfunction&#34;
   description: &gt;
@@ -13109,6 +14198,33 @@ pathophysiology:
     evidence_source: IN_VITRO
     snippet: &#34;dysfunctional ABCA4 in STGD1 RPE cells results in intracellular accumulation of autofluorescent material and phosphatidylethanolamine (PE)&#34;
     explanation: Patient-derived iPSC-RPE models directly show autofluorescent material accumulation caused by ABCA4 dysfunction.
+  - reference: PMID:35219849
+    reference_title: &#34;Removal of RPE lipofuscin results in rescue from retinal degeneration in a mouse model of advanced Stargardt disease: Role of reactive oxygen species.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      we show that the removal of lipofuscin after a single intravitreal injection
+      of Remofuscin results in a rescue from retinal degeneration in a mouse model
+      of advanced SD which is even accompanied by an amelioration of the retinal
+      dysfunction
+    explanation: &gt;-
+      Removing already-deposited lipofuscin rescues the degeneration, which is the
+      strongest interventional test that the deposit drives injury rather than
+      marking it.
+  - reference: PMID:25712131
+    reference_title: Protein misfolding and the pathogenesis of ABCA4-associated retinal degenerations.
+    supports: REFUTE
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Similar to Abca4(-/-) mice, Abca4(PV/PV) mice showed substantial A2E and
+      lipofuscin accumulation in their RPE cells but no retinal degeneration up to
+      12 months of age.
+    explanation: &gt;-
+      Refutes the sufficiency of this node as written: a knock-in mouse reaches
+      knockout-level A2E and lipofuscin and still does not degenerate, so
+      accumulation alone does not produce retinal pigment epithelial injury. See
+      the linked discussion for why the authors read this as a mouse-versus-human
+      difference rather than as a general disproof.
 - name: RPE endo-lysosomal dysfunction
   description: &gt;
     Bisretinoid stress elevates lysosomal pH, impairs cathepsin D maturation and
@@ -13171,6 +14287,19 @@ pathophysiology:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The primary cause is mutations in the ABCA4 gene, leading to the accumulation of toxic byproducts in the retinal pigment epithelium (RPE) and subsequent photoreceptor cell degeneration.&#34;
       explanation: This review supports a direct causal transition from RPE toxic injury to downstream photoreceptor degeneration.
+    - reference: PMID:25301883
+      reference_title: Structural and genetic assessment of the ABCA4-associated optical gap phenotype.
+      supports: REFUTE
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        it appears that a focal loss of photoreceptors sequentially precedes RPE
+        dysfunction in the early development of ABCA4-associated optical gap lesions
+      explanation: &gt;-
+        In the optical gap phenotype the ordering runs the other way, so this edge
+        is not universal. The scope is narrow: 15 patients selected for that
+        phenotype, 91% of whom carried p.Gly1961Glu. It supports &#34;optical gap
+        lesions are usually G1961E&#34;, not &#34;G1961E disease is usually
+        photoreceptor-first&#34;.
   - target: Retinal pigment epithelial atrophy
     causal_link_type: DIRECT
     description: RPE dysfunction and cell loss are represented clinically by retinal pigment epithelial atrophy.
@@ -13635,6 +14764,30 @@ biochemical:
     evidence_source: IN_VITRO
     snippet: &#34;dysfunctional ABCA4 in STGD1 RPE cells results in intracellular accumulation of autofluorescent material and phosphatidylethanolamine (PE)&#34;
     explanation: Patient-derived iPSC-RPE models directly show accumulation of autofluorescent material consistent with lipofuscin burden.
+  - reference: PMID:32891696
+    reference_title: Quantitative Fundus Autofluorescence in ABCA4-Related Retinopathy -Functional Relevance and Genotype-Phenotype Correlation.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Most patients (76.6%) had qAF levels &gt;95% prediction interval of the
+      age-related control group, with best discrimination between cases and
+      control subjects in younger patients.
+    explanation: &gt;-
+      Quantitative fundus autofluorescence measures the lipofuscin burden in
+      living patients, so this is the direct human counterpart of the
+      iPSC-RPE and mouse observations above.
+  - reference: PMID:32891696
+    reference_title: Quantitative Fundus Autofluorescence in ABCA4-Related Retinopathy -Functional Relevance and Genotype-Phenotype Correlation.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The accumulation of lipofuscin depends on the severity of ABCA4 variants,
+      precedes other structural changes, and may remain without clinically
+      relevant effect on retinal function.
+    explanation: &gt;-
+      Ties the marker to allele severity and places it before structural change,
+      while recording the study&#39;s own caveat that an elevated burden need not
+      translate into measurable functional loss.
 - name: All-trans-retinal
   presence: Elevated
   context: Failure to clear retinaldehyde intermediates from disc membranes promotes bisretinoid formation upstream of A2E accumulation.
@@ -13668,7 +14821,11 @@ genetic:
     STGD1. Over 1,000 disease-associated variants have been reported, including
     missense, nonsense, splice-site, and complex alleles with genotype-phenotype
     correlation. The common p.Gly1961Glu variant is associated with a relatively milder
-    phenotype in some cohorts.
+    phenotype in some cohorts, but that mildness is conditional in two ways: a
+    cis-acting deep intronic modifier (c.769-784C&gt;T) carried on roughly 15% of
+    p.Gly1961Glu alleles produces a more severe phenotype and largely explains why
+    affected homozygotes are rare, and among patients who all carry p.Gly1961Glu the
+    identity of the second allele shifts progression by decades in either direction.
   evidence:
   - reference: PMID:9054934
     reference_title: &#34;A photoreceptor cell-specific ATP-binding transporter gene (ABCR) is mutated in recessive Stargardt macular dystrophy.&#34;
@@ -13705,6 +14862,55 @@ genetic:
       CORD3/RP19 end) to late-onset macula-limited disease (the classic STGD1
       end), though the same study found patient-specific modifying factors
       are similarly influential as the detected allele combination.
+  - reference: PMID:33909047
+    reference_title: Cis-acting modifiers in the ABCA4 locus contribute to the penetrance of the major disease-causing variant in Stargardt disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Our findings indicate that the c.769-784C &gt; T variant is major cis-acting
+      modifier of the p.(Gly1961Glu) allele.
+    explanation: &gt;-
+      Sequencing the whole ABCA4 locus in 644 biallelic patients identifies a deep
+      intronic variant carried in cis on a subset of p.Gly1961Glu alleles as the
+      modifier that separates severely affected from unaffected carriers of the
+      same coding variant.
+  - reference: PMID:33909047
+    reference_title: Cis-acting modifiers in the ABCA4 locus contribute to the penetrance of the major disease-causing variant in Stargardt disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This haplotype was present in 5/7 of homozygous cases, where the
+      p.(Gly1961Glu) was the only known pathogenic variant.
+    explanation: &gt;-
+      Quantifies the modifier&#39;s contribution in the group where it matters most,
+      p.Gly1961Glu homozygotes with no second coding variant to explain their
+      disease.
+  - reference: PMID:41677386
+    reference_title: Genetic Correlates of Phenotypic Variability in c.5882G&gt;A p.(Gly1961Glu)-Associated Stargardt Disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Differences in specific second ABCA4 variants were strongly associated with
+      variation in disease progression, with some variants linked to markedly
+      earlier progression (e.g., c.1957C&gt;T, -50.7 years) and others associated with
+      delayed progression (e.g., c.1648G&gt;A, +19.8 years).
+    explanation: &gt;-
+      In a cohort holding one allele fixed at p.Gly1961Glu, the second allele
+      predicts age at criterion ellipsoid-zone loss, so genotype-phenotype
+      correlation in ABCA4 disease is a property of the allele pair rather than of
+      either variant alone. The per-variant estimates come from a linear
+      mixed-effects model over 52 analysed patients and are correspondingly thin.
+  - reference: PMID:29642238
+    reference_title: &#34;ASSOCIATION BETWEEN GENOTYPE AND DISEASE PROGRESSION IN ITALIAN STARGARDT PATIENTS: A Retrospective Natural History Study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      patients harboring 2 likely-null alleles reach a severe disease stage about
+      10 years earlier than patients with at least one missense allele
+    explanation: &gt;-
+      Puts a number on the allelic-severity gradient asserted above, from a
+      157-patient longitudinal cohort using legal blindness, electroretinographic
+      loss, and lesion area as the severity endpoint.
 - name: ELOVL4
   gene_term:
     preferred_term: ELOVL4
@@ -13803,6 +15009,21 @@ treatments:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Gene therapy has shown promise, particularly with adeno-associated viral (AAV) vectors capable of delivering the ABCA4 gene to retinal cells.&#34;
       explanation: This review supports gene therapy as a strategy to restore ABCA4-dependent retinal function.
+    - reference: PMID:35248547
+      reference_title: &#34;Three-Year Safety Results of SAR422459 (EIAV-ABCA4) Gene Therapy in Patients With ABCA4-Associated Stargardt Disease: An Open-Label Dose-Escalation Phase I/IIa Clinical Trial, Cohorts 1-5.&#34;
+      supports: REFUTE
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        No patients had any clinically significant changes in best-corrected visual
+        acuity, static perimetry, kinetic perimetry, total field hill of vision,
+        full field electroretinogram, or multifocal ERG attributable to the
+        treatment.
+      explanation: &gt;-
+        The only ABCA4 gene-replacement product taken to a three-year human
+        readout restored no measurable function across 22 patients and three dose
+        levels, and hypoautofluorescent change was worse in the treated eye in six
+        of them. Restoration of ABCA4 function is still the aim of this treatment,
+        not a demonstrated human effect.
   evidence:
   - reference: PMID:37834872
     reference_title: &#34;Updates on Emerging Interventions for Autosomal Recessive ABCA4-Associated Stargardt Disease.&#34;
@@ -13925,6 +15146,19 @@ treatments:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Stem cell therapy aims to replace degenerated RPE and photoreceptor cells, with several clinical trials demonstrating safety and preliminary efficacy.&#34;
       explanation: This review supports stem cell therapy as a restorative strategy directed at RPE and photoreceptor loss.
+    - reference: PMID:29884405
+      reference_title: Transplantation of Human Embryonic Stem Cell-Derived Retinal Pigment Epithelial Cells in Macular Degeneration.
+      supports: REFUTE
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Microperimetry demonstrated no evidence of benefit at 12 months in the 12
+        participants.
+      explanation: &gt;-
+        The trial that measured retinal function topographically in the treated
+        area found no functional benefit, and attributed the borderline acuity
+        gains in four participants to changes that were unsustained or matched in
+        the untreated eye. The &#34;preliminary efficacy&#34; summarized in the review
+        above does not survive that analysis in advanced STGD1.
   evidence:
   - reference: PMID:37834872
     reference_title: &#34;Updates on Emerging Interventions for Autosomal Recessive ABCA4-Associated Stargardt Disease.&#34;
@@ -14204,6 +15438,70 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;approximately 29% and 60% of astronauts on short and long-duration missions, respectively, experienced a degradation in distant and near visual acuity&#34;
     explanation: The high incidence of visual acuity degradation in astronauts establishes spaceflight as a significant environmental risk factor for retinal dysfunction.
+- name: Retinal light exposure
+  exposure_term:
+    preferred_term: exposure to visible light radiation
+    term:
+      id: ECTO:0000007
+      label: exposure to visible light radiation
+  description: &gt;-
+    Light drives the phototransduction cycle that generates the all-trans-retinal
+    ABCA4 fails to clear, and it photo-oxidizes bisretinoid once deposited. In mice
+    lacking both Abca4 and Rdh8 the degeneration is expressed only after
+    illumination, and blocking the visual cycle with retinylamine before
+    illumination preserves retinal structure and function. Whether light exposure
+    modifies progression in human STGD1 has never been tested; see the linked
+    knowledge-gap discussion.
+  effect: PATHOGENIC
+  evidence:
+  - reference: PMID:33334878
+    reference_title: Ferroptosis drives photoreceptor degeneration in mice with defects in all-trans-retinal clearance.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      We observed that ferroptosis was indeed present in neural retina of
+      Abca4-/-Rdh8-/- mice after light exposure.
+    explanation: &gt;-
+      Places the ferroptotic photoreceptor death of the atRAL-clearance mouse
+      after illumination rather than at baseline.
+  - reference: PMID:26225634
+    reference_title: Manganese-Enhanced MRI for Preclinical Evaluation of Retinal Degeneration Treatments.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Manganese-enhanced MRI contrast in the retina was high in nonilluminated and
+      illuminated Ret-NH2-treated mice, whereas no enhancement was evident in the
+      retina of the light-illuminated mice without Ret-NH2 treatment (P &lt; 0.0005).
+    explanation: &gt;-
+      Non-illuminated double-knockout retinas retained normal manganese uptake
+      while illuminated untreated ones lost it, and visual-cycle blockade before
+      illumination prevented the loss. Indirect support: the study was designed to
+      qualify an imaging readout, not to test whether light is necessary.
+  influences_mechanisms:
+  - target: Direct all-trans-retinal photoreceptor toxicity
+    environmental_effect: EXACERBATES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Light generates the all-trans-retinal load that this node acts on, so the
+      photoreceptor toxicity arm is expressed only in illuminated animals.
+    evidence:
+    - reference: PMID:33334878
+      reference_title: Ferroptosis drives photoreceptor degeneration in mice with defects in all-trans-retinal clearance.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Abca4-/-Rdh8-/- mice exhibiting defects in atRAL clearance is an animal
+        model for dry AMD and STGD1. We observed that ferroptosis was indeed
+        present in neural retina of Abca4-/-Rdh8-/- mice after light exposure.
+      explanation: &gt;-
+        Directly links illumination to the appearance of ferroptosis in the
+        retina of the atRAL-clearance model.
+  notes: &gt;-
+    Curated as EXACERBATES rather than TRIGGERS on purpose. The mouse evidence
+    would support light as a necessary cofactor in that model, but the report
+    generalizing it to human STGD1 has no human epidemiology behind it, and the
+    entry should not assert a stronger environmental claim than the species it was
+    measured in.
 experimental_models:
 - name: Patient-derived retinal organoid model
   description: &gt;
@@ -14735,7 +16033,7 @@ datasets:
       snippet: &#34;Immunohistochemical analysis of the retina revealed that an increased expression of aquaporin-4 (AQP-4) in the flight mice compared to controls gave strong indication of disturbance of BRB integrity.&#34;
       explanation: AQP-4 upregulation and BRB disruption after spaceflight provide a model for studying RPE barrier compromise relevant to lipofuscin-driven RPE injury in Stargardt disease.
 - accession: DOI:10.3390/ijms24087362
-  title: &#34;SpaceX-24 Mouse Retina ERG and Oxidative Stress: Antioxidant Countermeasure Trial After 35-Day ISS Spaceflight&#34;
+  title: &#34;Evidence of Spaceflight-Induced Adverse Effects on Photoreceptors and Retinal Function in the Mouse Eye&#34;
   description: &gt;
     Electroretinography and oxidative stress dataset from NASA SpaceX-24 mission
     testing a superoxide dismutase mimic (BuOE) as a countermeasure against
@@ -14873,6 +16171,73 @@ clinical_trials:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The purpose of this study is to evaluate the safety and efficacy of avacincaptad pegol intravitreal injection compared to Sham in participants with autosomal recessive Stargardt disease 1 (STGD1).&#34;
     explanation: This ClinicalTrials.gov record supports complement inhibition as a completed interventional trial strategy in STGD1.
+discussions:
+- discussion_id: stgd1_lipofuscin_sufficiency_mouse_human_mismatch
+  prompt: &gt;-
+    Why does a mouse carrying knockout-level A2E and lipofuscin fail to degenerate,
+    and does that insufficiency also hold in human retina?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Lipofuscin and A2E accumulation in RPE
+  - pathophysiology#Direct all-trans-retinal photoreceptor toxicity
+  rationale: &gt;-
+    The Abca4(PV/PV) knock-in mouse accumulates A2E and lipofuscin at knockout
+    levels and shows no retinal degeneration for 12 months, while the same complex
+    allele causes severe disease in patients. The authors read this as a species
+    difference in the photoreceptor unfolded protein response rather than as
+    evidence that lipofuscin is harmless. Two independent lines of human data point
+    the same way without settling it: quantitative autofluorescence finds that
+    lipofuscin accumulation precedes structural change and may remain without
+    clinically relevant functional effect, while removing deposited lipofuscin
+    rescues degeneration in an advanced Stargardt mouse. The open question is
+    therefore what converts an accumulated burden into injury. The report proposes
+    light-driven photo-oxidation, which is plausible and untested in humans.
+  evidence:
+  - reference: PMID:25712131
+    reference_title: Protein misfolding and the pathogenesis of ABCA4-associated retinal degenerations.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      These findings suggest likely differences in the unfolded protein response
+      between murine and human photoreceptors and support development of therapies
+      directed at increasing this capability in patients.
+    explanation: &gt;-
+      The source itself frames the negative mouse result as a mouse-versus-human
+      difference, which is what makes this a model-fidelity question rather than a
+      refutation of the canonical chain.
+- discussion_id: stgd1_light_exposure_human_epidemiology_gap
+  prompt: &gt;-
+    Does ambient or occupational light exposure modify the rate of progression in
+    human STGD1, as the mouse models predict?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - environmental#Retinal light exposure
+  - pathophysiology#Direct all-trans-retinal photoreceptor toxicity
+  rationale: &gt;-
+    Degeneration in the Abca4/Rdh8 double-knockout mouse appears only after
+    illumination, and blocking the visual cycle before illumination is protective,
+    yet no study has asked whether light exposure changes progression in patients.
+    The gap matters because photoprotection is cheap, available now, and testable
+    inside an existing natural-history registry, whereas every therapy that has
+    reached a human readout has failed to show functional benefit. The 2026
+    openscientist hypothesis-search report states that its PubMed searches for this
+    question returned nothing; that negative search is not logged in the hypothesis
+    directory, so the absence is recorded here as an open question rather than as
+    an established absence of literature.
+  evidence:
+  - reference: PMID:33334878
+    reference_title: Ferroptosis drives photoreceptor degeneration in mice with defects in all-trans-retinal clearance.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      photoreceptor atrophy and ferroptosis in light-exposed Abca4-/-Rdh8-/- mice
+      were effectively alleviated by intraperitoneally injected Fer-1, a selective
+      inhibitor of ferroptosis
+    explanation: &gt;-
+      Establishes the light-conditioned mouse phenotype that motivates the human
+      question, and shows the pathway is pharmacologically interruptible.
 notes: &gt;-
   Stargardt disease was first described by Karl Stargardt in 1909 and remains the most
   common inherited macular dystrophy, with prevalence estimates around 1 in 8,000 to
@@ -14899,6 +16264,66 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Stargardt Disease (Changes required)</strong> · 2026-05-31T03:01:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Stargardt_Disease/2026-05-31T030155Z-github-review-3575.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3575
+Issue state: OPEN
+Issue created: 2026-05-31T03:01:55Z
+Issue updated: 2026-05-31T03:01:55Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Stargardt Disease**
+- Entry: `kb/disorders/Stargardt_Disease.yaml`
+- Selection basis: #107 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Actionable baseline check: a `diagnosis` section exists, but no top-level GeneReviews tag was detected in the YAML. For this Mendelian entry, confirm whether a GeneReviews article exists and either add/tag it or record why no GeneReviews baseline applies.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Subtype completeness: `has_subtypes` is present (Stargardt disease 1 (STGD1), Stargardt disease 3 (STGD3), Stargardt disease 4 (STGD4)). Verify that subtype-specific phenotypes, mechanisms, treatments, diagnosis, and genetic contexts are attached to the correct subtype rather than left as broad disease-level claims.
+4. Pathophysiology review: the main modeled mechanisms include ABCA4 transporter dysfunction, Retinoid-adduct retention and bisretinoid precursor formation, Lipofuscin and A2E accumulation in RPE, RPE endo-lysosomal dysfunction. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment/trial alignment: both `treatments` and `clinical_trials` are present. Verify that trial interventions, phases/statuses, target phenotypes, and treatment entries agree, and distinguish approved/standard care from investigational or case-report therapy.
+6. Evidence/reference check: top references include PMID:37834872, PMID:20633576, PMID:29416601, PMID:9054934. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: phenotype list needs manual review for disease-defining features.
+- Subtype completeness: subtypes present; verify subtype-specific anchoring.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: diagnosis present but should be checked against baseline sources.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Stargardt_Disease-deep-research-falcon.md`
+- PMID:37834872: https://pubmed.ncbi.nlm.nih.gov/37834872/
+- PMID:20633576: https://pubmed.ncbi.nlm.nih.gov/20633576/
+- PMID:29416601: https://pubmed.ncbi.nlm.nih.gov/29416601/
+- PMID:9054934: https://pubmed.ncbi.nlm.nih.gov/9054934/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -15271,7 +16696,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Stargardt Disease", "mondoId": "MONDO:0019353", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Stargardt_Disease", "yamlRevision": "4d8716eb63e1"};
+        const OS_CONFIG = {"diseaseName": "Stargardt Disease", "mondoId": "MONDO:0019353", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Stargardt_Disease", "yamlRevision": "b712e0d094d1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

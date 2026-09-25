@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2425,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2981,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2996,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3105,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3118,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3322,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3332,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3368,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3389,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3702,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4534,6 +4587,7 @@ Gustavson syndrome is allelic with, but clinically and mechanistically distinct 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rbmx-p-pro162del-in-frame-deletion" data-dismech-node="RBMX p.(Pro162del) In-Frame Deletion" data-dismech-type="pathophysiology">
                 <div class="item-name">RBMX p.(Pro162del) In-Frame Deletion</div>
 
+
                 <div class="item-desc">The initiating lesion is a hemizygous in-frame deletion of a single codon in RBMX (NM_002139.4; c.484_486del, p.(Pro162del)), which removes one proline from a tri-proline region of hnRNP G. The deleted base pairs lie in an evolutionarily conserved locus, and the variant is absent from public reference genomes. Because the deletion is in frame, hnRNP G is still produced: expression level and nuclear localization of the protein are unchanged in transfected neuronal cells, so the lesion acts by altering protein function rather than by abolishing the protein.</div>
 
 
@@ -4694,6 +4748,7 @@ This pathophysiological event involves RBMX (hgnc:9910). hgnc:9910 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-hnrnp-g-sh3-binding-motif-interaction" data-dismech-node="Disrupted hnRNP G SH3-Binding Motif Interaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted hnRNP G SH3-Binding Motif Interaction</div>
 
+
                 <div class="item-desc">Residues 156-169 of hnRNP G bind SH3 domains in vitro, and deleting Pro162 weakens that binding about threefold for a short peptide against the BIN1-SH3 domain. The effect is context-dependent rather than absolute: a longer peptide spanning residues 150-170 showed no clear difference between wild type and mutant, and the natural cellular SH3-domain partners of hnRNP G are unknown. This node therefore records a credible but incompletely demonstrated molecular consequence, not an established pathway step.</div>
 
 
@@ -4835,6 +4890,7 @@ This pathophysiological event involves decreased SH3 domain binding (GO:0017124)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-rna-polymerase-ii-transcription" data-dismech-node="Dysregulated RNA Polymerase II Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated RNA Polymerase II Transcription</div>
 
+
                 <div class="item-desc">Neuronal cells expressing the p.(Pro162del) allele show a distinct expression pattern, with the top 100 differentially expressed genes enriched for transcription factors and genes acting in RNA polymerase II transcription. Notably, aberrant splicing of RBMX itself was tested and excluded, so disturbed transcription rather than a splicing defect of the gene is the demonstrated downstream molecular abnormality.</div>
 
 
@@ -4973,6 +5029,7 @@ This pathophysiological event involves abnormal transcription by RNA polymerase 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-development" data-dismech-node="Impaired Brain Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Development</div>
+
 
                 <div class="item-desc">RBMX function is required for normal brain development, and hemizygous RBMX variants produce neurodevelopmental disorders with variable brain malformations. In the Gustavson kindred the structural correlate is severe: neuroimaging in one affected boy showed lissencephaly with a very thick cortex. Zebrafish rbmx morphants lose forebrain and hindbrain marker expression and develop an underdeveloped head and eyes, supplying the developmental-biology basis for this node.</div>
 
@@ -5218,6 +5275,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-neurodevelopmental-impairment" data-dismech-node="Profound Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Neurodevelopmental Impairment</div>
 
+
                 <div class="item-desc">The convergent organism-level outcome is profound intellectual and psychomotor disability in hemizygous males, accompanied by spasticity and restricted movement of the large joints. Within the RBMX-related disorders this is the most severe end of the spectrum. Carrier females are asymptomatic.</div>
 
 
@@ -5334,6 +5392,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-death-in-early-childhood" data-dismech-node="Death in Early Childhood" data-dismech-type="pathophysiology">
                 <div class="item-name">Death in Early Childhood</div>
+
 
                 <div class="item-desc">Affected individuals die in infancy or early childhood. Death is modeled as a pathophysiology consequence node rather than as a phenotype entry, because the HPO death terms sit outside the phenotype dynamic enum used by this schema; the same convention is used in Isolated_Sulfite_Oxidase_Deficiency.</div>
 
@@ -5492,6 +5551,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5565,6 +5627,9 @@ This clinical feature is Severe hearing defect, annotated with Hearing impairmen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5646,6 +5711,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5719,6 +5787,9 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5799,6 +5870,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5893,6 +5967,9 @@ This clinical feature is Characteristic facial features, annotated with Abnormal
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6001,6 +6078,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6065,6 +6145,9 @@ This clinical feature is Restricted movement of the large joints, annotated with
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6150,6 +6233,9 @@ This clinical feature is Profound intellectual disability (HP:0002187). HP:00021
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6219,6 +6305,9 @@ This clinical feature is Lissencephaly (HP:0001339). HP:0001339 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6283,6 +6372,9 @@ This clinical feature is Epileptic seizures, annotated with Seizure (HP:0001250)
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6382,6 +6474,9 @@ This clinical feature is Hypotrophy of the cerebellar vermis, annotated with Cer
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6446,6 +6541,9 @@ This clinical feature is Thinning of the posterior corpus callosum, annotated wi
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6524,6 +6622,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6642,6 +6743,9 @@ This disease-associated gene is RBMX (hgnc:9910). hgnc:9910 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6772,6 +6876,9 @@ This disease-associated gene is RBMXL1 (hgnc:25073). hgnc:25073 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6872,6 +6979,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6882,6 +6992,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6978,6 +7091,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6988,6 +7104,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9038,6 +9157,37 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">This is a single-kindred disorder and the entry is deliberately kept thin rather than padded. The clinical description rests on one extended Swedish family reported in 1993 (seven affected children in two generations), mapped to Xq26 the same year, and molecularly solved in 2023 when the pedigree contained ten affected individuals. No case outside this family has been reported, so prevalence, natural history and management are not quantitatively described anywhere in the literature.
+No GeneReviews chapter exists for Gustavson syndrome or for RBMX-related intellectual disability; PubMed searches for both returned no results, so the GeneReviews phenotype baseline step was not applicable.
+Phenotype scope. Congenital heart defects are curated from the 2023 paper&#39;s own feature list, though left unwired from the pathograph because no source gives a mechanism from the RBMX allele to a cardiac lesion. Growth impairment is curated as Short stature from the patient V:7 photograph legend, the one quotable sentence that carries it; it is documented for that single patient and carries no frequency band. Only two phenotypes carry a frequency band - profound intellectual disability and microcephaly - because those are the cardinal features restated across all three primary sources; the remaining features come from a single list sentence that gives no per-patient counts, so under docs/frequency-evidence-guidelines.md the band is omitted rather than guessed. Lissencephaly, cerebellar vermis hypotrophy and posterior corpus callosum thinning are each reported for one imaged patient only and carry no frequency band.
+Deliberately not curated as phenotype rows: V:7&#39;s itemized single-patient features beyond short stature (bitemporal narrowing, wide mouth, broad mouth, high palate, puffy eyelids, hemangiomas, overweight) - the family-level facial phenotype is already carried by the Abnormal facial shape row, one child&#39;s gestalt is thin ground for syndrome-level rows, and one of the features (puffy eyelids) overlaps the allelic Shashi gestalt, so promoting them individually would overstate what is established. Likewise the features that appear only in the deep-research synthesis of the paper&#39;s supplementary case reports (Dandy-Walker malformation, cerebral atrophy, ventriculomegaly, subependymal gliotic nodules, dysplastic ears, micrognathia, ureteral reflux, neurogenic bladder): no cached source sentence carries them, and this KB does not quote research reports.
+Mechanism caveat. The chain from the variant to the clinical phenotype is substantially inferred, and the entry says so at each step. What is demonstrated is the segregating allele, its conservation and absence from population databases, an altered transcriptional profile in transfected SH-SY5Y neuroblastoma cells, and a context-dependent reduction in peptide-SH3 binding. What is not demonstrated is any of it in patient neural tissue, in a Pro162del animal model, or in patient-derived stem cells - none of which exist. Aberrant splicing of RBMX was specifically tested and excluded for this allele, which is why the pathophysiology runs through transcription rather than through the splicing function hnRNP G is best known for. The direction of the functional effect is itself unsettled between the two primary sources and is recorded as an open knowledge gap rather than resolved in the pathograph.
+Death in early childhood is modeled as an ORGANISM-scale pathophysiology consequence node rather than a phenotype, because the HPO death terms (HP:0001522, HP:0003819) are outside the phenotype dynamic enum this schema binds; Isolated_Sulfite_Oxidase_Deficiency uses the same convention.
+No conforms_to target was assigned. There is no splicing, hnRNP or RNA-binding-protein mechanism module in kb/modules/, and the epilepsy and neurodevelopmental modules that do exist describe mechanisms this syndrome is not documented to run through. The allelic Shashi entry likewise declares no conformance.
+Deep research: an Edison/falcon run was performed for this entry. It agreed with the primary literature on gene, allele, phenotype and mechanism, and added no citable claim of its own - it carries no PMIDs, and every reference it used was independently fetched and quoted from its own cached record here.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 2: add short stature, correct source-itemization prose, wire MRI phenotypes</strong> · 2026-09-06T16:38:02Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Severe_X-linked_Intellectual_Disability_Gustavson_Type/2026-09-06T163802Z-claude-code-0e2664.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the round-2 CHANGES_REQUESTED review on PR 11072, whose three findings all concerned the round-1 tree. Finding 1: the notes claimed no quotable sentence carries growth impairment, but the patient V:7 photograph legend in references_cache/PMID_37277488.md carries short stature verbatim; added a Short stature phenotype bound to HP:0004322 quoting that legend (single patient, no frequency band) and corrected the notes sentence. The prior round-1 history record repeats the superseded claim and is left untouched because history is append-only; this record is the corrected account. Finding 2: the Abnormal facial shape description claimed the sources do not itemize the dysmorphic features, but the same legend itemizes five of them; rewrote the description to say what the sources actually contain, added a second evidence item quoting the itemization, and kept the binding at HP:0001999 with the reasoning stated - the syndrome-level claim is the family-level gestalt, one child&#39;s features are thin ground for syndrome-level rows, and puffy eyelids overlaps the allelic Shashi gestalt. The reviewer&#39;s optional suggestion to promote High palate to its own phenotype row was declined on the same grounds, with the reasoning recorded in notes and in the PR comment. Finding 3: Cerebellar vermis hypoplasia and Thin corpus callosum, added in round 1 from the same MRI sentence as Lissencephaly, had no incoming pathograph edge while their sibling did; both are now DIRECT downstream of Impaired Brain Development. Also added an explicit scope-out paragraph in notes naming the single-observation features deliberately not curated (V:7&#39;s remaining facial items, overweight, hemangiomas, and the deep-research-only items Dandy-Walker malformation, cerebral atrophy, ventriculomegaly, subependymal gliotic nodules, dysplastic ears, micrognathia, ureteral reflux, neurogenic bladder - verified absent from every cited cache), per the reviewer&#39;s completeness cross-check asking that scoping-out be stated rather than implicit. Entry now has 14 phenotypes, 6 pathophysiology nodes, 18 edges and 56 verified snippets. Re-validated with just validate, count-verified-snippets 56/56, validate-terms, check-folded-hyphens, check-duplicate-keys, check-entity-refs, check-causal-targets, check-enum-values, and the three baseline gates against the branch base ec7e406616, plus the authoritative just validate-disorders, all passing.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: severe X-linked intellectual disability, Gustavson type</strong> · 2026-09-05T03:00:10Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Severe_X-linked_Intellectual_Disability_Gustavson_Type/2026-09-05T030010Z-claude-code-982294.yaml">View source</a></p>
+                        <p class="research-review-text">Created the RBMX Gustavson-type XLID entry (MONDO:0010661) for claim issue 11065. Six-node pathophysiology chain from the hemizygous in-frame RBMX deletion NM_002139.4 c.484_486del p.(Pro162del) through disrupted hnRNP G SH3-binding-motif interaction and dysregulated RNA polymerase II transcription to impaired brain development, profound neurodevelopmental impairment and death in early childhood; ten HP-bound phenotypes; RBMX (causative) and RBMXL1 (modifier) genetic entries; X-linked recessive inheritance bound to HP:0001419 with the skewed-XCI carrier-protection finding; ULTRA_RARE CASES_IN_LITERATURE prevalence; supportive care and genetic counseling treatments; Shashi syndrome differential positioning the two allelic RBMX disorders; a zebrafish rbmx morphant animal model linked to the brain-development node; and two discussions (a KNOWLEDGE_GAP on the unresolved loss-of-function vs N-terminal gain-of-function reading of p.Pro162del, and a HUMAN_MODEL_MISMATCH on RBMXL1 retrocopy buffering in rodent models). Evidence comes from PMID:8456840 (1993 clinical report), PMID:8503440 (1993 Xq26 linkage), PMID:37277488 (2023 RBMX discovery, full text), PMID:42360281 (RBMX retrocopy cohort study), PMID:15895365 (zebrafish rbmx morphant) and PMID:19282290 (hnRNP G splicing function), each fetched into references_cache and quoted from its own cached record. An Edison/falcon deep-research run was performed; gene-drift check passed (35 RBMX, 76 Gustavson, 14 Pro162del mentions, no drift), report validation was clean (9/9 references, 27/27 terms resolved, no unresolved terms), and preflight-dr returned SKIP because MONDO records no causal gene for MONDO:0010661, so identity was confirmed manually by matching report OMIM 309555 to MONDO OMIM 309555 and by verifying the RBMX attribution against PMID:37277488 directly. The report carries no PMIDs and contributed no citable claim; nothing was quoted from it. No GeneReviews chapter exists for Gustavson syndrome or RBMX-related intellectual disability (PubMed searches returned no results). Validated with just validate, count-verified-snippets (49/49), validate-terms, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-environmental-evidence and validate-disorders, all passing.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
