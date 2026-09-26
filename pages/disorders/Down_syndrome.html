@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Down_syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Down_syndrome</h1>
             <div class="header-meta">
 
@@ -4015,7 +4158,7 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 8px;">Down syndrome is caused by trisomy 21 (typically meiotic non-disjunction), producing a third copy of all ~225 protein-coding HSA21 genes. Gene-dosage imbalance — particularly of DYRK1A, DSCAM, APP, RCAN1, SOD1, ETS2, and the chromosome 21 miRNA cluster — perturbs neurogenesis, synaptogenesis, cardiac outflow tract development, hematopoiesis, and immune regulation. The resulting multisystem phenotype includes intellectual disability, characteristic facies, congenital heart disease (~50% AV septal defects), early-onset Alzheimer disease (APP-driven), increased TMD/AMKL leukemia risk (GATA1 mutations on trisomic 21), autoimmune disorders, and characteristic musculoskeletal features. Trisomy 21 mouse models (Ts65Dn, Dp16) recapitulating segmental HSA21 trisomy validate the gene- dosage model and have enabled mechanistic dissection of individual HSA21-gene contributions.</div>
+                <div class="item-desc" style="margin-top: 8px;">Down syndrome is caused by trisomy 21 (typically meiotic non-disjunction), producing a third copy of all ~225 protein-coding HSA21 genes. Gene-dosage imbalance — particularly of DYRK1A, DSCAM, APP, RCAN1, SOD1, ETS2, and the chromosome 21 miRNA cluster — perturbs neurogenesis, synaptogenesis, cardiac outflow tract development, hematopoiesis, and immune regulation. The resulting multisystem phenotype includes intellectual disability, characteristic facies, congenital heart disease (~50% AV septal defects), early-onset Alzheimer disease (APP-driven), increased TMD/AMKL leukemia risk (GATA1 mutations on trisomic 21), autoimmune disorders, and characteristic musculoskeletal features. Trisomy 21 mouse models (Ts65Dn, Dp16) recapitulating segmental HSA21 trisomy validate the gene-dosage model and have enabled mechanistic dissection of individual HSA21-gene contributions.</div>
 
 
                 <div class="mapping-notes">Retained as CANONICAL with major qualifications. The 2026 falcon hypothesis-search report (kb/hypotheses/Down_syndrome/canonical_trisomy21_gene_dosage_model; openscientist timed out at 3600s) finds SUPPORTED. Strongest evidence: direct gene-dosage perturbation experiments — correcting the interferon receptor (IFNR) cluster copy number in the Dp16 mouse rescues developmental delay, cognition, craniofacial changes, and CHD, attenuating IFN hyperactivity; systematic mapping in Dp1Tyb identifies DYRK1A triplication as NECESSARY for CHD (linked to cardiomyocyte proliferation / mitochondrial dysfunction; rescued by Dyrk1a 2-copy reduction); inducible XIST-mediated chromosome-scale dosage correction in human iPSC-derived neural lineages represses chr21 genes and rescues astrogenesis bias. Three key qualifications: (1) the model is NOT fully explained by single-gene or single-locus dosage — IFNR correction does not rescue all phenotypes; DYRK1A is necessary but not sufficient for all CHD contexts, implying additional interacting loci; (2) several DS systemic signatures (heme / hypoxia / stress erythropoiesis) are INDEPENDENT of IFNR/JAK modulation, indicating parallel trisomy-driven programs; (3) the historical Down Syndrome Critical Region (DSCR) model is refuted — DSCR triplication alone does NOT recapitulate key phenotypes; distributed multi-gene dosage with epistasis/compensation better explains the architecture. Genome-wide trans dysregulation and epigenetic remodeling beyond chr21 further amplify or reshape primary dosage effects.</div>
@@ -4056,7 +4199,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39768129" target="_blank">PMID:39768129</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4097,6 +4243,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chromosome-21-gene-dosage-imbalance" data-dismech-node="Chromosome 21 Gene Dosage Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Chromosome 21 Gene Dosage Imbalance</div>
+
 
                 <div class="item-desc">A supernumerary chromosome 21 increases dosage across more than 200 protein-coding genes, creating the upstream multi-system disturbance that drives the major Down syndrome phenotypes.
 </div>
@@ -4170,7 +4317,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32029743" target="_blank">PMID:32029743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4195,6 +4345,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interferon-hyperactivation" data-dismech-node="Interferon Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Interferon Hyperactivation</div>
+
 
                 <div class="item-desc">Down syndrome cells show a chronic interferon program involving circulating immune cells and brain-resident microglia, with enhanced interferon-stimulated gene expression, abnormal synaptic pruning, and senescence-like microglial states.
 </div>
@@ -4431,7 +4582,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27472900" target="_blank">PMID:27472900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4453,7 +4607,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35803230" target="_blank">PMID:35803230</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4475,7 +4632,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35803230" target="_blank">PMID:35803230</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4500,6 +4660,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cardiogenesis" data-dismech-node="Impaired Cardiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cardiogenesis</div>
+
 
                 <div class="item-desc">Increased interferon receptor dosage in trisomy 21 represses canonical Wnt signaling and disrupts cardiac differentiation, providing a mechanism for the high burden of congenital heart defects.
 </div>
@@ -4668,7 +4829,10 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37360690" target="_blank">PMID:37360690</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4690,7 +4854,10 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37360690" target="_blank">PMID:37360690</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4715,6 +4882,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-neurogenesis-and-astrogliogenesis" data-dismech-node="Altered Neurogenesis and Astrogliogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Neurogenesis and Astrogliogenesis</div>
+
 
                 <div class="item-desc">During Down syndrome brain development, astrocytes are overrepresented because differentiation shifts from neuron production toward astrocyte generation, with detrimental consequences for neural circuit formation.
 </div>
@@ -4921,7 +5089,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39768129" target="_blank">PMID:39768129</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4943,7 +5114,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39768129" target="_blank">PMID:39768129</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4968,6 +5142,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-app-driven-alzheimer-like-neuropathology" data-dismech-node="APP-Driven Alzheimer-like Neuropathology" data-dismech-type="pathophysiology">
                 <div class="item-name">APP-Driven Alzheimer-like Neuropathology</div>
+
 
                 <div class="item-desc">APP overexpression from chromosome 21 drives lifelong amyloid-beta accumulation and age-dependent Alzheimer-like neuropathology in adults with Down syndrome, but plaque and tangle burden do not perfectly track with clinical dementia.
 </div>
@@ -5080,7 +5255,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30733618" target="_blank">PMID:30733618</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5102,7 +5280,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30733618" target="_blank">PMID:30733618</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5124,7 +5305,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2149963" target="_blank">PMID:2149963</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5149,6 +5333,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perturbed-fetal-erythro-megakaryopoiesis" data-dismech-node="Perturbed Fetal Erythro-Megakaryopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Perturbed Fetal Erythro-Megakaryopoiesis</div>
+
 
                 <div class="item-desc">Trisomy 21 expands fetal erythro-megakaryocytic progenitors early in life, increasing the pool of cells that can acquire GATA1 and cooperating lesions in transient abnormal myelopoiesis and ML-DS.
 </div>
@@ -5266,7 +5451,10 @@ This pathophysiological event involves megakaryocyte differentiation (GO:0030219
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18812473" target="_blank">PMID:18812473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5288,7 +5476,10 @@ This pathophysiological event involves megakaryocyte differentiation (GO:0030219
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35483417" target="_blank">PMID:35483417</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5407,6 +5598,9 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Includes transient abnormal myelopoiesis/ML-DS and childhood ALL/AML, with the strongest excess risk for AML in early childhood.</div>
 
 
@@ -5424,7 +5618,10 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33684394" target="_blank">PMID:33684394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5446,7 +5643,10 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33684394" target="_blank">PMID:33684394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5513,6 +5713,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5525,7 +5728,10 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26504441" target="_blank">PMID:26504441</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5590,6 +5796,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5602,7 +5811,10 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11853334" target="_blank">PMID:11853334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5666,6 +5878,9 @@ This clinical feature is Upslanted palpebral fissure (HP:0000582). HP:0000582 is
                     </div>
 
 
+
+
+
                     <div class="item-desc">Includes flat facial profile, slanted eyes, and a small nose.</div>
 
 
@@ -5713,6 +5928,9 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Associated with chronic interferon hyperactivation and immune dysregulation.</div>
 
 
@@ -5730,7 +5948,10 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31699819" target="_blank">PMID:31699819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5799,6 +6020,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5837,6 +6061,9 @@ This clinical feature is Intellectual Disability (HP:0001249). HP:0001249 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">Ranges from mild to moderate impairment.</div>
 
 
@@ -5854,7 +6081,10 @@ This clinical feature is Intellectual Disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39768129" target="_blank">PMID:39768129</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5912,6 +6142,9 @@ This clinical feature is Developmental Delay, annotated with Global developmenta
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5924,7 +6157,10 @@ This clinical feature is Developmental Delay, annotated with Global developmenta
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26924435" target="_blank">PMID:26924435</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5982,6 +6218,9 @@ This clinical feature is Sleep Apnea, annotated with Obstructive sleep apnea (HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5994,7 +6233,10 @@ This clinical feature is Sleep Apnea, annotated with Obstructive sleep apnea (HP
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14746382" target="_blank">PMID:14746382</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6045,6 +6287,9 @@ This clinical feature is Senile plaques (HP:0100256). HP:0100256 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Alzheimer-like plaque pathology is common in adult Down syndrome and can precede clinical dementia.</div>
 
 
@@ -6062,7 +6307,10 @@ This clinical feature is Senile plaques (HP:0100256). HP:0100256 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2149963" target="_blank">PMID:2149963</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6084,7 +6332,10 @@ This clinical feature is Senile plaques (HP:0100256). HP:0100256 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3159974" target="_blank">PMID:3159974</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6106,7 +6357,10 @@ This clinical feature is Senile plaques (HP:0100256). HP:0100256 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2149963" target="_blank">PMID:2149963</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6157,6 +6411,9 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                     </div>
 
 
+
+
+
                     <div class="item-desc">Tau tangle pathology in Down syndrome should be distinguished from clinical Alzheimer disease or dementia.</div>
 
 
@@ -6174,7 +6431,10 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2149963" target="_blank">PMID:2149963</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6196,7 +6456,10 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3159974" target="_blank">PMID:3159974</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6218,7 +6481,10 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2149963" target="_blank">PMID:2149963</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6294,6 +6560,9 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6306,7 +6575,10 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32029743" target="_blank">PMID:32029743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6338,6 +6610,31 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: APP
+
+
+    <a href="https://bioregistry.io/hgnc:620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:620</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is APP (hgnc:620). hgnc:620 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -6353,7 +6650,10 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30733618" target="_blank">PMID:30733618</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6369,13 +6669,16 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:1671712" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:1671712" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1671712" target="_blank">PMID:1671712</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6407,6 +6710,31 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GATA1
+
+
+    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:4170</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -6422,7 +6750,10 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35483417" target="_blank">PMID:35483417</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6454,6 +6785,31 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DYRK1A
+
+
+    <a href="https://bioregistry.io/hgnc:3091" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:3091</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DYRK1A (hgnc:3091). hgnc:3091 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -6468,6 +6824,31 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
 
                 </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IFNAR1
+
+
+    <a href="https://bioregistry.io/hgnc:5432" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:5432</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IFNAR1 (hgnc:5432). hgnc:5432 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
 
 
 
@@ -6484,6 +6865,31 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IFNAR2
+
+
+    <a href="https://bioregistry.io/hgnc:5433" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:5433</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IFNAR2 (hgnc:5433). hgnc:5433 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -6498,6 +6904,31 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
 
                 </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IFNGR2
+
+
+    <a href="https://bioregistry.io/hgnc:5440" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:5440</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IFNGR2 (hgnc:5440). hgnc:5440 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
 
 
 
@@ -6514,6 +6945,31 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IL10RB
+
+
+    <a href="https://bioregistry.io/hgnc:5965" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:5965</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL10RB (hgnc:5965). hgnc:5965 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -6529,6 +6985,31 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: OLIG2
+
+
+    <a href="https://bioregistry.io/hgnc:9398" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:9398</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OLIG2 (hgnc:9398). hgnc:9398 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -6540,6 +7021,9 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6559,7 +7043,7 @@ This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a p
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6592,6 +7076,31 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Support services including physical, occupational, and speech therapy.</div>
 
 
@@ -6611,7 +7120,10 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32029743" target="_blank">PMID:32029743</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -6640,7 +7152,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Cardiac Surgery<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Cardiac Surgery<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6672,6 +7184,20 @@ This treatment is Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For congenital heart defect correction if needed.</div>
 
 
@@ -6691,7 +7217,10 @@ This treatment is Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32029743" target="_blank">PMID:32029743</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -6720,7 +7249,7 @@ This treatment is Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical int
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">hormone modifying therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">hormone modifying therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6753,6 +7282,20 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For treating hypothyroidism.</div>
 
 
@@ -6772,7 +7315,10 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11853334" target="_blank">PMID:11853334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6803,7 +7349,7 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6836,6 +7382,31 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Tailored educational plans to support learning and development.</div>
 
 
@@ -6855,7 +7426,10 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32029743" target="_blank">PMID:32029743</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -6884,7 +7458,7 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6925,16 +7499,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C172200" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C172200</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C172200" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C172200</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses JAK inhibitor (NCIT:C172200). NCIT:C172200 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -6966,7 +7565,10 @@ This treatment uses JAK inhibitor (NCIT:C172200). NCIT:C172200 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27472900" target="_blank">PMID:27472900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7007,7 +7609,10 @@ This treatment uses JAK inhibitor (NCIT:C172200). NCIT:C172200 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27472900" target="_blank">PMID:27472900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7038,7 +7643,7 @@ This treatment uses JAK inhibitor (NCIT:C172200). NCIT:C172200 is a therapeutic 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Neuromodulatory device therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Neuromodulatory device therapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Neuromodulatory device therapy, annotated with Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7071,6 +7676,31 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Noninvasive neuromodulatory device-based intervention using 40-Hz near-infrared light to modulate cortical oscillatory activity and enhance language and cognitive function. A pilot randomized controlled trial evaluated repeated tPBM sessions in adolescents and young adults with Down syndrome as an experimental approach targeting cortical physiology relevant to language and cognition deficits.</div>
 
 
@@ -7090,7 +7720,12 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
                         <a href="https://bioregistry.io/PPR:PPR1272214" target="_blank">PPR:PPR1272214</a>
                     </span>
 
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7117,28 +7752,6 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
 
 
         <!-- Environmental Factors -->
-
-        <div class="card">
-            <div class="card-header">
-                <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
-                <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">1</span>
-            </div>
-
-            <div class="item-box environmental-box anchor-target" id="environmental-prenatal-screening" data-dismech-node="Prenatal Screening" data-dismech-type="environmental">
-                <div class="item-name">Prenatal Screening</div>
-
-
-
-                <div class="item-desc">Screening tests are available to evaluate the risk of Down syndrome before birth.</div>
-
-
-
-
-
-            </div>
-
-        </div>
 
 
         <!-- Biochemical Markers -->
@@ -7176,7 +7789,10 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11853334" target="_blank">PMID:11853334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7202,6 +7818,148 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-karyotype-analysis">
+                <div class="item-name">
+                    Karyotype Analysis
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(47,XX,+21 or 47,XY,+21)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-noninvasive-prenatal-screening">
+                <div class="item-name">
+                    Noninvasive Prenatal Screening
+
+                </div>
+
+                <div class="item-desc">Screening of cell-free DNA in maternal plasma to estimate the risk of fetal trisomy 21 before birth. A positive result is a screening result, not a diagnosis, and is confirmed by karyotype on chorionic villus or amniotic fluid sampling.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35608568" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35608568" target="_blank">PMID:35608568</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NIPS is a highly accurate screening method for T21, T18, and T13 in both singleton and twin pregnancies."</div>
+
+
+                <div class="evidence-explanation">Systematic evidence-based review establishing cell-free DNA screening as an accurate prenatal screening method for trisomy 21, which is the procedure this entry names.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        100.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -7214,7 +7972,7 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse271179">
                 <div class="item-name">
                     Transcriptome analysis of cell line/patient-derived xenograft (PDX) samples of myeloid leukemia associated with Down syndrome (ML-DS)
 
@@ -7257,7 +8015,7 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse330188">
                 <div class="item-name">
                     Crnic Institute Human Trisome Project - Tofacitinib for Immune Skin Conditions in Down Syndrome: PolyA RNAseq from whole blood
 
@@ -7296,7 +8054,7 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse314930">
                 <div class="item-name">
                     Cohesin mutations suppress HLA class II gene expression to promote immune evasion during the progression to acute leukemia in children with Down syndrome [CUT&amp;Run]
 
@@ -7335,7 +8093,7 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00000000129">
                 <div class="item-name">
                     The complex SNP and CNV genetic architecture of the increased risk of  congenital heart defects in Down syndrome
 
@@ -7370,7 +8128,7 @@ This treatment is Neuromodulatory device therapy, annotated with Therapeutic Pro
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000546">
                 <div class="item-name">
                     Landscape of gene mutations in Down syndrome-related myeloid disorders
 
@@ -7457,8 +8215,8 @@ mechanistic_hypotheses:
     phenotype includes intellectual disability, characteristic facies, congenital heart disease (~50% AV
     septal defects), early-onset Alzheimer disease (APP-driven), increased TMD/AMKL leukemia risk (GATA1
     mutations on trisomic 21), autoimmune disorders, and characteristic musculoskeletal features.
-    Trisomy 21 mouse models (Ts65Dn, Dp16) recapitulating segmental HSA21 trisomy validate the gene-
-    dosage model and have enabled mechanistic dissection of individual HSA21-gene contributions.
+    Trisomy 21 mouse models (Ts65Dn, Dp16) recapitulating segmental HSA21 trisomy validate the gene-dosage
+    model and have enabled mechanistic dissection of individual HSA21-gene contributions.
   notes: &gt;-
     Retained as CANONICAL with major qualifications.
     The 2026 falcon hypothesis-search report
@@ -8030,6 +8788,11 @@ genetic:
     snippet: &#34;Trisomy 21, the presence of a supernumerary chromosome 21, results in a collection of clinical features commonly known as Down syndrome (DS).&#34;
     explanation: Directly supports trisomy 21 as the causal genetic lesion underlying Down syndrome.
 - name: APP
+  gene_term:
+    preferred_term: APP
+    term:
+      id: hgnc:620
+      label: APP
   association: Risk Factor
   notes: Dosage of APP on chromosome 21 contributes to age-dependent amyloid-beta accumulation and Alzheimer-like neuropathology in adults with Down syndrome.
   evidence:
@@ -8041,11 +8804,16 @@ genetic:
     explanation: Supports APP dosage as a driver of Alzheimer-like neuropathology in Down syndrome.
   - reference: PMID:1671712
     reference_title: &#34;Segregation of a missense mutation in the amyloid precursor protein gene with familial Alzheimer&#39;s disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This suggests that some cases of AD could be caused by mutations in the APP gene.&#34;
     explanation: Indirectly supports APP as a causal driver of Alzheimer pathology, strengthening the mechanistic plausibility that APP triplication contributes to Down syndrome Alzheimer-like neuropathology.
 - name: GATA1
+  gene_term:
+    preferred_term: GATA1
+    term:
+      id: hgnc:4170
+      label: GATA1
   association: Somatic preleukemic mutation
   notes: Acquired GATA1 mutations in trisomy 21 fetal progenitors drive transient abnormal myelopoiesis and ML-DS.
   evidence:
@@ -8056,29 +8824,72 @@ genetic:
     snippet: &#34;In the case of myeloid leukemias, the process of leukemogenesis in Trisomy 21 begins in early fetal life where genetic drivers including GATA1 mutations lead to the development of the preleukemic condition, transient abnormal myelopoiesis (TAM).&#34;
     explanation: Supports GATA1 mutation as a key cooperating lesion in Down syndrome-associated myeloid leukemogenesis.
 - name: DYRK1A
+  gene_term:
+    preferred_term: DYRK1A
+    term:
+      id: hgnc:3091
+      label: DYRK1A
   association: Risk Factor
   notes: Dual-specificity tyrosine-phosphorylation-regulated kinase 1A on chromosome 21; triplication perturbs neurodevelopment and contributes to intellectual disability.
 - name: IFNAR1
+  gene_term:
+    preferred_term: IFNAR1
+    term:
+      id: hgnc:5432
+      label: IFNAR1
   association: Risk Factor
   notes: Interferon alpha/beta receptor 1 on chromosome 21; triplication contributes to interferon hyperactivation.
 - name: IFNAR2
+  gene_term:
+    preferred_term: IFNAR2
+    term:
+      id: hgnc:5433
+      label: IFNAR2
   association: Risk Factor
   notes: Interferon alpha/beta receptor 2 on chromosome 21; triplication contributes to interferon hyperactivation.
 - name: IFNGR2
+  gene_term:
+    preferred_term: IFNGR2
+    term:
+      id: hgnc:5440
+      label: IFNGR2
   association: Risk Factor
   notes: Interferon gamma receptor 2 on chromosome 21; triplication contributes to interferon hyperactivation.
 - name: IL10RB
+  gene_term:
+    preferred_term: IL10RB
+    term:
+      id: hgnc:5965
+      label: IL10RB
   association: Risk Factor
   notes: Interleukin 10 receptor subunit beta on chromosome 21; triplication contributes to interferon hyperactivation.
 - name: OLIG2
+  gene_term:
+    preferred_term: OLIG2
+    term:
+      id: hgnc:9398
+      label: OLIG2
   association: Risk Factor
   notes: Oligodendrocyte transcription factor 2; overexpression shifts neurogenesis toward astrogliogenesis, reducing neuronal output.
 diagnosis:
 - name: Karyotype Analysis
   presence: 47,XX,+21 or 47,XY,+21
-environmental:
-- name: Prenatal Screening
-  description: Screening tests are available to evaluate the risk of Down syndrome before birth.
+- name: Noninvasive Prenatal Screening
+  description: &gt;-
+    Screening of cell-free DNA in maternal plasma to estimate the risk of fetal
+    trisomy 21 before birth. A positive result is a screening result, not a
+    diagnosis, and is confirmed by karyotype on chorionic villus or amniotic
+    fluid sampling.
+  evidence:
+  - reference: PMID:35608568
+    reference_title: &#34;Systematic evidence-based review: The application of noninvasive prenatal screening using cell-free DNA in general-risk pregnancies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;NIPS is a highly accurate screening method for T21, T18, and T13 in both singleton and twin pregnancies.&#34;
+    explanation: &gt;-
+      Systematic evidence-based review establishing cell-free DNA screening as
+      an accurate prenatal screening method for trisomy 21, which is the
+      procedure this entry names.
 treatments:
 - name: Early Intervention Programs
   description: Support services including physical, occupational, and speech therapy.
@@ -8187,6 +8998,7 @@ treatments:
       label: Therapeutic Procedure
   evidence:
   - reference: PPR:PPR1272214
+    reference_title: &#34;Transcranial Photobiomodulation on Language and Cognitive Performance in Down Syndrome: A Pilot Randomized Sham-Controlled Trial&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In this underpowered pilot sample, 6 weeks of 40-Hz near-infrared tPBM–delivered unilaterally, at low power, on target areas–did not demonstrate a meaningful effect size in DS.&#34;
@@ -8213,7 +9025,15 @@ references:
     supporting_text: &#34;we uncovered co-dysregulation of genes associated with oligodendrocyte differentiation and myelination that were validated via cross-species comparison to Ts65Dn trisomy mice.&#34;
   - statement: Trisomy causes cell-autonomous hypomyelination that slows neocortical action potential transmission, implicating white-matter maturation deficits in Down syndrome intellectual disability.
     supporting_text: &#34;hypomyelination present in Ts65Dn mice is in part due to cell-autonomous effects of trisomy on oligodendrocyte differentiation and results in slower neocortical action potential transmission.&#34;
-review_notes: Down syndrome, also known as Trisomy 21, is associated with a characteristic set of phenotypes and increased risk for certain medical conditions. Early intervention and supportive care improve quality of life.
+review_notes: &gt;-
+  Down syndrome, also known as Trisomy 21, is associated with a characteristic set
+  of phenotypes and increased risk for certain medical conditions. Early
+  intervention and supportive care improve quality of life.
+
+  The environmental section was removed. Its only entry was &#34;Prenatal Screening&#34;,
+  which is a diagnostic procedure rather than an exposure. It has been migrated to
+  the diagnosis section and given a citation, so no information was lost. See
+  dismech#8296 and dismech#8551.
 disease_term:
   preferred_term: Down syndrome
   term:
@@ -8445,6 +9265,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8721,7 +9543,7 @@ Down syndrome (DS) is caused by constitutive trisomy of human chromosome 21 (Hsa
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Down_syndrome", "mondoId": "MONDO:0008608", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Down_syndrome", "yamlRevision": "829befe28b18"};
+        const OS_CONFIG = {"diseaseName": "Down_syndrome", "mondoId": "MONDO:0008608", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Down_syndrome", "yamlRevision": "d3cd0fcb26a4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

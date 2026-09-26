@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Postpartum Depression</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Postpartum Depression</h1>
             <div class="header-meta">
 
@@ -3901,7 +4044,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3919,7 +4062,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3963,27 +4106,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4144,7 +4364,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10831472" target="_blank">PMID:10831472</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4166,7 +4389,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28619476" target="_blank">PMID:28619476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4270,7 +4496,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188538" target="_blank">PMID:19188538</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4302,7 +4531,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="ppd_hormone_concentration_null_findings">
@@ -4354,7 +4583,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25263255" target="_blank">PMID:25263255</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4376,7 +4608,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25263255" target="_blank">PMID:25263255</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4466,6 +4701,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4482,6 +4723,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Test whether GABRD variants stratify response to brexanolone or zuranolone in the completed phase 2/3 trial cohorts. If failed delta-subunit plasticity is the human lesion, GABRD genotype should modify the magnitude of response to delta-subunit-active neuroactive steroids; if the lesion is purely ligand withdrawal, it should not.</div>
+
+
+
+
+
+
 
 
 
@@ -4523,7 +4770,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667149" target="_blank">PMID:18667149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4534,6 +4784,231 @@
 
 
                 <div class="evidence-explanation">The authors present the plasticity-failure evidence explicitly as a mouse model, leaving human correspondence to be established.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="ppd_gabab_versus_gabaa_inhibitory_axis">
+                <div class="item-name">Postpartum depression risk shares a genome-wide significant locus with premenstrual disorder at KCTD16, an auxiliary subunit of the metabotropic GABA-B receptor, yet every mechanistic and therapeutic strand in this entry runs through the ionotropic GABA-A receptor. Does GABA-B signalling contribute to the loss of inhibitory tone in postpartum depression, or is the KCTD16 association acting through something other than the receptor complex its protein belongs to?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">ppd_gabab_versus_gabaa_inhibitory_axis</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-loss-of-gabaergic-inhibitory-tone">pathophysiology#Loss of GABAergic Inhibitory Tone</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#genetic-kctd16">genetic#KCTD16</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The two claims are not in conflict, but nothing currently connects them. The curated chain is neurosteroid withdrawal acting on GABA-A receptors, and it is supported by the efficacy of two GABA-A positive allosteric modulators. Allopregnanolone has no comparable action at GABA-B receptors, so a genuine GABA-B contribution would have to be a parallel route to reduced inhibitory tone rather than a step in the neurosteroid pathway. Resolving this matters for two reasons. First, it determines whether the shared premenstrual-disorder and postpartum-depression liability is hormone-response machinery or general inhibitory tone, which is what makes the two disorders cross-inherited. Second, it is the difference between a treatment landscape confined to neuroactive steroids and one that includes GABA-B-directed agents. The evidence is currently thin on both sides: the locus is a single unreplicated preprint finding whose functional consequence for KCTD16 expression is unmeasured, and the KCTD16 to GABA-B link, while solid, comes from rodent brain proteomics with no postpartum context.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Replication of the KCTD16 shared locus and its effect on KCTD16 expression</div>
+
+            </div>
+
+            <div class="experiment-id">exp_ppd_kctd16_replication_and_expression</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Replicate the cross-trait premenstrual-disorder and postpartum-depression association at the KCTD16 3&#39; UTR locus in an independent, ideally non-European-ancestry cohort, and determine the direction of effect on hippocampal KCTD16 expression. A peer-reviewed replication with a measured expression direction is the precondition for treating GABA-B signalling as a mechanism here rather than as an unexplained association.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">GABA-B contribution to inhibitory tone in a neurosteroid-withdrawal model</div>
+
+            </div>
+
+            <div class="experiment-id">exp_ppd_gabab_tone_in_withdrawal_model</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">In the pseudopregnancy or Gabrd model, test whether GABA-B receptor signalling changes across the peripartum transition independently of GABA-A subunit remodeling, and whether manipulating Kctd16 alters the postpartum depression-like phenotype. A phenotype that moves with Kctd16 but not with GABA-A subunit composition would establish GABA-B as a parallel route to loss of inhibitory tone; no effect would argue the human locus acts elsewhere.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1293935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1293935" target="_blank">PPR:PPR1293935</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"locus implicates GABAB–mediated inhibitory signaling in both disorders"</div>
+
+
+                <div class="evidence-explanation">States the GABA-B interpretation that this entry&#39;s GABA-A-centred mechanism does not currently accommodate.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1293935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1293935" target="_blank">PPR:PPR1293935</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The register-based heritability was 0.35 (95% CI: 0.29–0.41) for PMD and 0.31 (95% CI: 0.23–0.37) for PPD, with a positive genetic correlation between these disorders"</div>
+
+
+                <div class="evidence-explanation">Quantifies the shared heritable liability that the KCTD16 and PCDH9 loci are proposed to partly explain, establishing that there is a real cross-disorder signal to account for.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1293935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1293935" target="_blank">PPR:PPR1293935</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Beyond the lead loci, TWAS suggested that the shared risk variants may partially act through genetically regulated gene expression across brain, endocrine and immune-related tissues"</div>
+
+
+                <div class="evidence-explanation">The authors themselves treat the mechanistic route as unsettled and distributed beyond the lead loci, which is why this is recorded as an open gap rather than as a curated mechanism.</div>
 
 
 
@@ -4560,6 +5035,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gestational-neurosteroid-surge" data-dismech-node="Gestational Neurosteroid Surge" data-dismech-type="pathophysiology">
                 <div class="item-name">Gestational Neurosteroid Surge</div>
+
 
                 <div class="item-desc">Across pregnancy, placental and ovarian steroidogenesis raises circulating progesterone and its 5-alpha-reduced neurosteroid metabolite allopregnanolone to supraphysiologic levels. This is the rising limb, and it is a normal feature of every pregnancy — it is pathogenic only as the setup for the fall that follows, by remodeling GABA-A receptors to a high-neurosteroid environment that will not persist.</div>
 
@@ -4687,7 +5163,10 @@ This pathophysiological event involves increased steroid biosynthetic process (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667149" target="_blank">PMID:18667149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4712,6 +5191,7 @@ This pathophysiological event involves increased steroid biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-precipitous-postpartum-neurosteroid-withdrawal" data-dismech-node="Precipitous Postpartum Neurosteroid Withdrawal" data-dismech-type="pathophysiology">
                 <div class="item-name">Precipitous Postpartum Neurosteroid Withdrawal</div>
+
 
                 <div class="item-desc">Delivery of the placenta removes the dominant source of progesterone-derived neurosteroid within hours, producing the steepest neurosteroid withdrawal in normal human physiology. The withdrawal itself is universal; what distinguishes women who develop PPD is differential sensitivity to it, established experimentally by inducing and then withdrawing pregnancy-level estradiol and progesterone under double-blind conditions.</div>
 
@@ -4862,7 +5342,10 @@ This pathophysiological event involves abnormal response to progesterone (GO:003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10831472" target="_blank">PMID:10831472</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4884,7 +5367,10 @@ This pathophysiological event involves abnormal response to progesterone (GO:003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10831472" target="_blank">PMID:10831472</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4909,6 +5395,7 @@ This pathophysiological event involves abnormal response to progesterone (GO:003
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-gaba-a-receptor-subunit-plasticity" data-dismech-node="Failure of GABA-A Receptor Subunit Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of GABA-A Receptor Subunit Plasticity</div>
+
 
                 <div class="item-desc">GABA-A receptors normally adapt to the pregnancy neurosteroid environment by downregulating delta and gamma2 subunits, then rebounding immediately postpartum as neurosteroid levels fall. Delta-subunit-containing extrasynaptic receptors mediate tonic inhibition and are the principal neurosteroid-sensitive population, while gamma2-containing synaptic receptors mediate phasic inhibition. Mice genetically unable to perform the delta-subunit adaptation develop depression-like and abnormal maternal behavior, identifying failed receptor plasticity — rather than the hormone change itself — as the pathogenic step.</div>
 
@@ -5115,7 +5602,10 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667149" target="_blank">PMID:18667149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5137,7 +5627,10 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667149" target="_blank">PMID:18667149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5162,6 +5655,7 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-gabaergic-inhibitory-tone" data-dismech-node="Loss of GABAergic Inhibitory Tone" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of GABAergic Inhibitory Tone</div>
+
 
                 <div class="item-desc">The net consequence of neurosteroid withdrawal against a maladapted receptor population is reduced tonic and phasic GABAergic inhibition in limbic circuits regulating mood and maternal behavior. This node is the convergent target of both approved mechanism-matched drugs, which restore positive allosteric modulation at synaptic and extrasynaptic GABA-A receptors. Its therapeutic reversibility is the strongest evidence that the node is causal rather than correlative.</div>
 
@@ -5368,7 +5862,10 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667149" target="_blank">PMID:18667149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5390,7 +5887,10 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30177236" target="_blank">PMID:30177236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5415,6 +5915,7 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-placental-crh-elevation" data-dismech-node="Placental CRH Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">Placental CRH Elevation</div>
+
 
                 <div class="item-desc">The placenta secretes corticotropin-releasing hormone in exponentially rising quantities across gestation. Unlike hypothalamic CRH, placental CRH is upregulated rather than suppressed by cortisol, creating a feed-forward loop. Women whose mid-gestation pCRH rises fastest are at elevated risk of postpartum depressive symptoms — an association that holds after adjusting for prenatal depressive symptoms.</div>
 
@@ -5523,7 +6024,10 @@ This pathophysiological event involves increased cellular response to corticotro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188538" target="_blank">PMID:19188538</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5545,7 +6049,10 @@ This pathophysiological event involves increased cellular response to corticotro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188538" target="_blank">PMID:19188538</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5570,6 +6077,7 @@ This pathophysiological event involves increased cellular response to corticotro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postpartum-hpa-axis-hyporesponsiveness" data-dismech-node="Postpartum HPA Axis Hyporesponsiveness" data-dismech-type="pathophysiology">
                 <div class="item-name">Postpartum HPA Axis Hyporesponsiveness</div>
+
 
                 <div class="item-desc">Placental delivery abruptly removes the dominant CRH source, leaving a transiently hyporesponsive hypothalamic-pituitary-adrenal axis while suppressed hypothalamic CRH output recovers. Notably the risk signal in human data attaches to placental CRH and is not mirrored by cortisol or ACTH, which constrains this arm to a placental rather than adrenal locus.</div>
 
@@ -5672,13 +6180,16 @@ This pathophysiological event involves dysregulated cellular response to cortico
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19188538" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19188538" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188538" target="_blank">PMID:19188538</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5703,6 +6214,7 @@ This pathophysiological event involves dysregulated cellular response to cortico
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-estrogen-sensitive-epigenetic-reprogramming-in-susceptible-women" data-dismech-node="Estrogen-Sensitive Epigenetic Reprogramming in Susceptible Women" data-dismech-type="pathophysiology">
                 <div class="item-name">Estrogen-Sensitive Epigenetic Reprogramming in Susceptible Women</div>
+
 
                 <div class="item-desc">Susceptibility to PPD appears to reside partly in how a woman&#39;s genome responds epigenetically to the perinatal estrogen excursion, rather than in the size of the excursion itself. Antenatal blood DNA methylation at estrogen-responsive loci — identified by cross-referencing human prospective profiles with hippocampal methylation changes induced by 17-beta-estradiol in mice — discriminates women who will develop PPD, with HP1BP3 and TTC9B as the two replicated biomarker loci. This provides a molecular correlate for the differential steroid sensitivity demonstrated experimentally.</div>
 
@@ -5823,7 +6335,10 @@ This pathophysiological event involves abnormal cellular response to estrogen st
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23689534" target="_blank">PMID:23689534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5845,7 +6360,10 @@ This pathophysiological event involves abnormal cellular response to estrogen st
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23689534" target="_blank">PMID:23689534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5870,6 +6388,7 @@ This pathophysiological event involves abnormal cellular response to estrogen st
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postpartum-major-depressive-episode" data-dismech-node="Postpartum Major Depressive Episode" data-dismech-type="pathophysiology">
                 <div class="item-name">Postpartum Major Depressive Episode</div>
+
 
                 <div class="item-desc">The convergent clinical endpoint: a major depressive episode with peripartum onset, comprising depressed mood, anhedonia, sleep and appetite disturbance, impaired concentration, anxiety, and in severe cases suicidal ideation. Beyond the mother, the episode disrupts maternal-infant bonding and is associated with adverse infant cognitive and behavioral outcomes. Rapid reversibility with neuroactive-steroid therapy — meaningful separation from placebo by day 3 — distinguishes the syndrome pharmacodynamically from non-puerperal major depression treated with monoaminergic agents.</div>
 
@@ -5941,7 +6460,10 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34190962" target="_blank">PMID:34190962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5963,7 +6485,10 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34190962" target="_blank">PMID:34190962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6079,6 +6604,9 @@ This clinical feature is Poor appetite (HP:0004396). HP:0004396 is a phenotype f
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6120,6 +6648,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6132,7 +6663,10 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37491938" target="_blank">PMID:37491938</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6190,6 +6724,9 @@ This clinical feature is Anhedonia (HP:0012154). HP:0012154 is a phenotype from 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anxiety" data-dismech-node="Anxiety" data-dismech-type="phenotype">
@@ -6220,6 +6757,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6232,7 +6772,10 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34190962" target="_blank">PMID:34190962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6290,6 +6833,9 @@ This clinical feature is Insomnia (HP:0100785). HP:0100785 is a phenotype from t
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-irritability" data-dismech-node="Irritability" data-dismech-type="phenotype">
@@ -6315,6 +6861,9 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6354,6 +6903,9 @@ This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6366,7 +6918,10 @@ This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37491938" target="_blank">PMID:37491938</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6433,6 +6988,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6471,7 +7029,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-hp1bp3" data-dismech-node="HP1BP3" data-dismech-type="genetic">
@@ -6509,6 +7067,9 @@ This disease-associated gene is HP1BP3 (hgnc:24973). hgnc:24973 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6521,7 +7082,10 @@ This disease-associated gene is HP1BP3 (hgnc:24973). hgnc:24973 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23689534" target="_blank">PMID:23689534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6580,6 +7144,9 @@ This disease-associated gene is TTC9B (hgnc:26395). hgnc:26395 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6592,7 +7159,10 @@ This disease-associated gene is TTC9B (hgnc:26395). hgnc:26395 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23689534" target="_blank">PMID:23689534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6616,10 +7186,227 @@ This disease-associated gene is TTC9B (hgnc:26395). hgnc:26395 is a gene from th
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-kctd16" data-dismech-node="KCTD16" data-dismech-type="genetic">
+                <div class="item-name">
+                    KCTD16
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(A cross-trait GWAS meta-analysis of premenstrual disorder and postpartum depression identified a shared genome-wide significant locus in the 3&#39; untranslated region of KCTD16. KCTD16 encodes one of the KCTD auxiliary subunits that assemble onto the GABA-B2 subunit and set the agonist potency and signalling kinetics of the native GABA-B receptor, so the locus implicates metabotropic GABA-B inhibitory signalling in postpartum depression. This is a different inhibitory axis from the ionotropic GABA-A neurosteroid mechanism the rest of this entry models. Transcriptome-wide association localised the regulatory signal to hippocampus, with no comparable signal in other brain regions or peripheral tissues.)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KCTD16
+
+
+    <a href="https://bioregistry.io/hgnc:29244" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:29244</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCTD16 (hgnc:29244). hgnc:29244 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SUSCEPTIBILITY</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1293935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1293935" target="_blank">PPR:PPR1293935</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cross-trait meta-analysis identified two novel genome-wide significant loci jointly associated with PMD and PPD"</div>
+
+
+                <div class="evidence-explanation">Establishes KCTD16 as one of the two loci reaching genome-wide significance in the joint premenstrual-disorder and postpartum-depression analysis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1293935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1293935" target="_blank">PPR:PPR1293935</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"locus implicates GABAB–mediated inhibitory signaling in both disorders"</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own reading of the KCTD16 signal, naming GABA-B rather than GABA-A as the implicated inhibitory pathway.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1293935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1293935" target="_blank">PPR:PPR1293935</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with no detectable trend effects in other brain regions or peripheral tissues"</div>
+
+
+                <div class="evidence-explanation">Tissue specificity of the KCTD16 transcriptome-wide signal: hippocampus only, which is the region where the neurosteroid-sensitive GABAergic mechanism of this entry is also localised.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-pcdh9" data-dismech-node="PCDH9" data-dismech-type="genetic">
+                <div class="item-name">
+                    PCDH9
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(The second genome-wide significant locus shared between premenstrual disorder and postpartum depression in the same cross-trait meta-analysis maps to an intronic region of PCDH9, a non-clustered protocadherin. No mechanism linking this locus to peripartum mood regulation has been established, and the preprint offers none beyond the association itself.)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PCDH9
+
+
+    <a href="https://bioregistry.io/hgnc:8661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:8661</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PCDH9 (hgnc:8661). hgnc:8661 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SUSCEPTIBILITY</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1293935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1293935" target="_blank">PPR:PPR1293935</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cross-trait meta-analysis identified two novel genome-wide significant loci jointly associated with PMD and PPD"</div>
+
+
+                <div class="evidence-explanation">Establishes PCDH9 as the second of the two shared genome-wide significant loci; the mechanistic interpretation is left open by the authors.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
         </div>
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6634,175 +7421,6 @@ This disease-associated gene is TTC9B (hgnc:26395). hgnc:26395 is a gene from th
             <div class="item-box treatment-box anchor-target" id="treatment-brexanolone" data-dismech-node="Brexanolone" data-dismech-type="treatment">
                 <div class="item-name">
                     Brexanolone
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-
-
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
-                    </span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
-
-
-
-                    <span class="tag tag-treatment">
-                        brexanolone
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50169" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:50169</a>
-
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses brexanolone (CHEBI:50169). CHEBI:50169 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
-                    </span>
-
-                </div>
-
-
-
-                <div class="item-desc">Brexanolone is an intravenous formulation of allopregnanolone, the progesterone-derived neurosteroid whose postpartum withdrawal is the proposed trigger of PPD. Administered as a single 60-hour continuous infusion, it acts as a positive allosteric modulator of synaptic and extrasynaptic GABA-A receptors, directly replacing the withdrawn endogenous modulator. It was the first drug approved specifically for postpartum depression (FDA 2019) and remains the archetypal mechanism-matched therapy in this entry — the trial evidence below is what established the neurosteroid-replacement principle that zuranolone now delivers orally.
-WITHDRAWN FROM MARKET: brexanolone is no longer commercially available. Sage Therapeutics notified FDA that the product was no longer marketed and requested withdrawal; FDA withdrew approval of NDA 211371 as of 2025-04-14. The 60-hour monitored intravenous infusion, the REMS requirement arising from a boxed warning for excessive sedation and sudden loss of consciousness, and the drug&#39;s cost are the widely cited practical reasons the product did not survive commercially. It is retained in this entry because its trial data remain the primary human evidence for the causal role of the inhibitory-tone node, not because it is a current treatment option.</div>
-
-
-                <div class="item-meta" style="margin-top: 8px;">
-                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-
-                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
-                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
-                            RESTORES
-                        </span>
-                        <strong style="color: #5b21b6;">Loss of GABAergic Inhibitory Tone</strong>
-
-                        <span style="color: #7c3aed;"> &mdash; Intravenous allopregnanolone restores positive allosteric modulation at synaptic and extrasynaptic GABA-A receptors, replacing the neurosteroid tone lost at parturition.</span>
-
-
-
-
-                    </div>
-
-                </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (4 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28619476" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28619476" target="_blank">PMID:28619476</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"At 60 h, mean reduction in HAM-D total score from baseline was 21·0 points (SE 2·9) in the brexanolone group compared with 8·8 points (SE 2·8) in the placebo group"</div>
-
-
-                <div class="evidence-explanation">Phase 2 randomised placebo-controlled trial establishing efficacy of allopregnanolone replacement in severe PPD.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30177236" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30177236" target="_blank">PMID:30177236</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In study 1, at 60 h, the least-squares (LS) mean reduction in HAM-D total score from baseline was 19·5 points (SE 1·2) in the BRX60 group and 17·7 points (1·2) in the BRX90 group compared with 14·0 points (1·1) in the placebo group"</div>
-
-
-                <div class="evidence-explanation">Two phase 3 trials confirming benefit over placebo across moderate and severe PPD, supporting the mechanism-matched treatment rationale.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.govinfo.gov/content/pkg/FR-2025-03-14/html/2025-04101.htm" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.govinfo.gov/content/pkg/FR-2025-03-14/html/2025-04101.htm" target="_blank">url:https://www.govinfo.gov/content/pkg/FR-2025-03-14/html/2025-04101.htm</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Therefore, approval of NDA 211371, and all amendments and supplements thereto, is hereby withdrawn as of April 14, 2025."</div>
-
-
-                <div class="evidence-explanation">Federal Register notice (FDA, Docket FDA-2024-N-5852) recording formal withdrawal of brexanolone&#39;s marketing approval. Regulatory status, not a study result, hence evidence_source OTHER.</div>
-
-
-
-            </div>
-
-
-            <div class="evidence-more">+ 1 more reference</div>
-
-        </div>
-    </details>
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-zuranolone" data-dismech-node="Zuranolone" data-dismech-type="treatment">
-                <div class="item-name">
-                    Zuranolone
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
@@ -6844,25 +7462,51 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="tag tag-treatment">
-                        zuranolone
+                        brexanolone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_228302" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:228302</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50169" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:50169</a>
 
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
-This treatment uses zuranolone (CHEBI:228302). CHEBI:228302 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+This treatment uses brexanolone (CHEBI:50169). CHEBI:50169 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">Zuranolone is an orally bioavailable neuroactive steroid and positive allosteric modulator of synaptic and extrasynaptic GABA-A receptors, given as a once-daily 14-day course. It applies the same neurosteroid-replacement logic as brexanolone without requiring a 60-hour monitored intravenous infusion, and separates from placebo by day 3.</div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Brexanolone is an intravenous formulation of allopregnanolone, the progesterone-derived neurosteroid whose postpartum withdrawal is the proposed trigger of PPD. Administered as a single 60-hour continuous infusion, it acts as a positive allosteric modulator of synaptic and extrasynaptic GABA-A receptors, directly replacing the withdrawn endogenous modulator. It was the first drug approved specifically for postpartum depression (FDA 2019) and remains the archetypal mechanism-matched therapy in this entry — the trial evidence below is what established the neurosteroid-replacement principle that zuranolone now delivers orally.
+WITHDRAWN FROM MARKET: brexanolone is no longer commercially available. Sage Therapeutics notified FDA that the product was no longer marketed and requested withdrawal; FDA withdrew approval of NDA 211371 as of 2025-04-14. The 60-hour monitored intravenous infusion, the REMS requirement arising from a boxed warning for excessive sedation and sudden loss of consciousness, and the drug&#39;s cost are the widely cited practical reasons the product did not survive commercially. It is retained in this entry because its trial data remain the primary human evidence for the causal role of the inhibitory-tone node, not because it is a current treatment option.</div>
 
 
                 <div class="item-meta" style="margin-top: 8px;">
@@ -6874,7 +7518,7 @@ This treatment uses zuranolone (CHEBI:228302). CHEBI:228302 is a therapeutic age
                         </span>
                         <strong style="color: #5b21b6;">Loss of GABAergic Inhibitory Tone</strong>
 
-                        <span style="color: #7c3aed;"> &mdash; Oral neuroactive steroid restoring positive allosteric modulation at synaptic and extrasynaptic GABA-A receptors.</span>
+                        <span style="color: #7c3aed;"> &mdash; Intravenous allopregnanolone restores positive allosteric modulation at synaptic and extrasynaptic GABA-A receptors, replacing the neurosteroid tone lost at parturition.</span>
 
 
 
@@ -6889,54 +7533,87 @@ This treatment uses zuranolone (CHEBI:228302). CHEBI:228302 is a therapeutic age
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37491938" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:28619476" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37491938" target="_blank">PMID:37491938</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28619476" target="_blank">PMID:28619476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Treatment with zuranolone compared with placebo resulted in statistically significant improvement in depressive symptoms at day 15"</div>
+                <div class="evidence-snippet">"At 60 h, mean reduction in HAM-D total score from baseline was 21·0 points (SE 2·9) in the brexanolone group compared with 8·8 points (SE 2·8) in the placebo group"</div>
 
 
-                <div class="evidence-explanation">Phase 3 SKYLARK trial of zuranolone 50 mg in severe PPD demonstrating efficacy on the primary endpoint.</div>
+                <div class="evidence-explanation">Phase 2 randomised placebo-controlled trial establishing efficacy of allopregnanolone replacement in severe PPD.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34190962" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:30177236" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34190962" target="_blank">PMID:34190962</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30177236" target="_blank">PMID:30177236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Zuranolone demonstrated significant day 15 HAMD-17 score improvements from baseline vs placebo (-17.8 vs -13.6; difference, -4.2; 95% CI, -6.9 to -1.5; P = .003)."</div>
+                <div class="evidence-snippet">"In study 1, at 60 h, the least-squares (LS) mean reduction in HAM-D total score from baseline was 19·5 points (SE 1·2) in the BRX60 group and 17·7 points (1·2) in the BRX90 group compared with 14·0 points (1·1) in the placebo group"</div>
 
 
-                <div class="evidence-explanation">Earlier phase 3 trial of zuranolone 30 mg confirming benefit on the primary HAMD-17 endpoint.</div>
+                <div class="evidence-explanation">Two phase 3 trials confirming benefit over placebo across moderate and severe PPD, supporting the mechanism-matched treatment rationale.</div>
 
 
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="url:https://www.govinfo.gov/content/pkg/FR-2025-03-14/html/2025-04101.htm" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.govinfo.gov/content/pkg/FR-2025-03-14/html/2025-04101.htm" target="_blank">url:https://www.govinfo.gov/content/pkg/FR-2025-03-14/html/2025-04101.htm</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Therefore, approval of NDA 211371, and all amendments and supplements thereto, is hereby withdrawn as of April 14, 2025."</div>
+
+
+                <div class="evidence-explanation">Federal Register notice (FDA, Docket FDA-2024-N-5852) recording formal withdrawal of brexanolone&#39;s marketing approval. Regulatory status, not a study result, hence evidence_source OTHER.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -6944,9 +7621,9 @@ This treatment uses zuranolone (CHEBI:228302). CHEBI:228302 is a therapeutic age
 
             </div>
 
-            <div class="item-box treatment-box anchor-target" id="treatment-selective-serotonin-reuptake-inhibitor-therapy" data-dismech-node="Selective serotonin reuptake inhibitor therapy" data-dismech-type="treatment">
+            <div class="item-box treatment-box anchor-target" id="treatment-zuranolone" data-dismech-node="Zuranolone" data-dismech-type="treatment">
                 <div class="item-name">
-                    Selective serotonin reuptake inhibitor therapy
+                    Zuranolone
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
@@ -6988,21 +7665,221 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="tag tag-treatment">
-                        sertraline
+                        zuranolone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9123" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:9123</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_228302" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:228302</a>
 
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
+This treatment uses zuranolone (CHEBI:228302). CHEBI:228302 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Zuranolone is an orally bioavailable neuroactive steroid and positive allosteric modulator of synaptic and extrasynaptic GABA-A receptors, given as a once-daily 14-day course. It applies the same neurosteroid-replacement logic as brexanolone without requiring a 60-hour monitored intravenous infusion, and separates from placebo by day 3.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Loss of GABAergic Inhibitory Tone</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Oral neuroactive steroid restoring positive allosteric modulation at synaptic and extrasynaptic GABA-A receptors.</span>
+
+
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37491938" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37491938" target="_blank">PMID:37491938</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment with zuranolone compared with placebo resulted in statistically significant improvement in depressive symptoms at day 15"</div>
+
+
+                <div class="evidence-explanation">Phase 3 SKYLARK trial of zuranolone 50 mg in severe PPD demonstrating efficacy on the primary endpoint.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34190962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34190962" target="_blank">PMID:34190962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Zuranolone demonstrated significant day 15 HAMD-17 score improvements from baseline vs placebo (-17.8 vs -13.6; difference, -4.2; 95% CI, -6.9 to -1.5; P = .003)."</div>
+
+
+                <div class="evidence-explanation">Earlier phase 3 trial of zuranolone 30 mg confirming benefit on the primary HAMD-17 endpoint.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-selective-serotonin-reuptake-inhibitor-therapy" data-dismech-node="Selective serotonin reuptake inhibitor therapy" data-dismech-type="treatment">
+                <div class="item-name">
+                    Selective serotonin reuptake inhibitor therapy
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        sertraline
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9123" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:9123</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
 This treatment uses sertraline (CHEBI:9123). CHEBI:9123 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -7024,7 +7901,7 @@ This treatment uses sertraline (CHEBI:9123). CHEBI:9123 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Psychotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Psychotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7051,6 +7928,31 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7083,6 +7985,10 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
 
 
+
+
+
+
                 <div class="item-desc">A previous postpartum depressive episode is among the strongest predictors of recurrence and identifies the hormone-sensitive subgroup that responds to experimental steroid withdrawal with mood symptoms.</div>
 
 
@@ -7099,7 +8005,10 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10831472" target="_blank">PMID:10831472</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7128,6 +8037,10 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
 
 
+
+
+
+
                 <div class="item-desc">Perinatal depression prevalence is significantly higher in low- and middle-income countries than in high-income countries, reflecting socioeconomic stressors, reduced social support, and limited access to perinatal mental health services.</div>
 
 
@@ -7144,7 +8057,10 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28531848" target="_blank">PMID:28531848</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7174,6 +8090,426 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-perinatal-depression-screening">
+                <div class="item-name">
+                    Perinatal depression screening
+
+                </div>
+
+                <div class="item-desc">PPD is diagnosed clinically against DSM-5 major depressive episode criteria with the peripartum-onset specifier; there is no PPD-specific diagnostic algorithm. Case detection therefore rests on screening instruments — the Edinburgh Postnatal Depression Scale, a 10-item perinatal-specific self-report measure that also captures anxiety items, and the PHQ-9, both validated in this population. Screening policy diverges internationally: US bodies recommend universal formal screening, whereas UK NICE guidance favours the two Whooley questions with EPDS as an adjunct rather than universal scale-based screening.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        perinatal depression screening and diagnostic assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15220" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C15220</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19188538" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19188538" target="_blank">PMID:19188538</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Symptoms of PPD were assessed at a mean (SD) of 8.7 (2.94) weeks after delivery with the Edinburgh Postnatal Depression Scale."</div>
+
+
+                <div class="evidence-explanation">Documents use of the EPDS as the standard instrument for ascertaining postpartum depressive symptoms in research cohorts.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34190962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34190962" target="_blank">PMID:34190962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with PPD (major depressive episode beginning third trimester or ≤4 weeks postdelivery), and baseline 17-item Hamilton Rating Scale for Depression (HAMD-17) score of 26 or higher"</div>
+
+
+                <div class="evidence-explanation">Shows the operational case definition used in registrational trials: a major depressive episode with third-trimester or early-postpartum onset, severity-graded by HAMD-17.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        17220.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Pooled estimate across 565 studies from 80 countries or regions; 17.22% (95% CI 16.00-18.51).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34671011" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34671011" target="_blank">PMID:34671011</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Postpartum depression was found in 17.22% (95% CI 16.00-18.51) of the world&#39;s population."</div>
+
+
+                <div class="evidence-explanation">Global pooled prevalence of postpartum depression from the largest published synthesis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-perinatal-period">
+                <div class="item-name">Worldwide, perinatal period</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Period Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        11900.0 per 100,000
+                        (11400.0&ndash;12500.0)
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Pooled perinatal (antenatal plus postnatal) depression prevalence, 11.9% (95% CI 11.4-12.5), from 140 prevalence estimates across 96 studies.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28531848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28531848" target="_blank">PMID:28531848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The overall pooled prevalence was 11.9% of women during the perinatal period (95% CI 11.4-12.5)."</div>
+
+
+                <div class="evidence-explanation">Meta-analytic pooled prevalence for perinatal depression, the broader window encompassing PPD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-southern-africa">
+                <div class="item-name">Southern Africa</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        39960.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Highest regional rate identified in the global mapping analysis (39.96%).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34671011" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34671011" target="_blank">PMID:34671011</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Varied prevalence rates were noted in geographic regions with the highest rate found in Southern Africa (39.96%)."</div>
+
+
+                <div class="evidence-explanation">Documents the extreme upper end of regional variation in PPD prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-geographic-and-socioeconomic-variation">
+                <div class="item-name">Geographic and socioeconomic variation</div>
+
+                <div class="item-desc">PPD prevalence varies several-fold by region and national income level, with the lowest rates in developed and high-income countries and the highest in Southern Africa. Study size and country development level are the dominant sources of between-study heterogeneity, and measurement method matters: symptom scales yield significantly higher estimates than diagnostic instruments.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34671011" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34671011" target="_blank">PMID:34671011</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of interested was a significantly lower rate of PPD in developed countries or high-income countries or areas."</div>
+
+
+                <div class="evidence-explanation">Documents the development/income gradient in postpartum depression prevalence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28531848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28531848" target="_blank">PMID:28531848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"prevalence derived using symptom scales was significantly higher than prevalence derived using diagnostic instruments"</div>
+
+
+                <div class="evidence-explanation">Establishes ascertainment method as a systematic source of variation in reported prevalence, relevant when comparing estimates across studies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -7189,7 +8525,7 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02942004">
                 <div class="item-name">
                     NCT02942004
 
@@ -7217,7 +8553,10 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30177236" target="_blank">PMID:30177236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7240,7 +8579,7 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02978326">
                 <div class="item-name">
                     NCT02978326
 
@@ -7268,7 +8607,10 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34190962" target="_blank">PMID:34190962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7291,7 +8633,7 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04442503">
                 <div class="item-name">
                     NCT04442503
 
@@ -7316,11 +8658,11 @@ This treatment is Psychotherapy (NCIT:C15308). NCIT:C15308 is a clinical interve
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000716</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7341,7 +8683,10 @@ This clinical trial targets Depression (HP:0000716). HP:0000716 is a phenotype f
                         <a href="https://clinicaltrials.gov/study/NCT04442503" target="_blank">clinicaltrials:NCT04442503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7361,7 +8706,10 @@ This clinical trial targets Depression (HP:0000716). HP:0000716 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37491938" target="_blank">PMID:37491938</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7799,7 +9147,7 @@ pathophysiology:
   evidence:
   - reference: PMID:19188538
     reference_title: Risk of postpartum depressive symptoms with elevated corticotropin-releasing hormone in human pregnancy.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       No significant associations were found for cortisol and ACTH.
@@ -8074,6 +9422,115 @@ genetic:
     explanation: &gt;-
       Quantifies combined-model performance for the two-locus methylation
       biomarker after adjustment for blood cell composition.
+- name: KCTD16
+  gene_term:
+    preferred_term: KCTD16
+    term:
+      id: hgnc:29244
+      label: KCTD16
+  relationship_type: SUSCEPTIBILITY
+  association: &gt;-
+    A cross-trait GWAS meta-analysis of premenstrual disorder and postpartum
+    depression identified a shared genome-wide significant locus in the 3&#39;
+    untranslated region of KCTD16. KCTD16 encodes one of the KCTD auxiliary
+    subunits that assemble onto the GABA-B2 subunit and set the agonist potency
+    and signalling kinetics of the native GABA-B receptor, so the locus
+    implicates metabotropic GABA-B inhibitory signalling in postpartum
+    depression. This is a different inhibitory axis from the ionotropic GABA-A
+    neurosteroid mechanism the rest of this entry models. Transcriptome-wide
+    association localised the regulatory signal to hippocampus, with no
+    comparable signal in other brain regions or peripheral tissues.
+  notes: &gt;-
+    Preprint evidence, not yet peer reviewed and not replicated in an
+    independent cohort; the GABA-B assignment rests on the gene&#39;s established
+    receptor role rather than on functional work in postpartum depression
+    itself. Recorded as a susceptibility locus rather than woven into the
+    pathophysiology chain for that reason. See the
+    ppd_gabab_versus_gabaa_inhibitory_axis discussion.
+  evidence:
+  - reference: PPR:PPR1293935
+    reference_title: &#34;Shared Genetic Architecture of Premenstrual Disorder and Postpartum Depression: Registry-Based and Genetic Evidence&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Cross-trait meta-analysis identified two novel genome-wide significant
+      loci jointly associated with PMD and PPD
+    explanation: &gt;-
+      Establishes KCTD16 as one of the two loci reaching genome-wide
+      significance in the joint premenstrual-disorder and postpartum-depression
+      analysis.
+  - reference: PPR:PPR1293935
+    reference_title: &#34;Shared Genetic Architecture of Premenstrual Disorder and Postpartum Depression: Registry-Based and Genetic Evidence&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      locus implicates GABAB–mediated inhibitory signaling in both disorders
+    explanation: &gt;-
+      The authors&#39; own reading of the KCTD16 signal, naming GABA-B rather than
+      GABA-A as the implicated inhibitory pathway.
+  - reference: PPR:PPR1293935
+    reference_title: &#34;Shared Genetic Architecture of Premenstrual Disorder and Postpartum Depression: Registry-Based and Genetic Evidence&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      with no detectable trend effects in other brain regions or peripheral
+      tissues
+    explanation: &gt;-
+      Tissue specificity of the KCTD16 transcriptome-wide signal: hippocampus
+      only, which is the region where the neurosteroid-sensitive GABAergic
+      mechanism of this entry is also localised.
+  - reference: PMID:20400944
+    reference_title: Native GABA(B) receptors are heteromultimers with a family of auxiliary subunits.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      KCTD proteins 8, 12, 12b and 16 show distinct expression profiles in the
+      brain and associate tightly with the carboxy terminus of GABA(B2) as
+      tetramers.
+    explanation: &gt;-
+      Independent basis for treating a KCTD16 locus as a GABA-B signalling
+      locus: KCTD16 protein is a constituent of the native brain GABA-B
+      receptor complex.
+  - reference: PMID:20400944
+    reference_title: Native GABA(B) receptors are heteromultimers with a family of auxiliary subunits.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      our results establish the KCTD proteins as auxiliary subunits of GABA(B)
+      receptors that determine the pharmacology and kinetics of the receptor
+      response
+    explanation: &gt;-
+      Specifies what a change in KCTD16 dosage would be expected to alter,
+      namely GABA-B receptor potency and response kinetics rather than receptor
+      presence.
+- name: PCDH9
+  gene_term:
+    preferred_term: PCDH9
+    term:
+      id: hgnc:8661
+      label: PCDH9
+  relationship_type: SUSCEPTIBILITY
+  association: &gt;-
+    The second genome-wide significant locus shared between premenstrual
+    disorder and postpartum depression in the same cross-trait meta-analysis
+    maps to an intronic region of PCDH9, a non-clustered protocadherin. No
+    mechanism linking this locus to peripartum mood regulation has been
+    established, and the preprint offers none beyond the association itself.
+  notes: &gt;-
+    Preprint evidence, not yet peer reviewed and not replicated. Curated as a
+    positional association only; the gene has no assigned role in this entry&#39;s
+    pathophysiology and none should be inferred from its inclusion here.
+  evidence:
+  - reference: PPR:PPR1293935
+    reference_title: &#34;Shared Genetic Architecture of Premenstrual Disorder and Postpartum Depression: Registry-Based and Genetic Evidence&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Cross-trait meta-analysis identified two novel genome-wide significant
+      loci jointly associated with PMD and PPD
+    explanation: &gt;-
+      Establishes PCDH9 as the second of the two shared genome-wide significant
+      loci; the mechanistic interpretation is left open by the authors.
 environmental:
 - name: Prior history of postpartum depression
   description: &gt;-
@@ -8176,7 +9633,7 @@ treatments:
       Two phase 3 trials confirming benefit over placebo across moderate and
       severe PPD, supporting the mechanism-matched treatment rationale.
   - reference: url:https://www.govinfo.gov/content/pkg/FR-2025-03-14/html/2025-04101.htm
-    reference_title: &#34;Sage Therapeutics, Inc.; Withdrawal of Approval of a New Drug Application for ZULRESSO (Brexanolone) Solution, 100 Milligrams/20 Milliliters&#34;
+    reference_title: &#34;Federal Register, Volume 90 Issue 49 (Friday, March 14, 2025)&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8187,7 +9644,7 @@ treatments:
       withdrawal of brexanolone&#39;s marketing approval. Regulatory status, not a
       study result, hence evidence_source OTHER.
   - reference: url:https://www.govinfo.gov/content/pkg/FR-2025-03-14/html/2025-04101.htm
-    reference_title: &#34;Sage Therapeutics, Inc.; Withdrawal of Approval of a New Drug Application for ZULRESSO (Brexanolone) Solution, 100 Milligrams/20 Milliliters&#34;
+    reference_title: &#34;Federal Register, Volume 90 Issue 49 (Friday, March 14, 2025)&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8410,6 +9867,7 @@ clinical_trials:
       label: Depression
   evidence:
   - reference: clinicaltrials:NCT04442503
+    reference_title: &#34;A Randomized, Double-Blind, Placebo-controlled Study Evaluating the Efficacy and Safety of SAGE-217 in the Treatment of Adults With Severe Postpartum Depression&#34;
     supports: SUPPORT
     snippet: &gt;-
       The purpose of this study is to determine if treatment with SAGE-217
@@ -8561,6 +10019,91 @@ discussions:
     explanation: &gt;-
       The authors present the plasticity-failure evidence explicitly as a mouse
       model, leaving human correspondence to be established.
+- discussion_id: ppd_gabab_versus_gabaa_inhibitory_axis
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Loss of GABAergic Inhibitory Tone
+  - genetic#KCTD16
+  prompt: &gt;-
+    Postpartum depression risk shares a genome-wide significant locus with
+    premenstrual disorder at KCTD16, an auxiliary subunit of the metabotropic
+    GABA-B receptor, yet every mechanistic and therapeutic strand in this entry
+    runs through the ionotropic GABA-A receptor. Does GABA-B signalling
+    contribute to the loss of inhibitory tone in postpartum depression, or is
+    the KCTD16 association acting through something other than the receptor
+    complex its protein belongs to?
+  rationale: &gt;-
+    The two claims are not in conflict, but nothing currently connects them.
+    The curated chain is neurosteroid withdrawal acting on GABA-A receptors, and
+    it is supported by the efficacy of two GABA-A positive allosteric
+    modulators. Allopregnanolone has no comparable action at GABA-B receptors,
+    so a genuine GABA-B contribution would have to be a parallel route to
+    reduced inhibitory tone rather than a step in the neurosteroid pathway.
+    Resolving this matters for two reasons. First, it determines whether the
+    shared premenstrual-disorder and postpartum-depression liability is
+    hormone-response machinery or general inhibitory tone, which is what makes
+    the two disorders cross-inherited. Second, it is the difference between a
+    treatment landscape confined to neuroactive steroids and one that includes
+    GABA-B-directed agents. The evidence is currently thin on both sides: the
+    locus is a single unreplicated preprint finding whose functional
+    consequence for KCTD16 expression is unmeasured, and the KCTD16 to GABA-B
+    link, while solid, comes from rodent brain proteomics with no postpartum
+    context.
+  proposed_experiments:
+  - experiment_id: exp_ppd_kctd16_replication_and_expression
+    name: Replication of the KCTD16 shared locus and its effect on KCTD16 expression
+    description: &gt;-
+      Replicate the cross-trait premenstrual-disorder and postpartum-depression
+      association at the KCTD16 3&#39; UTR locus in an independent, ideally
+      non-European-ancestry cohort, and determine the direction of effect on
+      hippocampal KCTD16 expression. A peer-reviewed replication with a
+      measured expression direction is the precondition for treating GABA-B
+      signalling as a mechanism here rather than as an unexplained association.
+  - experiment_id: exp_ppd_gabab_tone_in_withdrawal_model
+    name: GABA-B contribution to inhibitory tone in a neurosteroid-withdrawal model
+    description: &gt;-
+      In the pseudopregnancy or Gabrd model, test whether GABA-B receptor
+      signalling changes across the peripartum transition independently of
+      GABA-A subunit remodeling, and whether manipulating Kctd16 alters the
+      postpartum depression-like phenotype. A phenotype that moves with Kctd16
+      but not with GABA-A subunit composition would establish GABA-B as a
+      parallel route to loss of inhibitory tone; no effect would argue the
+      human locus acts elsewhere.
+  evidence:
+  - reference: PPR:PPR1293935
+    reference_title: &#34;Shared Genetic Architecture of Premenstrual Disorder and Postpartum Depression: Registry-Based and Genetic Evidence&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      locus implicates GABAB–mediated inhibitory signaling in both disorders
+    explanation: &gt;-
+      States the GABA-B interpretation that this entry&#39;s GABA-A-centred
+      mechanism does not currently accommodate.
+  - reference: PPR:PPR1293935
+    reference_title: &#34;Shared Genetic Architecture of Premenstrual Disorder and Postpartum Depression: Registry-Based and Genetic Evidence&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The register-based heritability was 0.35 (95% CI: 0.29–0.41) for PMD and
+      0.31 (95% CI: 0.23–0.37) for PPD, with a positive genetic correlation
+      between these disorders
+    explanation: &gt;-
+      Quantifies the shared heritable liability that the KCTD16 and PCDH9 loci
+      are proposed to partly explain, establishing that there is a real
+      cross-disorder signal to account for.
+  - reference: PPR:PPR1293935
+    reference_title: &#34;Shared Genetic Architecture of Premenstrual Disorder and Postpartum Depression: Registry-Based and Genetic Evidence&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Beyond the lead loci, TWAS suggested that the shared risk variants may
+      partially act through genetically regulated gene expression across brain,
+      endocrine and immune-related tissues
+    explanation: &gt;-
+      The authors themselves treat the mechanistic route as unsettled and
+      distributed beyond the lead loci, which is why this is recorded as an
+      open gap rather than as a curated mechanism.
 notes: &gt;-
   Curated in response to the obstetric coverage gap documented in
   monarch-initiative/dismech#7837, which identified postpartum depression as the
@@ -8593,6 +10136,21 @@ notes: &gt;-
   limbic-prefrontal imaging signature (notably blunted rather than hyperreactive
   amygdala response, reported as distinguishing PPD from non-perinatal MDD), and
   oxytocin-signaling involvement.
+
+  Shared genetic architecture with premenstrual disorder (KCTD16, PCDH9) was
+  added from a medRxiv preprint, PPR:PPR1293935, per
+  monarch-initiative/dismech#8479. Both loci are curated in `genetic:` as
+  SUSCEPTIBILITY associations and deliberately not wired into the
+  pathophysiology chain: the source is not peer reviewed and the loci are
+  unreplicated, so the GABA-B reading of KCTD16 is recorded as the open
+  ppd_gabab_versus_gabaa_inhibitory_axis gap instead of as mechanism. Neither
+  locus is supported by the preprint alone — KCTD16&#39;s assignment to GABA-B
+  signalling rests on Schwenk et al. 2010 (PMID:20400944), and PCDH9 is curated
+  as a positional association with no mechanistic claim attached. The
+  corresponding shared-locus entries have NOT been added to
+  Premenstrual_Dysphoric_Disorder.yaml, whose `genetic:` section still uses the
+  older free-text `association:` style; doing that symmetrically is follow-up
+  work.
 </pre>
             </div>
         </div>
@@ -8611,6 +10169,38 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated in response to the obstetric coverage gap documented in monarch-initiative/dismech#7837, which identified postpartum depression as the most tractable missing obstetric entry: an existing MONDO anchor, a well-defined mechanism, and two approved mechanism-matched drugs.
+Terminology note: HP:0100602 (Preeclampsia) and several other pregnancy-related HPO terms sit outside the HP:0000118 phenotypic-abnormality root used by the PhenotypeTerm enum, as documented in #7837. This entry is unaffected because its phenotypes are general depressive-symptom terms that sit under Behavioral abnormality; the peripartum context is carried by the disease term rather than by phenotype qualifiers.
+The GABA-A receptor subunit-plasticity step is supported by mouse genetics rather than human tissue data; this is recorded as a HUMAN_MODEL_MISMATCH discussion rather than left implicit, since it is the one link in the canonical chain without direct human evidence.
+Deep research: a `claude_code` provider run was performed via `just research-disorder claude_code Postpartum_Depression` (research/Postpartum_Depression-deep-research-claude_code.md; 22 web searches, 58 citations, 298 s). It corroborated the neurosteroid-withdrawal chain and the HPA/placental-CRH arm as curated, and surfaced one material correction: brexanolone had been withdrawn from the market, which this entry had not reflected. That lead was verified independently against the Federal Register notice before being curated, per the rule that DR outputs are leads rather than ground truth. Findings from the run NOT yet curated, and left as future work rather than added without verification: the postpartum inflammatory arm (IL-6/hs-CRP as predictors, kynurenine-pathway and NLRP3 activation), the limbic-prefrontal imaging signature (notably blunted rather than hyperreactive amygdala response, reported as distinguishing PPD from non-perinatal MDD), and oxytocin-signaling involvement.
+Shared genetic architecture with premenstrual disorder (KCTD16, PCDH9) was added from a medRxiv preprint, PPR:PPR1293935, per monarch-initiative/dismech#8479. Both loci are curated in `genetic:` as SUSCEPTIBILITY associations and deliberately not wired into the pathophysiology chain: the source is not peer reviewed and the loci are unreplicated, so the GABA-B reading of KCTD16 is recorded as the open ppd_gabab_versus_gabaa_inhibitory_axis gap instead of as mechanism. Neither locus is supported by the preprint alone — KCTD16&#39;s assignment to GABA-B signalling rests on Schwenk et al. 2010 (PMID:20400944), and PCDH9 is curated as a positional association with no mechanistic claim attached. The corresponding shared-locus entries have NOT been added to Premenstrual_Dysphoric_Disorder.yaml, whose `genetic:` section still uses the older free-text `association:` style; doing that symmetrically is follow-up work.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Deep research (claude_code) + brexanolone market-withdrawal correction</strong> · 2026-08-02T10:07:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Postpartum_Depression/2026-08-02T100724Z-claude-code-6b69de.yaml">View source</a></p>
+                        <p class="research-review-text">Ran the REQUIRED Step 3 deep research that the initial curation pass skipped: &#39;just research-disorder claude_code Postpartum_Depression&#39; (provider claude_code, the only one available without additional API keys; 22 web searches, 58 citations, 298 s, $1.91). Report and citations sidecar committed under research/.
+
+Material correction driven by the run: the entry presented brexanolone as a current approved therapy. The DR report stated its FDA approval had been withdrawn in April 2025. Treated as a lead, not fact: no PubMed abstract documents the withdrawal, so it was verified against the primary regulatory source, the Federal Register notice (FDA Docket FDA-2024-N-5852), fetched via the govinfo.gov mirror and cached with the reference validator.
+
+Cache-hygiene note: the first attempt cached federalregister.gov directly and captured a bot-block &#39;Request Access&#39; page rather than the document. That cache file was deleted rather than kept, since a cache standing in for an authority must not contain something other than what it claims.
+
+Changes: brexanolone treatment description now records the withdrawal, its commercial (not efficacy/safety) basis, and why the entry retains the drug — its trial data remain the primary human evidence for the causal role of the inhibitory-tone node. Top-level description reframed so zuranolone is the surviving mechanism-matched treatment. Two Federal Register evidence items added with evidence_source OTHER (regulatory status, not a study result).
+
+Also removed an unevidenced &#39;frequency: OBLIGATE&#39; on the depressed-mood phenotype: the cited snippet supported only &#39;common&#39;, and a major depressive episode requires depressed mood OR anhedonia, so the band was not defensible.
+
+Uncurated DR findings recorded in entry notes as future work: postpartum inflammatory arm (IL-6/hs-CRP, kynurenine, NLRP3), limbic-prefrontal imaging signature, oxytocin signaling. Validation after changes: schema pass, terms pass, 39/39 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9020,7 +10610,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Postpartum Depression", "mondoId": "MONDO:0005929", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Postpartum_Depression", "yamlRevision": "f31b61eade49"};
+        const OS_CONFIG = {"diseaseName": "Postpartum Depression", "mondoId": "MONDO:0005929", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Postpartum_Depression", "yamlRevision": "87f53fd7b703"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

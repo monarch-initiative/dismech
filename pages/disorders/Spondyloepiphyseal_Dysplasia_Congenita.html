@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Spondyloepiphyseal Dysplasia Congenita</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Spondyloepiphyseal Dysplasia Congenita</h1>
             <div class="header-meta">
 
@@ -3972,6 +4115,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3981,9 +4194,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 2 &#34;Type 2 collagen group&#34;; listed as &#34;Spondyloepiphyseal dysplasia congenita (SEDC)&#34;.">type 2 collagen</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4001,7 +4230,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -4047,7 +4276,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1971141" target="_blank">PMID:1971141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4096,6 +4328,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-collagen-misfolding" data-dismech-node="Dominant-Negative Collagen Misfolding" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Collagen Misfolding</div>
+
 
                 <div class="item-desc">The most common COL2A1 mutations in SEDC are missense substitutions affecting glycine residues in the Gly-X-Y triple-helical repeat (over 70% of pathogenic variants). The mutant alpha-1 chains are incorporated into procollagen trimers but disrupt triple-helix folding, producing a dominant-negative effect. The structurally abnormal procollagen has reduced thermal stability, slower secretion, and altered electrophoretic mobility. Fibrils that are secreted self-assemble abnormally and cannot properly interact with other extracellular matrix components such as proteoglycans, compromising the mechanical integrity of cartilage. Arginine-to-cysteine substitutions toward the C-terminus of the triple helix are particularly deleterious, causing reduced thermal stability, protease susceptibility, and cleavage by matrix metalloproteinases.
 </div>
@@ -4425,7 +4658,10 @@ This pathophysiological event involves decreased extracellular matrix (GO:003101
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26443184" target="_blank">PMID:26443184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4447,7 +4683,10 @@ This pathophysiological event involves decreased extracellular matrix (GO:003101
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29439465" target="_blank">PMID:29439465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4469,7 +4708,10 @@ This pathophysiological event involves decreased extracellular matrix (GO:003101
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4496,6 +4738,7 @@ This pathophysiological event involves decreased extracellular matrix (GO:003101
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-stress-and-unfolded-protein-response-in-chondrocytes" data-dismech-node="ER Stress and Unfolded Protein Response in Chondrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">ER Stress and Unfolded Protein Response in Chondrocytes</div>
+
 
                 <div class="item-desc">Misfolded mutant procollagen II is retained in dilated endoplasmic reticulum cisternae of growth plate chondrocytes. In some mouse models (e.g., Col2a1 p.Gly1170Ser), this activates the endoplasmic reticulum stress (ERS)-unfolded protein response (UPR)-apoptosis cascade: chondrocyte apoptosis occurs prior to hypertrophy, preventing formation of a normal hypertrophic zone, disrupting chondrogenic signaling pathways including Ihh, Fgfr3, and Runx2, and impairing endochondral ossification. Patient-derived type II collagenopathy iPSC chondrocytes likewise show ER stress marker induction with apoptosis. However, an iPSC-derived human cartilage model of the milder COL2A1 p.Arg719Cys allele (precocious osteoarthritis with mild spondyloepiphyseal dysplasia, not SEDC) showed ER retention and ER distention without detectable UPR activation, indicating that some alleles behave as an ER procollagen storage problem rather than a classical UPR-driven apoptosis pathway. The degree of UPR engagement therefore appears to be allele-, dosage-, and context-dependent, and has not been resolved for SEDC-causing glycine substitutions specifically.
 </div>
@@ -4705,7 +4948,10 @@ This pathophysiological event involves increased Chondrocyte Apoptosis, annotate
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24475193" target="_blank">PMID:24475193</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4727,7 +4973,10 @@ This pathophysiological event involves increased Chondrocyte Apoptosis, annotate
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4749,7 +4998,10 @@ This pathophysiological event involves increased Chondrocyte Apoptosis, annotate
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25187577" target="_blank">PMID:25187577</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4776,6 +5028,7 @@ This pathophysiological event involves increased Chondrocyte Apoptosis, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-growth-plate-organization" data-dismech-node="Impaired Growth Plate Organization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Growth Plate Organization</div>
+
 
                 <div class="item-desc">The combined effects of abnormal extracellular collagen fibrils and ER stress-driven chondrocyte apoptosis lead to severe disorganization of growth plate architecture. Proliferative and hypertrophic zones become shortened or indistinguishable, columnar arrangement of chondrocytes is disrupted, and deposition of cartilage matrix is impaired. Collagen fibrils are fewer and less elaborate, and expression of chondrocyte differentiation markers (Ihh, Fgfr3, Col10a1, Runx2) is markedly reduced. This disrupted endochondral ossification accounts for the disproportionate short stature, platyspondyly, and epiphyseal dysplasia.
 </div>
@@ -5007,7 +5260,10 @@ This pathophysiological event involves decreased Cartilage Development (GO:00512
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22028304" target="_blank">PMID:22028304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5029,7 +5285,10 @@ This pathophysiological event involves decreased Cartilage Development (GO:00512
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5054,6 +5313,7 @@ This pathophysiological event involves decreased Cartilage Development (GO:00512
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vitreous-collagen-abnormality" data-dismech-node="Vitreous Collagen Abnormality" data-dismech-type="pathophysiology">
                 <div class="item-name">Vitreous Collagen Abnormality</div>
+
 
                 <div class="item-desc">Type II collagen is a major component of the vitreous humor and is critical for vitreous gel structure. Abnormal collagen leads to vitreous liquefaction, vitreous syneresis, and posterior vitreous detachment, increasing the risk of retinal detachment. In a 93-patient cohort of COL2A1 mutation carriers with SEDC or a related phenotype, myopia was reported in 45% and retinal detachment in 12%; these figures come from that mixed COL2A1 cohort rather than from a SEDC-only series.
 </div>
@@ -5141,7 +5401,10 @@ This pathophysiological event involves Vitreous Collagen Fibril Organization, an
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6807266" target="_blank">PMID:6807266</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5163,7 +5426,10 @@ This pathophysiological event involves Vitreous Collagen Fibril Organization, an
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7550321" target="_blank">PMID:7550321</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5185,7 +5451,10 @@ This pathophysiological event involves Vitreous Collagen Fibril Organization, an
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5210,6 +5479,7 @@ This pathophysiological event involves Vitreous Collagen Fibril Organization, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-osteoarthritis" data-dismech-node="Secondary Osteoarthritis" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Osteoarthritis</div>
+
 
                 <div class="item-desc">Abnormal type II collagen in articular cartilage predisposes to premature degenerative joint disease. Even in heterozygous carriers without overt dwarfism, abnormal collagen leads to progressive cartilage degradation through upregulation of the HtrA1-Ddr2-Mmp-13 degradative pathway. Skeletal deterioration with trabecular osteopenia and increased osteoclast activity occurs prior to the onset of osteoarthritis, suggesting a primary bone defect in addition to the cartilage pathology.
 </div>
@@ -5380,7 +5650,10 @@ This pathophysiological event involves decreased Bone Mineralization (GO:0030282
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22155431" target="_blank">PMID:22155431</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5402,7 +5675,10 @@ This pathophysiological event involves decreased Bone Mineralization (GO:0030282
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31958497" target="_blank">PMID:31958497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5424,7 +5700,10 @@ This pathophysiological event involves decreased Bone Mineralization (GO:0030282
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31958497" target="_blank">PMID:31958497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5546,6 +5825,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5558,7 +5840,10 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10743764" target="_blank">PMID:10743764</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5609,6 +5894,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
             </div>
 
 
+
             <div class="context-notes">Seventeen patients in this cohort required hearing aids.</div>
 
 
@@ -5625,7 +5911,10 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5690,6 +5979,9 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5702,7 +5994,10 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6807266" target="_blank">PMID:6807266</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5724,7 +6019,10 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5777,6 +6075,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5789,7 +6088,10 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5845,6 +6147,9 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5857,7 +6162,10 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3977716" target="_blank">PMID:3977716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5918,6 +6226,7 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5930,7 +6239,10 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5995,6 +6307,9 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6007,7 +6322,10 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6061,6 +6379,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6073,7 +6394,10 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11878179" target="_blank">PMID:11878179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6095,7 +6419,10 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35581182" target="_blank">PMID:35581182</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6158,6 +6485,9 @@ This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6170,7 +6500,10 @@ This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6224,6 +6557,9 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6236,7 +6572,10 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6299,6 +6638,9 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6311,7 +6653,10 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1971141" target="_blank">PMID:1971141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6333,7 +6678,10 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31972903" target="_blank">PMID:31972903</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6387,6 +6735,9 @@ This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:000266
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6399,7 +6750,10 @@ This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:000266
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6421,7 +6775,10 @@ This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:000266
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6475,6 +6832,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6487,7 +6847,10 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31972903" target="_blank">PMID:31972903</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6543,6 +6906,9 @@ This clinical feature is Odontoid hypoplasia, annotated with Hypoplasia of the o
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6555,7 +6921,10 @@ This clinical feature is Odontoid hypoplasia, annotated with Hypoplasia of the o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6577,7 +6946,10 @@ This clinical feature is Odontoid hypoplasia, annotated with Hypoplasia of the o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6630,6 +7002,7 @@ This clinical feature is Odontoid hypoplasia, annotated with Hypoplasia of the o
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6642,7 +7015,10 @@ This clinical feature is Odontoid hypoplasia, annotated with Hypoplasia of the o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6698,6 +7074,9 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6710,7 +7089,10 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6732,7 +7114,10 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6785,6 +7170,7 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6797,7 +7183,10 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6853,6 +7242,9 @@ This clinical feature is Barrel-shaped chest (HP:0001552). HP:0001552 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6865,7 +7257,10 @@ This clinical feature is Barrel-shaped chest (HP:0001552). HP:0001552 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6919,6 +7314,9 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6931,7 +7329,10 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6985,6 +7386,9 @@ This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6997,7 +7401,10 @@ This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31972903" target="_blank">PMID:31972903</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7019,7 +7426,10 @@ This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7082,6 +7492,9 @@ This clinical feature is Myelopathy (HP:0002196). HP:0002196 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7094,7 +7507,10 @@ This clinical feature is Myelopathy (HP:0002196). HP:0002196 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7116,7 +7532,10 @@ This clinical feature is Myelopathy (HP:0002196). HP:0002196 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35989807" target="_blank">PMID:35989807</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7169,6 +7588,7 @@ This clinical feature is Myelopathy (HP:0002196). HP:0002196 is a phenotype from
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7181,7 +7601,10 @@ This clinical feature is Myelopathy (HP:0002196). HP:0002196 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7237,6 +7660,9 @@ This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7249,7 +7675,10 @@ This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7312,6 +7741,9 @@ This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7324,7 +7756,10 @@ This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31523532" target="_blank">PMID:31523532</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7346,7 +7781,10 @@ This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7409,6 +7847,9 @@ This clinical feature is Disproportionate short-trunk short stature (HP:0003521)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7421,7 +7862,10 @@ This clinical feature is Disproportionate short-trunk short stature (HP:0003521)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1971141" target="_blank">PMID:1971141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7443,7 +7887,10 @@ This clinical feature is Disproportionate short-trunk short stature (HP:0003521)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7494,6 +7941,7 @@ This clinical feature is Disproportionate short-trunk short stature (HP:0003521)
             </div>
 
 
+
             <div class="context-notes">This cohort included predominantly patients with radiographic SEDC (64/93), with the remainder showing closely related COL2A1 phenotypes.</div>
 
 
@@ -7510,7 +7958,10 @@ This clinical feature is Disproportionate short-trunk short stature (HP:0003521)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7610,6 +8061,9 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7622,7 +8076,10 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1971141" target="_blank">PMID:1971141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7644,7 +8101,10 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26443184" target="_blank">PMID:26443184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7666,7 +8126,10 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7702,8 +8165,16 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The predominant SEDC variant class, replacing obligatory glycine residues in the COL2A1 triple-helical Gly-X-Y repeat and acting primarily through a dominant-negative collagen-folding mechanism.
 </div>
+
+
 
 
 
@@ -7723,7 +8194,10 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7757,8 +8231,16 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Patient-level examples from a Japanese SEDC cohort, all novel missense variants producing glycine substitutions in COL2A1.
 </div>
+
+
 
 
 
@@ -7778,7 +8260,10 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35581182" target="_blank">PMID:35581182</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7812,8 +8297,16 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Less common non-glycine missense class in COL2A1 that can cause SEDC or related type II collagenopathy phenotypes, with severity depending on position and protein-level effects on secretion, stability, ER retention, and cell survival.
 </div>
+
+
 
 
 
@@ -7833,7 +8326,10 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29439465" target="_blank">PMID:29439465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7866,6 +8362,9 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7918,6 +8417,31 @@ This treatment is Cervical spine stabilization surgery, annotated with Surgical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Evaluation and management of cervical instability from odontoid hypoplasia. Cervical spine imaging is essential before anesthesia, surgical procedures, or contact activities. Posterior cervical fusion may be required for significant atlantoaxial instability.
 </div>
 
@@ -7938,7 +8462,10 @@ This treatment is Cervical spine stabilization surgery, annotated with Surgical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7960,7 +8487,10 @@ This treatment is Cervical spine stabilization surgery, annotated with Surgical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30608389" target="_blank">PMID:30608389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8024,6 +8554,20 @@ This treatment is Perioperative anesthesia precautions, annotated with Supportiv
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pre-anesthesia cervical spine evaluation is mandatory before any elective surgical procedure or general anesthesia in SEDC patients. Atlantoaxial instability from odontoid hypoplasia creates a risk of cervical cord compression during intubation and neck positioning; avoidance of neck hyperextension is essential. Tracheobronchomalacia may complicate airway management in severe cases with small rib cage and respiratory muscle involvement. Coordination between orthopedics and anesthesiology is recommended before any general anesthetic.
 </div>
 
@@ -8044,7 +8588,10 @@ This treatment is Perioperative anesthesia precautions, annotated with Supportiv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8108,6 +8655,31 @@ This treatment is Orthopedic surgery, annotated with Orthopedic Surgical Procedu
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of progressive hip dysplasia, kyphoscoliosis, limb deformities, and early-onset osteoarthritis. Procedures may include hip osteotomy, spinal fusion for progressive scoliosis, and eventual joint replacement for degenerative arthritis.
 </div>
 
@@ -8128,7 +8700,10 @@ This treatment is Orthopedic surgery, annotated with Orthopedic Surgical Procedu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8192,6 +8767,20 @@ This treatment is Eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Regular eye examinations for myopia management and early detection of retinal detachment. Given the 45% rate of myopia and 12% rate of retinal detachment with onset as young as 3.5 years, ophthalmologic evaluation should begin in infancy at diagnosis. Retinal detachment in SEDC represents a surgical emergency requiring urgent ophthalmologic assessment. Ongoing ophthalmologic surveillance throughout childhood and adulthood is a standard of care.
 </div>
 
@@ -8212,7 +8801,10 @@ This treatment is Eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8234,7 +8826,10 @@ This treatment is Eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25592122" target="_blank">PMID:25592122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8298,6 +8893,20 @@ This treatment is Audiologic monitoring, annotated with Supportive Care (NCIT:C1
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Regular hearing assessments given the 25-30% rate of sensorineural hearing loss. Hearing aids as needed for progressive impairment.
 </div>
 
@@ -8318,7 +8927,10 @@ This treatment is Audiologic monitoring, annotated with Supportive Care (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8382,6 +8994,20 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for affected individuals and families regarding autosomal dominant inheritance, variable expressivity, de novo mutation risk, and reproductive options.
 </div>
 
@@ -8402,7 +9028,10 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35581182" target="_blank">PMID:35581182</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8424,7 +9053,10 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1971141" target="_blank">PMID:1971141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8488,6 +9120,20 @@ This treatment is Respiratory support, annotated with Supportive Care (NCIT:C157
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Monitoring and management of respiratory compromise in severe neonatal cases, including ventilatory support and airway management for tracheobronchomalacia.
 </div>
 
@@ -8508,7 +9154,10 @@ This treatment is Respiratory support, annotated with Supportive Care (NCIT:C157
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8572,6 +9221,20 @@ This treatment is Growth hormone therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Growth hormone therapy has been evaluated in SEDC patients for short stature. In a small Chinese pediatric series, GH therapy resulted in modest height increases over 3-3.5 years with no significant side effects, though efficacy data remain limited and multi-center studies are needed.
 </div>
 
@@ -8592,7 +9255,10 @@ This treatment is Growth hormone therapy, annotated with Pharmacotherapy (NCIT:C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39953747" target="_blank">PMID:39953747</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8622,6 +9288,385 @@ This treatment is Growth hormone therapy, annotated with Pharmacotherapy (NCIT:C
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-radiographic-and-molecular-diagnosis">
+                <div class="item-name">
+                    Clinical, Radiographic, and Molecular Diagnosis
+
+                </div>
+
+                <div class="item-desc">Spondyloepiphyseal dysplasia congenita is diagnosed at birth from disproportionate short-trunk short stature and characteristic spondyloepiphyseal radiographic findings, and confirmed within the COL2A1-related type II collagen disorder spectrum by molecular genetic testing. Differential diagnosis includes other type II collagenopathies (Kniest dysplasia, SEMD Strudwick, hypochondrogenesis/achondrogenesis II, and Stickler syndrome). Cervical spine imaging for odontoid hypoplasia and atlantoaxial instability is a high-priority diagnostic and surveillance step because of myelopathy risk.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31021589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31021589" target="_blank">PMID:31021589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Provide an evaluation strategy to identify the genetic cause of a type II collagen disorder in a proband"</div>
+
+
+                <div class="evidence-explanation">GeneReviews provides the evaluation strategy for identifying the COL2A1 cause within the type II collagen disorder spectrum, of which SEDC is a part.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31021589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31021589" target="_blank">PMID:31021589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Review the differential diagnosis of type II collagen disorders with a focus on genetic conditions"</div>
+
+
+                <div class="evidence-explanation">Supports differential diagnosis of SEDC against adjacent type II collagenopathies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-neonatal-presentation">
+                <div class="item-name">Neonatal presentation</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: birth</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31824186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At birth patients with SEDC are short (mean length 45 cm at term) with flattened vertebras; ossification is absent in pubic bones and distal femoral epiphyses, absent or reduced in cervical and sacral vertebras."</div>
+
+
+                <div class="evidence-explanation">Review detailing the neonatal radiographic and clinical presentation of SEDC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-childhood-skeletal-progression">
+                <div class="item-name">Childhood skeletal progression</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: infancy to adolescence</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31824186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Shortly after birth, platispondyly of the lower thoracic and lumbar vertebral bodies develops. This ultimately leads to wedge-shaped thoracic vertebrae and severe kyphoscoliosis with lumbar lordosis."</div>
+
+
+                <div class="evidence-explanation">Review documenting the progressive vertebral changes during childhood.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-adult-complications">
+                <div class="item-name">Adult complications</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: adulthood</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22155431" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22155431" target="_blank">PMID:22155431</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We conclude that the sedc/+ mouse is a useful model for the study of OA in individuals with overtly normal skeletal structure and a predisposition for articular cartilage degeneration."</div>
+
+
+                <div class="evidence-explanation">Animal model evidence supporting the progression to premature osteoarthritis in adulthood.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-general-population">
+                <div class="item-name">General population</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.34 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">PubMed abstracts rarely separate congenita from tarda epidemiology. The 3.4-per-million figure is quoted for spondyloepiphyseal dysplasia (SED) overall, i.e. congenita and tarda combined, and is recorded here as the best available proxy for SEDC alone rather than as a SEDC-specific measurement. The citing publication is a case report quoting the figure secondhand, not a primary epidemiological study.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31523532" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31523532" target="_blank">PMID:31523532</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Spondyloepiphysal dysplasia (SED) is an inheritable dysplasia of the bone due to a defect in collagen. It has a prevalence of 3.4 per million. It has two important types, congenita and tarda, which are differentiated by the age presentation and heritage mode."</div>
+
+
+                <div class="evidence-explanation">This case report quotes the commonly cited prevalence figure and contextualizes congenita as one of the two major clinical forms. Note the figure is stated for SED overall, not for the congenita form alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8710,11 +9755,11 @@ This treatment is Growth hormone therapy, annotated with Pharmacotherapy (NCIT:C
         COL2A1
 
 
-    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:2200</a>
+    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:2200</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -8761,7 +9806,10 @@ This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12968670" target="_blank">PMID:12968670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8783,7 +9831,10 @@ This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22155431" target="_blank">PMID:22155431</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8870,11 +9921,11 @@ This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from th
         COL2A1
 
 
-    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:2200</a>
+    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:2200</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -8921,7 +9972,10 @@ This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22028304" target="_blank">PMID:22028304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9004,11 +10058,11 @@ This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from th
         COL2A1
 
 
-    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:2200</a>
+    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:2200</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9055,7 +10109,10 @@ This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24475193" target="_blank">PMID:24475193</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9138,11 +10195,11 @@ This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from th
         COL2A1
 
 
-    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:2200</a>
+    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:2200</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9189,7 +10246,10 @@ This experimental model concerns COL2A1 (hgnc:2200). hgnc:2200 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31958497" target="_blank">PMID:31958497</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9482,7 +10542,7 @@ pathophysiology:
       to human cells.
   - reference: PMID:40602718
     reference_title: Failed cellular surveillance enables pathogenic matrix deposition in a COL2A1-related osteoarthritis.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       The resulting inability to mount a quality control response, including
@@ -11071,6 +12131,18 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">4</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Spondyloepiphyseal_Dysplasia_Congenita-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11940,7 +13012,7 @@ A 2023 functional case-based analysis of a COL2A1 glycine substitution links gly
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spondyloepiphyseal Dysplasia Congenita", "mondoId": "MONDO:0008471", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondyloepiphyseal_Dysplasia_Congenita", "yamlRevision": "f89bbe33f933"};
+        const OS_CONFIG = {"diseaseName": "Spondyloepiphyseal Dysplasia Congenita", "mondoId": "MONDO:0008471", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondyloepiphyseal_Dysplasia_Congenita", "yamlRevision": "993b0360b8ef"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

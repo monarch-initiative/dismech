@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Cyclosporiasis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Cyclosporiasis</h1>
             <div class="header-meta">
 
@@ -3963,27 +4106,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">INFECTIOUS_DISEASES</span>
+
+
+
+
+                    <span class="tag tag-classification">INFECTIOUS DISEASES</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4022,7 +4242,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-immunocompetent">
 
                     <div class="item-name">
                         Immunocompetent self-limited cyclosporiasis
@@ -4056,7 +4276,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1928575" target="_blank">PMID:1928575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4082,7 +4305,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-immunocompromised">
 
                     <div class="item-name">
                         Cyclosporiasis in immunocompromised hosts
@@ -4116,7 +4339,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10836915" target="_blank">PMID:10836915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4258,6 +4484,12 @@ This experiment is of type controlled human infection model.</span>
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4281,7 +4513,10 @@ This experiment is of type controlled human infection model.</span>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15200870" target="_blank">PMID:15200870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4318,6 +4553,7 @@ This experiment is of type controlled human infection model.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ingestion-of-sporulated-cyclospora-oocysts" data-dismech-node="Ingestion of sporulated Cyclospora oocysts" data-dismech-type="pathophysiology">
                 <div class="item-name">Ingestion of sporulated Cyclospora oocysts</div>
+
 
                 <div class="item-desc">Infection begins with ingestion of environmentally sporulated oocysts; freshly passed oocysts are not infective, so transmission requires an environmental maturation interval of days to weeks.</div>
 
@@ -4366,7 +4602,10 @@ This experiment is of type controlled human infection model.</span>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11049789" target="_blank">PMID:11049789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4391,6 +4630,7 @@ This experiment is of type controlled human infection model.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excystation-and-invasion-of-small-intestinal-enterocytes" data-dismech-node="Excystation and invasion of small-intestinal enterocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Excystation and invasion of small-intestinal enterocytes</div>
+
 
                 <div class="item-desc">Sporozoites excyst in the small intestine and invade enterocytes, where the parasite completes asexual and sexual developmental stages within parasitophorous vacuoles at the luminal end of the epithelial cells.</div>
 
@@ -4528,7 +4768,10 @@ This pathophysiological event occurs in jejunum (UBERON:0002115). UBERON:0002115
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9395371" target="_blank">PMID:9395371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4553,6 +4796,7 @@ This pathophysiological event occurs in jejunum (UBERON:0002115). UBERON:0002115
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-villous-atrophy-and-mucosal-inflammation" data-dismech-node="Villous atrophy and mucosal inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Villous atrophy and mucosal inflammation</div>
+
 
                 <div class="item-desc">Small-bowel biopsies show villous shortening and widening with diffuse edema and a mixed inflammatory cell infiltrate, reflecting mucosal injury from intracellular infection.</div>
 
@@ -4635,7 +4879,10 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9395371" target="_blank">PMID:9395371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4660,6 +4907,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malabsorption-and-diarrhea" data-dismech-node="Malabsorption and diarrhea" data-dismech-type="pathophysiology">
                 <div class="item-name">Malabsorption and diarrhea</div>
+
 
                 <div class="item-desc">Reduced absorptive surface area and epithelial dysfunction produce malabsorption and prolonged, often relapsing watery diarrhea, with associated anorexia, fatigue, and weight loss.</div>
 
@@ -4708,7 +4956,10 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1928575" target="_blank">PMID:1928575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4743,7 +4994,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-jejunal-villous-atrophy-with-inflammatory-infiltrate">
                 <div class="item-name">
                     Jejunal villous atrophy with inflammatory infiltrate
 
@@ -4765,7 +5016,10 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9395371" target="_blank">PMID:9395371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4829,15 +5083,13 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4847,7 +5099,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-diarrhea" data-dismech-node="Diarrhea" data-dismech-type="phenotype">
@@ -4898,6 +5150,9 @@ This clinical feature is Prolonged watery diarrhea, annotated with Diarrhea (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -4910,7 +5165,10 @@ This clinical feature is Prolonged watery diarrhea, annotated with Diarrhea (HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1928575" target="_blank">PMID:1928575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4932,7 +5190,10 @@ This clinical feature is Prolonged watery diarrhea, annotated with Diarrhea (HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9772334" target="_blank">PMID:9772334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4954,7 +5215,10 @@ This clinical feature is Prolonged watery diarrhea, annotated with Diarrhea (HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9605784" target="_blank">PMID:9605784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5010,6 +5274,9 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5022,7 +5289,10 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1928575" target="_blank">PMID:1928575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5044,7 +5314,10 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9605784" target="_blank">PMID:9605784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5100,6 +5373,9 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5112,7 +5388,10 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9395371" target="_blank">PMID:9395371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5168,6 +5447,9 @@ This clinical feature is Flatulence (HP:0033589). HP:0033589 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5180,7 +5462,10 @@ This clinical feature is Flatulence (HP:0033589). HP:0033589 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9395371" target="_blank">PMID:9395371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5191,6 +5476,80 @@ This clinical feature is Flatulence (HP:0033589). HP:0033589 is a phenotype from
 
 
                 <div class="evidence-explanation">Supports flatulence as a common gastrointestinal symptom.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acalculous-cholecystitis" data-dismech-node="Acalculous cholecystitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acalculous cholecystitis
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001082" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001082</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acalculous cholecystitis, annotated with Cholecystitis (HP:0001082). HP:0001082 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11702292" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11702292" target="_blank">PMID:11702292</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a case of acalculous cholecystitis in a person with acquired immunodeficiency syndrome who required cholecystectomy and demonstrated C. cayetanensis in the gallbladder epithelium."</div>
+
+
+                <div class="evidence-explanation">Documents histologically proven biliary (acalculous cholecystitis) involvement in an immunocompromised host.</div>
 
 
 
@@ -5231,15 +5590,18 @@ This clinical feature is Flatulence (HP:0033589). HP:0033589 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Low-grade fever, annotated with Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5257,7 +5619,10 @@ This clinical feature is Low-grade fever, annotated with Fever (HP:0001945). HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9772334" target="_blank">PMID:9772334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5308,15 +5673,18 @@ This clinical feature is Low-grade fever, annotated with Fever (HP:0001945). HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5334,7 +5702,10 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1928575" target="_blank">PMID:1928575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5356,7 +5727,10 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9605784" target="_blank">PMID:9605784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5398,15 +5772,18 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal discomfort, annotated with Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5424,7 +5801,10 @@ This clinical feature is Abdominal discomfort, annotated with Abdominal pain (HP
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9395371" target="_blank">PMID:9395371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5466,15 +5846,18 @@ This clinical feature is Abdominal discomfort, annotated with Abdominal pain (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5492,7 +5875,10 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9772334" target="_blank">PMID:9772334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5543,15 +5929,18 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5569,7 +5958,10 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1928575" target="_blank">PMID:1928575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5591,7 +5983,10 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9605784" target="_blank">PMID:9605784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5613,7 +6008,10 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9395371" target="_blank">PMID:9395371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5624,83 +6022,6 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                 <div class="evidence-explanation">Independent clinical support for weight loss in cyclosporiasis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acalculous-cholecystitis" data-dismech-node="Acalculous cholecystitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Acalculous cholecystitis
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001082" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001082</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Acalculous cholecystitis, annotated with Cholecystitis (HP:0001082). HP:0001082 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11702292" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11702292" target="_blank">PMID:11702292</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report a case of acalculous cholecystitis in a person with acquired immunodeficiency syndrome who required cholecystectomy and demonstrated C. cayetanensis in the gallbladder epithelium."</div>
-
-
-                <div class="evidence-explanation">Documents histologically proven biliary (acalculous cholecystitis) involvement in an immunocompromised host.</div>
 
 
 
@@ -5750,6 +6071,9 @@ This clinical feature is Acalculous cholecystitis, annotated with Cholecystitis 
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5840,6 +6164,20 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Trimethoprim-sulfamethoxazole is the first-line therapy for cyclosporiasis, producing rapid parasitologic and clinical cure in a placebo-controlled trial and effective in immunocompromised hosts with secondary prophylaxis.</div>
 
 
@@ -5859,7 +6197,10 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7885125" target="_blank">PMID:7885125</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5881,7 +6222,10 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7885125" target="_blank">PMID:7885125</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5903,7 +6247,10 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10836915" target="_blank">PMID:10836915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5988,6 +6335,20 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Ciprofloxacin is a second-line alternative for patients who cannot take sulfonamides, though it is somewhat less effective than trimethoprim-sulfamethoxazole.</div>
 
 
@@ -6007,7 +6368,10 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10836915" target="_blank">PMID:10836915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6071,6 +6435,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Fluid and electrolyte replacement is standard supportive care for the prolonged diarrheal illness alongside antiparasitic therapy.</div>
 
 
@@ -6090,7 +6468,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7885125" target="_blank">PMID:7885125</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6130,6 +6511,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Ingestion of fresh produce or water contaminated with sporulated oocysts is the principal environmental exposure driving infection and outbreaks.</div>
 
 
@@ -6146,7 +6531,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11049789" target="_blank">PMID:11049789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6176,6 +6564,843 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-modified-acid-fast-staining-of-stool-oocysts">
+                <div class="item-name">
+                    Modified acid-fast staining of stool oocysts
+
+                </div>
+
+                <div class="item-desc">Cyclospora oocysts (8-9 microns in diameter) are detected in stool by modified acid-fast staining, in which they stain variably red; they are larger than Cryptosporidium oocysts, aiding differentiation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        microscopy
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16853" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C16853</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1928575" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1928575" target="_blank">PMID:1928575</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The organism is 8.0-9.0 microns in diameter, floats in Sheather&#39;s solution, and stains red with the modified acid-fast stain."</div>
+
+
+                <div class="evidence-explanation">Supports modified acid-fast microscopy and oocyst size as the classic diagnostic approach.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-multiplex-pcr-stool-gastrointestinal-panel">
+                <div class="item-name">
+                    Multiplex PCR stool gastrointestinal panel
+
+                </div>
+
+                <div class="item-desc">Syndromic multiplex-PCR gastrointestinal panels now detect C. cayetanensis DNA in stool alongside other enteric protozoa, offering high sensitivity and rapid detection compared with microscopy.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        polymerase chain reaction
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17003" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C17003</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32326453" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32326453" target="_blank">PMID:32326453</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The recently marketed assay AllplexTM Gastrointestinal Panel-Parasite Assay (GIPPA) (Seegene, Seoul, Korea) is able to detect most protozoa pathogens, i.e., Giardia duodenalis, Cryptosporidium spp., Entamoeba histolytica, Dientamoeba fragilis, Blastocystis hominis, and Cyclospora cayetanensis."</div>
+
+
+                <div class="evidence-explanation">Documents a multiplex PCR stool panel that specifically detects C. cayetanensis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32326453" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32326453" target="_blank">PMID:32326453</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The sensitivity reached 100% for C. cayetanensis (4/4), Cryptosporidium spp. (26/26), and B. hominis (26/26) positive samples."</div>
+
+
+                <div class="evidence-explanation">Supports high multiplex-PCR sensitivity for C. cayetanensis versus microscopy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-incubation">
+                <div class="item-name">Incubation</div>
+                <div class="item-meta">
+
+
+
+
+                    <span class="tag">Incubation: 7 days</span>
+
+                </div>
+
+                <div class="item-notes">The median incubation period is approximately one week, as characterized in point-source foodborne outbreaks.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9605784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9605784" target="_blank">PMID:9605784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The epidemic curve was consistent with a point source outbreak with a median incubation period of 7 days."</div>
+
+
+                <div class="evidence-explanation">Supports a median incubation period of about one week.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-prolonged-untreated-illness">
+                <div class="item-name">Prolonged untreated illness</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Untreated illness is protracted, with average symptom duration exceeding three weeks and no self-treatment shown to shorten it.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7885125" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7885125" target="_blank">PMID:7885125</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cyclospora is a coccidian (previously referred to as cyanobacterium-like bodies) that has been implicated in cases of prolonged diarrhoea. The average duration of symptoms is more than three weeks, and no specific treatment has been shown to shorten the illness. ... Eradication of the organism..."</div>
+
+
+                <div class="evidence-explanation">Identifies Cyclospora and the prolonged illness described before this trial. The same study subsequently found co-trimoxazole effective; the introductory absence of proven treatment is historical, not a claim that treatment never shortens illness.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-relapsing-course">
+                <div class="item-name">Relapsing course</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">The diarrheal illness is characteristically relapsing/remitting before resolution or treatment.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9772334" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9772334" target="_blank">PMID:9772334</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The parasite is associated with prolonged self-limiting and relapsing watery diarrhea, anorexia, fatigue, and sometimes myalgia."</div>
+
+
+                <div class="evidence-explanation">Supports the relapsing nature of the diarrheal course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-chronic-infection-in-immunocompromised-hosts">
+                <div class="item-name">Chronic infection in immunocompromised hosts</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">In HIV-infected patients, Cyclospora frequently produces chronic diarrhea that may require prolonged therapy and secondary prophylaxis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10836915" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10836915" target="_blank">PMID:10836915</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In developing countries, Isospora belli and Cyclospora cayetanensis frequently cause chronic diarrhea in HIV-infected patients."</div>
+
+
+                <div class="evidence-explanation">Supports chronic progression in immunocompromised hosts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-traveler-s-diarrhea-and-endemic-exposure">
+                <div class="item-name">Traveler&#39;s diarrhea and endemic exposure</div>
+
+                <div class="item-desc">Cyclospora is an established cause of traveler&#39;s diarrhea and is distributed worldwide, causing infection in healthy adults and children as well as in returning travelers.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag">international travel to endemic regions</span>
+
+                    <span class="tag">consumption of contaminated produce or water</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20065331" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20065331" target="_blank">PMID:20065331</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Since then, Cyclospora has been considered a cause of traveler&#39;s diarrhea."</div>
+
+
+                <div class="evidence-explanation">Supports Cyclospora as a recognized cause of traveler&#39;s diarrhea.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9772334" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9772334" target="_blank">PMID:9772334</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In recent years, several studies have shown that Cyclospora is not a rare opportunistic pathogen but rather is the cause of common, worldwide intestinal infections in healthy adults and children."</div>
+
+
+                <div class="evidence-explanation">Supports worldwide distribution and infection of immunocompetent adults and children.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-proportion-of-traveler-s-diarrhea-attributable-to-cyclospora">
+                <div class="item-name">Proportion of traveler&#39;s diarrhea attributable to Cyclospora</div>
+
+                <div class="item-desc">In a traveler cohort, Cyclospora accounted for a small but distinct fraction of traveler&#39;s diarrhea cases.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag">returning travelers with diarrhea</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8588145" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8588145" target="_blank">PMID:8588145</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CLB was found in 2.8% of all cases of traveller&#39;s diarrhea in our series."</div>
+
+
+                <div class="evidence-explanation">Quantifies the fraction of traveler&#39;s diarrhea attributable to Cyclospora in this cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-cyclospora-cayetanensis">
+                <div class="item-name">Cyclospora cayetanensis</div>
+
+                <div class="item-desc">Obligate intracellular apicomplexan coccidian parasite; the species of the genus Cyclospora established as a human enteric pathogen. Oocysts are shed unsporulated in feces and require days to weeks in the environment to sporulate and become infective, which precludes direct person-to-person transmission.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Cyclospora cayetanensis
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_88456" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-24">NCBITaxon:88456</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20065331" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20065331" target="_blank">PMID:20065331</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The coccidian parasite Cyclospora cayetanensis is recognized as an emerging pathogen that causes protracted diarrhea in humans."</div>
+
+
+                <div class="evidence-explanation">Identifies C. cayetanensis as the coccidian etiologic agent of protracted diarrheal disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11049789" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11049789" target="_blank">PMID:11049789</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One of the surprises has been the fact that a parasite that likely requires days to weeks outside the host to become infectious has repeatedly caused foodborne outbreaks, including large multistate outbreaks in the United States and Canada."</div>
+
+
+                <div class="evidence-explanation">Supports the environmental sporulation requirement that precludes direct person-to-person spread.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-foodborne-transmission-via-contaminated-fresh-produce">
+                <div class="item-name">Foodborne transmission via contaminated fresh produce</div>
+
+                <div class="item-desc">Ingestion of sporulated oocysts on contaminated fresh produce is the dominant recognized route in documented outbreaks, notably large multistate outbreaks in the United States and Canada.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11049789" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11049789" target="_blank">PMID:11049789</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One of the surprises has been the fact that a parasite that likely requires days to weeks outside the host to become infectious has repeatedly caused foodborne outbreaks, including large multistate outbreaks in the United States and Canada."</div>
+
+
+                <div class="evidence-explanation">Supports foodborne outbreak transmission as a principal recognized route.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9605784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9605784" target="_blank">PMID:9605784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"containing raspberries, strawberries, blackberries, and blueberries."</div>
+
+
+                <div class="evidence-explanation">Implicates fresh berries as the specific produce vehicle in a foodborne outbreak.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-waterborne-and-fecal-oral-transmission">
+                <div class="item-name">Waterborne and fecal-oral transmission</div>
+
+                <div class="item-desc">Ingestion of water or food contaminated with sporulated oocysts via the oro-fecal route, particularly in endemic tropical and subtropical regions.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11049789" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11049789" target="_blank">PMID:11049789</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the foodborne and waterborne outbreaks of cyclosporiasis that were documented from 1990 through 1999"</div>
+
+
+                <div class="evidence-explanation">Supports both foodborne and waterborne routes documented in outbreak surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6190,7 +7415,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cryptosporidiosis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Cryptosporidiosis</span>
@@ -6238,7 +7463,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1928575" target="_blank">PMID:1928575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6263,7 +7491,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-isosporiasis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Isosporiasis</span>
@@ -6311,7 +7539,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10836915" target="_blank">PMID:10836915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6537,8 +7768,18 @@ progression:
     reference_title: &#34;Placebo-controlled trial of co-trimoxazole for Cyclospora infections among travellers and foreign residents in Nepal.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The average duration of symptoms is more than three weeks, and no specific treatment has been shown to shorten the illness.&#34;
-    explanation: Supports the characteristically protracted untreated course.
+    snippet: &gt;-
+      Cyclospora is a coccidian (previously referred to as cyanobacterium-like bodies) that has been
+      implicated in cases of prolonged diarrhoea. The average duration of symptoms is more than
+      three weeks, and no specific treatment has been shown to shorten the illness. ... Eradication
+      of the organism was correlated with clinical improvement. There was no evidence of relapse of
+      infection among treated patients followed for an additional 7 days. Treatment with
+      co-trimoxazole for 7 days was effective in curing cyclospora infection among an expatriate
+      population in Nepal.
+    explanation: &gt;-
+      Identifies Cyclospora and the prolonged illness described before this trial. The same study
+      subsequently found co-trimoxazole effective; the introductory absence of proven treatment is
+      historical, not a claim that treatment never shortens illness.
 - phase: Relapsing course
   notes: &gt;-
     The diarrheal illness is characteristically relapsing/remitting before
@@ -6892,13 +8133,13 @@ diagnosis:
       label: Polymerase Chain Reaction
   evidence:
   - reference: PMID:32326453
-    reference_title: &#34;Evaluation of the Allplex Gastrointestinal Panel-Parasite Assay for Protozoa Detection in Stool Samples: A Retrospective and Prospective Study.&#34;
+    reference_title: &#34;Evaluation of the Allplex(TM) Gastrointestinal Panel-Parasite Assay for Protozoa Detection in Stool Samples: A Retrospective and Prospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The recently marketed assay AllplexTM Gastrointestinal Panel-Parasite Assay (GIPPA) (Seegene, Seoul, Korea) is able to detect most protozoa pathogens, i.e., Giardia duodenalis, Cryptosporidium spp., Entamoeba histolytica, Dientamoeba fragilis, Blastocystis hominis, and Cyclospora cayetanensis.&#34;
     explanation: Documents a multiplex PCR stool panel that specifically detects C. cayetanensis.
   - reference: PMID:32326453
-    reference_title: &#34;Evaluation of the Allplex Gastrointestinal Panel-Parasite Assay for Protozoa Detection in Stool Samples: A Retrospective and Prospective Study.&#34;
+    reference_title: &#34;Evaluation of the Allplex(TM) Gastrointestinal Panel-Parasite Assay for Protozoa Detection in Stool Samples: A Retrospective and Prospective Study.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The sensitivity reached 100% for C. cayetanensis (4/4), Cryptosporidium spp. (26/26), and B. hominis (26/26) positive samples.&#34;
@@ -7108,6 +8349,19 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Cyclosporiasis</strong> · 2026-07-09T14:26:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cyclosporiasis/2026-07-09T142627Z-claude-code-d8e6d8.yaml">View source</a></p>
+                        <p class="research-review-text">Created new Infectious Disease entry for Cyclosporiasis [Cyclospora cayetanensis, MONDO:0005725]. Deep research attempted with falcon and openai but both failed on credentials; used the claude_code provider as the deep-research source. All evidence was independently verified against PubMed abstracts via fetch-reference and validate-references. Key PMIDs: 20065331, 1928575, 9772334, 9395371, 11049789, 7885125, 10836915, 8588145, 15200870. Covers agent, foodborne/waterborne transmission, sporulation/invasion/villous-atrophy pathophysiology, phenotypes, jejunal histopathology, modified acid-fast diagnosis, cryptosporidiosis/isosporiasis differentials, TMP-SMX first-line plus ciprofloxacin alternative, and a KNOWLEDGE_GAP on infectious dose. Validated with just validate, validate-terms, validate-references; compliance 100 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7543,7 +8797,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cyclosporiasis", "mondoId": "MONDO:0005725", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cyclosporiasis", "yamlRevision": "17a8c08791b5"};
+        const OS_CONFIG = {"diseaseName": "Cyclosporiasis", "mondoId": "MONDO:0005725", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cyclosporiasis", "yamlRevision": "befc72963d29"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

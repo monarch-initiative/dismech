@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>FG Syndrome 4</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>FG Syndrome 4</h1>
             <div class="header-meta">
 
@@ -3979,29 +4122,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4019,7 +4240,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-recessive-inheritance">
                 <div class="item-name">
                     X-linked recessive inheritance
 
@@ -4064,7 +4285,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19200522" target="_blank">PMID:19200522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4086,7 +4310,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24278995" target="_blank">PMID:24278995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4108,7 +4335,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24278995" target="_blank">PMID:24278995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4224,6 +4454,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4247,7 +4483,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25886057" target="_blank">PMID:25886057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4284,6 +4523,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cask-hypomorphic-altered-function-variant" data-dismech-node="CASK Hypomorphic Altered-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">CASK Hypomorphic Altered-Function Variant</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">FGS4 is caused by CASK variants that lie at the mild, hypomorphic end of the CASK allelic spectrum. Rather than abolishing CASK, these missense and splice variants leave CASK protein detectable while reducing its amount or altering its function. This distinguishes FGS4 from the hemizygous loss-of-function CASK variants that cause the far more severe MICPCH phenotype with severe intellectual disability and, in males, epileptic encephalopathy. The first reported FGS4 variant, p.R28L (c.83G&gt;T), causes partial skipping of CASK exon 2 through disrupted recognition of an exonic splicing enhancer; the second, the de novo splice-site variant c.2521-2A&gt;G, causes skipping of exon 26 and yields an aberrant guanylate kinase domain.</div>
 
@@ -4373,7 +4619,10 @@ This pathophysiological event involves CASK (hgnc:1497). hgnc:1497 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19200522" target="_blank">PMID:19200522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4395,7 +4644,10 @@ This pathophysiological event involves CASK (hgnc:1497). hgnc:1497 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19200522" target="_blank">PMID:19200522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4417,7 +4669,10 @@ This pathophysiological event involves CASK (hgnc:1497). hgnc:1497 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25886057" target="_blank">PMID:25886057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4444,6 +4699,13 @@ This pathophysiological event involves CASK (hgnc:1497). hgnc:1497 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cask-synaptic-scaffolding-complex" data-dismech-node="Disrupted CASK Synaptic Scaffolding Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted CASK Synaptic Scaffolding Complex</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">CASK is a multidomain MAGUK (membrane-associated guanylate kinase) scaffolding protein highly expressed in the central nervous system and localized to synapses. It forms competing tripartite CASK/Mint1/Velis and CASK/Caskin1/Velis complexes that physically associate with the cytoplasmic tail of neurexin at presynaptic sites, assembling large signaling complexes that regulate neurotransmission. FGS4 variants reduce or alter CASK so that these scaffolding interactions are perturbed; the exon-26-skipping variant specifically yields an aberrant guanylate kinase domain predicted to degrade CASK binding to neuronal and ocular development partners.</div>
 
@@ -4602,7 +4864,10 @@ This pathophysiological event involves scaffold/adaptor activity, annotated with
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19200522" target="_blank">PMID:19200522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4624,7 +4889,10 @@ This pathophysiological event involves scaffold/adaptor activity, annotated with
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21763699" target="_blank">PMID:21763699</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4646,7 +4914,10 @@ This pathophysiological event involves scaffold/adaptor activity, annotated with
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4673,6 +4944,13 @@ This pathophysiological event involves scaffold/adaptor activity, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurodevelopment-and-synaptic-function" data-dismech-node="Impaired Neurodevelopment and Synaptic Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurodevelopment and Synaptic Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">CASK is a conserved scaffolding protein involved in brain development, synapse formation, and establishment of cell polarity. FGS4 variants alter the CASK expression profile during embryogenesis, brain development, and differentiation, impairing synaptic assembly and neurotransmission and producing the neurodevelopmental phenotype (developmental delay, intellectual disability, and associated behavioral and neurological features).</div>
 
@@ -4774,7 +5052,10 @@ This pathophysiological event involves synapse assembly (GO:0007416). GO:0007416
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21763699" target="_blank">PMID:21763699</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4796,7 +5077,10 @@ This pathophysiological event involves synapse assembly (GO:0007416). GO:0007416
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19200522" target="_blank">PMID:19200522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4821,6 +5105,13 @@ This pathophysiological event involves synapse assembly (GO:0007416). GO:0007416
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cask-frmd7-ocular-motor-scaffolding" data-dismech-node="Impaired CASK-FRMD7 Ocular-Motor Scaffolding" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CASK-FRMD7 Ocular-Motor Scaffolding</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">CASK interacts with FRMD7, a FERM-domain protein required for normal ocular-motor development and a well-established cause of X-linked congenital (infantile) nystagmus. An FGS4 variant that damages the CASK guanylate kinase domain is predicted to degrade the CASK-FRMD7 interaction, providing a mechanistic basis for the congenital nystagmus seen in FGS4.</div>
 
@@ -4854,7 +5145,10 @@ This pathophysiological event involves synapse assembly (GO:0007416). GO:0007416
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4902,7 +5196,7 @@ This pathophysiological event involves synapse assembly (GO:0007416). GO:0007416
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CASK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CASK\"], \"gene_terms\": [{\"label\": \"CASK\", \"id\": \"hgnc:1497\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CASK Hypomorphic Altered-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGS4 is caused by CASK variants that lie at the mild, hypomorphic end of the CASK allelic spectrum. Rather than abolishing CASK, these missense and splice variants leave CASK protein detectable while reducing its amount or altering its function. This distinguishes FGS4 from the hemizygous loss-of-function CASK variants that cause the far more severe MICPCH phenotype with severe intellectual disability and, in males, epileptic encephalopathy. The first reported FGS4 variant, p.R28L (c.83G\u003eT), causes partial skipping of CASK exon 2 through disrupted recognition of an exonic splicing enhancer; the second, the de novo splice-site variant c.2521-2A\u003eG, causes skipping of exon 26 and yields an aberrant guanylate kinase domain.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"CASK\"], \"gene_terms\": [{\"label\": \"CASK\", \"id\": \"hgnc:1497\"}]}}, {\"id\": \"CASK c.2521-2A\u003eG (exon 26 skipping)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second reported FGS4 variant: a de novo carboxyl-terminus splice-site change (c.2521-2A\u003eG) causing skipping of exon 26 and a cryptic-splice-site 9-bp deletion, yielding in-frame deletions (p.Ala841_Lys843del and p.Ala841_Glu868del) and an aberrant guanylate kinase domain in the predominant mutant transcripts.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CASK\"], \"gene_terms\": [{\"label\": \"CASK\", \"id\": \"hgnc:1497\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"CASK p.Arg28Leu (c.83G\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The first reported FGS4 variant: a familial missense change (c.83G\u003eT, p.Arg28Leu) that cosegregates with the phenotype in an Italian family mapped to Xp11.4. Functionally it acts as a hypomorph by causing partial skipping of CASK exon 2 through disrupted recognition of an exonic splicing enhancer, rather than by altering protein structure per se.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CASK\"], \"gene_terms\": [{\"label\": \"CASK\", \"id\": \"hgnc:1497\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Disrupted CASK Synaptic Scaffolding Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CASK is a multidomain MAGUK (membrane-associated guanylate kinase) scaffolding protein highly expressed in the central nervous system and localized to synapses. It forms competing tripartite CASK/Mint1/Velis and CASK/Caskin1/Velis complexes that physically associate with the cytoplasmic tail of neurexin at presynaptic sites, assembling large signaling complexes that regulate neurotransmission. FGS4 variants reduce or alter CASK so that these scaffolding interactions are perturbed; the exon-26-skipping variant specifically yields an aberrant guanylate kinase domain predicted to degrade CASK binding to neuronal and ocular development partners.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\"], \"molecular_functions\": [\"scaffold/adaptor activity\"]}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are part of the CASK-mutation phenotypic spectrum encompassing FGS4. Reported with PARTIAL support as the citation describes the broader CASK spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Impaired CASK-FRMD7 Ocular-Motor Scaffolding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CASK interacts with FRMD7, a FERM-domain protein required for normal ocular-motor development and a well-established cause of X-linked congenital (infantile) nystagmus. An FGS4 variant that damages the CASK guanylate kinase domain is predicted to degrade the CASK-FRMD7 interaction, providing a mechanistic basis for the congenital nystagmus seen in FGS4.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Neurodevelopment and Synaptic Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CASK is a conserved scaffolding protein involved in brain development, synapse formation, and establishment of cell polarity. FGS4 variants alter the CASK expression profile during embryogenesis, brain development, and differentiation, impairing synaptic assembly and neurotransmission and producing the neurodevelopmental phenotype (developmental delay, intellectual disability, and associated behavioral and neurological features).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse assembly\"]}}, {\"id\": \"Nutritional support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional support addresses the feeding difficulties and gastrointestinal hypomotility seen in the CASK spectrum, including FGS4.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"CASK Hypomorphic Altered-Function Variant\", \"target\": \"Disrupted CASK Synaptic Scaffolding Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or altered CASK protein impairs assembly of the CASK-organized presynaptic scaffolding complexes, particularly where the variant damages a protein-interaction domain such as the guanylate kinase domain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted CASK Synaptic Scaffolding Complex\", \"target\": \"Impaired Neurodevelopment and Synaptic Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed CASK scaffolding of presynaptic signaling complexes impairs synapse formation and neurotransmission during brain development and differentiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted CASK Synaptic Scaffolding Complex\", \"target\": \"Impaired CASK-FRMD7 Ocular-Motor Scaffolding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damage to the CASK guanylate kinase domain degrades its interaction with FRMD7, a determinant of ocular-motor development and a known congenital-nystagmus gene.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nutritional support\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CASK\", \"target\": \"CASK Hypomorphic Altered-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CASK p.Arg28Leu (c.83G\u003eT)\", \"target\": \"CASK\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CASK c.2521-2A\u003eG (exon 26 skipping)\", \"target\": \"CASK\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CASK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CASK\"], \"gene_terms\": [{\"label\": \"CASK\", \"id\": \"hgnc:1497\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CASK Hypomorphic Altered-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGS4 is caused by CASK variants that lie at the mild, hypomorphic end of the CASK allelic spectrum. Rather than abolishing CASK, these missense and splice variants leave CASK protein detectable while reducing its amount or altering its function. This distinguishes FGS4 from the hemizygous loss-of-function CASK variants that cause the far more severe MICPCH phenotype with severe intellectual disability and, in males, epileptic encephalopathy. The first reported FGS4 variant, p.R28L (c.83G\u003eT), causes partial skipping of CASK exon 2 through disrupted recognition of an exonic splicing enhancer; the second, the de novo splice-site variant c.2521-2A\u003eG, causes skipping of exon 26 and yields an aberrant guanylate kinase domain.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"CASK\"], \"gene_terms\": [{\"label\": \"CASK\", \"id\": \"hgnc:1497\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"CASK c.2521-2A\u003eG (exon 26 skipping)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second reported FGS4 variant: a de novo carboxyl-terminus splice-site change (c.2521-2A\u003eG) causing skipping of exon 26 and a cryptic-splice-site 9-bp deletion, yielding in-frame deletions (p.Ala841_Lys843del and p.Ala841_Glu868del) and an aberrant guanylate kinase domain in the predominant mutant transcripts.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CASK\"], \"gene_terms\": [{\"label\": \"CASK\", \"id\": \"hgnc:1497\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"CASK p.Arg28Leu (c.83G\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The first reported FGS4 variant: a familial missense change (c.83G\u003eT, p.Arg28Leu) that cosegregates with the phenotype in an Italian family mapped to Xp11.4. Functionally it acts as a hypomorph by causing partial skipping of CASK exon 2 through disrupted recognition of an exonic splicing enhancer, rather than by altering protein structure per se.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CASK\"], \"gene_terms\": [{\"label\": \"CASK\", \"id\": \"hgnc:1497\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Disrupted CASK Synaptic Scaffolding Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CASK is a multidomain MAGUK (membrane-associated guanylate kinase) scaffolding protein highly expressed in the central nervous system and localized to synapses. It forms competing tripartite CASK/Mint1/Velis and CASK/Caskin1/Velis complexes that physically associate with the cytoplasmic tail of neurexin at presynaptic sites, assembling large signaling complexes that regulate neurotransmission. FGS4 variants reduce or alter CASK so that these scaffolding interactions are perturbed; the exon-26-skipping variant specifically yields an aberrant guanylate kinase domain predicted to degrade CASK binding to neuronal and ocular development partners.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse organization\"], \"molecular_functions\": [\"scaffold/adaptor activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are part of the CASK-mutation phenotypic spectrum encompassing FGS4. Reported with PARTIAL support as the citation describes the broader CASK spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Impaired CASK-FRMD7 Ocular-Motor Scaffolding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CASK interacts with FRMD7, a FERM-domain protein required for normal ocular-motor development and a well-established cause of X-linked congenital (infantile) nystagmus. An FGS4 variant that damages the CASK guanylate kinase domain is predicted to degrade the CASK-FRMD7 interaction, providing a mechanistic basis for the congenital nystagmus seen in FGS4.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Impaired Neurodevelopment and Synaptic Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CASK is a conserved scaffolding protein involved in brain development, synapse formation, and establishment of cell polarity. FGS4 variants alter the CASK expression profile during embryogenesis, brain development, and differentiation, impairing synaptic assembly and neurotransmission and producing the neurodevelopmental phenotype (developmental delay, intellectual disability, and associated behavioral and neurological features).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"synapse assembly\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Nutritional support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional support addresses the feeding difficulties and gastrointestinal hypomotility seen in the CASK spectrum, including FGS4.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"CASK Hypomorphic Altered-Function Variant\", \"target\": \"Disrupted CASK Synaptic Scaffolding Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or altered CASK protein impairs assembly of the CASK-organized presynaptic scaffolding complexes, particularly where the variant damages a protein-interaction domain such as the guanylate kinase domain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted CASK Synaptic Scaffolding Complex\", \"target\": \"Impaired Neurodevelopment and Synaptic Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed CASK scaffolding of presynaptic signaling complexes impairs synapse formation and neurotransmission during brain development and differentiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted CASK Synaptic Scaffolding Complex\", \"target\": \"Impaired CASK-FRMD7 Ocular-Motor Scaffolding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damage to the CASK guanylate kinase domain degrades its interaction with FRMD7, a determinant of ocular-motor development and a known congenital-nystagmus gene.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nutritional support\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CASK\", \"target\": \"CASK Hypomorphic Altered-Function Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CASK p.Arg28Leu (c.83G\u003eT)\", \"target\": \"CASK\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CASK c.2521-2A\u003eG (exon 26 skipping)\", \"target\": \"CASK\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4921,13 +5215,11 @@ This pathophysiological event involves synapse assembly (GO:0007416). GO:0007416
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4937,8 +5229,80 @@ This pathophysiological event involves synapse assembly (GO:0007416). GO:0007416
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-dysmotility" data-dismech-node="Gastrointestinal dysmotility" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gastrointestinal dysmotility
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002579</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our patient presented with developmental delay, nystagmus, and severe gastrointestinal and gastroesophageal complications."</div>
+
+
+                <div class="evidence-explanation">Documents severe gastrointestinal dysmotility complications in the reported FGS4 patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-gastroesophageal-reflux" data-dismech-node="Gastroesophageal reflux" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -4954,15 +5318,18 @@ This pathophysiological event involves synapse assembly (GO:0007416). GO:0007416
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002020</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4974,13 +5341,16 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5020,15 +5390,18 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0011968</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5040,13 +5413,16 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5078,8 +5454,105 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-nystagmus" data-dismech-node="Congenital nystagmus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Congenital nystagmus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006934" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0006934</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital nystagmus (HP:0006934). HP:0006934 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our patient presented with developmental delay, nystagmus, and severe gastrointestinal and gastroesophageal complications."</div>
+
+
+                <div class="evidence-explanation">Directly documents nystagmus as a presenting feature in the reported FGS4 patient with the de novo splice-site CASK variant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24278995" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24278995" target="_blank">PMID:24278995</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"X-linked intellectual disability (XLID) with or without nystagmus, generally associated with hypomorphic CASK pathogenic variants."</div>
+
+
+                <div class="evidence-explanation">GeneReviews links nystagmus to the hypomorphic CASK phenotype that encompasses FGS4, noting its variable presence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-optic-atrophy" data-dismech-node="Optic atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5095,15 +5568,18 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000648</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5115,13 +5591,16 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5170,15 +5649,18 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5196,7 +5678,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24278995" target="_blank">PMID:24278995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5236,15 +5721,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5262,7 +5750,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5302,10 +5793,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5316,6 +5807,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5328,7 +5822,10 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5339,169 +5836,6 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                 <div class="evidence-explanation">Documents impaired behavior (and visual-motor/working-memory) in the reported FGS4 patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-nystagmus" data-dismech-node="Congenital nystagmus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congenital nystagmus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006934" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0006934</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congenital nystagmus (HP:0006934). HP:0006934 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Our patient presented with developmental delay, nystagmus, and severe gastrointestinal and gastroesophageal complications."</div>
-
-
-                <div class="evidence-explanation">Directly documents nystagmus as a presenting feature in the reported FGS4 patient with the de novo splice-site CASK variant.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24278995" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24278995" target="_blank">PMID:24278995</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"X-linked intellectual disability (XLID) with or without nystagmus, generally associated with hypomorphic CASK pathogenic variants."</div>
-
-
-                <div class="evidence-explanation">GeneReviews links nystagmus to the hypomorphic CASK phenotype that encompasses FGS4, noting its variable presence.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-dysmotility" data-dismech-node="Gastrointestinal dysmotility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Gastrointestinal dysmotility
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002579</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28139025" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Our patient presented with developmental delay, nystagmus, and severe gastrointestinal and gastroesophageal complications."</div>
-
-
-                <div class="evidence-explanation">Documents severe gastrointestinal dysmotility complications in the reported FGS4 patient.</div>
 
 
 
@@ -5589,6 +5923,9 @@ This disease-associated gene is CASK (hgnc:1497). hgnc:1497 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive inheritance</span>
@@ -5609,7 +5946,10 @@ This disease-associated gene is CASK (hgnc:1497). hgnc:1497 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19200522" target="_blank">PMID:19200522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5631,7 +5971,10 @@ This disease-associated gene is CASK (hgnc:1497). hgnc:1497 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5677,6 +6020,7 @@ This disease-associated gene is CASK (hgnc:1497). hgnc:1497 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -5696,11 +6040,17 @@ This variant is in CASK (hgnc:1497). hgnc:1497 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">single nucleotide variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The first reported FGS4 variant: a familial missense change (c.83G&gt;T, p.Arg28Leu) that cosegregates with the phenotype in an Italian family mapped to Xp11.4. Functionally it acts as a hypomorph by causing partial skipping of CASK exon 2 through disrupted recognition of an exonic splicing enhancer, rather than by altering protein structure per se.</div>
@@ -5720,6 +6070,8 @@ This variant is in CASK (hgnc:1497). hgnc:1497 is a gene from the HUGO Gene Nome
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5732,7 +6084,10 @@ This variant is in CASK (hgnc:1497). hgnc:1497 is a gene from the HUGO Gene Nome
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19200522" target="_blank">PMID:19200522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5767,6 +6122,7 @@ This variant is in CASK (hgnc:1497). hgnc:1497 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -5788,7 +6144,13 @@ This variant is in CASK (hgnc:1497). hgnc:1497 is a gene from the HUGO Gene Nome
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The second reported FGS4 variant: a de novo carboxyl-terminus splice-site change (c.2521-2A&gt;G) causing skipping of exon 26 and a cryptic-splice-site 9-bp deletion, yielding in-frame deletions (p.Ala841_Lys843del and p.Ala841_Glu868del) and an aberrant guanylate kinase domain in the predominant mutant transcripts.</div>
@@ -5808,6 +6170,8 @@ This variant is in CASK (hgnc:1497). hgnc:1497 is a gene from the HUGO Gene Nome
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5820,7 +6184,10 @@ This variant is in CASK (hgnc:1497). hgnc:1497 is a gene from the HUGO Gene Nome
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28139025" target="_blank">PMID:28139025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5846,6 +6213,9 @@ This variant is in CASK (hgnc:1497). hgnc:1497 is a gene from the HUGO Gene Nome
 
 
         </div>
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5900,6 +6270,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of FGS4 is symptomatic and supportive, following standard care for developmental delay and intellectual disability, including educational and developmental services.</div>
 
 
@@ -5919,7 +6314,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24278995" target="_blank">PMID:24278995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5985,6 +6383,31 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Nutritional support addresses the feeding difficulties and gastrointestinal hypomotility seen in the CASK spectrum, including FGS4.</div>
 
 
@@ -6026,7 +6449,10 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24278995" target="_blank">PMID:24278995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6092,6 +6518,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Physiotherapy supports motor development and mobility in CASK disorders including FGS4.</div>
 
 
@@ -6111,7 +6562,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24278995" target="_blank">PMID:24278995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6143,6 +6597,125 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cask-molecular-genetic-testing">
+                <div class="item-name">
+                    CASK molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Diagnosis of FGS4 requires a compatible X-linked intellectual disability phenotype (with or without nystagmus) plus identification of a hemizygous hypomorphic CASK pathogenic variant in a male. Because the CASK phenotypic spectrum is broad and overlaps other X-linked intellectual disability disorders, testing is typically via a multigene intellectual disability panel containing CASK or exome/genome sequencing.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24278995" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24278995" target="_blank">PMID:24278995</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of a CASK disorder is established in a female who is heterozygous for a CASK pathogenic variant and in a male who is hemizygous for a CASK pathogenic variant on molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the molecular diagnostic criterion for CASK disorders, including FGS4, in hemizygous males.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Not yet documented</span>
+
+                </div>
+
+                <div class="item-notes">No population prevalence or incidence has been established for FGS4 specifically. The molecular entity is known from only two published families/variants (Piluso et al. 2009, PMID:19200522; Dunn et al. 2017, PMID:28139025), so occurrence is recorded as not-yet-documented rather than estimated. Any broader CASK-disorder frequency figures pertain to the loss-of-function MICPCH end of the spectrum and must not be assigned to FGS4 (see notes and the fgs4_nosological_boundary discussion).</div>
+
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6157,7 +6730,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cask-related-microcephaly-with-pontine-and-cerebellar-hypoplasia-micpch">
                 <div class="item-name">
 
                     CASK-related microcephaly with pontine and cerebellar hypoplasia (MICPCH)
@@ -6200,7 +6773,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25886057" target="_blank">PMID:25886057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6222,7 +6798,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25886057" target="_blank">PMID:25886057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6244,7 +6823,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25886057" target="_blank">PMID:25886057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6269,7 +6851,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-fg-syndrome-1-opitz-kaveggia-syndrome-med12">
                 <div class="item-name">
 
                     FG syndrome 1 (Opitz-Kaveggia syndrome, MED12)
@@ -6310,7 +6892,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19200522" target="_blank">PMID:19200522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6765,7 +7350,7 @@ phenotypes:
   evidence:
   - reference: PMID:28139025
     reference_title: &#34;A de novo splice site mutation in CASK causes FG syndrome-4 and congenital nystagmus.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Mutations in CASK cause X-linked intellectual disability, microcephaly with
@@ -6808,7 +7393,7 @@ phenotypes:
   evidence:
   - reference: PMID:28139025
     reference_title: &#34;A de novo splice site mutation in CASK causes FG syndrome-4 and congenital nystagmus.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Our patient presented with developmental delay, nystagmus, and severe
@@ -6831,7 +7416,7 @@ phenotypes:
   evidence:
   - reference: PMID:28139025
     reference_title: &#34;A de novo splice site mutation in CASK causes FG syndrome-4 and congenital nystagmus.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Mutations in CASK cause X-linked intellectual disability, microcephaly with
@@ -7256,6 +7841,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: FG Syndrome 4 CASK</strong> · 2026-08-05T22:00:50Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/FG_Syndrome_4/2026-08-05T220050Z-claude-code-39a598.yaml">View source</a></p>
+                        <p class="research-review-text">Created de novo FG syndrome 4 [FGS4, CASK, MONDO:0010318] X-linked intellectual disability entry. Deep research via falcon Edison; NEC preflight manually cleared as CASK dominates the report matching the FGS4 gene. GeneReviews baseline CASK Disorders PMID:24278995 fetched and tagged. Evidence anchored on the two reported FGS4 families: Piluso 2009 PMID:19200522 p.R28L exon-2 skipping and Dunn 2017 PMID:28139025 de novo c.2521-2A&gt;G exon-26 skipping with congenital nystagmus; plus the CASK-males continuum Moog 2015 PMID:25886057, CASK synaptic-scaffold biology Stafford 2011 PMID:21763699, and CASK-neurexin functional analysis Pan 2021 PMID:33090494. Four-node pathograph: hypomorphic variant to disrupted CASK scaffolding to impaired neurodevelopment and impaired CASK-FRMD7 ocular-motor scaffolding. Broader-CASK-spectrum claims marked PARTIAL; frequencies deliberately omitted for n=2 families; KNOWLEDGE_GAP discussion on the FGS4 nosological boundary. Validated: schema OK, terms OK, 33 of 33 snippets verified, 89 percent compliance.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7707,7 +8305,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "FG Syndrome 4", "mondoId": "MONDO:0010318", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "FG_Syndrome_4", "yamlRevision": "b233af0462e8"};
+        const OS_CONFIG = {"diseaseName": "FG Syndrome 4", "mondoId": "MONDO:0010318", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "FG_Syndrome_4", "yamlRevision": "acb0760dda0e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

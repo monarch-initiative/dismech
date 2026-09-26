@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>SNF8-Related Neurodevelopmental Disorder</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>SNF8-Related Neurodevelopmental Disorder</h1>
             <div class="header-meta">
 
@@ -3977,27 +4120,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification" title="The entire reported morbidity is neurological and neuro-ophthalmological: impaired intellectual development in 4/4, optic atrophy in 3/4, speech and language delay, mild global developmental delay, and in one individual congenital ataxia, with brain and cerebellar atrophy on MRI. The optic neuropathy is a lesion of the anterior visual pathway - central nervous system tissue - rather than an ophthalmological disease of the globe, so NEUROLOGIC rather than an ophthalmology assignment is the correct single chapter. No systemic, cardiac, renal, hepatic, haematological or skeletal involvement has been reported at either end of the SNF8 spectrum.">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4015,7 +4235,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4063,7 +4283,10 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4085,7 +4308,10 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4196,6 +4422,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4212,6 +4444,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Measure residual ESCRT-II function in cells engineered to carry p.Val102Ile homozygously versus p.Val102Ile in trans to a null allele, to test the threshold model directly against the modifier model.</div>
+
+
+
+
+
+
 
 
 
@@ -4267,7 +4505,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-    <span class="entity-ref-chip">genetic#SNF8</span>
+    <a class="entity-ref-chip" href="#genetic-snf8">genetic#SNF8</a>
 
 
 
@@ -4295,6 +4533,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Sequence patient-derived transcripts to determine whether c.423-1G&gt;C causes exon skipping, activation of a cryptic acceptor, or intron retention, and whether the product escapes nonsense-mediated decay.</div>
+
+
+
+
+
+
 
 
 
@@ -4401,6 +4645,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4417,6 +4667,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Create a CRISPR germline snf8 mutant line and ask whether the optic-nerve extension, optic-chiasm and forebrain-size phenotypes reported in morphants reproduce, which is the standard test for morpholino off-target artefact.</div>
+
+
+
+
+
+
 
 
 
@@ -4469,6 +4725,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4499,6 +4761,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bi-allelic-hypomorphic-snf8-variants" data-dismech-node="Bi-allelic Hypomorphic SNF8 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Bi-allelic Hypomorphic SNF8 Variants</div>
+
 
                 <div class="item-desc">The primary lesion is bi-allelic damage to SNF8 at 17q21.32, reported against transcript NM_007241.4. Genotype maps onto severity: the mild NEDOA phenotype curated here occurs only in individuals who carry the hypomorphic missense allele c.304G&gt;A (p.Val102Ile), which is inferred to leave residual SNF8 function, whereas the severe allelic encephalopathy arises from more damaging genotypes. Functional testing in vivo reproduced this graded effect, with different SNF8 alleles having different impacts on embryonic development, which is the mechanistic basis for the clinical heterogeneity across the spectrum.</div>
 
@@ -4598,7 +4861,10 @@ This pathophysiological event involves SNF8 (hgnc:17028). hgnc:17028 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4620,7 +4886,10 @@ This pathophysiological event involves SNF8 (hgnc:17028). hgnc:17028 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4645,6 +4914,7 @@ This pathophysiological event involves SNF8 (hgnc:17028). hgnc:17028 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-escrt-ii-complex" data-dismech-node="Loss of the ESCRT-II Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the ESCRT-II Complex</div>
+
 
                 <div class="item-desc">ESCRT-II is an obligate heterotetramer built from one copy of SNF8/VPS22, one copy of VPS36, and two copies of VPS25, arranged as a trilobal assembly of winged-helix domains. Because the subunits are mutually stabilising, damaging one of them destabilises the whole complex rather than removing a single activity: patient-derived fibroblasts carrying bi-allelic SNF8 variants show loss of ESCRT-II subunits, plural. SNF8 is not a peripheral subunit in this assembly - the first helix of VPS22 contributes directly, alongside the VPS36 GLUE domain, to targeting ESCRT-II onto the endosomal membrane - so its loss removes both the structural core and part of the membrane-recruitment activity.</div>
 
@@ -4806,13 +5076,16 @@ This pathophysiological event involves endosome membrane (GO:0010008). GO:001000
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4834,7 +5107,10 @@ This pathophysiological event involves endosome membrane (GO:0010008). GO:001000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18539118" target="_blank">PMID:18539118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4856,7 +5132,10 @@ This pathophysiological event involves endosome membrane (GO:0010008). GO:001000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18539118" target="_blank">PMID:18539118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4883,6 +5162,13 @@ This pathophysiological event involves endosome membrane (GO:0010008). GO:001000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stability-independent-impairment-by-the-p-val102ile-hypomorph" data-dismech-node="Stability-Independent Impairment by the p.Val102Ile Hypomorph" data-dismech-type="pathophysiology">
                 <div class="item-name">Stability-Independent Impairment by the p.Val102Ile Hypomorph</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">This node exists because the mechanism that produces NEDOA is not the mechanism that produces the severe allelic encephalopathy. Every mildly affected individual carries c.304G&gt;A (p.Val102Ile) in trans to a more damaging allele, and in fibroblasts from two of them the ESCRT-II subunits were not significantly depleted. The authors&#39; reading is that this allele impairs ESCRT-II function by a route independent of protein stability - a partially functional complex is assembled in normal amounts but works less well - rather than by removing the complex. That is what sets the severity floor for this entity: enough residual ESCRT-II activity to permit survival into adulthood and mild rather than absent development, but not enough to protect the anterior visual pathway. The distinction also predicts that a proteomic assay of ESCRT-II subunit abundance, which is informative for the severe pole, will look near-normal in NEDOA and cannot be used to confirm this diagnosis.</div>
 
@@ -4988,6 +5274,7 @@ This pathophysiological event involves abnormal ESCRT II complex (GO:0000814). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-escrt-iii-nucleation-and-multivesicular-body-biogenesis" data-dismech-node="Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis</div>
+
 
                 <div class="item-desc">ESCRT-0, -I, -II and -III act as a sequential relay on the endosomal membrane. ESCRT-II is the hand-off point: it binds the ESCRT-I VPS28 C-terminal domain on one side and, through VPS25, directly recruits and nucleates the ESCRT-III subunit VPS20/CHMP6 on the other. Losing ESCRT-II therefore breaks the cascade in the middle, so ubiquitinated cargo is not packaged into intralumenal vesicles, multivesicular bodies fail to mature, and surface receptors are not downregulated. This step is the mechanistic junction with the ESCRT-III disorders: an ESCRT-II lesion and an ESCRT-III lesion disable adjacent stages of one pathway.</div>
 
@@ -5197,7 +5484,10 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15469844" target="_blank">PMID:15469844</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5219,7 +5509,10 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15469844" target="_blank">PMID:15469844</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5241,7 +5534,10 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18539118" target="_blank">PMID:18539118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5268,6 +5564,13 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-autophagic-flux" data-dismech-node="Impaired Autophagic Flux" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Autophagic Flux</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The ESCRT machinery is required not only for endosomal sorting but for autophagy, where it contributes to phagophore closure and to autophagosome-lysosome fusion. The founding study&#39;s stated conclusion is that the neurodevelopmental and neurodegenerative phenotypes of bi-allelic SNF8 disease are mediated principally through impaired autophagic flux rather than through cargo missorting alone. The abstract states this as a likelihood, but the full text backs it with direct patient-material assays: transmission electron microscopy of patient fibroblasts showing accumulated autolysosomes and morphologically aberrant, enlarged, electron-lucent lysosomes; LC3/LAMP1 confocal immunofluorescence showing the same accumulation; and, at the severe pole, strong LC3 immunostaining on autopsy neuropathology where age-matched controls stained only weakly.</div>
 
@@ -5527,13 +5830,16 @@ This pathophysiological event involves autolysosome (GO:0044754). GO:0044754 is 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5555,7 +5861,10 @@ This pathophysiological event involves autolysosome (GO:0044754). GO:0044754 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5580,6 +5889,7 @@ This pathophysiological event involves autolysosome (GO:0044754). GO:0044754 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-optic-nerve-and-forebrain-developmental-failure" data-dismech-node="Optic Nerve and Forebrain Developmental Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Optic Nerve and Forebrain Developmental Failure</div>
+
 
                 <div class="item-desc">The tissue-level endpoint is selective failure of the visual pathway and the forebrain. Zebrafish snf8 loss of function reproduces this pattern specifically, producing impaired optic nerve development and reduced forebrain size in addition to global developmental delay and altered embryo morphology. That the optic nerve phenotype is recovered in a model organism is what elevates optic atrophy in this disorder from an incidental association to a mechanistically anchored feature, and it is the strongest available support for the visual pathway being intrinsically vulnerable to ESCRT-II loss rather than secondarily damaged.</div>
 
@@ -5685,7 +5995,10 @@ This pathophysiological event occurs in forebrain (UBERON:0001890). UBERON:00018
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5733,7 +6046,7 @@ This pathophysiological event occurs in forebrain (UBERON:0001890). UBERON:00018
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is bi-allelic damage to SNF8 at 17q21.32, reported against transcript NM_007241.4. Genotype maps onto severity: the mild NEDOA phenotype curated here occurs only in individuals who carry the hypomorphic missense allele c.304G\u003eA (p.Val102Ile), which is inferred to leave residual SNF8 function, whereas the severe allelic encephalopathy arises from more damaging genotypes. Functional testing in vivo reproduced this graded effect, with different SNF8 alleles having different impacts on embryonic development, which is the mechanistic basis for the clinical heterogeneity across the spectrum.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}, {\"id\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ESCRT-0, -I, -II and -III act as a sequential relay on the endosomal membrane. ESCRT-II is the hand-off point: it binds the ESCRT-I VPS28 C-terminal domain on one side and, through VPS25, directly recruits and nucleates the ESCRT-III subunit VPS20/CHMP6 on the other. Losing ESCRT-II therefore breaks the cascade in the middle, so ubiquitinated cargo is not packaged into intralumenal vesicles, multivesicular bodies fail to mature, and surface receptors are not downregulated. This step is the mechanistic junction with the ESCRT-III disorders: an ESCRT-II lesion and an ESCRT-III lesion disable adjacent stages of one pathway.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"multivesicular body assembly\", \"endosomal transport\", \"ubiquitin-dependent cargo delivery to the lysosome via the MVB sorting pathway\"]}}, {\"id\": \"Impaired Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ESCRT machinery is required not only for endosomal sorting but for autophagy, where it contributes to phagophore closure and to autophagosome-lysosome fusion. The founding study\u0027s stated conclusion is that the neurodevelopmental and neurodegenerative phenotypes of bi-allelic SNF8 disease are mediated principally through impaired autophagic flux rather than through cargo missorting alone. The abstract states this as a likelihood, but the full text backs it with direct patient-material assays: transmission electron microscopy of patient fibroblasts showing accumulated autolysosomes and morphologically aberrant, enlarged, electron-lucent lysosomes; LC3/LAMP1 confocal immunofluorescence showing the same accumulation; and, at the severe pole, strong LC3 immunostaining on autopsy neuropathology where age-matched controls stained only weakly.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient-derived dermal fibroblast\", \"cortical pyramidal neuron\", \"reactive astrocyte\", \"activated microglial cell\"], \"biological_processes\": [\"macroautophagy\", \"autophagosome maturation\"]}}, {\"id\": \"Loss of the ESCRT-II Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ESCRT-II is an obligate heterotetramer built from one copy of SNF8/VPS22, one copy of VPS36, and two copies of VPS25, arranged as a trilobal assembly of winged-helix domains. Because the subunits are mutually stabilising, damaging one of them destabilises the whole complex rather than removing a single activity: patient-derived fibroblasts carrying bi-allelic SNF8 variants show loss of ESCRT-II subunits, plural. SNF8 is not a peripheral subunit in this assembly - the first helix of VPS22 contributes directly, alongside the VPS36 GLUE domain, to targeting ESCRT-II onto the endosomal membrane - so its loss removes both the structural core and part of the membrane-recruitment activity.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}, {\"id\": \"Optic Nerve and Forebrain Developmental Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint is selective failure of the visual pathway and the forebrain. Zebrafish snf8 loss of function reproduces this pattern specifically, producing impaired optic nerve development and reduced forebrain size in addition to global developmental delay and altered embryo morphology. That the optic nerve phenotype is recovered in a model organism is what elevates optic atrophy in this disorder from an incidental association to a mechanistically anchored feature, and it is the strongest available support for the visual pathway being intrinsically vulnerable to ESCRT-II loss rather than secondarily damaged.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"locations\": [\"optic nerve\", \"forebrain\"]}}, {\"id\": \"SNF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}], \"association\": \"Bi-allelic variants; the mild NEDOA phenotype is associated specifically with the hypomorphic allele c.304G\u003eA (p.Val102Ile)\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node exists because the mechanism that produces NEDOA is not the mechanism that produces the severe allelic encephalopathy. Every mildly affected individual carries c.304G\u003eA (p.Val102Ile) in trans to a more damaging allele, and in fibroblasts from two of them the ESCRT-II subunits were not significantly depleted. The authors\u0027 reading is that this allele impairs ESCRT-II function by a route independent of protein stability - a partially functional complex is assembled in normal amounts but works less well - rather than by removing the complex. That is what sets the severity floor for this entity: enough residual ESCRT-II activity to permit survival into adulthood and mild rather than absent development, but not enough to protect the anterior visual pathway. The distinction also predicts that a proteomic assay of ESCRT-II subunit abundance, which is informative for the severe pole, will look near-normal in NEDOA and cannot be used to confirm this diagnosis.\", \"meta\": {\"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}], \"edges\": [{\"source\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"target\": \"Loss of the ESCRT-II Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe-pole genotypes, which lack p.Val102Ile, destabilise SNF8 protein and with it the assembled ESCRT-II heterotetramer. This is the abundance-dependent arm of the allelic split.\"}, {\"source\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"target\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The parallel, allele-specific arm. In individuals carrying the mild-pole hypomorph c.304G\u003eA (p.Val102Ile), ESCRT-II function is impaired without a measurable fall in complex abundance, so this branch is a direct consequence of the variant rather than of complex loss.\"}, {\"source\": \"Loss of the ESCRT-II Complex\", \"target\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without ESCRT-II on the endosomal membrane, the downstream ESCRT-III polymer is not nucleated.\"}, {\"source\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"target\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced, rather than absent, ESCRT-II activity yields a partial and cargo-selective block of the downstream sorting step.\"}, {\"source\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"target\": \"Impaired Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked endosomal maturation prevents autophagosome-lysosome progression.\"}, {\"source\": \"Impaired Autophagic Flux\", \"target\": \"Optic Nerve and Forebrain Developmental Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons and retinal ganglion cells, being long-lived and dependent on autophagic turnover, are the cells that fail.\"}, {\"source\": \"SNF8\", \"target\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SNF8\", \"target\": \"Loss of the ESCRT-II Complex\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SNF8\", \"target\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is bi-allelic damage to SNF8 at 17q21.32, reported against transcript NM_007241.4. Genotype maps onto severity: the mild NEDOA phenotype curated here occurs only in individuals who carry the hypomorphic missense allele c.304G\u003eA (p.Val102Ile), which is inferred to leave residual SNF8 function, whereas the severe allelic encephalopathy arises from more damaging genotypes. Functional testing in vivo reproduced this graded effect, with different SNF8 alleles having different impacts on embryonic development, which is the mechanistic basis for the clinical heterogeneity across the spectrum.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}, {\"id\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ESCRT-0, -I, -II and -III act as a sequential relay on the endosomal membrane. ESCRT-II is the hand-off point: it binds the ESCRT-I VPS28 C-terminal domain on one side and, through VPS25, directly recruits and nucleates the ESCRT-III subunit VPS20/CHMP6 on the other. Losing ESCRT-II therefore breaks the cascade in the middle, so ubiquitinated cargo is not packaged into intralumenal vesicles, multivesicular bodies fail to mature, and surface receptors are not downregulated. This step is the mechanistic junction with the ESCRT-III disorders: an ESCRT-II lesion and an ESCRT-III lesion disable adjacent stages of one pathway.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"multivesicular body assembly\", \"endosomal transport\", \"ubiquitin-dependent cargo delivery to the lysosome via the MVB sorting pathway\"]}}, {\"id\": \"Impaired Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ESCRT machinery is required not only for endosomal sorting but for autophagy, where it contributes to phagophore closure and to autophagosome-lysosome fusion. The founding study\u0027s stated conclusion is that the neurodevelopmental and neurodegenerative phenotypes of bi-allelic SNF8 disease are mediated principally through impaired autophagic flux rather than through cargo missorting alone. The abstract states this as a likelihood, but the full text backs it with direct patient-material assays: transmission electron microscopy of patient fibroblasts showing accumulated autolysosomes and morphologically aberrant, enlarged, electron-lucent lysosomes; LC3/LAMP1 confocal immunofluorescence showing the same accumulation; and, at the severe pole, strong LC3 immunostaining on autopsy neuropathology where age-matched controls stained only weakly.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient-derived dermal fibroblast\", \"cortical pyramidal neuron\", \"reactive astrocyte\", \"activated microglial cell\"], \"biological_processes\": [\"macroautophagy\", \"autophagosome maturation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Loss of the ESCRT-II Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ESCRT-II is an obligate heterotetramer built from one copy of SNF8/VPS22, one copy of VPS36, and two copies of VPS25, arranged as a trilobal assembly of winged-helix domains. Because the subunits are mutually stabilising, damaging one of them destabilises the whole complex rather than removing a single activity: patient-derived fibroblasts carrying bi-allelic SNF8 variants show loss of ESCRT-II subunits, plural. SNF8 is not a peripheral subunit in this assembly - the first helix of VPS22 contributes directly, alongside the VPS36 GLUE domain, to targeting ESCRT-II onto the endosomal membrane - so its loss removes both the structural core and part of the membrane-recruitment activity.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}, {\"id\": \"Optic Nerve and Forebrain Developmental Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint is selective failure of the visual pathway and the forebrain. Zebrafish snf8 loss of function reproduces this pattern specifically, producing impaired optic nerve development and reduced forebrain size in addition to global developmental delay and altered embryo morphology. That the optic nerve phenotype is recovered in a model organism is what elevates optic atrophy in this disorder from an incidental association to a mechanistically anchored feature, and it is the strongest available support for the visual pathway being intrinsically vulnerable to ESCRT-II loss rather than secondarily damaged.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"locations\": [\"optic nerve\", \"forebrain\"]}}, {\"id\": \"SNF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}], \"association\": \"Bi-allelic variants; the mild NEDOA phenotype is associated specifically with the hypomorphic allele c.304G\u003eA (p.Val102Ile)\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node exists because the mechanism that produces NEDOA is not the mechanism that produces the severe allelic encephalopathy. Every mildly affected individual carries c.304G\u003eA (p.Val102Ile) in trans to a more damaging allele, and in fibroblasts from two of them the ESCRT-II subunits were not significantly depleted. The authors\u0027 reading is that this allele impairs ESCRT-II function by a route independent of protein stability - a partially functional complex is assembled in normal amounts but works less well - rather than by removing the complex. That is what sets the severity floor for this entity: enough residual ESCRT-II activity to permit survival into adulthood and mild rather than absent development, but not enough to protect the anterior visual pathway. The distinction also predicts that a proteomic assay of ESCRT-II subunit abundance, which is informative for the severe pole, will look near-normal in NEDOA and cannot be used to confirm this diagnosis.\", \"meta\": {\"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"target\": \"Loss of the ESCRT-II Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe-pole genotypes, which lack p.Val102Ile, destabilise SNF8 protein and with it the assembled ESCRT-II heterotetramer. This is the abundance-dependent arm of the allelic split.\"}, {\"source\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"target\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The parallel, allele-specific arm. In individuals carrying the mild-pole hypomorph c.304G\u003eA (p.Val102Ile), ESCRT-II function is impaired without a measurable fall in complex abundance, so this branch is a direct consequence of the variant rather than of complex loss.\"}, {\"source\": \"Loss of the ESCRT-II Complex\", \"target\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without ESCRT-II on the endosomal membrane, the downstream ESCRT-III polymer is not nucleated.\"}, {\"source\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"target\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced, rather than absent, ESCRT-II activity yields a partial and cargo-selective block of the downstream sorting step.\"}, {\"source\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"target\": \"Impaired Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked endosomal maturation prevents autophagosome-lysosome progression.\"}, {\"source\": \"Impaired Autophagic Flux\", \"target\": \"Optic Nerve and Forebrain Developmental Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons and retinal ganglion cells, being long-lived and dependent on autophagic turnover, are the cells that fail.\"}, {\"source\": \"SNF8\", \"target\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SNF8\", \"target\": \"Loss of the ESCRT-II Complex\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SNF8\", \"target\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5754,13 +6067,11 @@ This pathophysiological event occurs in forebrain (UBERON:0001890). UBERON:00018
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5798,6 +6109,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO annotation set for OMIM:620784, which records HP:0000405 at 1/4 sourced to PMID:38423010 (retrieved 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached.</div>
 
 
@@ -5815,7 +6129,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-optic-atrophy" data-dismech-node="Optic atrophy" data-dismech-type="phenotype">
@@ -5843,6 +6157,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO annotation for OMIM:620784 records HP:0000648 at 3/4, sourced to PMID:38423010 (retrieved 2026-08-01). The deep research pass identified the denominator structure behind that fraction: optic atrophy was present in 3 of 3 individuals at the optic-atrophy end of the mild pole (D1, E1, E2) and absent in the fourth (F1), who had congenital ataxia instead. Reported onset was between 4 and 7 years, which straddles the boundary between HP:0011463 Childhood onset (1 to 5 years) and HP:0003621 Juvenile onset (5 to 15 years) - and indeed HPOA records each at 2/4 - so no single onset category is asserted. The 4-to-7-year window and the per-individual split are full-text detail, recorded here rather than quoted as a snippet.</div>
 
 
@@ -5860,7 +6177,10 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5882,7 +6202,10 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5933,6 +6256,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO annotation set for OMIM:620784, which records HP:0000639 at 3/4 sourced to PMID:38423010 (retrieved 2026-08-01). The cached abstract does not mention nystagmus, so this phenotype carries no evidence item rather than a snippet that does not support it.</div>
 
 
@@ -5969,7 +6295,51 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the deep research pass, which records reduced visual acuity in 3 of 3 of the optic-atrophy individuals (D1, E1, E2) with a moderate, progressive course, sourced to the full text of PMID:38423010. This is not in the cached abstract and is not in the HPO annotation set for OMIM:620784, so no evidence item is attached.</div>
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-visual-evoked-potentials" data-dismech-node="Abnormal visual evoked potentials" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal visual evoked potentials
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of visual evoked potentials</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000649</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of visual evoked potentials (HP:0000649). HP:0000649 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Curated from the HPO annotation set for OMIM:620784, which records HP:0000649 at 3/3 sourced to PMID:38423010 (retrieved 2026-08-01). Note the denominator of 3, not 4, meaning one individual was not tested. Not mentioned in the cached abstract, so no evidence item is attached.</div>
 
 
 
@@ -6003,15 +6373,18 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO annotation set for OMIM:620784, which records HP:0000252 at 1/4 sourced to PMID:38423010 (retrieved 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached.</div>
@@ -6031,7 +6404,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-intellectual-development" data-dismech-node="Impaired intellectual development" data-dismech-type="phenotype">
@@ -6050,15 +6423,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO annotation for OMIM:620784 records HP:0001249 at 4/4, sourced to PMID:38423010 (retrieved 2026-08-01 from https://ontology.jax.org/api/network/annotation/OMIM:620784). No FrequencyEnum band is asserted; see the entry-level notes for why.</div>
@@ -6078,7 +6454,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6118,15 +6497,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO annotation for OMIM:620784 records HP:0001251 at 1/4, sourced to PMID:38423010 (retrieved 2026-08-01). No FrequencyEnum band is asserted. The deep research pass resolved which individual this is: F1, whose ataxia was congenital and who at age 2 had normal myelination, normal white matter volume, slight cerebellar atrophy, and no optic atrophy. That per-individual detail is full-text, not abstract content, so it is recorded here rather than quoted. It matters clinically because it means the two named features of this disorder were mutually exclusive in the only cohort ever reported.</div>
@@ -6146,7 +6528,10 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6157,6 +6542,82 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                 <div class="evidence-explanation">Ataxia is named as a feature of the milder cohort; the disjunction in the source sentence is the reason this phenotype is not described as universal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global developmental delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Mild global developmental delay</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011342</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mild global developmental delay (HP:0011342). HP:0011342 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">HPO annotation for OMIM:620784 records HP:0011342 (Mild global developmental delay) at 3/4, sourced to PMID:38423010 (retrieved 2026-08-01). The severity qualifier &#34;mild&#34; comes from that annotation and not from the cached abstract, which describes the cohort only as having a &#34;milder phenotype&#34;.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Snf8 loss of function in zebrafish results in global developmental delay and altered embryo morphology"</div>
+
+
+                <div class="evidence-explanation">Marked PARTIAL rather than SUPPORT for two reasons. It is model-organism evidence standing alone for a human phenotype, and the zebrafish result speaks to developmental delay as such but says nothing about the &#34;mild&#34; severity qualifier in the bound HP:0011342 term, which comes from the HPO annotation set rather than from any cached abstract.</div>
 
 
 
@@ -6186,10 +6647,10 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6197,124 +6658,10 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO annotation set for OMIM:620784, which records HP:0000750 at 3/3 sourced to PMID:38423010 (retrieved 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached.</div>
-
-
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global developmental delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Mild global developmental delay</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011342</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mild global developmental delay (HP:0011342). HP:0011342 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">HPO annotation for OMIM:620784 records HP:0011342 (Mild global developmental delay) at 3/4, sourced to PMID:38423010 (retrieved 2026-08-01). The severity qualifier &#34;mild&#34; comes from that annotation and not from the cached abstract, which describes the cohort only as having a &#34;milder phenotype&#34;.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Snf8 loss of function in zebrafish results in global developmental delay and altered embryo morphology"</div>
-
-
-                <div class="evidence-explanation">Marked PARTIAL rather than SUPPORT for two reasons. It is model-organism evidence standing alone for a human phenotype, and the zebrafish result speaks to developmental delay as such but says nothing about the &#34;mild&#34; severity qualifier in the bound HP:0011342 term, which comes from the HPO annotation set rather than from any cached abstract.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-visual-evoked-potentials" data-dismech-node="Abnormal visual evoked potentials" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal visual evoked potentials
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of visual evoked potentials</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000649</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of visual evoked potentials (HP:0000649). HP:0000649 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Curated from the HPO annotation set for OMIM:620784, which records HP:0000649 at 3/3 sourced to PMID:38423010 (retrieved 2026-08-01). Note the denominator of 3, not 4, meaning one individual was not tested. Not mentioned in the cached abstract, so no evidence item is attached.</div>
 
 
 
@@ -6348,6 +6695,9 @@ This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO annotation set for OMIM:620784, which records HP:0002283 at 2/4 sourced to PMID:38423010 (retrieved 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached.</div>
@@ -6386,6 +6736,9 @@ This clinical feature is Cerebellar cortical atrophy (HP:0008278). HP:0008278 is
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the HPO annotation set for OMIM:620784, which records HP:0008278 at 2/4 sourced to PMID:38423010 (retrieved 2026-08-01); the corresponding annotation for OMIM:620783 (DEE115) is 0/5. Not mentioned in the cached abstract, so no evidence item is attached.</div>
 
 
@@ -6420,6 +6773,9 @@ This clinical feature is Dysplastic corpus callosum (HP:0006989). HP:0006989 is 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Curated from the HPO annotation set for OMIM:620784, which records HP:0006989 at 1/4, HP:0002079 (Hypoplasia of the corpus callosum) at 0/4 and HP:0001274 (Agenesis of corpus callosum) at 0/4, all sourced to PMID:38423010 (retrieved 2026-08-01). Not mentioned in the cached abstract, so no evidence item is attached.</div>
@@ -6507,6 +6863,9 @@ This disease-associated gene is SNF8 (hgnc:17028). hgnc:17028 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6519,7 +6878,10 @@ This disease-associated gene is SNF8 (hgnc:17028). hgnc:17028 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6541,7 +6903,10 @@ This disease-associated gene is SNF8 (hgnc:17028). hgnc:17028 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6569,6 +6934,9 @@ This disease-associated gene is SNF8 (hgnc:17028). hgnc:17028 is a gene from the
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6616,6 +6984,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6672,6 +7065,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive recurrence risk counselling for the parents of a proband, with carrier testing for the specific familial alleles and discussion of reproductive options. Relevant to this disorder in particular because the same gene produces a lethal congenital encephalopathy at the severe end of the spectrum, so the counselling conversation has to address the possibility of a more severely affected sibling and cannot simply extrapolate the proband&#39;s mild course.</div>
 
 
@@ -6691,6 +7098,262 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exome-or-genome-sequencing-with-bi-allelic-snf8-variant-interpretation">
+                <div class="item-name">
+                    Exome or genome sequencing with bi-allelic SNF8 variant interpretation
+
+                </div>
+
+                <div class="item-desc">Molecular diagnosis rests on identifying bi-allelic SNF8 variants against transcript NM_007241.4 by exome or genome sequencing, in a child with impaired intellectual development plus optic atrophy. Two interpretation points follow from the published genotype-phenotype pattern. First, because the mild phenotype is driven by a hypomorphic missense allele, a conservative-looking missense change such as c.304G&gt;A (p.Val102Ile) should not be dismissed on in-silico grounds; it is the allele that defines this entity. Second, both parents must be tested to confirm that the two variants are in trans, since SNF8 heterozygotes are unaffected. As SNF8 is a recently described disease gene, reanalysis of previously non-diagnostic sequencing data is reasonable.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"caused by bi-allelic variants in SNF8 (GenBank: NM_007241.4), encoding the ESCRT-II subunit SNF8"</div>
+
+
+                <div class="evidence-explanation">Names the gene and the reference transcript that a diagnostic laboratory must use when reporting and interpreting variants.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All mildly affected individuals shared the same hypomorphic variant, c.304G&gt;A (p.Val102Ile)."</div>
+
+
+                <div class="evidence-explanation">Supports the specific interpretive caution that this particular missense allele, despite being a conservative valine-to-isoleucine substitution, is the recurring cause of the mild phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ophthalmological-assessment-including-visual-evoked-potentials">
+                <div class="item-name">
+                    Ophthalmological assessment including visual evoked potentials
+
+                </div>
+
+                <div class="item-desc">Formal ophthalmological review is required in any child with unexplained developmental delay who is being considered for this diagnosis, because the optic atrophy is the discriminating feature and can be clinically silent early. Visual evoked potentials are the objective test of choice, having been abnormal in every individual in whom they were recorded, and are feasible in children too young or too impaired for subjective acuity testing.</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">The supporting observation that visual evoked potentials were abnormal in 3 of 3 tested individuals comes from the HPO annotation set for OMIM:620784 (HP:0000649, retrieved 2026-08-01), not from the cached abstract, which does not mention electrophysiology. It is therefore recorded as a note rather than as an evidence snippet.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri">
+                <div class="item-name">
+                    Brain MRI
+
+                </div>
+
+                <div class="item-desc">Brain MRI serves two purposes. It documents the structural correlates of the disorder - global brain atrophy, cerebellar cortical atrophy, and a dysplastic corpus callosum - and it helps place an individual on the SNF8 spectrum, since massive white matter reduction with hypoplasia or aplasia of the corpus callosum characterises the severe allelic encephalopathy rather than this entity.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"massive reduction of white matter, hypo-/aplasia of the corpus callosum"</div>
+
+
+                <div class="evidence-explanation">Names the specific MRI findings that mark the severe end of the SNF8 spectrum, which is what makes imaging useful for distinguishing that disorder from this one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Not yet documented</span>
+
+                </div>
+
+                <div class="item-notes">Nine individuals from six families have been reported in total across both ends of the SNF8 spectrum, in one 2024 publication; four of those nine are at the mild pole and therefore constitute the entire published experience of this entity. `NOT_YET_DOCUMENTED` is used rather than a qualitative `ULTRA_RARE` band because no prevalence or incidence estimate of any kind has been published and Orphanet has assigned no ORPHA code to this disorder, so there is no source to band. `rate_per_100000` is deliberately left empty - there is no basis for a number. No founder effect is asserted: the single homozygous family is one family, and the recurrence of p.Val102Ile across three unrelated families reflects that allele&#39;s appreciable population frequency rather than a founder event. The reported ancestries are European and Middle Eastern, which reflects ascertainment through European diagnostic genomics networks and must not be read as population restriction.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report nine individuals from six families presenting with a spectrum of neurodevelopmental/neurodegenerative features caused by bi-allelic variants in SNF8"</div>
+
+
+                <div class="evidence-explanation">Establishes the total published case count for the SNF8 disease spectrum at the time of curation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6705,7 +7368,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-developmental-and-epileptic-encephalopathy-115">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Developmental and epileptic encephalopathy 115</span>
@@ -6759,7 +7422,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6784,7 +7450,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-behr-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Behr_Syndrome.html">Behr syndrome</a>
@@ -6828,7 +7494,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-bosch-boonstra-schaaf-optic-atrophy-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Bosch-Boonstra-Schaaf_Optic_Atrophy_Syndrome.html">Bosch-Boonstra-Schaaf optic atrophy syndrome</a>
@@ -6870,7 +7536,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-autosomal-dominant-optic-atrophy-plus-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Autosomal_Dominant_Optic_Atrophy_Plus.html">Autosomal dominant optic atrophy plus syndrome</a>
@@ -6912,7 +7578,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cimdag-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="VPS4A-Related_Neurodevelopmental_Syndrome.html">CIMDAG syndrome</a>
@@ -7037,7 +7703,10 @@ Model-type disclosure, added because the abstract&#39;s phrase &#34;Snf8 loss of
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7059,7 +7728,10 @@ Model-type disclosure, added because the abstract&#39;s phrase &#34;Snf8 loss of
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7507,7 +8179,7 @@ pathophysiology:
   evidence:
   - reference: PMID:38423010
     reference_title: &#34;Bi-allelic variants in SNF8 cause a disease spectrum ranging from severe developmental and epileptic encephalopathy to syndromic optic atrophy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;In patient-derived fibroblasts, bi-allelic SNF8 variants cause loss of ESCRT-II subunits.&#34;
     explanation: &gt;-
@@ -7763,7 +8435,7 @@ pathophysiology:
   evidence:
   - reference: PMID:38423010
     reference_title: &#34;Bi-allelic variants in SNF8 cause a disease spectrum ranging from severe developmental and epileptic encephalopathy to syndromic optic atrophy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we conclude that loss of ESCRT-II due to bi-allelic SNF8 variants is associated with a spectrum of neurodevelopmental/neurodegenerative phenotypes mediated likely via impairment of the autophagic flux&#34;
     explanation: The authors&#39; own conclusion, marked PARTIAL because the word &#34;likely&#34; is theirs and the abstract does not report a direct autophagic-flux measurement in patient material.
@@ -8016,7 +8688,7 @@ phenotypes:
   evidence:
   - reference: PMID:38423010
     reference_title: &#34;Bi-allelic variants in SNF8 cause a disease spectrum ranging from severe developmental and epileptic encephalopathy to syndromic optic atrophy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Snf8 loss of function in zebrafish results in global developmental delay and altered embryo morphology&#34;
     explanation: &gt;-
@@ -8712,6 +9384,36 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entity verification. The target term was verified with OAK before any content was written: `runoak -i sqlite:obo:mondo relationships --direction up MONDO:0968947` returns `RO:0004003 HGNC:17028 SNF8` and `rdfs:subClassOf MONDO:0100500 (Mendelian neurodevelopmental disorder)`, and the term xrefs OMIM:620784, MEDGEN:1859522, UMLS:C5935605. HGNC:17028 was confirmed against the HGNC REST API as symbol SNF8, name &#34;SNF8 subunit of ESCRT-II&#34;, locus 17q21.32, with alias symbols EAP30, VPS22 and Dot3. That alias list matters for reading the literature: the structural papers cited here (PMID:18539118, PMID:15469844) name the same protein VPS22 and never use the string &#34;SNF8&#34;, so those citations are about this gene despite the different symbol.
+Contrast entity, also verified with OAK rather than typed from memory. SNF8 carries two distinct MONDO disease terms, and this entry curates only the milder one. `runoak -i sqlite:obo:mondo relationships --direction down HGNC:17028` returns exactly two subjects: MONDO:0968946 (developmental and epileptic encephalopathy 115, OMIM:620783) and MONDO:0968947 (this entry, OMIM:620784). DEE115 is curated below as an allelic differential diagnosis, not as a subtype or a parent. MONDO:0100500, the superclass of this entry, is deliberately NOT bound as a differential.
+Both MedGen concept records state autosomal recessive inheritance (C5935605: &#34;Neurodevelopmental disorder plus optic atrophy (NEDOA) is an autosomal recessive disorder&#34;; C5935604 likewise for DEE115), matching the &#34;bi-allelic&#34; language of the founding study. The HPO annotation set for OMIM:620784 nonetheless records HP:0000006 (Autosomal dominant inheritance). That HPOA inheritance annotation is judged to be an error and is NOT propagated into this entry; HP:0000007 is asserted instead, with the bi-allelic evidence quoted from the primary paper.
+Evidence base and its limits. PMID:38423010 (Brugger et al., Am J Hum Genet 2024) is the only clinical publication describing this disorder. A PubMed search on 2026-08-01 for `(SNF8[TIAB] OR VPS22[TIAB]) AND (variant* OR mutation* OR patient*)` returned 20 records, of which PMID:38423010 was the only human disease-gene report; the 2025-2026 SNF8 records (PMID:42043682, PMID:41824857, PMID:40728621, PMID:40306176, PMID:40176577, PMID:40055680) were audited individually and are steatohepatitis bioinformatics, psoriasis Mendelian randomisation, disordered-region prediction, a rat MASH model, an insomnia pleiotropy analysis, and a fatigue GWAS respectively - none reports a patient with an SNF8 variant. Only the abstract of PMID:38423010 is cached, so per-individual clinical detail from its full text is not quotable here.
+No GeneReviews chapter exists. Searched on 2026-08-01: `SNF8 GeneReviews[All Fields]` returned 0 records, and `neurodevelopmental disorder plus optic atrophy GeneReviews[All Fields]` returned exactly 1 record, PMID:20301382, which was retrieved and rejected - it is &#34;Single Large-Scale Mitochondrial DNA Deletion Syndromes&#34; and matched only on the free-text words &#34;optic atrophy&#34;. The Step 3b GeneReviews phenotype baseline is therefore not applicable.
+Cohort arithmetic, reconciled. An earlier draft of this entry recorded an apparent conflict between the abstract and the HPO annotation file; the deep research pass resolved it, and the resolution is recorded here rather than the conflict. The published cohort is nine individuals: five at the severe pole (A1, A2, B1, C1, C2) and four at the mild pole (D1, E1, E2, F1). The abstract&#39;s &#34;four individuals with severe developmental and epileptic encephalopathy&#34; counts the four liveborn severely affected children; the fifth severe case, C1, was a pregnancy terminated at 25 weeks for brain malformations and so had no epileptic encephalopathy to report. HPOA&#39;s denominators - up to 5 for DEE115 (OMIM:620783) and 4 for NEDOA (OMIM:620784) - are therefore consistent with the abstract, not in conflict with it, and the NEDOA denominator of 4 is the correct one for this entry.
+Frequency bands are nonetheless deliberately omitted from every phenotype. The reason is no longer a suspected inconsistency but simply the cohort size: the denominator is four individuals from a single unreplicated series, so one reclassified case moves most features across a FrequencyEnum boundary. The deep research report reached the same conclusion independently and recommended recording exact counts instead of bands. Each phenotype&#39;s `notes:` therefore carries the exact fraction and its source.
+Age of onset is left unbound rather than assigned an enum, and the research pass strengthened rather than weakened that decision. HPOA records HP:0011463 (Childhood onset, defined in HPO as 1 to 5 years) in 2 of 4 and HP:0003621 (Juvenile onset, 5 to 15 years) in 2 of 4. The underlying reason is now visible: optic atrophy declared itself between ages 4 and 7 years, a window that straddles the boundary between the two age-bounded HPO categories. No single onset term can be asserted for the disorder. The abstract&#39;s own wording, &#34;childhood-onset optic atrophy&#34;, is quoted where relevant but is not treated as a claim about the HPO CHILDHOOD interval specifically.
+Deep research: `just research-disorder claude_code SNF8-Related_Neurodevelopmental_Disorder` (research/SNF8-Related_Neurodevelopmental_Disorder-deep-research-claude_code.md, 2026-08-01, 5 web searches, 83 turns, 24 citations). The NEC gate was applied to that report before any of it was used: SNF8 is named 103 times, the next most frequent gene symbols are its own ESCRT-II partners VPS25 (12) and VPS36 (12) and its own HGNC aliases VPS22 (5) and EAP30 (3), and the only disease identifiers asserted anywhere in the report are OMIM:620783/MONDO:0968946 and OMIM:620784/MONDO:0968947 plus the SNF8 gene MIM 610904. Hits were read in context rather than counted blind. The report ran its own NEC preflight and flagged the two real confusion risks for this gene: SNF8 is a long-established S. cerevisiae gene name, and human SNF8 sits in the GWAS-dense 17q21.32 locus UBE2Z-GIP-ATP5G1-SNF8, so GWAS hits for psoriasis, fatigue, insomnia and chicken carcass traits name the gene without bearing on this disorder. Those are deliberately not curated as risk factors.
+Facts taken from that report that are in the paper&#39;s full text or supplement rather than its abstract are recorded in `notes:` blocks, never as evidence snippets, because only the abstract of PMID:38423010 is cached.
+Structured-source evidence was unavailable. `data/orphadata/`, `data/clingen/` and `data/clingen-dosage/` in this checkout contain only `MANIFEST.yaml` with no downloaded payload, so no Orphanet prevalence class or ClinGen gene-disease-validity classification could be consulted. Per the scope rules the manifests were not touched. This is recorded as a gap, not as an assertion that no such classification exists.
+Post-review revision, 2026-08-01. Following review of PR #7785 the pathograph was corrected and four research findings that had been left out were pulled in. The allele-specific arm (`Stability-Independent Impairment by the p.Val102Ile Hypomorph`) now branches from the variant node rather than from `Loss of the ESCRT-II Complex`; it had been placed downstream of complex loss, which asserted the opposite of what the node says, since the mild-pole fibroblasts preserve complex abundance. The preserved-EGFR-degradation negative result, cell-type bindings, the morpholino character of the zebrafish model and the IMPC mouse null were added. Three literal searches were run before asserting anything was missing, all on 2026-08-01 and all against this file: `grep -in egfr` (no match, so the earlier PR-comment claim that this finding lived in a `notes:` block was wrong), `grep -n classifications` (no match) and `grep -n cell_types` (no match). `grep -in &#34;egfr\|autolysosom\| LAMP1\|LC3\|autopsy\|morpholino&#34; references_cache/PMID_38423010.md` also returned nothing, which is why every one of those findings is recorded as a note and none as an evidence snippet. Deliberately still absent: a `histopathology:` section, because the only neuropathology in the literature is the autopsy of individual A2, a severe-pole (DEE115) case, and attributing it to this MONDO term would repeat the error this entry exists to correct; and a `progression:` section, reasoned in the phenotype notes instead.
+ESCRT cross-reference. `kb/disorders/VPS4A-Related_Neurodevelopmental_Syndrome.yaml` covers the ESCRT-III disassembly ATPase and is cited here only as a mechanistic differential, under the specific claim that lesions at different steps of one ESCRT cascade converge on neurodevelopmental disease. No content was copied from that entry.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: neurodevelopmental disorder plus optic atrophy</strong> · 2026-08-01T21:12:10Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SNF8-Related_Neurodevelopmental_Disorder/2026-08-01T211210Z-claude-code-202166.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/SNF8-Related_Neurodevelopmental_Disorder.yaml for MONDO:0968947 (neurodevelopmental disorder plus optic atrophy, OMIM:620784), the mild end of the bi-allelic SNF8 (HGNC:17028, ESCRT-II subunit) disease spectrum. NEC preflight: MONDO:0968947 verified with OAK (RO:0004003 -&gt; HGNC:17028 SNF8; subClassOf MONDO:0100500), and the contrast entity MONDO:0968946 (developmental and epileptic encephalopathy 115, OMIM:620783) was verified with the same OAK query rather than typed from memory - runoak relationships --direction down HGNC:17028 returns exactly those two disease terms. HGNC:17028 confirmed via the HGNC REST API (symbol SNF8; aliases EAP30, VPS22, Dot3), which is what licenses citing the VPS22-named structural literature. Evidence: PMID:38423010 is the sole clinical publication; PMID:18539118 and PMID:15469844 supply ESCRT-II structure and the ESCRT-II to ESCRT-III hand-off. All three fetched with just fetch-reference. Frequency bands deliberately omitted everywhere: per-feature counts exist only in the HPO annotation file for OMIM:620784 (largest denominator 4), and HPOA&#39;s cohort split contradicts the abstract, so the fractions are recorded in per-phenotype notes with retrieval date instead of being banded. Onset left unbound because HPOA splits childhood (2/4) and juvenile (2/4) across the HPO age boundary. HPOA&#39;s HP:0000006 autosomal-dominant annotation is judged an error and not propagated; HP:0000007 asserted per the paper&#39;s bi-allelic language and both MedGen definitions. Deep research (just research-disorder claude_code, 5 web searches / 83 turns / 24 citations) was run and the NEC gate applied before use: SNF8 named 103 times, next-most-frequent symbols are its own ESCRT-II partners VPS25/VPS36 (12 each) and its own aliases VPS22/EAP30, and the only disease IDs asserted are the two SNF8 MONDO/OMIM pairs. Hits read in context, not counted blind. The report changed the entry materially in four ways rather than merely confirming it. (1) It retracted a wrong claim in the first draft: the apparent HPOA-vs-abstract cohort conflict is reconcilable - the cohort is 5 severe (including a 25-week termination, which is why the abstract says four had DEE) plus 4 mild, so HPOA&#39;s NEDOA denominator of 4 is correct. The note now records the reconciliation, and frequency remains omitted purely on cohort-size grounds. (2) It corrected the central mechanism: the abstract&#39;s &#39;loss of ESCRT-II subunits&#39; holds for the severe pole, but in the mild-pole fibroblasts SNF8 was not significantly reduced and VPS36/VPS25 were preserved, so that evidence item is downgraded to PARTIAL and a separate PROVISIONAL &#39;Stability-Independent Impairment by the p.Val102Ile Hypomorph&#39; node now carries the NEDOA mechanism. (3) It corrected ataxia: 1/4, congenital, and in the one individual who had NO optic atrophy - the two named features were mutually exclusive in this cohort. (4) It added incomplete penetrance (an apparently healthy gnomAD p.Val102Ile homozygote) and the ClinVar conflict on that allele (Munich/OMIM Pathogenic vs Ambry VUS), plus HP:0007663 reduced visual acuity, PMID:15329733, and two KNOWLEDGE_GAP discussions. gnomAD constraint metrics and DepMap essentiality are deliberately NOT asserted because the research pass could not reach those sources and warned against filling them from memory. Validated with just validate, validate-terms, validate-references, scripts/check_snippets_verbatim.py (30/30 verbatim on both checkers), check_folded_hyphens.py, validate-history-all, and pytest tests/test_data.py (14770 passed; the single SETD5_Haploinsufficiency_Syndrome failure is the known pre-existing issue #7729 and is unrelated).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10438,7 +11140,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "SNF8-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0968947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SNF8-Related_Neurodevelopmental_Disorder", "yamlRevision": "9a0387149b9b"};
+        const OS_CONFIG = {"diseaseName": "SNF8-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0968947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SNF8-Related_Neurodevelopmental_Disorder", "yamlRevision": "e4c4d9e45c92"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -19,14 +19,16 @@ dependencies = [
   "httpx>=0.28.1",
   "koza>=2.3.1",
   "linkml-data-qc[viz]",
-  # >=0.2.1 (not the older rc2 pin): 0.2.1 is where _fetch_abstract split into
-  # _fetch_pubmed_xml/_parse_abstract and _save_to_disk gained `private=`, both
-  # of which src/dismech/patch_reference_validator.py now accommodates. Allowing
-  # rc2 as well would keep a second, untested API shape reachable for non-dev
-  # installs for no benefit.
-  "linkml-reference-validator>=0.2.1",
+  # >=0.3.0rc1 is the first release carrying the upstream fixes for
+  # linkml/linkml-reference-validator#66-74, #85, #87 and #88. dismech no longer
+  # patches the validator's internals, so the old note about accommodating a
+  # private API shape no longer applies -- what this floor protects is the
+  # *behaviour* pinned by tests/test_upstream_validator_behaviours.py. The
+  # explicit rc in the specifier is what allows the prerelease to resolve; drop
+  # it to >=0.3.0 once the final release is cut.
+  "linkml-reference-validator>=0.3.0rc1",
   "linkml-runtime >=1.9.4",
-  "linkml-term-validator>=0.4.4",
+  "linkml-term-validator>=0.4.5",
   "ndex2>=3.9.0,<4",
   "networkx>=3,<4",
   "oaklib>=0.7.4",
@@ -38,9 +40,11 @@ dependencies = [
 dismech = "dismech.cli:main"
 clingen-go = "dismech.clingen.cli:main"
 dismech-cx2 = "dismech.export.cx2_export:main"
+dismech-ndex-publish = "dismech.export.ndex_publish:main"
 dismech-disease-inventory = "dismech.export.disease_inventory:main"
 dismech-mondo-prioritize = "dismech.compare.mondo_priority:main"
 dismech-node-embed = "dismech.node_embeddings.cli:main"
+dismech-stubs = "dismech.stubs.cli:main"
 
 [dependency-groups]
 dev = [
@@ -48,7 +52,7 @@ dev = [
     "mkdocs-material>=8.2.8",
     "jupyter>=1.0.0",
     "mknotebooks>=0.8.0",
-    "deep-research-client[cyberian,validation]>=0.2.10",
+    "deep-research-client[biomni,cyberian,terms,validation]>=0.2.12",
     "pytest-xdist>=3.6.0",
 ]
 export = [
@@ -87,6 +91,8 @@ fallback-version = "0.0.0"
 testpaths = ["tests"]
 markers = [
   "kb_data: whole-KB data-conformance sweep parametrized over every KB file (schema validation, required-field, foreign-key, and mechanism-target checks). Slow and CPU-bound; in CI it is gated on schema / conformance-test changes and run in parallel. Select with `just test-kb`; exclude with `just test-code` (pytest -m 'not kb_data').",
+  "ci_step_twin(command): runs the same check as the ungated main.yaml step whose run: contains `command`. Deselected in that workflow by DISMECH_SKIP_CI_STEP_TWINS=1, since the job has already run the step; runs everywhere else. See tests/conftest.py and tests/test_ci_step_twins.py.",
+  "oak_db: needs a local OAK SQLite build (`just fetch-ontology-dbs ...`). Distinct from kb_data, which is about KB files rather than ontology databases. Deselected by `just test-code`, and each such test must ALSO check for the build file itself via `dismech.oak_db.local_build_present` -- opening the adapter is not a check, because semsql downloads a missing build rather than failing (3.6 GB on a CI runner). Local-only in practice; do not rely on one as a CI gate.",
 ]
 
 # Ref.: https://github.com/codespell-project/codespell
@@ -110,6 +116,12 @@ skip = [
   # ("procedure is performe…", correctly spelled "performed" in the schema).
   "docs/schema/*",
   "elements/*",
+  # Frozen verbatim curator snapshots for the inter-annotator studies. These are
+  # byte-for-byte copies of curated entries as they stood at a point in time and
+  # must never be edited, exactly like references_cache/* and research/* above,
+  # so a hit here can only ever be a quoted source's spelling (e.g. "AAs" in
+  # "evaluate for AAs and their complications").
+  "experiments/**/*.curator-*.yaml",
 ]
 
 # Reminder: words have to be lowercased for the ignore-words-list
@@ -138,6 +150,8 @@ skip = [
 # exra (extra-articular rheumatoid arthritis abbreviation in source abstracts)
 ignore-words-list = "linke,infarction,cyclin,abl,connectin,inactivate,heterogenous,homogenous,ues,mis,ond,te,cafs,caf,acapella,bu,survivin,trough,tese,selectin,pase,ect,vas,esge,ege,targetting,precice,als,lod,ndds,anc,tme,uesd,edn,contributs,occuring,histocompatability,gord,ser,ehr,continious,lamas,metrix,mater,murr,ans,occurence,olt,sting,transferrin,unusal,fals,exra,bloc"
 quiet-level = 3
+# Preserve the exact ontology synonym without ignoring the short token globally.
+ignore-regex = 'pyridox\(am\)ine'
 
 # Ref.: https://github.com/astral-sh/ruff
 [tool.ruff]
@@ -146,6 +160,9 @@ exclude = [
   "src/dismech/datamodel/dismech_pydantic.py",
   "src/dismech/datamodel/__init__.py",
   "docs/schema/dismech.py",
+  # Provider artifacts are checksum-addressed run records. Linting or formatting
+  # them in place would invalidate their manifests and alter provider provenance.
+  "kb/hypotheses/**/*_artifacts/**",
   "attic/",
 ]
 
@@ -164,3 +181,20 @@ ignore = [
   "S112",   # try-except-continue: intentional skip-on-error in batch/sweep loops
   "S102",   # exec-builtin: only in tests that execute generated-code fixtures
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Every script in scripts/ is run directly rather than imported, so it has to
+# put `src/` on sys.path before it can import `dismech.*`. That makes the import
+# non-top-of-file by construction. Ruff 0.15 began reporting E402 by default,
+# which turned nine long-standing scripts red at once on main and blocked every
+# PR's lint step -- the cost of tracking ruff's default rule set unpinned, which
+# is a deliberate choice made just above. Scoped to scripts/ so E402 still
+# applies to src/ and tests/, where the idiom has no excuse.
+"scripts/*" = ["E402"]
+# Boomer analyses are standalone scripts; their tests import those scripts after
+# adding the analysis directory to sys.path. A scoped ignore works with both
+# the pinned pre-commit Ruff and CI's newer Ruff, unlike unused inline noqa tags.
+"analyses/boomer/scripts/*" = ["E402"]
+"tests/test_boomer_batch.py" = ["E402"]
+"tests/test_boomer_icd10_enrichment.py" = ["E402"]
+"tests/test_boomer_proxy_merges.py" = ["E402"]

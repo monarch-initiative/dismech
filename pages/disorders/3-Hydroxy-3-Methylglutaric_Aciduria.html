@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>3-Hydroxy-3-Methylglutaric Aciduria</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>3-Hydroxy-3-Methylglutaric Aciduria</h1>
             <div class="header-meta">
 
@@ -4055,7 +4198,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23861731" target="_blank">PMID:23861731</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4077,7 +4223,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39062136" target="_blank">PMID:39062136</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4121,21 +4270,21 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Individualized protein, leucine, and fat moderation</span>
+    <a class="entity-ref-chip" href="#treatment-individualized-protein-leucine-and-fat-moderation">treatments#Individualized protein, leucine, and fat moderation</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#L-carnitine supplementation</span>
+    <a class="entity-ref-chip" href="#treatment-l-carnitine-supplementation">treatments#L-carnitine supplementation</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Sodium D,L-3-hydroxybutyrate as a specialist adjunct</span>
+    <a class="entity-ref-chip" href="#treatment-sodium-d-l-3-hydroxybutyrate-as-a-specialist-adjunct">treatments#Sodium D,L-3-hydroxybutyrate as a specialist adjunct</a>
 
 
 
@@ -4163,7 +4312,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4179,13 +4331,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36771238" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36771238" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4222,6 +4377,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hmgcl-loss-of-function" data-dismech-node="Biallelic HMGCL loss of function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic HMGCL loss of function</div>
+
 
                 <div class="item-desc">Biallelic pathogenic HMGCL variants reduce mitochondrial hydroxymethylglutaryl-CoA lyase activity, the initiating defect shared by the ketogenesis and leucine-catabolism branches.</div>
 
@@ -4380,7 +4536,10 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
                         <a href="https://bioregistry.io/CGGV:assertion_f4d084e5-a740-4bfd-a850-d6db900d4a4e-2018-06-26T160000.000Z" target="_blank">CGGV:assertion_f4d084e5-a740-4bfd-a850-d6db900d4a4e-2018-06-26T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4402,7 +4561,10 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32059735" target="_blank">PMID:32059735</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4427,6 +4589,7 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ketone-body-biosynthesis" data-dismech-node="Impaired ketone-body biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ketone-body biosynthesis</div>
+
 
                 <div class="item-desc">HMGCL deficiency impairs hepatic acetoacetate production and produces an inadequate ketone response during fasting or illness. This is downstream of fatty-acid oxidation; fatty-acid beta-oxidation itself is not the deficient enzymatic process.</div>
 
@@ -4559,7 +4722,10 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3099065" target="_blank">PMID:3099065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4584,6 +4750,7 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-leucine-degradation" data-dismech-node="Impaired leucine degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired leucine degradation</div>
+
 
                 <div class="item-desc">The leucine-catabolism block causes accumulation of HMG-CoA-derived and upstream organic acids. These metabolites form the characteristic biochemical signature and may contribute to toxicity during catabolic stress.</div>
 
@@ -4699,7 +4866,10 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32059735" target="_blank">PMID:32059735</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4724,6 +4894,7 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diagnostic-organic-acid-accumulation" data-dismech-node="Diagnostic organic-acid accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Diagnostic organic-acid accumulation</div>
+
 
                 <div class="item-desc">3-Hydroxy-3-methylglutaric, 3-methylglutaconic, 3-hydroxyisovaleric, and 3-methylglutaric acids accumulate in affected patients and provide a biochemical readout of the leucine-catabolism block.</div>
 
@@ -4780,7 +4951,10 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32685354" target="_blank">PMID:32685354</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4805,6 +4979,7 @@ This pathophysiological event occurs in mitochondrial matrix (GO:0005759). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preclinical-hepatic-acyl-coa-disequilibrium" data-dismech-node="Preclinical hepatic acyl-CoA disequilibrium" data-dismech-type="pathophysiology">
                 <div class="item-name">Preclinical hepatic acyl-CoA disequilibrium</div>
+
 
                 <div class="item-desc">In liver-specific HMGCL-knockout mice, leucine-metabolite loading reduces acetyl-CoA, impairs gluconeogenic response, and produces hyperammonemia. Carglumate rescue supports an acetyl-CoA-dependent urea-cycle mechanism in this model; translation to human HMGCL deficiency is unproven.</div>
 
@@ -4912,7 +5087,10 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23861731" target="_blank">PMID:23861731</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4934,7 +5112,10 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23861731" target="_blank">PMID:23861731</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4959,6 +5140,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-hypoketotic-metabolic-decompensation" data-dismech-node="Acute hypoketotic metabolic decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute hypoketotic metabolic decompensation</div>
+
 
                 <div class="item-desc">Catabolic stress exposes impaired ketogenesis and leucine degradation, producing a convergent crisis with hypoketotic hypoglycemia, metabolic acidosis, hyperammonemia in some patients, vomiting, lethargy, and possible hepatic or neurologic injury.</div>
 
@@ -5044,7 +5226,10 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5069,6 +5254,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preclinical-hmg-mediated-mitochondrial-injury" data-dismech-node="Preclinical HMG-mediated mitochondrial injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Preclinical HMG-mediated mitochondrial injury</div>
+
 
                 <div class="item-desc">Intracerebroventricular HMG exposure in neonatal rats reduced respiratory chain and antioxidant activities, increased a marker of mitochondrial fission, and impaired sensorimotor performance. This is a provisional metabolite-to-injury mechanism rather than established human disease causality.</div>
 
@@ -5223,7 +5409,10 @@ This pathophysiological event involves increased mitochondrial fission (GO:00002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39062136" target="_blank">PMID:39062136</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5248,6 +5437,7 @@ This pathophysiological event involves increased mitochondrial fission (GO:00002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurologic-sequelae" data-dismech-node="Neurologic sequelae" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurologic sequelae</div>
+
 
                 <div class="item-desc">Neurologic outcomes range from normal development to seizures, developmental and learning difficulties, hypotonia, and nonspecific white matter abnormalities. Crisis injury and direct metabolite effects may both contribute, but their relative importance is unresolved.</div>
 
@@ -5333,7 +5523,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5349,13 +5542,16 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28396157" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28396157" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28396157" target="_blank">PMID:28396157</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5424,15 +5620,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(5)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5475,6 +5669,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5487,7 +5684,10 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                         <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5519,12 +5719,12 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-episodic-vomiting" data-dismech-node="Episodic vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hepatomegaly
+                        Episodic vomiting
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -5538,15 +5738,18 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002572</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Episodic vomiting (HP:0002572). HP:0002572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5564,7 +5767,84 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002572 | Episodic vomiting | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet supplies the phenotype-specific frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hepatomegaly
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:20" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5604,15 +5884,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0006554</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0006554</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5630,7 +5913,10 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5656,13 +5942,87 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reye-syndrome-like-episodes" data-dismech-node="Reye syndrome-like episodes" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reye syndrome-like episodes
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006582" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0006582</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reye syndrome-like episodes (HP:0006582). HP:0006582 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:20" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0006582 | Reye syndrome-like episodes | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet supplies the phenotype-specific frequency band for Reye-like crises.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-metabolic-acidosis" data-dismech-node="Metabolic acidosis" data-dismech-type="phenotype">
@@ -5681,15 +6041,18 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001942</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001942</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5707,7 +6070,10 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5749,15 +6115,18 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001943</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001943</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5775,7 +6144,10 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5797,7 +6169,10 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5837,15 +6212,18 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001987</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5863,7 +6241,10 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5885,7 +6266,10 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5896,6 +6280,80 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
 
 
                 <div class="evidence-explanation">Orphanet assigns a very-frequent band, but cohort estimates are lower and inconsistent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-concentration" data-dismech-node="Increased circulating lactate concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased circulating lactate concentration
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002151</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:20" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002151 | Increased circulating lactate concentration | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet supplies the phenotype-specific frequency band for lactate elevation.</div>
 
 
 
@@ -5934,15 +6392,18 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5960,7 +6421,10 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6011,15 +6475,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001254</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001254</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6037,7 +6504,10 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6079,15 +6549,18 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6105,7 +6578,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6147,15 +6623,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6173,7 +6652,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6215,15 +6697,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002500</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002500</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6241,7 +6726,10 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6283,15 +6771,18 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002059</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6309,7 +6800,10 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6320,219 +6814,6 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                 <div class="evidence-explanation">This directly supports the very-rare cohort band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-episodic-vomiting" data-dismech-node="Episodic vomiting" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Episodic vomiting
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002572</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Episodic vomiting (HP:0002572). HP:0002572 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:20" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002572 | Episodic vomiting | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet supplies the phenotype-specific frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reye-syndrome-like-episodes" data-dismech-node="Reye syndrome-like episodes" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reye syndrome-like episodes
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006582" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0006582</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reye syndrome-like episodes (HP:0006582). HP:0006582 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:20" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0006582 | Reye syndrome-like episodes | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet supplies the phenotype-specific frequency band for Reye-like crises.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-concentration" data-dismech-node="Increased circulating lactate concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased circulating lactate concentration
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002151</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:20" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002151 | Increased circulating lactate concentration | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet supplies the phenotype-specific frequency band for lactate elevation.</div>
 
 
 
@@ -6622,6 +6903,9 @@ This disease-associated gene is HMGCL (hgnc:5005). hgnc:5005 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -6642,7 +6926,10 @@ This disease-associated gene is HMGCL (hgnc:5005). hgnc:5005 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28583327" target="_blank">PMID:28583327</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6664,7 +6951,10 @@ This disease-associated gene is HMGCL (hgnc:5005). hgnc:5005 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_f4d084e5-a740-4bfd-a850-d6db900d4a4e-2018-06-26T160000.000Z" target="_blank">CGGV:assertion_f4d084e5-a740-4bfd-a850-d6db900d4a4e-2018-06-26T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6699,6 +6989,7 @@ This disease-associated gene is HMGCL (hgnc:5005). hgnc:5005 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6718,6 +7009,7 @@ This variant is in HMGCL (hgnc:5005). hgnc:5005 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
@@ -6725,7 +7017,14 @@ This variant is in HMGCL (hgnc:5005). hgnc:5005 is a gene from the HUGO Gene Nom
     </div>
 
 
+
+
+
+
+
     <div class="item-desc">This founder variant was present in 48 of 62 affected individuals in one Saudi cohort. The percentage is population- and cohort-specific and is not a global allele frequency.</div>
+
+
 
 
 
@@ -6745,7 +7044,10 @@ This variant is in HMGCL (hgnc:5005). hgnc:5005 is a gene from the HUGO Gene Nom
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6767,7 +7069,10 @@ This variant is in HMGCL (hgnc:5005). hgnc:5005 is a gene from the HUGO Gene Nom
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6800,6 +7105,9 @@ This variant is in HMGCL (hgnc:5005). hgnc:5005 is a gene from the HUGO Gene Nom
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6852,6 +7160,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Avoid prolonged fasting and use a metabolic-team emergency plan that provides carbohydrate promptly during poor intake or intercurrent illness. Fasting avoidance is the most consistently supported preventive strategy.</div>
 
 
@@ -6889,7 +7222,10 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6948,6 +7284,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7046,7 +7396,10 @@ This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7062,13 +7415,16 @@ This treatment targets Hyperammonemia (HP:0001987). HP:0001987 is a phenotype fr
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36771238" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36771238" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7132,6 +7488,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Many centers moderate protein or leucine intake and some also moderate fat, but prescriptions vary and comparative efficacy is unproven. Restriction should therefore be individualized by a metabolic dietitian while maintaining growth and nutritional adequacy.</div>
 
 
@@ -7182,7 +7563,10 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7198,13 +7582,16 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35646072" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35646072" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7290,6 +7677,20 @@ This treatment uses carnitine (CHEBI:17126). CHEBI:17126 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">L-carnitine is commonly prescribed, but available evidence mainly documents use rather than clinical efficacy or an optimal dose. Decisions should be individualized by the metabolic team.</div>
 
 
@@ -7327,7 +7728,10 @@ This treatment uses carnitine (CHEBI:17126). CHEBI:17126 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7412,6 +7816,20 @@ This treatment uses 3-hydroxybutyrate (CHEBI:37054). CHEBI:37054 is a therapeuti
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Exogenous ketone salt has been used with intravenous dextrose for acute management at specialist centers. Evidence is limited to small observational series and does not establish routine use or chronic efficacy.</div>
 
 
@@ -7443,13 +7861,16 @@ This treatment uses 3-hydroxybutyrate (CHEBI:37054). CHEBI:37054 is a therapeuti
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36771238" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36771238" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7513,6 +7934,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pregnancy, vomiting, labor, and delivery can provoke metabolic decompensation. Case-report-level evidence supports coordinated care by a biochemical geneticist, metabolic dietitian, and high-risk obstetrician, with fasting avoidance and glucose-containing fluids during labor and delivery.</div>
 
 
@@ -7550,7 +7985,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26997609" target="_blank">PMID:26997609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7613,6 +8051,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Offer genetics-informed counseling about autosomal recessive inheritance and family-specific testing options after the causal HMGCL variants are defined.</div>
 
 
@@ -7632,7 +8084,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://bioregistry.io/CGGV:assertion_f4d084e5-a740-4bfd-a850-d6db900d4a4e-2018-06-26T160000.000Z" target="_blank">CGGV:assertion_f4d084e5-a740-4bfd-a850-d6db900d4a4e-2018-06-26T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7726,7 +8181,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32685354" target="_blank">PMID:32685354</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7805,7 +8263,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32685354" target="_blank">PMID:32685354</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7884,7 +8345,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32685354" target="_blank">PMID:32685354</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7963,7 +8427,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32685354" target="_blank">PMID:32685354</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7979,13 +8446,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40937535" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40937535" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40937535" target="_blank">PMID:40937535</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8064,7 +8534,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3099065" target="_blank">PMID:3099065</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8143,7 +8616,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36771238" target="_blank">PMID:36771238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8169,6 +8645,1111 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-newborn-screening-with-c5-oh-and-second-tier-metabolites">
+                <div class="item-name">
+                    Newborn screening with C5-OH and second-tier metabolites
+
+                </div>
+
+                <div class="item-desc">Elevated C5-OH, often assessed with C6DC, can trigger evaluation on a dried blood spot. C5-OH is nonspecific; second-tier 3H3MG-A and 3MGC-A improve discrimination and positive screens require confirmatory testing. Maternal 3-methylcrotonyl-CoA carboxylase deficiency can also cause a positive neonatal screen and may warrant maternal evaluation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        disease screening
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C15419</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Elevated C5-OH is a screening signal that requires infant confirmatory testing and, when indicated, maternal testing.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32685354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32685354" target="_blank">PMID:32685354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In a positive case, a second-tier analysis of 3-hydroxy-3-methylglutaric acid and 3-methylglutaconic acid in a dry blood spot using UHPLC tandem mass spectrometry instruments confirms the diagnosis."</div>
+
+
+                <div class="evidence-explanation">The biomarker study supports second-tier 3H3MG-A and 3MGC-A analysis after a positive screen.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40937535" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40937535" target="_blank">PMID:40937535</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"C5-OH concentrations of patients with different IEMs reported in the literature were insufficiently distinctive to differentiate between these diseases."</div>
+
+
+                <div class="evidence-explanation">The systematic screening evaluation establishes the need for disease-specific follow-up.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40673334" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40673334" target="_blank">PMID:40673334</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There are additional scenarios within NBS where disease maternal conditions (3-methylcrotonyl-CoA carboxylase deficiency and carnitine uptake deficiency) or nutritional maternal conditions (vitamin B12 deficiency) may cause a screen-positive NBS result."</div>
+
+
+                <div class="evidence-explanation">This establishes maternal 3-MCCD as a cause of a positive newborn-screening result.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-plasma-acylcarnitine-and-urine-organic-acid-analysis">
+                <div class="item-name">
+                    Plasma acylcarnitine and urine organic-acid analysis
+
+                </div>
+
+                <div class="item-desc">Confirmatory biochemical evaluation includes plasma acylcarnitines and a characteristic urinary pattern of 3-hydroxy-3-methylglutaric, 3-methylglutaconic, 3-methylglutaric, and 3-hydroxyisovaleric acids.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        urine chemistry measurement
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61044" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C61044</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> The characteristic metabolite pattern strongly supports HMGCL deficiency.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41323099" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41323099" target="_blank">PMID:41323099</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Initial follow-up testing generally includes a plasma acylcarnitine profile and a urine organic acid profile."</div>
+
+
+                <div class="evidence-explanation">This recent clinical report explicitly describes the paired plasma and urine follow-up tests.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32685354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32685354" target="_blank">PMID:32685354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis is currently made by measuring dry blood spot acylcarnitines (C5OH and C6DC) followed by urinary organic acid profiling for the differential diagnosis from several other disorders."</div>
+
+
+                <div class="evidence-explanation">The study describes the biochemical diagnostic workflow.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32685354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32685354" target="_blank">PMID:32685354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with HMGCLD present with a diagnostic urinary pattern of elevated organic acids such as 3‐hydroxyisovaleric acid (3HIV‐A), 3‐methylglutaconic acid (3MGC‐A), 3‐hydroxy‐3‐methylglutaric acid (3H3MG‐A), 3‐methylglutaric acid (3MG‐A) and in some cases 3‐methylcrotonylglycine."</div>
+
+
+                <div class="evidence-explanation">This explicitly defines the characteristic urinary organic-acid profile.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-hmgcl-molecular-confirmation">
+                <div class="item-name">
+                    HMGCL molecular confirmation
+
+                </div>
+
+                <div class="item-desc">Identify biallelic pathogenic HMGCL variants using sequencing with deletion/duplication analysis. If biochemical evidence is strong but routine testing is negative, broader genomic and RNA studies may detect noncanonical variants; HMGCL enzyme-activity testing can provide independent functional confirmation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic HMGCL variants confirm the molecular diagnosis; deficient enzyme activity can support functional confirmation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35646072" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"molecular diagnosis using next-generation sequencing should be followed to pinpoint precisely the genetic cause"</div>
+
+
+                <div class="evidence-explanation">The cohort review supports molecular confirmation after metabolite screening.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41323099" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41323099" target="_blank">PMID:41323099</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Genome sequencing was then requested which identified a deep intronic complex variant of unknown significance within intron 1 of HGMCL. RNA sequencing studies were sent as follow-up which revealed that the level of expression of the HMGCL gene was negligible"</div>
+
+
+                <div class="evidence-explanation">A recent case demonstrates the role of genome and RNA testing after negative targeted sequencing and deletion/duplication analysis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32685354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32685354" target="_blank">PMID:32685354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis is usually confirmed by enzyme and/or genetic testing."</div>
+
+
+                <div class="evidence-explanation">This supports enzyme activity as an independent functional confirmation route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-periventricular-and-deep-white-matter-hyperintensities">
+                <div class="item-name">
+                    Periventricular and deep white-matter hyperintensities
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Abnormal cerebral white matter morphology
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002500</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        brain white matter
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-49">UBERON:0003544</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Abnormal cerebral white matter morphology
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002500</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">Findings are nonspecific and variable; MRI is not required to establish the biochemical or molecular diagnosis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35646072" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To understand the natural history of this disease, we reviewed the biochemical, clinical, and molecular data of 62 patients from 54 different families with confirmed HMG-CoA lyase deficiency (HMGCLD) diagnosis from Saudi Arabia. ... An MRI of the brain exhibited nonspecific periventricular and..."</div>
+
+
+                <div class="evidence-explanation">Restores the confirmed HMG-CoA lyase-deficiency cohort before the nonspecific brain MRI finding. The passage reports the observed changes without making MRI a molecular or biochemical confirmation test.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-cerebral-atrophy">
+                <div class="item-name">
+                    Cerebral atrophy
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Cerebral atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002059</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        brain
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-52">UBERON:0000955</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Cerebral atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002059</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">Cerebral atrophy is a rare nonspecific imaging sequela rather than a diagnostic criterion.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35646072" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35646072" target="_blank">PMID:35646072</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cerebral atrophy was found in one (1/62; 1.612%) patient."</div>
+
+
+                <div class="evidence-explanation">The cohort documents cerebral atrophy in one patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-infancy-predominant-presentation">
+                <div class="item-name">Infancy-predominant presentation</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Neonatal period through first year of life</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Most published patients manifested during the first year, and 42.4% of those with onset data presented neonatally. Rare later presentations do occur.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32059735" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32059735" target="_blank">PMID:32059735</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most patients manifested within the first year of life, 42.4% already neonatally."</div>
+
+
+                <div class="evidence-explanation">The systematic review supports infancy-predominant and frequent neonatal presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-catabolic-stress-metabolic-decompensation">
+                <div class="item-name">Catabolic-stress metabolic decompensation</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Fasting, reduced carbohydrate intake, or intercurrent infection can trigger acute hypoketotic decompensation. More than 95% of published cases had at least one acute episode, although this literature-derived estimate may be affected by ascertainment.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32059735" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32059735" target="_blank">PMID:32059735</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"More than 95% of patients presented with acute metabolic decompensation."</div>
+
+
+                <div class="evidence-explanation">The systematic review documents acute crises in most published cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-long-term-course">
+                <div class="item-name">Long-term course</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Neurologic outcome is variable. The systematic review found normal development in 62.6% of reported patients, but later crises and neurologic symptoms remain possible in adolescence and adulthood.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32059735" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32059735" target="_blank">PMID:32059735</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The neurologic long-term outcome was favorable with 62.6% of patients showing normal development."</div>
+
+
+                <div class="evidence-explanation">Published-case follow-up supports a frequently favorable but variable neurologic outcome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24706027" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24706027" target="_blank">PMID:24706027</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with HL deficiency can develop hypoglycemic crises and neurological symptoms even in adolescents and adults."</div>
+
+
+                <div class="evidence-explanation">The ketone-metabolism review establishes that clinical risk can persist beyond childhood.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-published-cases">
+                <div class="item-name">Worldwide published cases</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+                <div class="item-notes">A 2020 systematic review assembled 211 patients with relevant clinical data. This is a literature-case count, not a population prevalence estimate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32059735" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32059735" target="_blank">PMID:32059735</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two hundred eleven patients of whom relevant clinical data were available were included in this analysis."</div>
+
+
+                <div class="evidence-explanation">The source establishes the number of published cases included in the systematic review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet records worldwide point prevalence as unknown.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:20" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:20" target="_blank">ORPHA:20</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Unknown | Worldwide | Point prevalence"</div>
+
+
+                <div class="evidence-explanation">The structured Orphanet record does not provide a worldwide point-prevalence estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -8183,7 +9764,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-3-hydroxy-3-methylglutaryl-coa-synthase-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="3-Hydroxy-3-Methylglutaryl-CoA_Synthase_Deficiency.html">3-Hydroxy-3-methylglutaryl-CoA synthase deficiency</a>
@@ -8217,7 +9798,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24706027" target="_blank">PMID:24706027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8239,7 +9823,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38567177" target="_blank">PMID:38567177</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8264,7 +9851,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-3-methylcrotonyl-coa-carboxylase-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="3-Methylcrotonyl-CoA_Carboxylase_Deficiency.html">3-Methylcrotonyl-CoA carboxylase deficiency</a>
@@ -8298,7 +9885,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40937535" target="_blank">PMID:40937535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8323,7 +9913,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-holocarboxylase-synthetase-deficiency-multiple-carboxylase-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Holocarboxylase_Synthetase_Deficiency.html">Holocarboxylase synthetase deficiency (multiple carboxylase deficiency)</a>
@@ -8357,7 +9947,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40937535" target="_blank">PMID:40937535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8379,7 +9972,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9350481" target="_blank">PMID:9350481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8404,7 +10000,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-biotinidase-deficiency-late-onset-multiple-carboxylase-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Biotinidase_Deficiency.html">Biotinidase deficiency (late-onset multiple carboxylase deficiency)</a>
@@ -8438,7 +10034,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37373384" target="_blank">PMID:37373384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8460,7 +10059,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37373384" target="_blank">PMID:37373384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8485,7 +10087,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hsd10-mitochondrial-disease-mhbd-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="HSD10_Mitochondrial_Disease.html">HSD10 mitochondrial disease (MHBD deficiency)</a>
@@ -8519,7 +10121,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20157782" target="_blank">PMID:20157782</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8541,7 +10146,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22127393" target="_blank">PMID:22127393</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8566,7 +10174,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-beta-ketothiolase-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Beta-Ketothiolase_Deficiency.html">Beta-ketothiolase deficiency</a>
@@ -8600,7 +10208,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37994125" target="_blank">PMID:37994125</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8622,7 +10233,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23958592" target="_blank">PMID:23958592</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8647,7 +10261,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-3-methylglutaconic-aciduria-type-1">
                 <div class="item-name">
 
                     <a class="item-name-link" href="3-Methylglutaconic_Aciduria_Type_I.html">3-Methylglutaconic aciduria type 1</a>
@@ -8681,7 +10295,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16640564" target="_blank">PMID:16640564</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8703,7 +10320,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16640564" target="_blank">PMID:16640564</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9057,7 +10677,7 @@ pathophysiology:
     evidence:
     - reference: PMID:35646072
       reference_title: &#34;HMG-CoA Lyase Deficiency: A Retrospective Study of 62 Saudi Patients.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: some patients might have hypoglycemia with or without metabolic acidosis during the initial episode that might be fatal due to the accumulation of organic acids.
       explanation: The cohort review cautiously links organic-acid accumulation with acidosis during severe initial episodes.
@@ -9069,7 +10689,7 @@ pathophysiology:
     evidence:
     - reference: PMID:39062136
       reference_title: 3-Hydroxy-3-Methylglutaric Acid Disrupts Brain Bioenergetics, Redox Homeostasis, and Mitochondrial Dynamics and Affects Neurodevelopment in Neonatal Wistar Rats.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: Our findings provide evidence that HMG causes oxidative stress, bioenergetic dysfunction, and neurodevelopmental changes in neonatal rats
       explanation: The injected-metabolite rat model supports plausibility but does not establish this mechanism in human HMGCL deficiency.
@@ -9123,7 +10743,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23861731
       reference_title: A liver-specific defect of Acyl-CoA degradation produces hyperammonemia, hypoglycemia and a distinct hepatic Acyl-CoA pattern.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: KIC loading also increased levels of several leucine-related acyl-CoAs and reduced acetyl-CoA levels.
       explanation: Model data partially support this mechanistic contribution but require human validation.
@@ -9210,7 +10830,7 @@ pathophysiology:
     evidence:
     - reference: PMID:39062136
       reference_title: 3-Hydroxy-3-Methylglutaric Acid Disrupts Brain Bioenergetics, Redox Homeostasis, and Mitochondrial Dynamics and Affects Neurodevelopment in Neonatal Wistar Rats.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: HMG-injected animals showed impaired performance in all sensorimotor tests examined.
       explanation: Sensorimotor impairment supports the model link while leaving human translation unresolved.
@@ -9234,7 +10854,7 @@ pathophysiology:
     explanation: A 62-patient cohort documents variable neurologic and developmental findings.
   - reference: PMID:28396157
     reference_title: Coupled brain and urine spectroscopy - in vivo metabolomic characterization of HMG-CoA lyase deficiency in 5 patients.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Mild to extended abnormal white matter MRI signals were observed in all cases.
     explanation: A small imaging and spectroscopy series supports white-matter involvement but not its population frequency.
@@ -9536,8 +11156,15 @@ imaging_findings:
     reference_title: &#34;HMG-CoA Lyase Deficiency: A Retrospective Study of 62 Saudi Patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: An MRI of the brain exhibited nonspecific periventricular and deep white matter hyperintense signal changes in 16 patients (25.80%)
-    explanation: The cohort describes the characteristic nonspecific white-matter MRI finding.
+    snippet: &gt;-
+      To understand the natural history of this disease, we reviewed the biochemical, clinical, and
+      molecular data of 62 patients from 54 different families with confirmed HMG-CoA lyase
+      deficiency (HMGCLD) diagnosis from Saudi Arabia. ... An MRI of the brain exhibited nonspecific
+      periventricular and deep white matter hyperintense signal changes in 16 patients (25.80%)
+    explanation: &gt;-
+      Restores the confirmed HMG-CoA lyase-deficiency cohort before the nonspecific brain MRI
+      finding. The passage reports the observed changes without making MRI a molecular or
+      biochemical confirmation test.
 - name: Cerebral atrophy
   modality: MRI
   imaging_finding_term:
@@ -9657,7 +11284,7 @@ biochemical:
     explanation: The biomarker study supports increased C5-OH in affected patients.
   - reference: PMID:40937535
     reference_title: &#34;Evaluation of Newborn Screening for Diseases Using C5-OH as a Marker: Systematic Review of the Literature and Evaluation of 17 Years of C5-OH Screening in the Netherlands.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: its value is limited by the overlap of C5-OH concentrations between affected and unaffected neonates and among patients with different diseases.
     explanation: The 17-year screening evaluation establishes the marker&#39;s limited specificity.
@@ -9830,7 +11457,7 @@ treatments:
     explanation: The Australian cohort emphasizes rapid supportive metabolic treatment during acute illness.
   - reference: PMID:36771238
     reference_title: Treatment of HMG-CoA Lyase Deficiency-Longitudinal Data on Clinical and Nutritional Management of 10 Australian Cases.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: In the acute setting, five of nine patients have used 900 mg/kg/day of sodium D,L 3-hydroxybutyrate in combination with intravenous dextrose-containing fluids (delivering glucose above estimated basal utilization requirements).
     explanation: Observed specialist practice in a small cohort supports dextrose-containing intravenous fluids; the accompanying ketone treatment is modeled separately and remains limited evidence.
@@ -9862,7 +11489,7 @@ treatments:
     explanation: This documents observed dietary practice in ten Australian patients, not controlled efficacy.
   - reference: PMID:35646072
     reference_title: &#34;HMG-CoA Lyase Deficiency: A Retrospective Study of 62 Saudi Patients.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: no apparent difference observed in the outcomes of the patients having a leucine or protein-restricted diet.
     explanation: Retrospective cohort data highlight uncertainty about the comparative benefit of restriction.
@@ -9915,7 +11542,7 @@ treatments:
   evidence:
   - reference: PMID:36771238
     reference_title: Treatment of HMG-CoA Lyase Deficiency-Longitudinal Data on Clinical and Nutritional Management of 10 Australian Cases.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: five of nine patients have used 900 mg/kg/day of sodium D,L 3-hydroxybutyrate in combination with intravenous dextrose-containing fluids
     explanation: This documents use in a small cohort but does not establish comparative effectiveness.
@@ -9982,7 +11609,7 @@ diagnosis:
     explanation: The biomarker study supports second-tier 3H3MG-A and 3MGC-A analysis after a positive screen.
   - reference: PMID:40937535
     reference_title: &#34;Evaluation of Newborn Screening for Diseases Using C5-OH as a Marker: Systematic Review of the Literature and Evaluation of 17 Years of C5-OH Screening in the Netherlands.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: C5-OH concentrations of patients with different IEMs reported in the literature were insufficiently distinctive to differentiate between these diseases.
     explanation: The systematic screening evaluation establishes the need for disease-specific follow-up.
@@ -10270,7 +11897,7 @@ discussions:
     explanation: Retrospective data do not establish comparative dietary benefit.
   - reference: PMID:36771238
     reference_title: Treatment of HMG-CoA Lyase Deficiency-Longitudinal Data on Clinical and Nutritional Management of 10 Australian Cases.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: five of nine patients have used 900 mg/kg/day of sodium D,L 3-hydroxybutyrate in combination with intravenous dextrose-containing fluids
     explanation: Observed use in a small cohort does not resolve efficacy or optimal duration.
@@ -10757,6 +12384,18 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/3-Hydroxy-3-Methylglutaric_Aciduria-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12617,7 +14256,7 @@ Physiological stress (fasting, infection, catabolism) tips the metabolic balance
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "3-Hydroxy-3-Methylglutaric Aciduria", "mondoId": "MONDO:0009520", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-Hydroxy-3-Methylglutaric_Aciduria", "yamlRevision": "5a73cd25146a"};
+        const OS_CONFIG = {"diseaseName": "3-Hydroxy-3-Methylglutaric Aciduria", "mondoId": "MONDO:0009520", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-Hydroxy-3-Methylglutaric_Aciduria", "yamlRevision": "f7a2c48681e4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

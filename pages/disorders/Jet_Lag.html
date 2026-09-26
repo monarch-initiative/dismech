@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Jet Lag</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Jet Lag</h1>
             <div class="header-meta">
 
@@ -3981,6 +4124,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rapid-transmeridian-light-dark-shift" data-dismech-node="Rapid Transmeridian Light-Dark Shift" data-dismech-type="pathophysiology">
                 <div class="item-name">Rapid Transmeridian Light-Dark Shift</div>
 
+
                 <div class="item-desc">The initiating event is abrupt displacement of local clock time and light-dark exposure relative to the traveler&#39;s entrained internal circadian phase.</div>
 
 
@@ -4062,7 +4206,10 @@ This pathophysiological event involves Entrainment of circadian clock (GO:000964
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4087,6 +4234,7 @@ This pathophysiological event involves Entrainment of circadian clock (GO:000964
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circadian-desynchronization" data-dismech-node="Circadian Desynchronization" data-dismech-type="pathophysiology">
                 <div class="item-name">Circadian Desynchronization</div>
+
 
                 <div class="item-desc">The endogenous circadian system becomes misaligned with the destination day-night cycle, so sleep propensity, alertness, melatonin timing, and other rhythmic physiology occur at inappropriate local times.</div>
 
@@ -4169,7 +4317,10 @@ This pathophysiological event involves Circadian rhythm (GO:0007623). GO:0007623
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4194,6 +4345,7 @@ This pathophysiological event involves Circadian rhythm (GO:0007623). GO:0007623
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-wake-symptom-cluster" data-dismech-node="Sleep-Wake Symptom Cluster" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep-Wake Symptom Cluster</div>
+
 
                 <div class="item-desc">Misaligned circadian phase and acute sleep loss produce the characteristic symptom cluster of sleep disturbance, daytime fatigue, excessive sleepiness, impaired mental efficiency, weakness, and irritability.</div>
 
@@ -4308,7 +4460,10 @@ This pathophysiological event involves Sleep (GO:0030431). GO:0030431 is a biolo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4356,7 +4511,7 @@ This pathophysiological event involves Sleep (GO:0030431). GO:0030431 is a biolo
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Armodafinil for Jet-Lag-Associated Excessive Sleepiness\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Armodafinil, the R-enantiomer of modafinil, is a wake-promoting symptomatic treatment studied for excessive sleepiness after eastward transmeridian travel. It should be distinguished from racemic modafinil, which contains both R- and S-modafinil.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"armodafinil\"]}}, {\"id\": \"Asthenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient weakness can occur as part of the daytime-function symptom cluster during jet lag.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025406\"}}, {\"id\": \"Circadian Desynchronization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The endogenous circadian system becomes misaligned with the destination day-night cycle, so sleep propensity, alertness, melatonin timing, and other rhythmic physiology occur at inappropriate local times.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Circadian rhythm\"]}}, {\"id\": \"Circadian Phase Shifting With Timed Light and Dark Scheduling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Timed bright-light exposure and light avoidance can be used as circadian phase-shifting tools to accelerate adaptation to destination time.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient loss of mental efficiency can occur during jet lag while the circadian system remains misaligned with local time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Excessive Daytime Somnolence\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive sleepiness during the destination daytime can occur when internal circadian sleep propensity remains aligned to the origin time zone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001262\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Daytime tiredness and low energy after transmeridian travel, typically improving as circadian alignment is restored.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"Irritability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irritability can occur as part of the daytime-function symptom cluster during jet lag.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000737\"}}, {\"id\": \"Prescribed Sleep Scheduling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Planned sleep-wake scheduling before or after travel is a behavioral intervention intended to reduce circadian misalignment and improve adaptation to destination time.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rapid Transmeridian Light-Dark Shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating event is abrupt displacement of local clock time and light-dark exposure relative to the traveler\u0027s entrained internal circadian phase.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Entrainment of circadian clock\"]}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disrupted sleep timing and quality after time-zone travel, reflecting mismatch between local clock time and internal circadian sleep propensity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Sleep-Wake Symptom Cluster\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Misaligned circadian phase and acute sleep loss produce the characteristic symptom cluster of sleep disturbance, daytime fatigue, excessive sleepiness, impaired mental efficiency, weakness, and irritability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Sleep\"]}}, {\"id\": \"Symptomatic Hypnotic Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Short-term hypnotic medication is a symptomatic approach for destination-night sleep disturbance. It is modeled as symptom management rather than a re-entrainment mechanism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Timed Melatonin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Melatonin timed close to the destination bedtime is used to shift circadian phase and reduce jet-lag symptoms after crossing multiple time zones. Timing is central to the mechanism because mistimed dosing can delay adaptation.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"melatonin\"]}}], \"edges\": [{\"source\": \"Rapid Transmeridian Light-Dark Shift\", \"target\": \"Circadian Desynchronization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The shifted external light-dark schedule places internal rhythms out of phase with the destination schedule.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circadian Desynchronization\", \"target\": \"Sleep-Wake Symptom Cluster\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circadian misalignment and travel-related sleep loss produce the clinical sleep and daytime-function manifestations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mis-timed sleep propensity\", \"Altered melatonin timing\", \"Acute sleep loss from travel\"]}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Daytime fatigue is a primary manifestation of the symptom cluster.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of mental efficiency is a recognized daytime manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Asthenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakness is a recognized manifestation of the symptom cluster.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep disturbance is a primary manifestation of the symptom cluster.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Irritability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Irritability is a recognized downstream manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Timed Melatonin\", \"target\": \"Circadian Desynchronization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Timed Melatonin\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Timed Melatonin\", \"target\": \"Fatigue\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Prescribed Sleep Scheduling\", \"target\": \"Circadian Desynchronization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Circadian Phase Shifting With Timed Light and Dark Scheduling\", \"target\": \"Circadian Desynchronization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Symptomatic Hypnotic Pharmacotherapy\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Armodafinil for Jet-Lag-Associated Excessive Sleepiness\", \"target\": \"Excessive Daytime Somnolence\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Armodafinil for Jet-Lag-Associated Excessive Sleepiness\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Armodafinil, the R-enantiomer of modafinil, is a wake-promoting symptomatic treatment studied for excessive sleepiness after eastward transmeridian travel. It should be distinguished from racemic modafinil, which contains both R- and S-modafinil.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"armodafinil\"]}}, {\"id\": \"Asthenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient weakness can occur as part of the daytime-function symptom cluster during jet lag.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025406\"}}, {\"id\": \"Circadian Desynchronization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The endogenous circadian system becomes misaligned with the destination day-night cycle, so sleep propensity, alertness, melatonin timing, and other rhythmic physiology occur at inappropriate local times.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Circadian rhythm\"], \"role\": \"central_effector\"}}, {\"id\": \"Circadian Phase Shifting With Timed Light and Dark Scheduling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Timed bright-light exposure and light avoidance can be used as circadian phase-shifting tools to accelerate adaptation to destination time.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient loss of mental efficiency can occur during jet lag while the circadian system remains misaligned with local time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Excessive Daytime Somnolence\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive sleepiness during the destination daytime can occur when internal circadian sleep propensity remains aligned to the origin time zone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001262\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Daytime tiredness and low energy after transmeridian travel, typically improving as circadian alignment is restored.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"Irritability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irritability can occur as part of the daytime-function symptom cluster during jet lag.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000737\"}}, {\"id\": \"Prescribed Sleep Scheduling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Planned sleep-wake scheduling before or after travel is a behavioral intervention intended to reduce circadian misalignment and improve adaptation to destination time.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rapid Transmeridian Light-Dark Shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating event is abrupt displacement of local clock time and light-dark exposure relative to the traveler\u0027s entrained internal circadian phase.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Entrainment of circadian clock\"], \"role\": \"trigger\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disrupted sleep timing and quality after time-zone travel, reflecting mismatch between local clock time and internal circadian sleep propensity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Sleep-Wake Symptom Cluster\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Misaligned circadian phase and acute sleep loss produce the characteristic symptom cluster of sleep disturbance, daytime fatigue, excessive sleepiness, impaired mental efficiency, weakness, and irritability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Sleep\"], \"role\": \"consequence\"}}, {\"id\": \"Symptomatic Hypnotic Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Short-term hypnotic medication is a symptomatic approach for destination-night sleep disturbance. It is modeled as symptom management rather than a re-entrainment mechanism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Timed Melatonin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Melatonin timed close to the destination bedtime is used to shift circadian phase and reduce jet-lag symptoms after crossing multiple time zones. Timing is central to the mechanism because mistimed dosing can delay adaptation.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"melatonin\"]}}], \"edges\": [{\"source\": \"Rapid Transmeridian Light-Dark Shift\", \"target\": \"Circadian Desynchronization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The shifted external light-dark schedule places internal rhythms out of phase with the destination schedule.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circadian Desynchronization\", \"target\": \"Sleep-Wake Symptom Cluster\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circadian misalignment and travel-related sleep loss produce the clinical sleep and daytime-function manifestations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mis-timed sleep propensity\", \"Altered melatonin timing\", \"Acute sleep loss from travel\"]}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Daytime fatigue is a primary manifestation of the symptom cluster.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of mental efficiency is a recognized daytime manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Asthenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakness is a recognized manifestation of the symptom cluster.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep disturbance is a primary manifestation of the symptom cluster.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sleep-Wake Symptom Cluster\", \"target\": \"Irritability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Irritability is a recognized downstream manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Timed Melatonin\", \"target\": \"Circadian Desynchronization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Timed Melatonin\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Timed Melatonin\", \"target\": \"Fatigue\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Prescribed Sleep Scheduling\", \"target\": \"Circadian Desynchronization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Circadian Phase Shifting With Timed Light and Dark Scheduling\", \"target\": \"Circadian Desynchronization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Symptomatic Hypnotic Pharmacotherapy\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Armodafinil for Jet-Lag-Associated Excessive Sleepiness\", \"target\": \"Excessive Daytime Somnolence\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4377,9 +4532,7 @@ This pathophysiological event involves Sleep (GO:0030431). GO:0030431 is a biolo
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4420,6 +4573,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4432,7 +4588,10 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4486,6 +4645,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4498,7 +4660,10 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4552,6 +4717,9 @@ This clinical feature is Excessive daytime somnolence (HP:0001262). HP:0001262 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4564,7 +4732,10 @@ This clinical feature is Excessive daytime somnolence (HP:0001262). HP:0001262 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20530317" target="_blank">PMID:20530317</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4618,6 +4789,9 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4630,7 +4804,10 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4662,7 +4839,7 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
@@ -4693,6 +4870,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4705,7 +4885,10 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4730,15 +4913,6 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-asthenia" data-dismech-node="Asthenia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -4768,6 +4942,9 @@ This clinical feature is Asthenia (HP:0025406). HP:0025406 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4780,7 +4957,10 @@ This clinical feature is Asthenia (HP:0025406). HP:0025406 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4840,6 +5020,9 @@ This clinical feature is Asthenia (HP:0025406). HP:0025406 is a phenotype from t
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4912,6 +5095,31 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -4991,7 +5199,10 @@ This treatment targets Fatigue (HP:0012378). HP:0012378 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5013,7 +5224,10 @@ This treatment targets Fatigue (HP:0012378). HP:0012378 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5078,6 +5292,31 @@ This treatment is Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Planned sleep-wake scheduling before or after travel is a behavioral intervention intended to reduce circadian misalignment and improve adaptation to destination time.</div>
 
 
@@ -5115,7 +5354,10 @@ This treatment is Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18041480" target="_blank">PMID:18041480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5180,6 +5422,31 @@ This treatment is Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Timed bright-light exposure and light avoidance can be used as circadian phase-shifting tools to accelerate adaptation to destination time.</div>
 
 
@@ -5217,7 +5484,10 @@ This treatment is Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18041480" target="_blank">PMID:18041480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5239,7 +5509,10 @@ This treatment is Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinic
                         <a href="https://clinicaltrials.gov/study/NCT00387179" target="_blank">clinicaltrials:NCT00387179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5304,6 +5577,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Short-term hypnotic medication is a symptomatic approach for destination-night sleep disturbance. It is modeled as symptom management rather than a re-entrainment mechanism.</div>
 
 
@@ -5345,7 +5643,10 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18041480" target="_blank">PMID:18041480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5432,6 +5733,31 @@ This treatment uses armodafinil (CHEBI:77590). CHEBI:77590 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Armodafinil, the R-enantiomer of modafinil, is a wake-promoting symptomatic treatment studied for excessive sleepiness after eastward transmeridian travel. It should be distinguished from racemic modafinil, which contains both R- and S-modafinil.</div>
 
 
@@ -5473,7 +5799,10 @@ This treatment targets Excessive daytime somnolence (HP:0001262). HP:0001262 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20530317" target="_blank">PMID:20530317</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5495,7 +5824,10 @@ This treatment targets Excessive daytime somnolence (HP:0001262). HP:0001262 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20530317" target="_blank">PMID:20530317</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5558,6 +5890,10 @@ This environmental factor is transmeridian travel, annotated with exposure to tr
 
 
 
+
+
+
+
                 <div class="item-desc">Rapid air travel across several time zones shifts the external light-dark and social sleep-wake schedule faster than the endogenous circadian system can re-entrain.</div>
 
 
@@ -5574,7 +5910,10 @@ This environmental factor is transmeridian travel, annotated with exposure to tr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5604,6 +5943,87 @@ This environmental factor is transmeridian travel, annotated with exposure to tr
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">Low</div>
+
+
+                <div class="item-desc">Typical jet lag is self-limited over days after travel and does not usually impose long-term morbidity, intensive management, or mortality risk. It is still clinically relevant because the transient sleep and daytime-function disruption can affect travel, work performance, and safety.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12076414" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12076414" target="_blank">PMID:12076414</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"After a flight through six or more time zones most travellers will take 4‐6 days to re‐establish a normal sleeping pattern and not to feel tired during the day."</div>
+
+
+                <div class="evidence-explanation">The typical course is measured in days after major time-zone travel, supporting low disease-level burden while acknowledging temporary daytime impairment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+        </div>
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -5616,7 +6036,7 @@ This environmental factor is transmeridian travel, annotated with exposure to tr
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse153540">
                 <div class="item-name">
                     Transcriptional profiling of mouse prefrontal cortex and nucleus accumbens under chronic jet lag
 
@@ -5659,7 +6079,7 @@ This environmental factor is transmeridian travel, annotated with exposure to tr
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse242159">
                 <div class="item-name">
                     Effect of 8-weeks of chronic jet lag lighting (CJL) on gene expression in the livers of Eu-MYC mice
 
@@ -5710,7 +6130,7 @@ This environmental factor is transmeridian travel, annotated with exposure to tr
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00758498">
                 <div class="item-name">
                     NCT00758498
 
@@ -5760,7 +6180,10 @@ This clinical trial targets Excessive daytime somnolence (HP:0001262). HP:000126
                         <a href="https://clinicaltrials.gov/study/NCT00758498" target="_blank">clinicaltrials:NCT00758498</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5782,7 +6205,10 @@ This clinical trial targets Excessive daytime somnolence (HP:0001262). HP:000126
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20530317" target="_blank">PMID:20530317</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5805,7 +6231,7 @@ This clinical trial targets Excessive daytime somnolence (HP:0001262). HP:000126
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00387179">
                 <div class="item-name">
                     NCT00387179
 
@@ -5853,7 +6279,10 @@ This clinical trial targets Sleep disturbance (HP:0002360). HP:0002360 is a phen
                         <a href="https://clinicaltrials.gov/study/NCT00387179" target="_blank">clinicaltrials:NCT00387179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5875,7 +6304,10 @@ This clinical trial targets Sleep disturbance (HP:0002360). HP:0002360 is a phen
                         <a href="https://clinicaltrials.gov/study/NCT00387179" target="_blank">clinicaltrials:NCT00387179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5898,7 +6330,7 @@ This clinical trial targets Sleep disturbance (HP:0002360). HP:0002360 is a phen
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00097474">
                 <div class="item-name">
                     NCT00097474
 
@@ -5963,7 +6395,10 @@ This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from
                         <a href="https://clinicaltrials.gov/study/NCT00097474" target="_blank">clinicaltrials:NCT00097474</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5985,7 +6420,10 @@ This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from
                         <a href="https://clinicaltrials.gov/study/NCT00097474" target="_blank">clinicaltrials:NCT00097474</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6107,6 +6545,9 @@ environmental:
       the defining exposure context.
 pathophysiology:
 - name: Rapid Transmeridian Light-Dark Shift
+  role: trigger
+  biological_scale: ORGANISM
+  conforms_to: &#34;circadian_phase_misalignment#Loss or Mistiming of Photic Entrainment Input&#34;
   description: &gt;-
     The initiating event is abrupt displacement of local clock time and
     light-dark exposure relative to the traveler&#39;s entrained internal circadian
@@ -6135,6 +6576,9 @@ pathophysiology:
       The shifted external light-dark schedule places internal rhythms out of
       phase with the destination schedule.
 - name: Circadian Desynchronization
+  role: central_effector
+  biological_scale: ORGANISM
+  conforms_to: &#34;circadian_phase_misalignment#Misalignment Between Endogenous Circadian Phase and the Imposed Sleep-Wake Schedule&#34;
   description: &gt;-
     The endogenous circadian system becomes misaligned with the destination
     day-night cycle, so sleep propensity, alertness, melatonin timing, and other
@@ -6166,6 +6610,9 @@ pathophysiology:
       Circadian misalignment and travel-related sleep loss produce the clinical
       sleep and daytime-function manifestations.
 - name: Sleep-Wake Symptom Cluster
+  role: consequence
+  biological_scale: ORGANISM
+  conforms_to: &#34;circadian_phase_misalignment#Circadian Sleep-Wake Disorder Syndrome&#34;
   description: &gt;-
     Misaligned circadian phase and acute sleep loss produce the characteristic
     symptom cluster of sleep disturbance, daytime fatigue, excessive sleepiness,
@@ -6826,7 +7273,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Jet Lag", "mondoId": "MONDO:0024381", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Jet_Lag", "yamlRevision": "ff952fee3f58"};
+        const OS_CONFIG = {"diseaseName": "Jet Lag", "mondoId": "MONDO:0024381", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Jet_Lag", "yamlRevision": "f851f848fc33"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

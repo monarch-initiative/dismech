@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Autism Spectrum Disorder</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autism Spectrum Disorder</h1>
             <div class="header-meta">
 
@@ -4001,27 +4144,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4036,7 +4256,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-contemporary-clinical-asd-case-definition">
                 <div class="item-name">Contemporary clinical ASD case definition</div>
 
                 <div class="item-desc">A clinical diagnosis requires persistent social-communication and social-interaction differences or impairments plus restricted or repetitive behavior, interests, or activities. Features begin in the early developmental period, may become fully apparent only when demands exceed capacities, cause clinically meaningful functional impact, and are not better explained by intellectual disability or global developmental delay alone. Sensory hyperreactivity, hyporeactivity, or unusual sensory interests are included within the restricted/repetitive domain. Support needs and language and intellectual-function specifiers do not define etiologic subtypes.</div>
@@ -4080,7 +4300,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4102,7 +4325,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31843864" target="_blank">PMID:31843864</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4163,7 +4389,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                 </div>
 
@@ -4205,13 +4431,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33076974" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33076974" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33076974" target="_blank">PMID:33076974</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4250,7 +4479,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                 </div>
 
@@ -4309,13 +4538,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41550027" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41550027" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41550027" target="_blank">PMID:41550027</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4413,7 +4645,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40274203" target="_blank">PMID:40274203</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4457,7 +4692,7 @@
 
 
 
-    <span class="entity-ref-chip">progression#Adulthood and later life</span>
+    <a class="entity-ref-chip" href="#progression-adulthood-and-later-life">progression#Adulthood and later life</a>
 
 
 
@@ -4485,7 +4720,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41926193" target="_blank">PMID:41926193</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4558,13 +4796,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41550027" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41550027" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41550027" target="_blank">PMID:41550027</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4707,6 +4948,7 @@ This experiment is of type longitudinal stress-challenge multi-omics cohort.</sp
 
 
 
+
         </div>
 
         <div class="item-meta">
@@ -4800,6 +5042,12 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4823,7 +5071,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42424309" target="_blank">PMID:42424309</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4845,7 +5096,10 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42424309" target="_blank">PMID:42424309</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4889,7 +5143,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
-    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+    <a class="entity-ref-chip" href="#environmental-prenatal-and-early-childhood-heavy-metal-exposure">environmental#Prenatal and early-childhood heavy metal exposure</a>
 
 
 
@@ -4967,6 +5221,7 @@ This experiment is of type prospective pregnancy and birth cohort with mixture a
 
 
 
+
         </div>
 
         <div class="item-meta">
@@ -5029,7 +5284,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+    <a class="entity-ref-chip" href="#environmental-prenatal-and-early-childhood-heavy-metal-exposure">environmental#Prenatal and early-childhood heavy metal exposure</a>
 
     </div>
 
@@ -5111,7 +5366,7 @@ This perturbation applies exposure to heavy metal (ECTO:9002163). ECTO:9002163 i
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+    <a class="entity-ref-chip" href="#environmental-prenatal-and-early-childhood-heavy-metal-exposure">environmental#Prenatal and early-childhood heavy metal exposure</a>
 
     </div>
 
@@ -5152,12 +5407,18 @@ This perturbation applies exposure to heavy metal (ECTO:9002163). ECTO:9002163 i
 
 
 
-    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+    <a class="entity-ref-chip" href="#environmental-prenatal-and-early-childhood-heavy-metal-exposure">environmental#Prenatal and early-childhood heavy metal exposure</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -5191,7 +5452,10 @@ This perturbation applies exposure to heavy metal (ECTO:9002163). ECTO:9002163 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5235,7 +5499,7 @@ This perturbation applies exposure to heavy metal (ECTO:9002163). ECTO:9002163 i
 
 
 
-    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+    <a class="entity-ref-chip" href="#environmental-prenatal-and-early-childhood-heavy-metal-exposure">environmental#Prenatal and early-childhood heavy metal exposure</a>
 
 
 
@@ -5317,6 +5581,7 @@ This experiment is of type dose-anchored human organoid exposure experiment.</sp
         <div class="item-meta">
 
             <span class="tag tag-exp-model-type">ORGANOID</span>
+
 
 
 
@@ -5464,7 +5729,7 @@ This experimental model uses microglial cell (CL:0000129). CL:0000129 is a cell 
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+    <a class="entity-ref-chip" href="#environmental-prenatal-and-early-childhood-heavy-metal-exposure">environmental#Prenatal and early-childhood heavy metal exposure</a>
 
     </div>
 
@@ -5539,7 +5804,7 @@ This perturbation applies exposure to lead (ECTO:9000945). ECTO:9000945 is an ex
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">environmental#Prenatal and early-childhood heavy metal exposure</span>
+    <a class="entity-ref-chip" href="#environmental-prenatal-and-early-childhood-heavy-metal-exposure">environmental#Prenatal and early-childhood heavy metal exposure</a>
 
     </div>
 
@@ -5833,6 +6098,12 @@ This readout reports on regulation of synaptic plasticity (GO:0048167). GO:00481
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5850,13 +6121,16 @@ This readout reports on regulation of synaptic plasticity (GO:0048167). GO:00481
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42541535" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42541535" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42541535" target="_blank">PMID:42541535</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5872,13 +6146,16 @@ This readout reports on regulation of synaptic plasticity (GO:0048167). GO:00481
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42541535" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42541535" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42541535" target="_blank">PMID:42541535</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5894,13 +6171,16 @@ This readout reports on regulation of synaptic plasticity (GO:0048167). GO:00481
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41110787" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41110787" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41110787" target="_blank">PMID:41110787</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5939,6 +6219,13 @@ This readout reports on regulation of synaptic plasticity (GO:0048167). GO:00481
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-neurodevelopmental-liability" data-dismech-node="Polygenic neurodevelopmental liability" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic neurodevelopmental liability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Common inherited variants of individually small effect contribute substantially to ASD susceptibility. Their aggregate influence is heterogeneous across people and clinical presentations and is neither necessary nor sufficient for an individual diagnosis.</div>
 
@@ -6021,7 +6308,10 @@ This pathophysiological event involves nervous system development (GO:0007399). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30804558" target="_blank">PMID:30804558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6043,7 +6333,10 @@ This pathophysiological event involves nervous system development (GO:0007399). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26709141" target="_blank">PMID:26709141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6068,6 +6361,13 @@ This pathophysiological event involves nervous system development (GO:0007399). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rare-coding-and-copy-number-variant-liability" data-dismech-node="Rare coding and copy-number variant liability" data-dismech-type="pathophysiology">
                 <div class="item-name">Rare coding and copy-number variant liability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">A minority of autistic people carry rare protein-truncating, damaging missense, or copy-number variants with larger effects. These variants are enriched in clinically ascertained ASD but show variable penetrance and pleiotropy with developmental delay and other neurodevelopmental outcomes; they do not make ASD a collection of simple Mendelian subtypes.</div>
 
@@ -6124,7 +6424,10 @@ This pathophysiological event involves nervous system development (GO:0007399). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35982160" target="_blank">PMID:35982160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6146,7 +6449,10 @@ This pathophysiological event involves nervous system development (GO:0007399). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35982160" target="_blank">PMID:35982160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6171,6 +6477,13 @@ This pathophysiological event involves nervous system development (GO:0007399). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterogeneous-neurodevelopmental-molecular-effects" data-dismech-node="Heterogeneous neurodevelopmental molecular effects" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterogeneous neurodevelopmental molecular effects</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Human genetic studies recurrently implicate synaptic formation, transcriptional regulation, chromatin remodeling, neuronal maturation, and corticogenesis. These are pathway-level convergences across subsets, not a molecular lesion demonstrated in every autistic person.</div>
 
@@ -6313,7 +6626,10 @@ This pathophysiological event involves chromatin remodeling (GO:0006338). GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25363760" target="_blank">PMID:25363760</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6338,6 +6654,13 @@ This pathophysiological event involves chromatin remodeling (GO:0006338). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distributed-developmental-circuit-differences" data-dismech-node="Distributed developmental circuit differences" data-dismech-type="pathophysiology">
                 <div class="item-name">Distributed developmental circuit differences</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Post-mortem, imaging, and electrophysiological studies identify subtle, distributed group-level differences rather than a characteristic gross lesion. Direction and location vary by cohort, age, task, method, and subgroup. These observations are not individual diagnostic biomarkers.</div>
 
@@ -6415,7 +6738,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6440,6 +6766,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitation-inhibition-and-synaptic-signaling-differences-in-studied-subgroups" data-dismech-node="Excitation-inhibition and synaptic-signaling differences in studied subgroups" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitation-inhibition and synaptic-signaling differences in studied subgroups</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">E/I imbalance is a useful research framework supported by particular genetic syndromes, cellular models, and group-level studies, but direction, cell type, region, and developmental timing differ. mGluR5, GABAergic, and glutamatergic findings must not be generalized from biologically defined subsets to all ASD.</div>
 
@@ -6505,13 +6838,16 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41653294" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41653294" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41653294" target="_blank">PMID:41653294</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6527,13 +6863,16 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33076974" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33076974" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33076974" target="_blank">PMID:33076974</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6558,6 +6897,13 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-and-neuroinflammatory-associations-in-studied-groups" data-dismech-node="Immune and neuroinflammatory associations in studied groups" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune and neuroinflammatory associations in studied groups</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Studies report group-level cytokine, oxidative-stress, glial, and connectivity associations. Sampling, medication, co-occurring illness, tissue, age, and subgroup differences complicate interpretation. These associations do not establish that neuroinflammation causes core autism in all people, and blood-brain-barrier findings are subtle or context dependent.</div>
 
@@ -6656,13 +7002,16 @@ This pathophysiological event involves neuroinflammatory response (GO:0150076). 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41947852" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41947852" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41947852" target="_blank">PMID:41947852</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6678,13 +7027,16 @@ This pathophysiological event involves neuroinflammatory response (GO:0150076). 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41550027" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41550027" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41550027" target="_blank">PMID:41550027</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6709,6 +7061,13 @@ This pathophysiological event involves neuroinflammatory response (GO:0150076). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gut-microbiome-associations-in-studied-groups" data-dismech-node="Gut microbiome associations in studied groups" data-dismech-type="pathophysiology">
                 <div class="item-name">Gut microbiome associations in studied groups</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Microbiome composition and metabolite differences have been reported in some ASD cohorts, especially those selected for gastrointestinal symptoms. Diet, medication, geography, age, constipation, sequencing methods, and reverse causation are major confounders. A causal microbiome-to-core-autism pathway and a generalizable microbial biomarker remain unproven.</div>
 
@@ -6773,13 +7132,16 @@ This pathophysiological event involves neuroinflammatory response (GO:0150076). 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39733842" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39733842" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39733842" target="_blank">PMID:39733842</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6804,6 +7166,13 @@ This pathophysiological event involves neuroinflammatory response (GO:0150076). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-convergent-transcriptional-effects-in-human-stem-cell-models" data-dismech-node="Convergent transcriptional effects in human stem-cell models" data-dismech-type="pathophysiology">
                 <div class="item-name">Convergent transcriptional effects in human stem-cell models</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In iPSC-derived neural progenitor and cortical organoid models carrying selected ASD-associated mutations, mutation-specific early changes partly converge later on shared transcriptional networks. The result is a model system observation across selected genotypes, not proof of a universal cortical program in autistic brains.</div>
 
@@ -6909,7 +7278,10 @@ This pathophysiological event involves abnormal regulation of DNA-templated tran
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41611887" target="_blank">PMID:41611887</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6957,7 +7329,7 @@ This pathophysiological event involves abnormal regulation of DNA-templated tran
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Nonverbal Communicative Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent difficulty integrating or using eye gaze, facial expression, gesture, body language, or other nonverbal communication in social interaction. Manifestation and severity vary with age, language, culture, context, and compensatory strategies.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000758\"}}, {\"id\": \"Convergent transcriptional effects in human stem-cell models\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In iPSC-derived neural progenitor and cortical organoid models carrying selected ASD-associated mutations, mutation-specific early changes partly converge later on shared transcriptional networks. The result is a model system observation across selected genotypes, not proof of a universal cortical program in autistic brains.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"regulation of DNA-templated transcription\"]}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spoken-language delay occurs in a clinically important subset and can drive early referral, but it is not required for ASD and fluent or precocious language does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Distributed developmental circuit differences\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-mortem, imaging, and electrophysiological studies identify subtle, distributed group-level differences rather than a characteristic gross lesion. Direction and location vary by cohort, age, task, method, and subgroup. These observations are not individual diagnostic biomarkers.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brain\"]}}, {\"id\": \"Excitation-inhibition and synaptic-signaling differences in studied subgroups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"E/I imbalance is a useful research framework supported by particular genetic syndromes, cellular models, and group-level studies, but direction, cell type, region, and developmental timing differ. mGluR5, GABAergic, and glutamatergic findings must not be generalized from biologically defined subsets to all ASD.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chemical synaptic transmission\"]}}, {\"id\": \"Gut microbiome associations in studied groups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microbiome composition and metabolite differences have been reported in some ASD cohorts, especially those selected for gastrointestinal symptoms. Diet, medication, geography, age, constipation, sequencing methods, and reverse causation are major confounders. A causal microbiome-to-core-autism pathway and a generalizable microbial biomarker remain unproven.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Heterogeneous neurodevelopmental molecular effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human genetic studies recurrently implicate synaptic formation, transcriptional regulation, chromatin remodeling, neuronal maturation, and corticogenesis. These are pathway-level convergences across subsets, not a molecular lesion demonstrated in every autistic person.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"synapse organization\", \"chromatin remodeling\"]}}, {\"id\": \"Immune and neuroinflammatory associations in studied groups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Studies report group-level cytokine, oxidative-stress, glial, and connectivity associations. Sampling, medication, co-occurring illness, tissue, age, and subgroup differences complicate interpretation. These associations do not establish that neuroinflammation causes core autism in all people, and blood-brain-barrier findings are subtle or context dependent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neuroinflammatory response\"]}}, {\"id\": \"Individualized developmental and behavioral intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Goal-directed developmental and behavioral programs can improve selected communication, adaptive, cognitive, play, or social-engagement outcomes in some young children. Program model, intensity, acceptability, access, outcomes, and response vary. Evidence does not support a promise of normalization or one mandatory program for every child; goals should be selected collaboratively and monitored for benefit and burden.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Melatonin for co-occurring sleep disturbance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Melatonin can improve total sleep time, sleep latency, or sleep efficiency for some autistic children with sleep disturbance after behavioral and environmental contributors are assessed. Trial heterogeneity is substantial; benefit is symptom-targeted rather than treatment of autism as a whole, and dose, formulation, interactions, and adverse effects require clinical review.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"melatonin\"]}}, {\"id\": \"Polygenic neurodevelopmental liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common inherited variants of individually small effect contribute substantially to ASD susceptibility. Their aggregate influence is heterogeneous across people and clinical presentations and is neither necessary nor sufficient for an individual diagnosis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Prenatal and early-childhood heavy metal exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal and early-childhood exposure to lead, mercury, cadmium, and arsenic has been examined as a possible contributor to ASD risk. The reported associations are metal specific and inconsistent: reviews of human epidemiological studies report a more consistent association for lead and mercury than for arsenic and cadmium, while acknowledging residual confounding and heterogeneous exposure-assessment methods. This is a contested population-level exposure association, not an established cause of an individual diagnosis, and the reviewed evidence does not support a blanket claim that heavy metals cause ASD.\", \"meta\": {\"evidence_count\": 7}}, {\"id\": \"Prenatal valproate exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"In a Danish population cohort, maternal valproate use during pregnancy was associated with increased offspring ASD risk after adjustment for maternal epilepsy. This is a population-level medication-exposure association, not a deterministic explanation for an individual diagnosis; pregnancy treatment decisions require individualized assessment of maternal seizure and fetal risks rather than abrupt medication changes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rare coding and copy-number variant liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of autistic people carry rare protein-truncating, damaging missense, or copy-number variants with larger effects. These variants are enriched in clinically ascertained ASD but show variable penetrance and pleiotropy with developmental delay and other neurodevelopmental outcomes; they do not make ASD a collection of simple Mendelian subtypes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Restricted and Repetitive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted or repetitive motor behavior, speech, object use, interests, or insistence on sameness forms one required diagnostic domain, but no single narrow behavior is present in every person.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000723\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep-wake problems are among the most frequent co-occurring conditions, with heterogeneous insomnia, circadian, breathing, and movement phenotypes. Sleep problems warrant their own clinical evaluation rather than attribution to a universal immune-pineal mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}], \"edges\": [{\"source\": \"Polygenic neurodevelopmental liability\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polygenic liability influences neurodevelopment through many unresolved regulatory and cellular routes rather than one canonical cascade.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Rare coding and copy-number variant liability\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Different rare variants perturb distinct developmental pathways that may partly converge, but pleiotropy and mutation-specific effects remain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Rare coding and copy-number variant liability\", \"target\": \"Convergent transcriptional effects in human stem-cell models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selected rare ASD-associated mutations produce mutation-specific and partly convergent transcriptional effects in human stem-cell-derived neural models; this is a model-system route, not a universal human-brain mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous neurodevelopmental molecular effects\", \"target\": \"Distributed developmental circuit differences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Molecular perturbations can alter neuronal development and circuit function through mutation-, cell-type-, and developmental-stage-specific routes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous neurodevelopmental molecular effects\", \"target\": \"Excitation-inhibition and synaptic-signaling differences in studied subgroups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the subgroup-specific E/I hypothesis, synaptic and transcriptional perturbations may alter excitation or inhibition through genotype-, region-, cell-type-, and developmental-stage-specific routes.\", \"hypothesis_groups\": [\"subgroup_ei_synaptic_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed developmental circuit differences\", \"target\": \"Abnormal Nonverbal Communicative Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental circuit differences may contribute to social-communication phenotypes through multiple routes; no single circuit signature is necessary or sufficient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed developmental circuit differences\", \"target\": \"Restricted and Repetitive Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed developmental differences may contribute to repetitive and inflexible behavior, without implying one universal cognitive or circuit cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune and neuroinflammatory associations in studied groups\", \"target\": \"Distributed developmental circuit differences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the emerging modifier hypothesis, immune and metabolic differences are associated with synaptic and network measures; directionality and mediation of clinical traits remain unestablished.\", \"hypothesis_groups\": [\"immune_microbiome_modifier_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gut microbiome associations in studied groups\", \"target\": \"Immune and neuroinflammatory associations in studied groups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the emerging modifier hypothesis, dysbiosis may affect immune and neuroinflammatory signaling. Confounding and reverse causation remain major alternatives.\", \"hypothesis_groups\": [\"immune_microbiome_modifier_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal valproate exposure\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The best-evidenced environmental association in this entry: a population cohort reporting increased risk after adjustment for maternal epilepsy, which is the confounder that would otherwise explain it. Recorded as predisposing and never as triggering, because this entry is careful throughout that these are population-level risk associations and not explanations for an individual diagnosis, and because the exposure\u0027s own description warns against abrupt medication changes in pregnancy. No cited sentence follows valproate to any molecular step, so the intermediates are unknown despite the node being molecular.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal and early-childhood heavy metal exposure\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the valproate link and carrying its own contradiction on purpose. The same review that reports a comparatively consistent adjusted association for lead and mercury reports inconsistent associations for arsenic and cadmium, and bounds its own conclusion to certain populations and exposure conditions. All three sentences are carried here, so the reader of the pathograph meets the metal-by-metal disagreement rather than a uniform risk factor. The candidate mechanisms named in this exposure\u0027s notes are recorded there as candidates and are not asserted by any link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Individualized developmental and behavioral intervention\", \"target\": \"Abnormal Nonverbal Communicative Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized developmental and behavioral intervention\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Melatonin for co-occurring sleep disturbance\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Nonverbal Communicative Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent difficulty integrating or using eye gaze, facial expression, gesture, body language, or other nonverbal communication in social interaction. Manifestation and severity vary with age, language, culture, context, and compensatory strategies.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000758\"}}, {\"id\": \"Convergent transcriptional effects in human stem-cell models\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In iPSC-derived neural progenitor and cortical organoid models carrying selected ASD-associated mutations, mutation-specific early changes partly converge later on shared transcriptional networks. The result is a model system observation across selected genotypes, not proof of a universal cortical program in autistic brains.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"regulation of DNA-templated transcription\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spoken-language delay occurs in a clinically important subset and can drive early referral, but it is not required for ASD and fluent or precocious language does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Distributed developmental circuit differences\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-mortem, imaging, and electrophysiological studies identify subtle, distributed group-level differences rather than a characteristic gross lesion. Direction and location vary by cohort, age, task, method, and subgroup. These observations are not individual diagnostic biomarkers.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brain\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Excitation-inhibition and synaptic-signaling differences in studied subgroups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"E/I imbalance is a useful research framework supported by particular genetic syndromes, cellular models, and group-level studies, but direction, cell type, region, and developmental timing differ. mGluR5, GABAergic, and glutamatergic findings must not be generalized from biologically defined subsets to all ASD.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chemical synaptic transmission\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Gut microbiome associations in studied groups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microbiome composition and metabolite differences have been reported in some ASD cohorts, especially those selected for gastrointestinal symptoms. Diet, medication, geography, age, constipation, sequencing methods, and reverse causation are major confounders. A causal microbiome-to-core-autism pathway and a generalizable microbial biomarker remain unproven.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Heterogeneous neurodevelopmental molecular effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human genetic studies recurrently implicate synaptic formation, transcriptional regulation, chromatin remodeling, neuronal maturation, and corticogenesis. These are pathway-level convergences across subsets, not a molecular lesion demonstrated in every autistic person.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"synapse organization\", \"chromatin remodeling\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Immune and neuroinflammatory associations in studied groups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Studies report group-level cytokine, oxidative-stress, glial, and connectivity associations. Sampling, medication, co-occurring illness, tissue, age, and subgroup differences complicate interpretation. These associations do not establish that neuroinflammation causes core autism in all people, and blood-brain-barrier findings are subtle or context dependent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neuroinflammatory response\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Individualized developmental and behavioral intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Goal-directed developmental and behavioral programs can improve selected communication, adaptive, cognitive, play, or social-engagement outcomes in some young children. Program model, intensity, acceptability, access, outcomes, and response vary. Evidence does not support a promise of normalization or one mandatory program for every child; goals should be selected collaboratively and monitored for benefit and burden.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Melatonin for co-occurring sleep disturbance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Melatonin can improve total sleep time, sleep latency, or sleep efficiency for some autistic children with sleep disturbance after behavioral and environmental contributors are assessed. Trial heterogeneity is substantial; benefit is symptom-targeted rather than treatment of autism as a whole, and dose, formulation, interactions, and adverse effects require clinical review.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"melatonin\"]}}, {\"id\": \"Polygenic neurodevelopmental liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common inherited variants of individually small effect contribute substantially to ASD susceptibility. Their aggregate influence is heterogeneous across people and clinical presentations and is neither necessary nor sufficient for an individual diagnosis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nervous system development\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Prenatal and early-childhood heavy metal exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal and early-childhood exposure to lead, mercury, cadmium, and arsenic has been examined as a possible contributor to ASD risk. The reported associations are metal specific and inconsistent: reviews of human epidemiological studies report a more consistent association for lead and mercury than for arsenic and cadmium, while acknowledging residual confounding and heterogeneous exposure-assessment methods. This is a contested population-level exposure association, not an established cause of an individual diagnosis, and the reviewed evidence does not support a blanket claim that heavy metals cause ASD.\", \"meta\": {\"evidence_count\": 7}}, {\"id\": \"Prenatal valproate exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"In a Danish population cohort, maternal valproate use during pregnancy was associated with increased offspring ASD risk after adjustment for maternal epilepsy. This is a population-level medication-exposure association, not a deterministic explanation for an individual diagnosis; pregnancy treatment decisions require individualized assessment of maternal seizure and fetal risks rather than abrupt medication changes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rare coding and copy-number variant liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of autistic people carry rare protein-truncating, damaging missense, or copy-number variants with larger effects. These variants are enriched in clinically ascertained ASD but show variable penetrance and pleiotropy with developmental delay and other neurodevelopmental outcomes; they do not make ASD a collection of simple Mendelian subtypes.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Restricted and Repetitive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted or repetitive motor behavior, speech, object use, interests, or insistence on sameness forms one required diagnostic domain, but no single narrow behavior is present in every person.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000723\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep-wake problems are among the most frequent co-occurring conditions, with heterogeneous insomnia, circadian, breathing, and movement phenotypes. Sleep problems warrant their own clinical evaluation rather than attribution to a universal immune-pineal mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}], \"edges\": [{\"source\": \"Polygenic neurodevelopmental liability\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polygenic liability influences neurodevelopment through many unresolved regulatory and cellular routes rather than one canonical cascade.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Rare coding and copy-number variant liability\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Different rare variants perturb distinct developmental pathways that may partly converge, but pleiotropy and mutation-specific effects remain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Rare coding and copy-number variant liability\", \"target\": \"Convergent transcriptional effects in human stem-cell models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selected rare ASD-associated mutations produce mutation-specific and partly convergent transcriptional effects in human stem-cell-derived neural models; this is a model-system route, not a universal human-brain mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous neurodevelopmental molecular effects\", \"target\": \"Distributed developmental circuit differences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Molecular perturbations can alter neuronal development and circuit function through mutation-, cell-type-, and developmental-stage-specific routes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous neurodevelopmental molecular effects\", \"target\": \"Excitation-inhibition and synaptic-signaling differences in studied subgroups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the subgroup-specific E/I hypothesis, synaptic and transcriptional perturbations may alter excitation or inhibition through genotype-, region-, cell-type-, and developmental-stage-specific routes.\", \"hypothesis_groups\": [\"subgroup_ei_synaptic_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed developmental circuit differences\", \"target\": \"Abnormal Nonverbal Communicative Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental circuit differences may contribute to social-communication phenotypes through multiple routes; no single circuit signature is necessary or sufficient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed developmental circuit differences\", \"target\": \"Restricted and Repetitive Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed developmental differences may contribute to repetitive and inflexible behavior, without implying one universal cognitive or circuit cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune and neuroinflammatory associations in studied groups\", \"target\": \"Distributed developmental circuit differences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the emerging modifier hypothesis, immune and metabolic differences are associated with synaptic and network measures; directionality and mediation of clinical traits remain unestablished.\", \"hypothesis_groups\": [\"immune_microbiome_modifier_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gut microbiome associations in studied groups\", \"target\": \"Immune and neuroinflammatory associations in studied groups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the emerging modifier hypothesis, dysbiosis may affect immune and neuroinflammatory signaling. Confounding and reverse causation remain major alternatives.\", \"hypothesis_groups\": [\"immune_microbiome_modifier_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal valproate exposure\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The best-evidenced environmental association in this entry: a population cohort reporting increased risk after adjustment for maternal epilepsy, which is the confounder that would otherwise explain it. Recorded as predisposing and never as triggering, because this entry is careful throughout that these are population-level risk associations and not explanations for an individual diagnosis, and because the exposure\u0027s own description warns against abrupt medication changes in pregnancy. No cited sentence follows valproate to any molecular step, so the intermediates are unknown despite the node being molecular.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal and early-childhood heavy metal exposure\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the valproate link and carrying its own contradiction on purpose. The same review that reports a comparatively consistent adjusted association for lead and mercury reports inconsistent associations for arsenic and cadmium, and bounds its own conclusion to certain populations and exposure conditions. All three sentences are carried here, so the reader of the pathograph meets the metal-by-metal disagreement rather than a uniform risk factor. The candidate mechanisms named in this exposure\u0027s notes are recorded there as candidates and are not asserted by any link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Individualized developmental and behavioral intervention\", \"target\": \"Abnormal Nonverbal Communicative Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized developmental and behavioral intervention\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Melatonin for co-occurring sleep disturbance\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6976,9 +7348,9 @@ This pathophysiological event involves abnormal regulation of DNA-templated tran
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(11)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6987,79 +7359,13 @@ This pathophysiological event involves abnormal regulation of DNA-templated tran
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">5</span>
+                    Digestive
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed Speech and Language Development" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-symptoms" data-dismech-node="Gastrointestinal Symptoms" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Delayed Speech and Language Development
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000750</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Psychosocial interventions in children can improve specific behaviours, such as joint attention, language and social engagement, that may affect further development and could reduce symptom severity."</div>
-
-
-                <div class="evidence-explanation">The primer identifies language as a variable developmental domain; it does not make language delay a required feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual Disability
+                        Gastrointestinal Symptoms
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -7070,18 +7376,23 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Functional abnormality of the gastrointestinal tract</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012719</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Functional abnormality of the gastrointestinal tract (HP:0012719). HP:0012719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7093,223 +7404,26 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40232988" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:37474417" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40232988" target="_blank">PMID:40232988</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37474417" target="_blank">PMID:37474417</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Among 5,292 (61.4% of 8,613) children aged 8 years with ASD with information on cognitive ability, 39.6% were classified as having an intellectual disability."</div>
+                <div class="evidence-snippet">"The prevalence of GI symptoms ranged between 0% and 69%, with an estimated general prevalence of 33% (95% CI, 13%-57%), higher than that reported by a previous meta-analysis for the general paediatric population."</div>
 
 
-                <div class="evidence-explanation">Site-based surveillance supports a frequent co-occurrence while the missing cognitive data and ascertainment context limit generalization.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep Disturbance
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002360</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37913872" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37913872" target="_blank">PMID:37913872</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Point prevalence of developmental coordination disorder, sleep-wake problem, gastrointestinal problem, ADHD, anxiety disorder, overweight/obesity, feeding and eating disorder, elimination disorder, disruptive behavior, and somatic symptoms and related disorder were the most frequent CCs."</div>
-
-
-                <div class="evidence-explanation">The large meta-analysis supports common co-occurrence without imposing an unsupported universal percentage.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34510916" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34510916" target="_blank">PMID:34510916</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"About 1/10 autistic individuals also had epilepsy, which was common in the clinical setting, adolescents, adults, females, or patients with intellectual disability and less common in the country with high human development index."</div>
-
-
-                <div class="evidence-explanation">The meta-analysis supports an occasional overall frequency and identifies important modifiers rather than a uniform risk.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit-hyperactivity-disorder" data-dismech-node="Attention Deficit Hyperactivity Disorder" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Attention Deficit Hyperactivity Disorder
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0007018</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37913872" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37913872" target="_blank">PMID:37913872</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Point prevalence of developmental coordination disorder, sleep-wake problem, gastrointestinal problem, ADHD, anxiety disorder, overweight/obesity, feeding and eating disorder, elimination disorder, disruptive behavior, and somatic symptoms and related disorder were the most frequent CCs."</div>
-
-
-                <div class="evidence-explanation">The systematic review supports ADHD as a frequent co-occurring condition.</div>
+                <div class="evidence-explanation">The pooled estimate supports FREQUENT while the range and interval document substantial heterogeneity.</div>
 
 
 
@@ -7330,8 +7444,8 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
+                    Nervous System
+                    <span class="cat-count">11</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-nonverbal-communicative-behavior" data-dismech-node="Abnormal Nonverbal Communicative Behavior" data-dismech-type="phenotype">
@@ -7348,15 +7462,18 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000758</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal nonverbal communicative behavior (HP:0000758). HP:0000758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7374,7 +7491,10 @@ This clinical feature is Abnormal nonverbal communicative behavior (HP:0000758).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7416,15 +7536,18 @@ This clinical feature is Abnormal nonverbal communicative behavior (HP:0000758).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000723</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000723</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Restrictive behavior (HP:0000723). HP:0000723 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7442,7 +7565,10 @@ This clinical feature is Restrictive behavior (HP:0000723). HP:0000723 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31843864" target="_blank">PMID:31843864</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7482,15 +7608,18 @@ This clinical feature is Restrictive behavior (HP:0000723). HP:0000723 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000728</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000728</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced ability to form peer relationships (HP:0000728). HP:0000728 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7508,7 +7637,10 @@ This clinical feature is Reduced ability to form peer relationships (HP:0000728)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7548,15 +7680,18 @@ This clinical feature is Reduced ability to form peer relationships (HP:0000728)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000733</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000733</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7568,13 +7703,16 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7614,15 +7752,18 @@ This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000732" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000732</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000732" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000732</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Inflexible adherence to routines (HP:0000732). HP:0000732 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7634,13 +7775,16 @@ This clinical feature is Inflexible adherence to routines (HP:0000732). HP:00007
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31843864" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31843864" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31843864" target="_blank">PMID:31843864</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7651,6 +7795,78 @@ This clinical feature is Inflexible adherence to routines (HP:0000732). HP:00007
 
 
                 <div class="evidence-explanation">Supports the parent domain; this is one variable manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed Speech and Language Development" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed Speech and Language Development
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Psychosocial interventions in children can improve specific behaviours, such as joint attention, language and social engagement, that may affect further development and could reduce symptom severity."</div>
+
+
+                <div class="evidence-explanation">The primer identifies language as a variable developmental domain; it does not make language delay a required feature.</div>
 
 
 
@@ -7680,15 +7896,18 @@ This clinical feature is Inflexible adherence to routines (HP:0000732). HP:00007
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5200046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:5200046</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5200046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:5200046</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensory behavioral abnormality (HP:5200046). HP:5200046 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7706,7 +7925,10 @@ This clinical feature is Sensory behavioral abnormality (HP:5200046). HP:5200046
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7732,9 +7954,9 @@ This clinical feature is Sensory behavioral abnormality (HP:5200046). HP:5200046
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-symptoms" data-dismech-node="Gastrointestinal Symptoms" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Gastrointestinal Symptoms
+                        Intellectual Disability
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -7745,20 +7967,21 @@ This clinical feature is Sensory behavioral abnormality (HP:5200046). HP:5200046
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Functional abnormality of the gastrointestinal tract</span>
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001249</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0012719</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Functional abnormality of the gastrointestinal tract (HP:0012719). HP:0012719 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7770,23 +7993,244 @@ This clinical feature is Functional abnormality of the gastrointestinal tract (H
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37474417" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:40232988" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37474417" target="_blank">PMID:37474417</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40232988" target="_blank">PMID:40232988</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The prevalence of GI symptoms ranged between 0% and 69%, with an estimated general prevalence of 33% (95% CI, 13%-57%), higher than that reported by a previous meta-analysis for the general paediatric population."</div>
+                <div class="evidence-snippet">"Among 5,292 (61.4% of 8,613) children aged 8 years with ASD with information on cognitive ability, 39.6% were classified as having an intellectual disability."</div>
 
 
-                <div class="evidence-explanation">The pooled estimate supports FREQUENT while the range and interval document substantial heterogeneity.</div>
+                <div class="evidence-explanation">Site-based surveillance supports a frequent co-occurrence while the missing cognitive data and ascertainment context limit generalization.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sleep Disturbance
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37913872" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37913872" target="_blank">PMID:37913872</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Point prevalence of developmental coordination disorder, sleep-wake problem, gastrointestinal problem, ADHD, anxiety disorder, overweight/obesity, feeding and eating disorder, elimination disorder, disruptive behavior, and somatic symptoms and related disorder were the most frequent CCs."</div>
+
+
+                <div class="evidence-explanation">The large meta-analysis supports common co-occurrence without imposing an unsupported universal percentage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizure
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34510916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34510916" target="_blank">PMID:34510916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"About 1/10 autistic individuals also had epilepsy, which was common in the clinical setting, adolescents, adults, females, or patients with intellectual disability and less common in the country with high human development index."</div>
+
+
+                <div class="evidence-explanation">The meta-analysis supports an occasional overall frequency and identifies important modifiers rather than a uniform risk.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit-hyperactivity-disorder" data-dismech-node="Attention Deficit Hyperactivity Disorder" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Attention Deficit Hyperactivity Disorder
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0007018</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37913872" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37913872" target="_blank">PMID:37913872</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Point prevalence of developmental coordination disorder, sleep-wake problem, gastrointestinal problem, ADHD, anxiety disorder, overweight/obesity, feeding and eating disorder, elimination disorder, disruptive behavior, and somatic symptoms and related disorder were the most frequent CCs."</div>
+
+
+                <div class="evidence-explanation">The systematic review supports ADHD as a frequent co-occurring condition.</div>
 
 
 
@@ -7874,6 +8318,9 @@ This disease-associated gene is CHD8 (hgnc:20153). hgnc:20153 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7886,7 +8333,10 @@ This disease-associated gene is CHD8 (hgnc:20153). hgnc:20153 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24387789" target="_blank">PMID:24387789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7943,6 +8393,9 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7955,7 +8408,10 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24387789" target="_blank">PMID:24387789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8012,6 +8468,9 @@ This disease-associated gene is DYRK1A (hgnc:3091). hgnc:3091 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8024,7 +8483,10 @@ This disease-associated gene is DYRK1A (hgnc:3091). hgnc:3091 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24387789" target="_blank">PMID:24387789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8081,6 +8543,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8093,7 +8558,10 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24387789" target="_blank">PMID:24387789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8121,6 +8589,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8170,6 +8641,20 @@ This treatment is behavioral intervention (NCIT:C15184). NCIT:C15184 is a clinic
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8233,7 +8718,10 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41502379" target="_blank">PMID:41502379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8255,7 +8743,10 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8321,6 +8812,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Speech-language therapy, augmentative and alternative communication, occupational and educational supports, sensory or environmental accommodations, caregiver education, transition planning, and assistance with community participation, housing, transport, employment, and benefits should be individualized to communication, function, preferences, and support needs across the lifespan.</div>
 
 
@@ -8340,7 +8845,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31843864" target="_blank">PMID:31843864</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8362,7 +8870,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8467,6 +8978,31 @@ This treatment uses aripiprazole (CHEBI:31236). CHEBI:31236 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Medication does not treat autism as a whole. Risperidone or aripiprazole can reduce severe irritability, aggression, self-injury, or tantrums in selected children and adolescents, with sedation, weight/metabolic effects, and movement-disorder risk requiring monitoring. ADHD, anxiety, depression, epilepsy, sleep, and gastrointestinal disorders should be assessed and treated on their own evidence base with autism-relevant tolerability and communication considerations.</div>
 
 
@@ -8486,7 +9022,10 @@ This treatment uses aripiprazole (CHEBI:31236). CHEBI:31236 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8508,7 +9047,10 @@ This treatment uses aripiprazole (CHEBI:31236). CHEBI:31236 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8596,6 +9138,31 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Melatonin can improve total sleep time, sleep latency, or sleep efficiency for some autistic children with sleep disturbance after behavioral and environmental contributors are assessed. Trial heterogeneity is substantial; benefit is symptom-targeted rather than treatment of autism as a whole, and dose, formulation, interactions, and adverse effects require clinical review.</div>
 
 
@@ -8637,7 +9204,10 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36584862" target="_blank">PMID:36584862</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8677,6 +9247,10 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
 
 
 
+
+
+
+
                 <div class="item-desc">Advanced parental age, maternal metabolic conditions, short interpregnancy interval, and some proxies of perinatal hypoxia have been associated with ASD in observational studies. Residual confounding, genetics, and correlated exposures limit causal inference; these are population risk associations, not explanations for an individual diagnosis. Vaccination is not associated with ASD.</div>
 
 
@@ -8687,13 +9261,16 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8715,7 +9292,10 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8767,6 +9347,10 @@ This environmental factor is gestational maternal valproate exposure, annotated 
 
 
 
+
+
+
+
                 <div class="item-desc">In a Danish population cohort, maternal valproate use during pregnancy was associated with increased offspring ASD risk after adjustment for maternal epilepsy. This is a population-level medication-exposure association, not a deterministic explanation for an individual diagnosis; pregnancy treatment decisions require individualized assessment of maternal seizure and fetal risks rather than abrupt medication changes.</div>
 
 
@@ -8783,7 +9367,10 @@ This environmental factor is gestational maternal valproate exposure, annotated 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23613074" target="_blank">PMID:23613074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8832,7 +9419,10 @@ This environmental factor is gestational maternal valproate exposure, annotated 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23613074" target="_blank">PMID:23613074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8886,6 +9476,10 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
                 </div>
 
 
+
+
+
+
                 <div class="item-desc">Candidate mechanisms, recorded as candidates only. Three routes are repeatedly proposed for lead and mercury developmental neurotoxicity: oxidative stress with mitochondrial dysfunction and lipid peroxidation; impaired synaptic plasticity, including altered NMDA receptor subunit composition and reduced synaptic protein expression; and microglial and astrocytic activation with neuroinflammatory signaling. A zebrafish arm of one birth-cohort study additionally nominates PPAR-linked lipid and steroid metabolic disruption. Every one of these is characterized in rodent, zebrafish, or cell models; none has been demonstrated in human neurodevelopment, at the cord-blood concentrations measured in human cohorts, or as a mediator of autistic traits. They are therefore documented here rather than curated as pathophysiology nodes, and the open translational question is tracked in the discussion mismatch_asd_heavy_metal_model_mechanism.</div>
 
 
@@ -8899,13 +9493,16 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8921,13 +9518,16 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8943,13 +9543,16 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8994,13 +9597,16 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9016,13 +9622,16 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9038,13 +9647,16 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42540380" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42540380" target="_blank">PMID:42540380</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9077,6 +9689,685 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-multidisciplinary-clinical-developmental-assessment">
+                <div class="item-name">
+                    Multidisciplinary clinical developmental assessment
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Diagnosis is clinical and integrates developmental history, direct observation, current social communication and restricted/repetitive and sensory behavior, language, cognition, adaptive function, medical and psychiatric assessment, and information across settings. Hearing, vision, language, motor, learning, trauma, and co-occurring conditions are evaluated as appropriate. No laboratory or imaging test establishes broad ASD.)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis of ASD is made on the basis of"</div>
+
+
+                <div class="evidence-explanation">The cached PDF line fragment identifies that diagnosis has an assessment basis but is truncated by line-number extraction; the complete case definition and adjunct-tool evidence above supply the substantive clinical diagnostic claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-standardized-diagnostic-instruments-as-adjuncts">
+                <div class="item-name">
+                    Standardized diagnostic instruments as adjuncts
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Instruments such as ADOS-2, ADI-R, CARS, and structured rating scales can organize observation and history, but thresholds do not replace expert clinical synthesis. Accuracy varies by tool, age, comparator, setting, and study quality; cultural, sex/gender, language, intellectual, and masking effects require consideration.)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40274203" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40274203" target="_blank">PMID:40274203</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnostic tools should be regarded as adjunctive aids rather than comprehensive substitutes for diagnosis."</div>
+
+
+                <div class="evidence-explanation">Directly states the intended use and limitation of standardized tools.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-etiologic-and-co-occurring-condition-evaluation">
+                <div class="item-name">
+                    Etiologic and co-occurring-condition evaluation
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Genetic testing and targeted metabolic, neurologic, sleep, gastrointestinal, hearing, vision, or other evaluation can identify an etiology or separate condition in selected people. A pathogenic finding may change counseling or management but does not serve as a general ASD diagnostic biomarker, and a negative genetic test does not exclude ASD.)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31843864" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31843864" target="_blank">PMID:31843864</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary care providers should be familiar with the diagnostic criteria for ASD, appropriate etiologic evaluation, and co-occurring medical and behavioral conditions"</div>
+
+
+                <div class="evidence-explanation">Supports etiologic and co-occurring-condition evaluation as distinct from the clinical diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-developmental-emergence">
+                <div class="item-name">Early developmental emergence</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Infancy through early childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Features begin in early development, commonly become apparent during the second or third year, and may accumulate gradually. Some children show frank loss of previously acquired skills, whereas others plateau or show gradually widening social-communication and language differences. Neither a neonatal movement pattern nor an imaging, gaze, EEG, molecular, or blood measure is a validated presymptomatic diagnostic biomarker.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Autism spectrum disorder is a construct used to describe individuals with a specific combination of impairments in social communication and repetitive behaviours, highly restricted interests and/or sensory behaviours beginning early in life."</div>
+
+
+                <div class="evidence-explanation">Supports early developmental onset without fixing one trajectory.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-childhood-and-adolescence">
+                <div class="item-name">Childhood and adolescence</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood through adolescence</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Preschool diagnoses are often stable, but symptom severity, adaptive function, language, learning, and co-occurring sleep, attention, anxiety, gastrointestinal, or seizure problems can change. Diagnosis may occur only in later childhood or adolescence when social demands exceed capacity; late recognition does not imply late biological onset.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31843864" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31843864" target="_blank">PMID:31843864</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary care providers should be familiar with the diagnostic criteria for ASD, appropriate etiologic evaluation, and co-occurring medical and behavioral conditions (such as disorders of sleep and feeding, gastrointestinal tract symptoms, obesity, seizures, attention-deficit/hyperactivity..."</div>
+
+
+                <div class="evidence-explanation">The clinical report supports age-relevant monitoring of changing co-occurring conditions and functional impact.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-adulthood-and-later-life">
+                <div class="item-name">Adulthood and later life</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Autism is generally lifelong, but adult independence, health, employment, relationships, and quality of life are highly heterogeneous and depend on communication, intellectual and adaptive function, co-occurring conditions, opportunity, accommodations, and support. Adult intervention evidence is much thinner than pediatric evidence. Population studies show excess mortality, but risks are not uniform and should not be interpreted as an individual prognosis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41926193" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41926193" target="_blank">PMID:41926193</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Meta-analyses of behavioral, cognitive, adaptive, and employment outcomes were nonsignificant."</div>
+
+
+                <div class="evidence-explanation">The current adult meta-analysis documents important areas without demonstrated pooled benefit and prevents extrapolation from child studies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37042154" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37042154" target="_blank">PMID:37042154</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The results showed that all-cause mortality was higher for the autistic patients (RR=2.32, 95%CI: 1.98-2.72, I2=87.1%, P &lt; 0.001)."</div>
+
+
+                <div class="evidence-explanation">The systematic review supports excess group-level mortality while its high heterogeneity argues against an individual deterministic prognosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        800.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">The 2026 frequentist pooled estimate was 0.8%, but between-study heterogeneity was extreme and the prediction interval was very wide. Diagnostic framework, setting, region, ascertainment, and access to evaluation materially affect estimates, so this is not a universal fixed rate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42078229" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42078229" target="_blank">PMID:42078229</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The frequentist pooled prevalence of ASD was 0.8% (95% CI: 0.4%-1.7%), with substantial heterogeneity (I² ≈ 100%) and a wide prediction interval (0.03%-17.3%)."</div>
+
+
+                <div class="evidence-explanation">This supplies the normalized global estimate and, critically, its large uncertainty and heterogeneity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states-children-aged-8-years-16-addm-sites-2022">
+                <div class="item-name">United States, children aged 8 years, 16 ADDM sites, 2022</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        3220.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Active surveillance estimate across 16 sites; it is not a nationally representative prevalence survey. Site rates ranged from 9.7 to 53.1 per 1,000. Recorded prevalence was 3.4 times as high among boys as girls, which can reflect both liability and ascertainment.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40232988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40232988" target="_blank">PMID:40232988</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among children aged 8 years in 2022, ASD prevalence was 32.2 per 1,000 children (one in 31) across the 16 sites, ranging from 9.7 in Texas (Laredo) to 53.1 in California."</div>
+
+
+                <div class="evidence-explanation">Current ADDM surveillance supplies the site-based 2022 estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-children-in-mainland-china-studies-published-since-2017">
+                <div class="item-name">Children in mainland China, studies published since 2017</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        700.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Meta-analysis estimate; boys and girls had different recorded rates, and ascertainment and diagnostic access should be considered when interpreting the sex difference.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38811881" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38811881" target="_blank">PMID:38811881</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ASD prevalence among children in mainland China has been 0.7% (95% confidence interval(CI): 0.006-0.008) since 2017."</div>
+
+
+                <div class="evidence-explanation">The meta-analysis directly supports the normalized estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -9091,7 +10382,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-social-pragmatic-communication-disorder">
                 <div class="item-name">
 
                     Social pragmatic communication disorder
@@ -9119,7 +10410,10 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9144,7 +10438,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-intellectual-disability-or-global-developmental-delay-without-asd">
                 <div class="item-name">
 
                     Intellectual disability or global developmental delay without ASD
@@ -9172,7 +10466,10 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9197,7 +10494,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-attention-deficit-hyperactivity-disorder">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Attention_Deficit-Hyperactivity_Disorder.html">Attention Deficit-Hyperactivity Disorder</a>
@@ -9231,7 +10528,10 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31843864" target="_blank">PMID:31843864</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9256,7 +10556,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-genetic-and-neurologic-syndromes-with-autistic-features">
                 <div class="item-name">
 
                     Genetic and neurologic syndromes with autistic features
@@ -9278,13 +10578,16 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31949163" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9319,7 +10622,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
                 <span class="card-count">8</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse107878">
                 <div class="item-name">
                     Disruption of Autism Spectrum Disorder-Susceptibility Genes Predominantly Reduces Functional Connectivity of Isogenic Human Neurons
 
@@ -9362,7 +10665,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse328363">
                 <div class="item-name">
                     Developmental dynamics of the cortical cellular and molecular landscapes in autism spectrum disorder models
 
@@ -9405,7 +10708,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse286067">
                 <div class="item-name">
                     Autism spectrum disorder associated chromatin modifiers converge on transcription with sex-specific regulatory signatures
 
@@ -9448,7 +10751,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000556">
                 <div class="item-name">
                     Whole genome sequencing of autism spectrum disorder
 
@@ -9487,7 +10790,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000829">
                 <div class="item-name">
                     Detection of Clinically Relevant Genetic Variants in Autism spectrum Disorder by Whole-Genome Sequencing
 
@@ -9522,7 +10825,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001943">
                 <div class="item-name">
                     Histone Acetylome-wide Association Study of Autism Spectrum Disorder
 
@@ -9557,7 +10860,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st002332">
                 <div class="item-name">
                     Plasma metabolomic profiling of individuals with autism spectrum disorder and their family members.
 
@@ -9588,7 +10891,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000085232">
                 <div class="item-name">
                     Metaproteomics investigation on the gut microbiota of children affected by Autism Spectrum Disorder
 
@@ -9633,7 +10936,7 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03504917">
                 <div class="item-name">
                     NCT03504917
 
@@ -9658,11 +10961,11 @@ This environmental factor is exposure to heavy metal (ECTO:9002163). ECTO:900216
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000758</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Abnormal nonverbal communicative behavior (HP:0000758). HP:0000758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9683,7 +10986,10 @@ This clinical trial targets Abnormal nonverbal communicative behavior (HP:000075
                         <a href="https://clinicaltrials.gov/study/NCT03504917" target="_blank">clinicaltrials:NCT03504917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9705,7 +11011,10 @@ This clinical trial targets Abnormal nonverbal communicative behavior (HP:000075
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31949163" target="_blank">PMID:31949163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9789,7 +11098,10 @@ This clinical trial targets Abnormal nonverbal communicative behavior (HP:000075
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33076974" target="_blank">PMID:33076974</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9860,7 +11172,10 @@ This clinical trial targets Abnormal nonverbal communicative behavior (HP:000075
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41611887" target="_blank">PMID:41611887</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9946,7 +11261,10 @@ This clinical trial targets Abnormal nonverbal communicative behavior (HP:000075
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41898431" target="_blank">PMID:41898431</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10019,7 +11337,10 @@ This clinical trial targets Abnormal nonverbal communicative behavior (HP:000075
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41484215" target="_blank">PMID:41484215</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10311,7 +11632,7 @@ pathophysiology:
     evidence:
     - reference: PMID:30804558
       reference_title: Identification of common genetic risk variants for autism spectrum disorder.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Dissecting the polygenic architecture, we found both quantitative and qualitative polygenic heterogeneity across ASD subtypes.
@@ -10352,7 +11673,7 @@ pathophysiology:
     evidence:
     - reference: PMID:35982160
       reference_title: Rare coding variation provides insight into the genetic architecture and phenotypic context of autism.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Meta-analysis with cohorts ascertained for developmental delay (DD) (n = 91,605) yielded 373 genes associated with ASD/DD at FDR ≤ 0.001 (664 at FDR ≤ 0.05), some of which differed in relative frequency of mutation between ASD and DD cohorts.
@@ -10369,7 +11690,7 @@ pathophysiology:
     evidence:
     - reference: PMID:41611887
       reference_title: Developmental convergence and divergence in human stem cell models of autism.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &gt;-
         These data illustrate how risk associated with genetically defined forms of ASD can propagate by means of transcriptional regulation to affect convergently dysregulated pathways, providing new insight into the convergent impact of ASD genetic risk on human neurodevelopment.
@@ -10413,7 +11734,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31949163
       reference_title: Autism spectrum disorder.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         subtle anatomical and functional differences have been observed in post-mortem, neuroimaging and electrophysiological studies.
@@ -10431,7 +11752,7 @@ pathophysiology:
     evidence:
     - reference: PMID:41653294
       reference_title: &#34;Unraveling mGluR5 dysfunction in autism spectrum disorder: a multi-level analysis of genetic, molecular, and neurobiological mechanisms.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Alterations in synaptic scaffolding complexes (SHANK3-Homer-mGluR5 interactions), receptor trafficking, and activity-dependent protein synthesis may contribute to excitatory/inhibitory imbalance and circuit dysfunction.
@@ -10470,7 +11791,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31949163
       reference_title: Autism spectrum disorder.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Autism spectrum disorder is a construct used to describe individuals with a specific combination of impairments in social communication and repetitive behaviours, highly restricted interests and/or sensory behaviours beginning early in life.
@@ -10486,7 +11807,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31949163
       reference_title: Autism spectrum disorder.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Autism spectrum disorder is a construct used to describe individuals with a specific combination of impairments in social communication and repetitive behaviours, highly restricted interests and/or sensory behaviours beginning early in life.
@@ -10510,7 +11831,7 @@ pathophysiology:
   evidence:
   - reference: PMID:41653294
     reference_title: &#34;Unraveling mGluR5 dysfunction in autism spectrum disorder: a multi-level analysis of genetic, molecular, and neurobiological mechanisms.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Alterations in synaptic scaffolding complexes (SHANK3-Homer-mGluR5 interactions), receptor trafficking, and activity-dependent protein synthesis may contribute to excitatory/inhibitory imbalance and circuit dysfunction.
@@ -10519,7 +11840,7 @@ pathophysiology:
       pathways, so it supports only a provisional subgroup mechanism.
   - reference: PMID:33076974
     reference_title: Pharmacological intervention to restore connectivity deficits of neuronal networks derived from ASD patient iPSC with a TSC2 mutation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       We find that ASD patient-derived neurons with a functional loss of TSC2, in addition to possessing neuronal hyperactivity, develop a dysfunctional neuronal network with reduced synchronisation of neuronal bursting and lower spatial connectivity.
@@ -10542,7 +11863,7 @@ pathophysiology:
   evidence:
   - reference: PMID:41947852
     reference_title: The relationship between functional brain connectivity and neuroinflammatory processes-new insights into the pathomechanisms of ASD.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       individuals with ASD show consistent evidence of microglial and astroglial activation, altered cytokine profiles (including IL-1β, IL-6, and TNF-α), and markers of oxidative stress such as glutathione imbalance and lipid peroxidation.
@@ -10551,7 +11872,7 @@ pathophysiology:
       universality, directionality, or mediation of diagnostic traits.
   - reference: PMID:41550027
     reference_title: &#34;The gatekeepers breached: claudin dysregulation in psychiatric disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       In autism and ADHD, altered tight junction protein profiles imply more subtle or context-dependent barrier dysfunction.
@@ -10569,7 +11890,7 @@ pathophysiology:
     evidence:
     - reference: PMID:41947852
       reference_title: The relationship between functional brain connectivity and neuroinflammatory processes-new insights into the pathomechanisms of ASD.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         These immune and metabolic alterations are associated with changes in synaptic plasticity, neurotransmission, and large-scale neuronal network organization, including altered functional connectivity within the default mode, salience, and executive control networks.
@@ -10587,7 +11908,7 @@ pathophysiology:
   evidence:
   - reference: PMID:39733842
     reference_title: &#34;IUPHAR review: Targeted therapies of signaling pathways based on the gut microbiome in autism spectrum disorders: Mechanistic and therapeutic applications.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Gut microbiota significantly influences behavior and neurodevelopment by regulating the gut-brain axis.
@@ -10606,7 +11927,7 @@ pathophysiology:
     evidence:
     - reference: PMID:39733842
       reference_title: &#34;IUPHAR review: Targeted therapies of signaling pathways based on the gut microbiome in autism spectrum disorders: Mechanistic and therapeutic applications.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Dysbiosis in the gut microbiome may impact neuroinflammatory processes linked to autism, negatively affecting immune signaling pathways.
@@ -10654,7 +11975,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:33076974
     reference_title: Pharmacological intervention to restore connectivity deficits of neuronal networks derived from ASD patient iPSC with a TSC2 mutation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       We find that ASD patient-derived neurons with a functional loss of TSC2, in addition to possessing neuronal hyperactivity, develop a dysfunctional neuronal network with reduced synchronisation of neuronal bursting and lower spatial connectivity.
@@ -10671,7 +11992,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:41550027
     reference_title: &#34;The gatekeepers breached: claudin dysregulation in psychiatric disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       In autism and ADHD, altered tight junction protein profiles imply more subtle or context-dependent barrier dysfunction.
@@ -10758,7 +12079,7 @@ phenotypes:
   evidence:
   - reference: PMID:31949163
     reference_title: Autism spectrum disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Autism spectrum disorder is a construct used to describe individuals with a specific combination of impairments in social communication and repetitive behaviours, highly restricted interests and/or sensory behaviours beginning early in life.
@@ -10778,7 +12099,7 @@ phenotypes:
   evidence:
   - reference: PMID:31843864
     reference_title: Identification, Evaluation, and Management of Children With Autism Spectrum Disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Core deficits are identified in 2 domains: social communication/interaction and restrictive, repetitive patterns of behavior.
@@ -10798,7 +12119,7 @@ phenotypes:
   evidence:
   - reference: PMID:31949163
     reference_title: Autism spectrum disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Psychosocial interventions in children can improve specific behaviours, such as joint attention, language and social engagement, that may affect further development and could reduce symptom severity.
@@ -10949,7 +12270,7 @@ genetic:
     broad ASD, or that every carrier has the same phenotype.
   evidence:
   - reference: PMID:24387789
-    reference_title: Convergence of genes and cellular pathways dysregulated in autism spectrum disorders.
+    reference_title: &#34;A de novo convergence of autism genetics and molecular neuroscience.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -10971,7 +12292,7 @@ genetic:
     neurodevelopmental conditions are not interchangeable with broad ASD.
   evidence:
   - reference: PMID:24387789
-    reference_title: Convergence of genes and cellular pathways dysregulated in autism spectrum disorders.
+    reference_title: &#34;A de novo convergence of autism genetics and molecular neuroscience.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -10992,7 +12313,7 @@ genetic:
     this bounded record is not a claim that DYRK1A explains ASD generally.
   evidence:
   - reference: PMID:24387789
-    reference_title: Convergence of genes and cellular pathways dysregulated in autism spectrum disorders.
+    reference_title: &#34;A de novo convergence of autism genetics and molecular neuroscience.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -11013,7 +12334,7 @@ genetic:
     CTNNB1-related syndromic disease remains distinct from the broad ASD entry.
   evidence:
   - reference: PMID:24387789
-    reference_title: Convergence of genes and cellular pathways dysregulated in autism spectrum disorders.
+    reference_title: &#34;A de novo convergence of autism genetics and molecular neuroscience.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -11034,7 +12355,7 @@ environmental:
   evidence:
   - reference: PMID:31949163
     reference_title: Autism spectrum disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       considered causal, but could be reactive, independent or contributory
@@ -11113,7 +12434,7 @@ environmental:
     evidence:
     - reference: PMID:42540380
       reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;In contrast, elevated prenatal and early childhood Pb and Hg concentrations in blood and hair samples showed a significant consistent association with both increased ASD risk and symptom severity, even after adjustment for key demographic and environmental confounders.&#34;
       explanation: &gt;-
@@ -11122,7 +12443,7 @@ environmental:
         than a pooled estimate.
     - reference: PMID:42540380
       reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;We revealed inconsistent associations between prenatal and childhood urinary, blood, and hair, As and Cd exposure, and ASD outcomes.&#34;
       explanation: &gt;-
@@ -11131,7 +12452,7 @@ environmental:
         metals.
     - reference: PMID:42540380
       reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Rather, lead and mercury may contribute to ASD risk in certain populations or under specific exposure conditions, but these findings require cautious interpretation due to methodological differences and potential biases.&#34;
       explanation: &gt;-
@@ -11176,7 +12497,7 @@ environmental:
   evidence:
   - reference: PMID:42540380
     reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       In contrast, elevated prenatal and early childhood Pb and Hg concentrations in blood and hair samples showed a significant consistent association with both increased ASD risk and symptom severity, even after adjustment for key demographic and environmental confounders.
@@ -11187,7 +12508,7 @@ environmental:
       population-level association only.
   - reference: PMID:42540380
     reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       We revealed inconsistent associations between prenatal and childhood urinary, blood, and hair, As and Cd exposure, and ASD outcomes.
@@ -11197,7 +12518,7 @@ environmental:
       factor across metals.
   - reference: PMID:42540380
     reference_title: &#34;Association Between Heavy Metal Exposure and Autism Spectrum Disorders: Discrepancies, Research Gaps, and Future Priorities of Human Epidemiological Studies.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Rather, lead and mercury may contribute to ASD risk in certain populations or under specific exposure conditions, but these findings require cautious interpretation due to methodological differences and potential biases.
@@ -11206,7 +12527,7 @@ environmental:
       exposure conditions and requires cautious interpretation.
   - reference: PMID:41110787
     reference_title: &#34;Prenatal exposure to environmental metal mixtures and social development in early childhood: Evidence from a birth cohort and mechanistic study.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Prenatal exposure to the mixture significantly impaired motor and social functions, with Pb contributing most to motor deficits and Cd to social dysfunction.
@@ -11217,7 +12538,7 @@ environmental:
       the exposure association and not an ASD-specific causal pathway.
   - reference: PMID:42541535
     reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Once in the brain, lead induces oxidative stress through excessive reactive oxygen species generation, mitochondrial dysfunction, lipid peroxidation, DNA damage, and depletion of antioxidant defenses.
@@ -11227,7 +12548,7 @@ environmental:
       demonstrated human ASD mechanism.
   - reference: PMID:42541535
     reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Lead also impairs synaptic plasticity by altering NMDA receptor subunit composition, reducing synaptic protein expression, and dysregulating genes involved in neurodevelopment.
@@ -11237,7 +12558,7 @@ environmental:
       is curated from genotype-defined human subgroup work.
   - reference: PMID:42541535
     reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       In parallel, it activates both intrinsic and extrinsic apoptotic pathways and enhances neuroinflammatory signaling through microglial and astrocytic activation, further contributing to neuronal injury.
@@ -11384,7 +12705,7 @@ treatments:
       label: Sleep disturbance
   evidence:
   - reference: PMID:36584862
-    reference_title: &#34;Efficacy of Melatonin for Insomnia in Children with Autism Spectrum Disorder: A Meta-analysis.&#34;
+    reference_title: &#34;Melatonin for sleep disorders in people with autism: Systematic review and meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -11623,7 +12944,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:31949163
     reference_title: Autism spectrum disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       other disorders including ADHD, intellectual disability, language delay and genetic syndromes.
@@ -11697,7 +13018,7 @@ discussions:
   evidence:
   - reference: PMID:41550027
     reference_title: &#34;The gatekeepers breached: claudin dysregulation in psychiatric disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       In autism and ADHD, altered tight junction protein profiles imply more subtle or context-dependent barrier dysfunction.
@@ -11996,7 +13317,7 @@ discussions:
   evidence:
   - reference: PMID:42541535
     reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Once in the brain, lead induces oxidative stress through excessive reactive oxygen species generation, mitochondrial dysfunction, lipid peroxidation, DNA damage, and depletion of antioxidant defenses.
@@ -12006,7 +13327,7 @@ discussions:
       data and makes no human ASD claim.
   - reference: PMID:42541535
     reference_title: &#34;Molecular and cellular mechanisms of lead-induced neurotoxicity: comparative insights from rodent and zebrafish models.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       In parallel, it activates both intrinsic and extrinsic apoptotic pathways and enhances neuroinflammatory signaling through microglial and astrocytic activation, further contributing to neuronal injury.
@@ -12015,7 +13336,7 @@ discussions:
       human tissue before a heavy-metal neuroinflammation node could be curated.
   - reference: PMID:41110787
     reference_title: &#34;Prenatal exposure to environmental metal mixtures and social development in early childhood: Evidence from a birth cohort and mechanistic study.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Integrated omics analyses identified substantial disruption of lipid and steroid metabolic pathways, particularly involving the peroxisome proliferator-activated receptor (PPAR) signaling cascade.
@@ -12254,6 +13575,93 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record review notes</strong></p>
+                        <p class="research-review-text">Publication-readiness review (2026-08-05): the OpenScientist deep-research
+report and every publication cache cited by the prior entry were checked
+against the source text. The report is keyed to MONDO:0005260 rather than this
+entry&#39;s MONDO:0005258 and was used only as a lead list. Genetic pathway
+convergence and genotype-defined cellular findings were retained with scope
+limits. E/I, immune, blood-brain-barrier, and microbiome claims were downgraded
+to provisional or hypothetical subgroup findings. The asserted ENS causal
+chain, animal-only maternal-immune-activation environmental risk claim,
+Female Protective Effect pseudo-gene, unsupported universal phenotype
+frequencies, and preclinical CRISPRa &#34;treatment&#34; were removed.
+
+D2P audit dispositions (all 22 recommendations from the pre-edit audit):
+1. HP:0011024 gastrointestinal abnormality — REPLACE the overly broad source
+   suggestion with HP:0012719 functional gastrointestinal abnormality, backed
+   by a 2023 symptom meta-analysis (33%, 95% CI 13%-57%); intentionally leave
+   unlinked because association does not prove a gut-to-core-ASD causal path.
+2. HP:0007018 ADHD — ADD with systematic-review evidence; intentionally leave
+   unlinked as a separate co-occurring diagnosis.
+3. HP:0000733 motor stereotypy — RETAIN/ADD exact evidence as a variable
+   restricted/repetitive manifestation; do not duplicate the parent-domain
+   pathograph edge.
+4. HP:0001250 seizure — ADD with meta-analysis evidence and OCCASIONAL overall
+   frequency (~1/10); do not adopt the OMIM &#34;frequent&#34; label across broad ASD
+   and do not invent a universal ASD-to-epilepsy mechanism.
+5. HP:5200046 sensory behavioral abnormality — RETAIN with exact definitional
+   evidence and remove the unsupported 70%-95% figure; leave unlinked because
+   no general causal route is established.
+6. HP:0000758 abnormal nonverbal communicative behavior — ADD as a core
+   diagnostic phenotype and link from the explicitly provisional distributed-
+   circuit node with PARTIAL evidence.
+7. HP:0000717 Autism — DO NOT ADD; it restates the disease as its own
+   phenotype and adds no atomic manifestation.
+8. HP:0000750 delayed speech/language — ADD as a variable associated feature,
+   explicitly not required for diagnosis; leave unlinked rather than assert a
+   universal language mechanism.
+9. HP:0002353 EEG abnormality — DO NOT ADD as a top-level ASD phenotype; EEG
+   findings are heterogeneous group readouts or epilepsy-context findings,
+   not a defining or universal manifestation.
+10. HP:0003144 increased serum serotonin — DO NOT ADD; hyperserotonemia is a
+    nonspecific group association without validated individual diagnostic or
+    mechanistic status.
+11. HP:0000732 inflexible adherence to routines — ADD with exact parent-domain
+    evidence; do not duplicate the linked restricted/repetitive parent node.
+12. HP:0001249 intellectual disability — ADD as a co-occurring feature with a
+    39.6% ADDM estimate among children with cognitive data; leave unlinked
+    because it is neither required nor explained by one broad-ASD mechanism.
+13. HP:0000721 lack of spontaneous play — DO NOT ADD; this narrow historical
+    presentation is not required and is not supported as a general phenotype
+    by the reviewed contemporary sources.
+14. HP:0000723 restrictive behavior — ADD as the core restricted/repetitive
+    domain and link from the provisional distributed-circuit node.
+15. HP:0011024 local-unlinked recommendation — REVIEWED; replace with the
+    narrower HP:0012719 and retain unlinked for the causal reason in
+    disposition 1.
+16. HP:0007018 local-unlinked recommendation — REVIEWED; retain unlinked for
+    the co-occurring-diagnosis reason in disposition 2.
+17. HP:0000733 local-unlinked recommendation — REVIEWED; retain unlinked as a
+    narrow child of the already linked restricted/repetitive domain.
+18. HP:0012760 reduced social responsiveness — REPLACE the overly broad local
+    term with HP:0000758 plus source-exact HP:0000728, preserving atomic
+    social-communication and relationship manifestations.
+19. HP:0001250 local-unlinked recommendation — REVIEWED; retain unlinked for
+    the subgroup and causal-heterogeneity reason in disposition 4.
+20. HP:5200046 local-unlinked recommendation — REVIEWED; retain unlinked for
+    the causal-evidence reason in disposition 5.
+21. HP:0002360 sleep disturbance — RETAIN with systematic-review evidence but
+    remove the unsupported 50%-80% and immune-pineal causal generalization;
+    leave unlinked as a heterogeneous co-occurring condition.
+22. HP:0000728 reduced ability to form peer relationships — ADD the source-
+    exact term and evidence; leave it as an atomic subdomain rather than
+    duplicate the parent social-domain edge.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope is the broad clinical spectrum MONDO:0005258, not the older/broader MONDO:0005260 concept used by the OpenScientist deep-research artifact and not any single gene-defined syndrome. DSM-5/ICD-11 support-level and language/intellectual-function specifiers describe current clinical needs; they are not assumed to be stable biological subtypes. Historical Asperger disorder and pervasive-developmental-disorder categories were subsumed into the unitary ASD diagnosis because their boundaries were not reliably applied. Identity-first and person-first language preferences vary; this entry uses both respectfully and does not frame autistic traits themselves as treatment targets independent of the person&#39;s goals, function, safety, or quality of life. The bounded top-level genetic list is illustrative rather than exhaustive: it records four directly evidenced pleiotropic risk loci as risk factors, never as sufficient Mendelian causes of broad ASD. Common and rare risk architecture and pathway convergence are curated as mechanism nodes; individual gene-defined syndromes belong in their own disease entries.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12764,7 +14172,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autism Spectrum Disorder", "mondoId": "MONDO:0005258", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autism_Spectrum_Disorder", "yamlRevision": "087022e7d955"};
+        const OS_CONFIG = {"diseaseName": "Autism Spectrum Disorder", "mondoId": "MONDO:0005258", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autism_Spectrum_Disorder", "yamlRevision": "fdd2447fd425"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

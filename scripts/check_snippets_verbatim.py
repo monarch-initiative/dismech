@@ -7,7 +7,7 @@ call any model, does not fuzzy-match, and does not repair anything — it walks
 the YAML, finds every `snippet` that sits next to a `reference`, and asserts the
 snippet text appears in `references_cache/<REF>.md`.
 
-Unlike `just validate-references`, this reports a per-file PASS/FAIL and an
+Unlike `just validate-kb-references`, this reports a per-file PASS/FAIL and an
 explicit count of what it checked, so an empty result can never be mistaken for
 a clean one.
 
@@ -38,15 +38,42 @@ CACHE_DIR = Path("references_cache")
 # deliberately ABSENT here: DOI is a literature identifier and checking it is
 # the whole point of this script (see #7514).
 SKIP_PREFIXES = (
-    "clinicaltrials:", "NCT",
-    "url:", "http:", "https:",
-    "GEO:", "geo:", "SRA:", "sra:", "BIOPROJECT:", "bioproject:",
-    "dbGaP:", "dbgap:", "DBGAP:", "GTEX:", "gtex:",
-    "metabolights:", "METABOLIGHTS:", "MTBLS",
-    "mgnify:", "MGNIFY:", "MGYS",
-    "morphic:", "MORPHIC:", "cellxgene:", "CELLXGENE:",
-    "pride:", "PRIDE:", "massive:", "MASSIVE:",
-    "proteomexchange:", "osdr:", "OSDR:", "nasa_osdr:", "genelab:", "GENELAB:",
+    "clinicaltrials:",
+    "NCT",
+    "url:",
+    "http:",
+    "https:",
+    "GEO:",
+    "geo:",
+    "SRA:",
+    "sra:",
+    "BIOPROJECT:",
+    "bioproject:",
+    "dbGaP:",
+    "dbgap:",
+    "DBGAP:",
+    "GTEX:",
+    "gtex:",
+    "metabolights:",
+    "METABOLIGHTS:",
+    "MTBLS",
+    "mgnify:",
+    "MGNIFY:",
+    "MGYS",
+    "morphic:",
+    "MORPHIC:",
+    "cellxgene:",
+    "CELLXGENE:",
+    "pride:",
+    "PRIDE:",
+    "massive:",
+    "MASSIVE:",
+    "proteomexchange:",
+    "osdr:",
+    "OSDR:",
+    "nasa_osdr:",
+    "genelab:",
+    "GENELAB:",
 )
 
 
@@ -77,10 +104,10 @@ def strip_frontmatter(text: str) -> str:
     if text.startswith("---"):
         end = text.find("\n---", 3)
         if end != -1:
-            text = text[end + 4:]
+            text = text[end + 4 :]
     marker = text.find("## Content")
     if marker != -1:
-        text = text[marker + len("## Content"):]
+        text = text[marker + len("## Content") :]
     return text
 
 
@@ -102,15 +129,30 @@ def normalize(text: str) -> str:
     # Greek letters routinely survive as ASCII transliterations in one text and as
     # the real codepoint in the other ("μg/dL" vs "mug/dL", "α" vs "alpha").
     for ch, ascii_ in (
-        ("μ", "mu"), ("µ", "mu"), ("α", "alpha"), ("β", "beta"), ("γ", "gamma"),
-        ("δ", "delta"), ("κ", "kappa"), ("λ", "lambda"), ("σ", "sigma"), ("ω", "omega"),
+        ("μ", "mu"),
+        ("µ", "mu"),
+        ("α", "alpha"),
+        ("β", "beta"),
+        ("γ", "gamma"),
+        ("δ", "delta"),
+        ("κ", "kappa"),
+        ("λ", "lambda"),
+        ("σ", "sigma"),
+        ("ω", "omega"),
     ):
         text = text.replace(ch, ascii_)
     # Other symbols that differ purely by encoding between extracted PDF text and
     # a hand-typed YAML snippet.
     for ch, ascii_ in (
-        ("±", "+/-"), ("≤", "<="), ("⩽", "<="), ("≥", ">="), ("⩾", ">="),
-        ("×", "x"), ("→", "->"), ("′", "'"), ("″", '"'),
+        ("±", "+/-"),
+        ("≤", "<="),
+        ("⩽", "<="),
+        ("≥", ">="),
+        ("⩾", ">="),
+        ("×", "x"),
+        ("→", "->"),
+        ("′", "'"),
+        ("″", '"'),
     ):
         text = text.replace(ch, ascii_)
     text = text.replace(" ", " ")
@@ -264,8 +306,7 @@ def diagnose(snippet: str, body: str) -> str:
     window = min(40, max(12, int(0.6 * len(snippet))))
     if len(snippet) >= window:
         anywhere = any(
-            snippet[i:i + window] in body
-            for i in range(len(snippet) - window + 1)
+            snippet[i : i + window] in body for i in range(len(snippet) - window + 1)
         )
     else:
         anywhere = snippet in body
@@ -276,8 +317,8 @@ def diagnose(snippet: str, body: str) -> str:
     idx = body.find(snippet[:lo]) if lo else 0
     return (
         f"diverges after {lo}/{len(snippet)} chars | "
-        f"SNIPPET ...{snippet[max(0, lo - 30):lo + 40]!r} | "
-        f"CACHE ...{body[max(0, idx + lo - 30):idx + lo + 40]!r}"
+        f"SNIPPET ...{snippet[max(0, lo - 30) : lo + 40]!r} | "
+        f"CACHE ...{body[max(0, idx + lo - 30) : idx + lo + 40]!r}"
     )
 
 
@@ -306,7 +347,11 @@ def check_file(path: Path) -> tuple[int, list[str], list[str]]:
     for ref, snippet in walk(data):
         if ref not in bodies:
             cache = cache_path_for(ref)
-            bodies[ref] = deartifact(normalize(strip_frontmatter(cache.read_text()))) if cache else None
+            bodies[ref] = (
+                deartifact(normalize(strip_frontmatter(cache.read_text())))
+                if cache
+                else None
+            )
 
         body = bodies[ref]
         if body is None:
@@ -334,18 +379,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("files", nargs="*", help="disorder YAML files to check")
     parser.add_argument(
-        "--all", action="store_true",
-        help="check every YAML under kb/disorders, kb/modules and kb/comorbidities",
+        "--all",
+        action="store_true",
+        help="check every evidence-bearing YAML tree under kb/",
     )
     args = parser.parse_args()
 
     targets = [Path(p) for p in args.files]
     if args.all:
-        # kb/modules and kb/comorbidities carry evidence too (~1,300 snippets) and
-        # were missed by an earlier disorders-only glob.
+        # These non-disorder trees carry evidence too and were missed by an
+        # earlier disorders-only glob.
         targets = sorted(
             Path(p)
-            for d in ("kb/disorders", "kb/modules", "kb/comorbidities")
+            for d in (
+                "kb/disorders",
+                "kb/modules",
+                "kb/module_collections",
+                "kb/comorbidities",
+                "kb/groupings",
+            )
             for p in glob.glob(f"{d}/*.yaml")
         )
     if not targets:
@@ -363,7 +415,9 @@ def main() -> int:
         for f in failures:
             print(f"         {f}")
 
-    print(f"\nTotal: {total_verified} verified, {total_failed} failed across {len(targets)} file(s)")
+    print(
+        f"\nTotal: {total_verified} verified, {total_failed} failed across {len(targets)} file(s)"
+    )
     return 1 if total_failed else 0
 
 

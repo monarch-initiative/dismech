@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Arsenic Poisoning</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Arsenic Poisoning</h1>
             <div class="header-meta">
 
@@ -3976,7 +4119,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-framing-of-acute-inorganic-arsenic-poisoning">
                 <div class="item-name">Clinical framing of acute inorganic arsenic poisoning</div>
 
                 <div class="item-desc">A compatible acute exposure followed by gastrointestinal and cardiovascular toxicity, with exposure supported by appropriately interpreted arsenic measurements, defines the acute clinical syndrome.</div>
@@ -4022,7 +4165,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15533028" target="_blank">PMID:15533028</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4046,7 +4192,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-framing-of-chronic-inorganic-arsenicosis">
                 <div class="item-name">Clinical framing of chronic inorganic arsenicosis</div>
 
                 <div class="item-desc">Chronic arsenicosis is a clinical toxicity syndrome in a person with sustained inorganic arsenic exposure, commonly identified by characteristic melanosis and keratotic skin lesions rather than by exposure alone.</div>
@@ -4092,7 +4238,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11218669" target="_blank">PMID:11218669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4149,7 +4298,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-acute">
 
                     <div class="item-name">
                         Acute inorganic arsenic poisoning
@@ -4183,7 +4332,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3578979" target="_blank">PMID:3578979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4209,7 +4361,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-chronic">
 
                     <div class="item-name">
                         Chronic inorganic arsenicosis
@@ -4243,7 +4395,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21576319" target="_blank">PMID:21576319</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4306,7 +4461,7 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Early dithiol chelation for severe acute poisoning</span>
+    <a class="entity-ref-chip" href="#treatment-early-dithiol-chelation-for-severe-acute-poisoning">treatments#Early dithiol chelation for severe acute poisoning</a>
 
 
 
@@ -4334,7 +4489,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9865236" target="_blank">PMID:9865236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4350,13 +4508,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15533028" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15533028" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15533028" target="_blank">PMID:15533028</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4442,7 +4603,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9806419" target="_blank">PMID:9806419</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4464,7 +4628,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23602911" target="_blank">PMID:23602911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4501,6 +4668,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-inorganic-arsenic-exposure" data-dismech-node="Systemic inorganic arsenic exposure" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic inorganic arsenic exposure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Absorbed inorganic arsenic is the initiating toxic exposure. Dose, chemical species, route, and duration distinguish severe acute poisoning from chronic arsenicosis; exposure itself is not equivalent to clinical disease.</div>
 
@@ -4597,7 +4771,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3578979" target="_blank">PMID:3578979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4619,7 +4796,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21576319" target="_blank">PMID:21576319</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4644,6 +4824,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-as3mt-linked-arsenic-biotransformation" data-dismech-node="AS3MT-linked arsenic biotransformation" data-dismech-type="pathophysiology">
                 <div class="item-name">AS3MT-linked arsenic biotransformation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">AS3MT-region variation changes the distribution of urinary MMA and DMA in exposed humans. This establishes a human exposure-response modifier but does not make AS3MT a monogenic cause of arsenicosis.</div>
 
@@ -4771,7 +4958,10 @@ This pathophysiological event involves abnormal detoxification of arsenic-contai
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22383894" target="_blank">PMID:22383894</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4796,6 +4986,13 @@ This pathophysiological event involves abnormal detoxification of arsenic-contai
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mma-iii-sensitive-pyruvate-dehydrogenase-inhibition" data-dismech-node="MMA(III)-sensitive pyruvate dehydrogenase inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">MMA(III)-sensitive pyruvate dehydrogenase inhibition</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Pyruvate dehydrogenase is among the purified enzymes sensitive to micromolar arsenic, and MMA(III) inhibited PDH in animal tissue and purified-enzyme assays. These data do not justify a universal sulfhydryl-enzyme blockade model for human poisoning.</div>
 
@@ -4867,7 +5064,10 @@ This pathophysiological event involves decreased pyruvate metabolic process (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9806419" target="_blank">PMID:9806419</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4889,7 +5089,10 @@ This pathophysiological event involves decreased pyruvate metabolic process (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11409934" target="_blank">PMID:11409934</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4914,6 +5117,13 @@ This pathophysiological event involves decreased pyruvate metabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arsenite-generated-oxidative-and-nitrosative-stress" data-dismech-node="Arsenite-generated oxidative and nitrosative stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Arsenite-generated oxidative and nitrosative stress</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In cultured cells, arsenite-generated reactive oxygen and nitrogen species mediate downstream loss of PARP-1 zinc and activity.</div>
 
@@ -5000,7 +5210,10 @@ This pathophysiological event involves increased response to oxidative stress (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23602911" target="_blank">PMID:23602911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5025,6 +5238,13 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-parp-1-zinc-loss-and-activity-impairment" data-dismech-node="PARP-1 zinc loss and activity impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">PARP-1 zinc loss and activity impairment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Arsenite-induced ROS/RNS reduce PARP-1 zinc content, DNA binding, and enzymatic activity in cells. This is a mechanistic observation relevant to DNA-repair impairment, not direct proof of a clinical cancer trajectory.</div>
 
@@ -5096,7 +5316,10 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23602911" target="_blank">PMID:23602911</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5121,6 +5344,13 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-gastrointestinal-and-hemodynamic-toxicity" data-dismech-node="Acute gastrointestinal and hemodynamic toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute gastrointestinal and hemodynamic toxicity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Large acute inorganic arsenic ingestions can produce cramps, vomiting, diarrhea, oliguria, shock, and multisystem toxicity.</div>
 
@@ -5185,7 +5415,10 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12793928" target="_blank">PMID:12793928</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5210,6 +5443,13 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-repolarization-disturbance" data-dismech-node="Cardiac repolarization disturbance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac repolarization disturbance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Arsenic intoxication can markedly prolong the QT-U interval and cause torsade de pointes.</div>
 
@@ -5258,7 +5498,10 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1689832" target="_blank">PMID:1689832</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5283,6 +5526,13 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-peripheral-axonopathy" data-dismech-node="Delayed peripheral axonopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed peripheral axonopathy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">A delayed axonal peripheral neuropathy can follow a single acute dose, with sensory nerve action-potential abnormalities and incomplete long-term recovery.</div>
 
@@ -5386,7 +5636,10 @@ This pathophysiological event occurs in nerve (UBERON:0001021). UBERON:0001021 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/196051" target="_blank">PMID:196051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5411,6 +5664,13 @@ This pathophysiological event occurs in nerve (UBERON:0001021). UBERON:0001021 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-cutaneous-toxicity" data-dismech-node="Chronic cutaneous toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic cutaneous toxicity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Sustained inorganic arsenic exposure causes melanotic and keratotic skin lesions with epidermal proliferative changes.</div>
 
@@ -5552,7 +5812,10 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21576319" target="_blank">PMID:21576319</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5577,6 +5840,13 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-biochemical-injury" data-dismech-node="Hepatic biochemical injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic biochemical injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Higher chronic arsenic exposure is associated with increased ALP, AST, and ALT activities. These cross-sectional biochemical associations do not by themselves establish chronic liver failure or fibrosis.</div>
 
@@ -5631,7 +5901,10 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21740555" target="_blank">PMID:21740555</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5666,7 +5939,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-hyperkeratotic-and-proliferative-epidermal-change">
                 <div class="item-name">
                     Hyperkeratotic and proliferative epidermal change
 
@@ -5688,7 +5961,10 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11218669" target="_blank">PMID:11218669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5733,7 +6009,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AS3MT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AS3MT\"], \"gene_terms\": [{\"label\": \"AS3MT\", \"id\": \"hgnc:17452\"}], \"association\": \"Exposure-response modifier of arsenic metabolism and arsenical skin-lesion risk\", \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"AS3MT-linked arsenic biotransformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AS3MT-region variation changes the distribution of urinary MMA and DMA in exposed humans. This establishes a human exposure-response modifier but does not make AS3MT a monogenic cause of arsenicosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"detoxification of arsenic-containing substance\"], \"genes\": [\"AS3MT\"], \"gene_terms\": [{\"label\": \"AS3MT\", \"id\": \"hgnc:17452\"}]}}, {\"id\": \"Acute gastrointestinal and hemodynamic toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Large acute inorganic arsenic ingestions can produce cramps, vomiting, diarrhea, oliguria, shock, and multisystem toxicity.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"]}}, {\"id\": \"Acute high-dose inorganic arsenic ingestion\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Accidental or intentional ingestion of a concentrated inorganic arsenic compound can produce life-threatening acute poisoning.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Arsenical palmar keratosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Keratotic lesions of the palms are a characteristic chronic cutaneous manifestation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Chronic\"], \"term_id\": \"HP:0000982\"}}, {\"id\": \"Arsenite-generated oxidative and nitrosative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In cultured cells, arsenite-generated reactive oxygen and nitrogen species mediate downstream loss of PARP-1 zinc and activity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Cardiac repolarization disturbance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Arsenic intoxication can markedly prolong the QT-U interval and cause torsade de pointes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"]}}, {\"id\": \"Chronic cutaneous toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained inorganic arsenic exposure causes melanotic and keratotic skin lesions with epidermal proliferative changes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"melanocyte\"], \"subtypes\": [\"Chronic\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Chronic hyperpigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Melanosis and increased basal pigmentation are characteristic chronic cutaneous findings.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Chronic\"], \"term_id\": \"HP:0000953\"}}, {\"id\": \"Chronic ingestion of arsenic-contaminated drinking water\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sustained ingestion of inorganic arsenic in groundwater is the central exposure context for chronic arsenicosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Delayed peripheral axonopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A delayed axonal peripheral neuropathy can follow a single acute dose, with sensory nerve action-potential abnormalities and incomplete long-term recovery.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"subtypes\": [\"Acute\"], \"locations\": [\"nerve\"]}}, {\"id\": \"Delayed peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy may begin days to weeks after a single exposure and can remain abnormal years later.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"term_id\": \"HP:0009830\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diarrhea can occur early after a large inorganic arsenic ingestion.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"term_id\": \"HP:0002014\"}}, {\"id\": \"Early dithiol chelation for severe acute poisoning\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dimercaprol, succimer, or DMPS may be considered early for severe acute inorganic arsenic poisoning with toxicology consultation. Human evidence is largely multi-intervention case experience, so this entry does not rank the agents or assert controlled outcome benefit.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dimercaprol\", \"succimer\", \"2,3-disulfanylpropane-1-sulfonic acid\"]}}, {\"id\": \"Early supportive resuscitation and intensive monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute severe poisoning requires immediate restoration and maintenance of cardiac output and renal perfusion, with continuous cardiovascular, electrolyte, urine-output, and acid-base monitoring.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exposure cessation and arsenic-safe water\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Remove the exposure source. For chronic drinking-water arsenicosis, provide reliably arsenic-safe water and prevent renewed exposure. Skin lesions can improve over years, but established severe disease may persist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic biochemical injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Higher chronic arsenic exposure is associated with increased ALP, AST, and ALT activities. These cross-sectional biochemical associations do not by themselves establish chronic liver failure or fibrosis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Chronic\"], \"locations\": [\"liver\"]}}, {\"id\": \"MMA(III)-sensitive pyruvate dehydrogenase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate dehydrogenase is among the purified enzymes sensitive to micromolar arsenic, and MMA(III) inhibited PDH in animal tissue and purified-enzyme assays. These data do not justify a universal sulfhydryl-enzyme blockade model for human poisoning.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"pyruvate metabolic process\"]}}, {\"id\": \"PARP-1 zinc loss and activity impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Arsenite-induced ROS/RNS reduce PARP-1 zinc content, DNA binding, and enzymatic activity in cells. This is a mechanistic observation relevant to DNA-repair impairment, not direct proof of a clinical cancer trajectory.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"Prolonged QTc interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked QT-U prolongation can precede torsade de pointes in arsenic intoxication.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"term_id\": \"HP:0005184\"}}, {\"id\": \"Serum ALP, AST, and ALT activities\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Chronic\"], \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Hepatic biochemical injury\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Higher hepatic enzyme activities track a biochemical liver-injury association in exposed populations.\"}]}}, {\"id\": \"Shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiovascular shock can dominate severe acute poisoning.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"severity\": \"SEVERE\", \"term_id\": \"HP:0031273\"}}, {\"id\": \"Systemic inorganic arsenic exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absorbed inorganic arsenic is the initiating toxic exposure. Dose, chemical species, route, and duration distinguish severe acute poisoning from chronic arsenicosis; exposure itself is not equivalent to clinical disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Total and speciated urinary arsenic\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:27563\", \"term_label\": \"arsenic atom\", \"readouts\": [{\"target\": \"Systemic inorganic arsenic exposure\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The inorganic and methylated species support recent inorganic exposure, whereas arsenobetaine-dominant elevation can reflect seafood.\"}]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting can occur early after a large inorganic arsenic ingestion.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"AS3MT-linked arsenic biotransformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In exposed humans, variation near AS3MT strongly influences the urinary distribution of methylated arsenic species.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cellular uptake and enzymatic methylation of inorganic arsenic\"]}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Arsenite-generated oxidative and nitrosative stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cellular arsenite exposure generates reactive oxygen and nitrogen species.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Acute gastrointestinal and hemodynamic toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large acute ingestions produce gastrointestinal illness and cardiovascular compromise through multiple incompletely resolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Cardiac repolarization disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arsenic intoxication can markedly prolong repolarization and trigger torsade de pointes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Delayed peripheral axonopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve injury may appear after a symptom-free interval following acute ingestion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Chronic cutaneous toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained drinking-water arsenic exposure increases incident arsenical skin lesions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Hepatic biochemical injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Higher chronic exposure is associated with increased serum hepatic enzyme activities.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"AS3MT-linked arsenic biotransformation\", \"target\": \"MMA(III)-sensitive pyruvate dehydrogenase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Methylation can generate MMA(III), which inhibited pyruvate dehydrogenase more potently than arsenite in the studied systems.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"production of trivalent monomethylated arsenic species\"]}, {\"source\": \"Arsenite-generated oxidative and nitrosative stress\", \"target\": \"PARP-1 zinc loss and activity impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arsenite-generated ROS/RNS decrease PARP-1 zinc content, DNA binding, and enzymatic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute gastrointestinal and hemodynamic toxicity\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute inorganic arsenic ingestion produces vomiting.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acute gastrointestinal and hemodynamic toxicity\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute inorganic arsenic ingestion produces diarrhea.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acute gastrointestinal and hemodynamic toxicity\", \"target\": \"Shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe acute arsenic ingestion can cause shock.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac repolarization disturbance\", \"target\": \"Prolonged QTc interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arsenic-associated repolarization disturbance manifests as marked QT-U prolongation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Delayed peripheral axonopathy\", \"target\": \"Delayed peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral axonal degeneration manifests as delayed neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic cutaneous toxicity\", \"target\": \"Chronic hyperpigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic arsenical cutaneous toxicity manifests as melanosis and increased basal pigmentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic cutaneous toxicity\", \"target\": \"Arsenical palmar keratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic arsenical cutaneous toxicity can manifest as keratotic lesions on the palms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic ingestion of arsenic-contaminated drinking water\", \"target\": \"Systemic inorganic arsenic exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Sustained ingestion of arsenic-contaminated groundwater is the route by which the systemic inorganic arsenic burden underlying chronic arsenicosis is established.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute high-dose inorganic arsenic ingestion\", \"target\": \"Systemic inorganic arsenic exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A single concentrated ingestion delivers an acute systemic inorganic arsenic burden large enough to produce immediate multiorgan toxicity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure cessation and arsenic-safe water\", \"target\": \"Systemic inorganic arsenic exposure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Early supportive resuscitation and intensive monitoring\", \"target\": \"Acute gastrointestinal and hemodynamic toxicity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Early dithiol chelation for severe acute poisoning\", \"target\": \"Systemic inorganic arsenic exposure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Total and speciated urinary arsenic\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The inorganic and methylated species support recent inorganic exposure, whereas arsenobetaine-dominant elevation can reflect seafood.\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hepatic biochemical injury\", \"target\": \"Serum ALP, AST, and ALT activities\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher hepatic enzyme activities track a biochemical liver-injury association in exposed populations.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"AS3MT\", \"target\": \"AS3MT-linked arsenic biotransformation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AS3MT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AS3MT\"], \"gene_terms\": [{\"label\": \"AS3MT\", \"id\": \"hgnc:17452\"}], \"association\": \"Exposure-response modifier of arsenic metabolism and arsenical skin-lesion risk\", \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"AS3MT-linked arsenic biotransformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AS3MT-region variation changes the distribution of urinary MMA and DMA in exposed humans. This establishes a human exposure-response modifier but does not make AS3MT a monogenic cause of arsenicosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"detoxification of arsenic-containing substance\"], \"genes\": [\"AS3MT\"], \"gene_terms\": [{\"label\": \"AS3MT\", \"id\": \"hgnc:17452\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Acute gastrointestinal and hemodynamic toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Large acute inorganic arsenic ingestions can produce cramps, vomiting, diarrhea, oliguria, shock, and multisystem toxicity.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Acute high-dose inorganic arsenic ingestion\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Accidental or intentional ingestion of a concentrated inorganic arsenic compound can produce life-threatening acute poisoning.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Arsenical palmar keratosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Keratotic lesions of the palms are a characteristic chronic cutaneous manifestation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Chronic\"], \"term_id\": \"HP:0000982\"}}, {\"id\": \"Arsenite-generated oxidative and nitrosative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In cultured cells, arsenite-generated reactive oxygen and nitrogen species mediate downstream loss of PARP-1 zinc and activity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Cardiac repolarization disturbance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Arsenic intoxication can markedly prolong the QT-U interval and cause torsade de pointes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Chronic cutaneous toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained inorganic arsenic exposure causes melanotic and keratotic skin lesions with epidermal proliferative changes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"melanocyte\"], \"subtypes\": [\"Chronic\"], \"locations\": [\"skin of body\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Chronic hyperpigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Melanosis and increased basal pigmentation are characteristic chronic cutaneous findings.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Chronic\"], \"term_id\": \"HP:0000953\"}}, {\"id\": \"Chronic ingestion of arsenic-contaminated drinking water\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sustained ingestion of inorganic arsenic in groundwater is the central exposure context for chronic arsenicosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Delayed peripheral axonopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A delayed axonal peripheral neuropathy can follow a single acute dose, with sensory nerve action-potential abnormalities and incomplete long-term recovery.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"subtypes\": [\"Acute\"], \"locations\": [\"nerve\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Delayed peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral neuropathy may begin days to weeks after a single exposure and can remain abnormal years later.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"term_id\": \"HP:0009830\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diarrhea can occur early after a large inorganic arsenic ingestion.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"term_id\": \"HP:0002014\"}}, {\"id\": \"Early dithiol chelation for severe acute poisoning\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dimercaprol, succimer, or DMPS may be considered early for severe acute inorganic arsenic poisoning with toxicology consultation. Human evidence is largely multi-intervention case experience, so this entry does not rank the agents or assert controlled outcome benefit.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dimercaprol\", \"succimer\", \"2,3-disulfanylpropane-1-sulfonic acid\"]}}, {\"id\": \"Early supportive resuscitation and intensive monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute severe poisoning requires immediate restoration and maintenance of cardiac output and renal perfusion, with continuous cardiovascular, electrolyte, urine-output, and acid-base monitoring.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exposure cessation and arsenic-safe water\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Remove the exposure source. For chronic drinking-water arsenicosis, provide reliably arsenic-safe water and prevent renewed exposure. Skin lesions can improve over years, but established severe disease may persist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic biochemical injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Higher chronic arsenic exposure is associated with increased ALP, AST, and ALT activities. These cross-sectional biochemical associations do not by themselves establish chronic liver failure or fibrosis.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Chronic\"], \"locations\": [\"liver\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"MMA(III)-sensitive pyruvate dehydrogenase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyruvate dehydrogenase is among the purified enzymes sensitive to micromolar arsenic, and MMA(III) inhibited PDH in animal tissue and purified-enzyme assays. These data do not justify a universal sulfhydryl-enzyme blockade model for human poisoning.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"pyruvate metabolic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"PARP-1 zinc loss and activity impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Arsenite-induced ROS/RNS reduce PARP-1 zinc content, DNA binding, and enzymatic activity in cells. This is a mechanistic observation relevant to DNA-repair impairment, not direct proof of a clinical cancer trajectory.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA repair\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Prolonged QTc interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked QT-U prolongation can precede torsade de pointes in arsenic intoxication.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"term_id\": \"HP:0005184\"}}, {\"id\": \"Serum ALP, AST, and ALT activities\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Chronic\"], \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Hepatic biochemical injury\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Higher hepatic enzyme activities track a biochemical liver-injury association in exposed populations.\"}]}}, {\"id\": \"Shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiovascular shock can dominate severe acute poisoning.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"severity\": \"SEVERE\", \"term_id\": \"HP:0031273\"}}, {\"id\": \"Systemic inorganic arsenic exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absorbed inorganic arsenic is the initiating toxic exposure. Dose, chemical species, route, and duration distinguish severe acute poisoning from chronic arsenicosis; exposure itself is not equivalent to clinical disease.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Total and speciated urinary arsenic\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:27563\", \"term_label\": \"arsenic atom\", \"readouts\": [{\"target\": \"Systemic inorganic arsenic exposure\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The inorganic and methylated species support recent inorganic exposure, whereas arsenobetaine-dominant elevation can reflect seafood.\"}]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting can occur early after a large inorganic arsenic ingestion.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Acute\"], \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"AS3MT-linked arsenic biotransformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In exposed humans, variation near AS3MT strongly influences the urinary distribution of methylated arsenic species.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cellular uptake and enzymatic methylation of inorganic arsenic\"]}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Arsenite-generated oxidative and nitrosative stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cellular arsenite exposure generates reactive oxygen and nitrogen species.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Acute gastrointestinal and hemodynamic toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large acute ingestions produce gastrointestinal illness and cardiovascular compromise through multiple incompletely resolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Cardiac repolarization disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arsenic intoxication can markedly prolong repolarization and trigger torsade de pointes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Delayed peripheral axonopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve injury may appear after a symptom-free interval following acute ingestion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Chronic cutaneous toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained drinking-water arsenic exposure increases incident arsenical skin lesions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Hepatic biochemical injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Higher chronic exposure is associated with increased serum hepatic enzyme activities.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"AS3MT-linked arsenic biotransformation\", \"target\": \"MMA(III)-sensitive pyruvate dehydrogenase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Methylation can generate MMA(III), which inhibited pyruvate dehydrogenase more potently than arsenite in the studied systems.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"production of trivalent monomethylated arsenic species\"]}, {\"source\": \"Arsenite-generated oxidative and nitrosative stress\", \"target\": \"PARP-1 zinc loss and activity impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arsenite-generated ROS/RNS decrease PARP-1 zinc content, DNA binding, and enzymatic activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute gastrointestinal and hemodynamic toxicity\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute inorganic arsenic ingestion produces vomiting.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acute gastrointestinal and hemodynamic toxicity\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute inorganic arsenic ingestion produces diarrhea.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acute gastrointestinal and hemodynamic toxicity\", \"target\": \"Shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe acute arsenic ingestion can cause shock.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac repolarization disturbance\", \"target\": \"Prolonged QTc interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arsenic-associated repolarization disturbance manifests as marked QT-U prolongation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Delayed peripheral axonopathy\", \"target\": \"Delayed peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral axonal degeneration manifests as delayed neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic cutaneous toxicity\", \"target\": \"Chronic hyperpigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic arsenical cutaneous toxicity manifests as melanosis and increased basal pigmentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic cutaneous toxicity\", \"target\": \"Arsenical palmar keratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic arsenical cutaneous toxicity can manifest as keratotic lesions on the palms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic ingestion of arsenic-contaminated drinking water\", \"target\": \"Systemic inorganic arsenic exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Sustained ingestion of arsenic-contaminated groundwater is the route by which the systemic inorganic arsenic burden underlying chronic arsenicosis is established.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute high-dose inorganic arsenic ingestion\", \"target\": \"Systemic inorganic arsenic exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A single concentrated ingestion delivers an acute systemic inorganic arsenic burden large enough to produce immediate multiorgan toxicity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure cessation and arsenic-safe water\", \"target\": \"Systemic inorganic arsenic exposure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Early supportive resuscitation and intensive monitoring\", \"target\": \"Acute gastrointestinal and hemodynamic toxicity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Early dithiol chelation for severe acute poisoning\", \"target\": \"Systemic inorganic arsenic exposure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Systemic inorganic arsenic exposure\", \"target\": \"Total and speciated urinary arsenic\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The inorganic and methylated species support recent inorganic exposure, whereas arsenobetaine-dominant elevation can reflect seafood.\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hepatic biochemical injury\", \"target\": \"Serum ALP, AST, and ALT activities\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher hepatic enzyme activities track a biochemical liver-injury association in exposed populations.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"AS3MT\", \"target\": \"AS3MT-linked arsenic biotransformation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5817,6 +6093,9 @@ This clinical feature is Shock (HP:0031273), qualified as temporality acute. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5829,7 +6108,10 @@ This clinical feature is Shock (HP:0031273), qualified as temporality acute. HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3578979" target="_blank">PMID:3578979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5901,6 +6183,9 @@ This clinical feature is Prolonged QTc interval (HP:0005184), qualified as tempo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5913,7 +6198,10 @@ This clinical feature is Prolonged QTc interval (HP:0005184), qualified as tempo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1689832" target="_blank">PMID:1689832</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5994,6 +6282,9 @@ This clinical feature is Vomiting (HP:0002013), qualified as temporality acute. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6006,7 +6297,10 @@ This clinical feature is Vomiting (HP:0002013), qualified as temporality acute. 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15533028" target="_blank">PMID:15533028</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6078,6 +6372,9 @@ This clinical feature is Diarrhea (HP:0002014), qualified as temporality acute. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6090,7 +6387,10 @@ This clinical feature is Diarrhea (HP:0002014), qualified as temporality acute. 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15533028" target="_blank">PMID:15533028</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6173,6 +6473,9 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953), qualified a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6185,7 +6488,10 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953), qualified a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11218669" target="_blank">PMID:11218669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6259,6 +6565,9 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982), qualified as tem
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6271,7 +6580,10 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982), qualified as tem
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40583662" target="_blank">PMID:40583662</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6352,6 +6664,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as tempor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6364,7 +6679,10 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as tempor
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/196051" target="_blank">PMID:196051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6464,6 +6782,9 @@ This disease-associated gene is AS3MT (hgnc:17452). hgnc:17452 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6476,7 +6797,10 @@ This disease-associated gene is AS3MT (hgnc:17452). hgnc:17452 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22383894" target="_blank">PMID:22383894</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6504,6 +6828,9 @@ This disease-associated gene is AS3MT (hgnc:17452). hgnc:17452 is a gene from th
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6558,6 +6885,20 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Remove the exposure source. For chronic drinking-water arsenicosis, provide reliably arsenic-safe water and prevent renewed exposure. Skin lesions can improve over years, but established severe disease may persist.</div>
 
 
@@ -6586,7 +6927,10 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25161968" target="_blank">PMID:25161968</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6627,7 +6971,10 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25161968" target="_blank">PMID:25161968</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6693,6 +7040,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Acute severe poisoning requires immediate restoration and maintenance of cardiac output and renal perfusion, with continuous cardiovascular, electrolyte, urine-output, and acid-base monitoring.</div>
 
 
@@ -6721,7 +7082,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12793928" target="_blank">PMID:12793928</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6762,7 +7126,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12793928" target="_blank">PMID:12793928</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6884,6 +7251,31 @@ This treatment uses 2,3-disulfanylpropane-1-sulfonic acid (CHEBI:888). CHEBI:888
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dimercaprol, succimer, or DMPS may be considered early for severe acute inorganic arsenic poisoning with toxicology consultation. Human evidence is largely multi-intervention case experience, so this entry does not rank the agents or assert controlled outcome benefit.</div>
 
 
@@ -6912,7 +7304,10 @@ This treatment uses 2,3-disulfanylpropane-1-sulfonic acid (CHEBI:888). CHEBI:888
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12387631" target="_blank">PMID:12387631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6947,13 +7342,16 @@ This treatment uses 2,3-disulfanylpropane-1-sulfonic acid (CHEBI:888). CHEBI:888
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12793928" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12793928" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12793928" target="_blank">PMID:12793928</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6969,13 +7367,16 @@ This treatment uses 2,3-disulfanylpropane-1-sulfonic acid (CHEBI:888). CHEBI:888
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15533028" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15533028" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15533028" target="_blank">PMID:15533028</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7038,6 +7439,10 @@ This environmental factor is exposure to arsenic in water via ingestion (ECTO:00
 
 
 
+
+
+
+
                 <div class="item-desc">Sustained ingestion of inorganic arsenic in groundwater is the central exposure context for chronic arsenicosis.</div>
 
 
@@ -7054,7 +7459,10 @@ This environmental factor is exposure to arsenic in water via ingestion (ECTO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21576319" target="_blank">PMID:21576319</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7103,7 +7511,10 @@ This environmental factor is exposure to arsenic in water via ingestion (ECTO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21576319" target="_blank">PMID:21576319</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7158,6 +7569,10 @@ This environmental factor is exposure to arsenic (ECTO:9000032). ECTO:9000032 is
 
 
 
+
+
+
+
                 <div class="item-desc">Accidental or intentional ingestion of a concentrated inorganic arsenic compound can produce life-threatening acute poisoning.</div>
 
 
@@ -7174,7 +7589,10 @@ This environmental factor is exposure to arsenic (ECTO:9000032). ECTO:9000032 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3578979" target="_blank">PMID:3578979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7196,7 +7614,10 @@ This environmental factor is exposure to arsenic (ECTO:9000032). ECTO:9000032 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12793928" target="_blank">PMID:12793928</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7245,7 +7666,10 @@ This environmental factor is exposure to arsenic (ECTO:9000032). ECTO:9000032 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3578979" target="_blank">PMID:3578979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7332,7 +7756,10 @@ This environmental factor is exposure to arsenic (ECTO:9000032). ECTO:9000032 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18430299" target="_blank">PMID:18430299</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7372,7 +7799,10 @@ This environmental factor is exposure to arsenic (ECTO:9000032). ECTO:9000032 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18430299" target="_blank">PMID:18430299</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7443,7 +7873,10 @@ This environmental factor is exposure to arsenic (ECTO:9000032). ECTO:9000032 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21740555" target="_blank">PMID:21740555</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7483,7 +7916,10 @@ This environmental factor is exposure to arsenic (ECTO:9000032). ECTO:9000032 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21740555" target="_blank">PMID:21740555</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7506,6 +7942,582 @@ This environmental factor is exposure to arsenic (ECTO:9000032). ECTO:9000032 is
 
             </div>
 
+        </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-total-urinary-arsenic-with-species-level-interpretation">
+                <div class="item-name">
+                    Total urinary arsenic with species-level interpretation
+
+                </div>
+
+                <div class="item-desc">Measure urinary arsenic after a compatible exposure and obtain speciation when total arsenic is elevated. Interpret inorganic species and MMA/DMA separately from arsenobetaine, which can increase substantially after seafood. A universal diagnostic cutoff is not asserted.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        urine chemistry measurement
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61044" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C61044</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18430299" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18430299" target="_blank">PMID:18430299</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two case studies underline the need for As speciation, especially when total urinary arsenic concentrations are elevated."</div>
+
+
+                <div class="evidence-explanation">Directly supports urinary speciation when total arsenic is elevated.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-acute-electrocardiographic-and-physiologic-monitoring">
+                <div class="item-name">
+                    Acute electrocardiographic and physiologic monitoring
+
+                </div>
+
+                <div class="item-desc">In severe acute poisoning, continuously monitor electrocardiography, perfusion, urine output, acid-base status, and electrolytes because hemodynamic compromise and malignant ventricular arrhythmia can occur.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        electrocardiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38053" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C38053</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12793928" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12793928" target="_blank">PMID:12793928</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Continuous monitoring in the pediatric intensive care unit included continuous electrocardiogram, arterial blood pressure, urine output, vital signs, arterial blood gases, serum and urine arsenic concentrations, electrolytes, electromyography, and determination of arsenic toxicokinetics."</div>
+
+
+                <div class="evidence-explanation">Directly supports the retained acute monitoring strategy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1689832" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1689832" target="_blank">PMID:1689832</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"T-U wave alternans occurs in the presence of a long QT-U interval and may be an electrocardiographic warning sign of torsade de pointes."</div>
+
+
+                <div class="evidence-explanation">Supports ECG monitoring for repolarization warning signs.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-nerve-conduction-study-for-delayed-neuropathy">
+                <div class="item-name">
+                    Nerve conduction study for delayed neuropathy
+
+                </div>
+
+                <div class="item-desc">Electrophysiologic testing can document motor-conduction slowing and marked sensory nerve action-potential abnormalities when delayed neuropathy follows acute exposure.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        nerve conduction study
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C88502" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C88502</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:196051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/196051" target="_blank">PMID:196051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Electrophysiological studies showed reduction of motor conduction velocity and marked abnormalities of sensory nerve action potentials."</div>
+
+
+                <div class="evidence-explanation">Directly supports nerve-conduction testing for arsenic-associated neuropathy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-acute-gastrointestinal-and-hemodynamic-toxicity">
+                <div class="item-name">Early acute gastrointestinal and hemodynamic toxicity</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Acute</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">Gastrointestinal symptoms and hemodynamic compromise can occur early after a large ingestion and require immediate stabilization and monitoring.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12793928" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12793928" target="_blank">PMID:12793928</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Initially, the patient developed signs of acute hemodynamic compromise with tachycardia, hypertension, gastrointestinal symptoms, and poor urine output."</div>
+
+
+                <div class="evidence-explanation">The case directly establishes the early acute phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-delayed-peripheral-neuropathy-after-a-single-acute-exposure">
+                <div class="item-name">Delayed peripheral neuropathy after a single acute exposure</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Acute</span>
+
+
+
+                    <span class="tag">Duration: Neurologic abnormalities can persist for years</span>
+
+
+                </div>
+
+                <div class="item-notes">Peripheral neuropathy can begin 10 days to 3 weeks after ingestion and may improve only slowly and incompletely.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:196051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/196051" target="_blank">PMID:196051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Four patients are described who developed a peripheral neuropathy 10 days to 3 weeks after ingestion of a single dose of arsenic. All improved slowly, but after 6 to 8 years 3 of them still had abnormal neurological symptoms and signs."</div>
+
+
+                <div class="evidence-explanation">The longitudinal case series directly supplies the onset window and persistent course of delayed neuropathy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-chronic-cutaneous-disease-during-sustained-exposure-and-after-mitigation">
+                <div class="item-name">Chronic cutaneous disease during sustained exposure and after mitigation</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Chronic</span>
+
+
+
+                    <span class="tag">Duration: Years</span>
+
+
+                </div>
+
+                <div class="item-notes">Skin lesions arise during sustained drinking-water exposure. Providing arsenic-safe water can improve lesion scores over several years, although severe lesions and systemic disease may persist.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25161968" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25161968" target="_blank">PMID:25161968</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In participants belonging to Cohort-I, the skin score was found to improve significantly at the end of each year, and it was found to be reduced significantly from 2.17 ± 1.09 to 1.23 ± 1.17; P &lt; 0.001 at the end of 3 year&#39;s intervention study indicating beneficial effect of safe water on skin lesions."</div>
+
+
+                <div class="evidence-explanation">The three-year intervention follow-up supports improvement after exposure mitigation without implying that all established disease reverses.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">High</div>
+
+
+                <div class="item-desc">Severe acute poisoning can be fatal despite intensive care, and delayed neurologic or chronic cutaneous injury can remain clinically important for years.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:3578979" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3578979" target="_blank">PMID:3578979</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He died within 37 hours despite intensive treatment that included intramuscular dimercaprol and hemodialysis."</div>
+
+
+                <div class="evidence-explanation">Documents the mortality risk of severe acute ingestion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:196051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/196051" target="_blank">PMID:196051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All improved slowly, but after 6 to 8 years 3 of them still had abnormal neurological symptoms and signs."</div>
+
+
+                <div class="evidence-explanation">Documents long-term neurologic burden among survivors.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
         </div>
 
 
@@ -8574,7 +9586,7 @@ treatments:
   evidence:
   - reference: PMID:12793928
     reference_title: &#39;Treatment and toxicokinetics of acute pediatric arsenic ingestion: danger of arsenic insecticides in children.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       He was stabilized with fluid resuscitation, placed on a sodium bicarbonate intravenous drip, and treated with intramuscular dimercaprol (British anti-Lewisite), 5 mg/kg every 6 hrs for 3 days.
@@ -8583,7 +9595,7 @@ treatments:
       efficacy from simultaneous resuscitation and other treatment.
   - reference: PMID:15533028
     reference_title: Survival after a lethal dose of arsenic trioxide.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Forced diuresis, BAL (2,3-dimercaptopropanol) and DMSA (meso-2,3-dimercaptosuccinic acid) were started and therapy to enhance the formation of methylated As derivatives, which are potentially less toxic and which can be excreted more easily, was then administered.
@@ -8680,7 +9692,7 @@ discussions:
       not provide the asserted benefits under the studied regimen.
   - reference: PMID:15533028
     reference_title: Survival after a lethal dose of arsenic trioxide.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The patient survived this massive dose of ingested inorganic As with only polyneuropathy one year later.
@@ -8738,6 +9750,19 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review and rebuild: Arsenic Poisoning</strong> · 2026-07-21T04:47:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Arsenic_Poisoning/2026-07-21T044749Z-codex-635b8a.yaml">View source</a></p>
+                        <p class="research-review-text">Rebuilt the entry after a current medical and evidence audit. Separated acute poisoning from chronic arsenicosis. Replaced speculative cascades with a compact evidence-backed pathograph. Added exact primary-source evidence to every retained node, edge, phenotype, diagnostic action, and treatment. Removed unsupported disease prevalence, registry-only trials, unrelated datasets, and deep-research reference summaries. Distinguished seafood-related total urinary arsenic from species-level interpretation. Constrained chelation claims to early severe acute poisoning with explicit evidence limitations and a negative chronic DMSA randomized trial.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9812,7 +10837,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Arsenic Poisoning", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arsenic_Poisoning", "yamlRevision": "2a5d4f074d9b"};
+        const OS_CONFIG = {"diseaseName": "Arsenic Poisoning", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arsenic_Poisoning", "yamlRevision": "3b4fa1b444ab"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

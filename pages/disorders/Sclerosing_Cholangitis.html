@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Sclerosing Cholangitis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Sclerosing Cholangitis</h1>
             <div class="header-meta">
 
@@ -3732,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Sclerosing%20Cholangitis"
@@ -3873,7 +4016,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3902,11 +4045,19 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">20</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
 
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Genes</div>
+            </div>
+            </a>
 
 
 
@@ -4020,7 +4171,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-primary-sclerosing-cholangitis">
 
                     <div class="item-name">
                         Primary sclerosing cholangitis
@@ -4050,7 +4201,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-secondary-sclerosing-cholangitis">
 
                     <div class="item-name">
                         Secondary sclerosing cholangitis
@@ -4080,7 +4231,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-igg4-related-sclerosing-cholangitis">
 
                     <div class="item-name">
                         IgG4-related sclerosing cholangitis
@@ -4110,7 +4261,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-neonatal-ichthyosis-sclerosing-cholangitis-syndrome">
 
                     <div class="item-name">
                         Neonatal ichthyosis-sclerosing cholangitis syndrome
@@ -4126,13 +4277,71 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                CLDN1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2032" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2032</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CLDN1 (hgnc:2032). hgnc:2032 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
                     </div>
 
-                    <div class="item-desc">Syndromic neonatal form with sclerosing cholangitis and ichthyosis.</div>
+                    <div class="item-desc">Syndromic neonatal form with sclerosing cholangitis and ichthyosis, caused by biallelic loss of function of the tight-junction protein claudin-1 (CLDN1). Also reported under the name ichthyosis, leukocyte vacuoles, alopecia and sclerosing cholangitis (ILVASC).</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37814412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814412" target="_blank">PMID:37814412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neonatal ichthyosis and sclerosing cholangitis syndrome (NISCH), also known as ichthyosis, leukocyte vacuoles, alopecia, and sclerosing cholangitis (ILVASC), is an extremely rare disease of autosomal recessive inheritance, resulting from loss of function of the tight junction protein claudin-1."</div>
+
+
+                <div class="evidence-explanation">States the inheritance mode and the causal gene product for this subtype, and records the ILVASC name under which the same entity is reported.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4140,7 +4349,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-isolated-neonatal-sclerosing-cholangitis">
 
                     <div class="item-name">
                         Isolated neonatal sclerosing cholangitis
@@ -4156,13 +4365,71 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                DCDC2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:18141" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:18141</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DCDC2 (hgnc:18141). hgnc:18141 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
                     </div>
 
-                    <div class="item-desc">Neonatal sclerosing cholangitis without the syndromic ichthyosis component.</div>
+                    <div class="item-desc">Neonatal sclerosing cholangitis without the syndromic ichthyosis component. Biallelic DCDC2 variants account for a substantial share of cases; the resulting loss of cholangiocyte primary cilia makes this subtype a liver-based ciliopathy rather than an immune-mediated cholangiopathy.</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27469900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27469900" target="_blank">PMID:27469900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among 24 NSC patients with available DNA, 7 had mutations in DCDC2 (6 of 19 families). NSC patients in substantial proportion harbour mutations in DCDC2. Their disease represents a novel liver-based ciliopathy."</div>
+
+
+                <div class="evidence-explanation">Quantifies the DCDC2 share of a neonatal sclerosing cholangitis series and states the ciliopathy classification asserted in this subtype description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4186,11 +4453,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">10</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gut-liver-axis-barrier-disruption-and-dysbiosis" data-dismech-node="Gut-Liver Axis Barrier Disruption and Dysbiosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Gut-Liver Axis Barrier Disruption and Dysbiosis</div>
+
 
                 <div class="item-desc">In primary sclerosing cholangitis, intestinal barrier disruption and dysbiosis permit microbial products to reach the portal circulation and amplify hepatobiliary immune activation.</div>
 
@@ -4213,11 +4481,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4277,7 +4545,10 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="https://bioregistry.io/DOI:10.3390/jcm14217817" target="_blank">DOI:10.3390/jcm14217817</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4299,7 +4570,10 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="https://bioregistry.io/DOI:10.3390/jcm14217817" target="_blank">DOI:10.3390/jcm14217817</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4325,6 +4599,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-innate-immune-activation" data-dismech-node="Hepatic Innate Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Innate Immune Activation</div>
 
+
                 <div class="item-desc">Microbial and cholestatic signals activate cholangiocytes and liver macrophages, producing inflammatory cytokine and chemokine signaling in the biliary tree.</div>
 
 
@@ -4339,11 +4614,11 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:1000488</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:1000488</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4369,11 +4644,11 @@ This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000235</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Kupffer cell / liver macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4410,11 +4685,11 @@ This pathophysiological event involves Kupffer cell / liver macrophage, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4474,7 +4749,10 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39250501" target="_blank">PMID:39250501</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4500,6 +4778,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-gut-primed-lymphocyte-trafficking" data-dismech-node="Aberrant Gut-Primed Lymphocyte Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Gut-Primed Lymphocyte Trafficking</div>
 
+
                 <div class="item-desc">Gut-primed lymphocytes aberrantly home to the liver and biliary tree, sustaining antigen-driven cholangiocyte injury in PSC-associated gut-liver-axis disease.</div>
 
 
@@ -4514,11 +4793,11 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000624</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves CD4-positive T cell, annotated with CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4544,11 +4823,11 @@ This pathophysiological event involves CD4-positive T cell, annotated with CD4-p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000899</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Th17 cell, annotated with T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4574,11 +4853,11 @@ This pathophysiological event involves Th17 cell, annotated with T-helper 17 cel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000815</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4615,11 +4894,11 @@ This pathophysiological event involves regulatory T cell (CL:0000815). CL:000081
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0050900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0050900</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4679,7 +4958,10 @@ This pathophysiological event involves abnormal leukocyte migration (GO:0050900)
                         <a href="https://bioregistry.io/DOI:10.3390/jcm14217817" target="_blank">DOI:10.3390/jcm14217817</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4705,6 +4987,7 @@ This pathophysiological event involves abnormal leukocyte migration (GO:0050900)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bile-acid-signaling-dysregulation" data-dismech-node="Bile Acid Signaling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Bile Acid Signaling Dysregulation</div>
 
+
                 <div class="item-desc">Dysregulated bile-acid receptor signaling in cholangiocytes and the gut-liver axis promotes cholestasis, inflammation, and fibrotic remodeling.</div>
 
 
@@ -4719,11 +5002,11 @@ This pathophysiological event involves abnormal leukocyte migration (GO:0050900)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:1000488</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:1000488</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4760,11 +5043,11 @@ This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008206" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0008206</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008206" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0008206</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal bile acid metabolic process (GO:0008206). GO:0008206 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4832,7 +5115,10 @@ This pathophysiological event involves abnormal bile acid metabolic process (GO:
                         <a href="https://bioregistry.io/DOI:10.3390/jcm14217817" target="_blank">DOI:10.3390/jcm14217817</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4854,7 +5140,10 @@ This pathophysiological event involves abnormal bile acid metabolic process (GO:
                         <a href="https://bioregistry.io/DOI:10.3390/cells13191650" target="_blank">DOI:10.3390/cells13191650</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4877,8 +5166,642 @@ This pathophysiological event involves abnormal bile acid metabolic process (GO:
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholangiocyte-primary-cilium-loss" data-dismech-node="Cholangiocyte Primary Cilium Loss" data-dismech-type="pathophysiology">
+                <div class="item-name">Cholangiocyte Primary Cilium Loss</div>
+
+
+                <div class="item-desc">In the isolated neonatal form, biallelic DCDC2 variants abolish DCDC2 protein, which is normally expressed in cholangiocyte cilia. Affected bile ducts lose not only the protein but the cilium itself, absent on both immunostaining for acetylated alpha-tubulin and transmission electron microscopy. What the cilium contributes to cholangiocyte function is not established by the sources cited here, so this node records the structural loss and the cholangiopathy that accompanies it rather than an intervening functional step. This is a monogenic route into cholangiopathy, distinct from the immune- and microbiome-driven mechanisms modeled for primary sclerosing cholangitis above.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Cholangiocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:1000488</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DCDC2
+
+
+    <a href="https://bioregistry.io/hgnc:18141" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:18141</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DCDC2 (hgnc:18141). hgnc:18141 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DCDC2
+
+
+    <a href="https://bioregistry.io/hgnc:18141" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:18141</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns DCDC2 (hgnc:18141). hgnc:18141 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">Homozygous or compound heterozygous DCDC2 variants. No `zygosity` is recorded: the slot is single-valued and has no biallelic value, and this node&#39;s own cited quote reports four homozygous and two compound heterozygous patients, so naming either one would contradict the evidence. The series seen at King&#39;s College Hospital found only protein-truncating alleles; a second, independent series reported biallelic missense variants and an in-frame deletion in the doublecortin domains, where the protein is mislocalized to the cytoplasm and absent from cilia rather than undetectable. Neither series&#39; geography is asserted here: PMID:27319779&#39;s cached record carries no affiliation.</div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        ciliogenesis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0060271</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ciliogenesis, annotated with cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-component">
+                        cholangiocyte primary cilium
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0005929</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves absent cholangiocyte primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Bile Duct Fibrostenosis</span>
+
+	                            <span class="crosslink-desc">Cilium-deficient cholangiocytes develop a cholangiopathy with irregular dilatation and strictures of intrahepatic and extrahepatic bile ducts.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27469900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27469900" target="_blank">PMID:27469900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Four of 13 patients were homozygous and two were compound heterozygous for mutations in the doublecortin domain containing 2 gene (DCDC2), which encodes DCDC2 protein and is expressed in cholangiocyte cilia."</div>
+
+
+                <div class="evidence-explanation">Establishes biallelic DCDC2 variants in neonatal sclerosing cholangitis and the ciliary localization of the protein in cholangiocytes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27469900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27469900" target="_blank">PMID:27469900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"transmission electron microscopy found that cholangiocytes lacked primary cilia (n=5)"</div>
+
+
+                <div class="evidence-explanation">Ultrastructural confirmation that the cilium itself, not only the DCDC2 protein, is absent in patient cholangiocytes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27469900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27469900" target="_blank">PMID:27469900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Radiological features included irregular dilatation and strictures in intrahepatic or extrahepatic bile ducts, consistent with a cholangiopathy."</div>
+
+
+                <div class="evidence-explanation">Supports the downstream edge from cilium loss to the stricturing bile-duct phenotype this entry models as Bile Duct Fibrostenosis.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholangiocyte-tight-junction-failure" data-dismech-node="Cholangiocyte Tight-Junction Failure" data-dismech-type="pathophysiology">
+                <div class="item-name">Cholangiocyte Tight-Junction Failure</div>
+
+
+                <div class="item-desc">In the syndromic neonatal form, biallelic CLDN1 variants remove claudin-1 from both liver and skin. Claudins are components of tight junctions, which in the liver separate bile flow from plasma, and the founding study proposes that lack of claudin-1 raises paracellular permeability between epithelial cells and that the bile-duct injury follows from its absence in cholangiocytes. That mechanism is the authors&#39; proposal and is carried here with the same hedge. Claudin-1 is absent from skin as well as liver in affected patients, and this subtype is the one distinguished clinically by ichthyosis.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Cholangiocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:1000488</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CLDN1
+
+
+    <a href="https://bioregistry.io/hgnc:2032" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:2032</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CLDN1 (hgnc:2032). hgnc:2032 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CLDN1
+
+
+    <a href="https://bioregistry.io/hgnc:2032" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:2032</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns CLDN1 (hgnc:2032). hgnc:2032 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HOMOZYGOUS</span>
+
+
+
+        <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">Biallelic CLDN1 loss of function. `HOMOZYGOUS` is recorded here, unlike on the DCDC2 node above, because it is the state the sources report: PMID:37814412 states that most ILVASC cases described to date were attributed to homozygous truncating variants, and the founding report described a 2-bp deletion in exon 1 in inbred kindred, producing a premature stop codon and complete absence of claudin-1 protein. The later founder missense allele p.Arg81His segregates in North African Jewish families; the cited record does not state its zygosity, so the slot carries the modal reported state rather than a claim about every described case.</div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        establishment of skin barrier
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0061436</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased establishment of skin barrier (GO:0061436). GO:0061436 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-component">
+                        cholangiocyte tight junction
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005923" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0005923</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves cholangiocyte tight junction, annotated with bicellular tight junction (GO:0005923). GO:0005923 is a cellular component from the Gene Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Bile Duct Inflammation</span>
+
+	                            <span class="crosslink-desc">Loss of claudin-1 from cholangiocyte tight junctions is proposed to increase paracellular permeability and so to produce the bile-duct injury of this subtype.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15521008" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15521008" target="_blank">PMID:15521008</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We described in 4 patients, of 2 inbred kindred of Moroccan origin, a 2-bp deletion (200-201 TT) in exon 1 of the claudin-1 gene arising in a premature stop codon and resulting in total absence of claudin-1 protein in the liver and skin."</div>
+
+
+                <div class="evidence-explanation">The founding report of CLDN1 loss of function in this subtype, showing absence of the protein in both affected organs.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15521008" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15521008" target="_blank">PMID:15521008</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lack of claudin-1 in NISCH syndrome may lead to increased paracellular permeability between epithelial cells. Bile duct injury may be related to the absence of claudin-1 expression in cholangiocytes."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; proposed mechanism linking claudin-1 loss to bile-duct injury. It is stated as a proposal (&#34;may&#34;), and this node&#39;s description carries it with the same hedge.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bile-duct-inflammation" data-dismech-node="Bile Duct Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Bile Duct Inflammation</div>
+
 
                 <div class="item-desc">Inflammatory injury of the bile-duct epithelium and duct wall is a shared upstream feature across sclerosing cholangitis categories.</div>
 
@@ -4894,11 +5817,11 @@ This pathophysiological event involves abnormal bile acid metabolic process (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:1000488</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:1000488</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4924,11 +5847,11 @@ This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000235</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Kupffer cell / liver macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4954,11 +5877,11 @@ This pathophysiological event involves Kupffer cell / liver macrophage, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000624</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves CD4-positive T cell, annotated with CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4984,11 +5907,11 @@ This pathophysiological event involves CD4-positive T cell, annotated with CD4-p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000899</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Th17 cell, annotated with T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5014,11 +5937,11 @@ This pathophysiological event involves Th17 cell, annotated with T-helper 17 cel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000815</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5055,11 +5978,11 @@ This pathophysiological event involves regulatory T cell (CL:0000815). CL:000081
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0006954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5117,7 +6040,10 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30205418" target="_blank">PMID:30205418</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5143,6 +6069,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholangiocyte-senescence-associated-fibrogenesis" data-dismech-node="Cholangiocyte Senescence-Associated Fibrogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cholangiocyte Senescence-Associated Fibrogenesis</div>
 
+
                 <div class="item-desc">Stressed cholangiocytes can acquire a senescence-associated secretory phenotype that is proinflammatory and profibrogenic, driving crosstalk with portal fibroblasts and hepatic stellate cells.</div>
 
 
@@ -5157,11 +6084,11 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:1000488</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:1000488</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5187,11 +6114,11 @@ This pathophysiological event involves Cholangiocyte (CL:1000488). CL:1000488 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000632</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000632</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Hepatic stellate cell (CL:0000632). CL:0000632 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5228,11 +6155,11 @@ This pathophysiological event involves Hepatic stellate cell (CL:0000632). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0090398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0090398</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cellular senescence (GO:0090398). GO:0090398 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5262,11 +6189,11 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5326,7 +6253,10 @@ This pathophysiological event involves increased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39250501" target="_blank">PMID:39250501</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5352,6 +6282,7 @@ This pathophysiological event involves increased extracellular matrix organizati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bile-duct-fibrostenosis" data-dismech-node="Bile Duct Fibrostenosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Bile Duct Fibrostenosis</div>
 
+
                 <div class="item-desc">Fibrotic remodeling of affected bile ducts narrows the duct lumen, producing strictures and downstream cholestasis.</div>
 
 
@@ -5366,11 +6297,11 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000632</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0000632</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Hepatic stellate cell (CL:0000632). CL:0000632 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5407,11 +6338,11 @@ This pathophysiological event involves Hepatic stellate cell (CL:0000632). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5469,7 +6400,10 @@ This pathophysiological event involves increased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30205418" target="_blank">PMID:30205418</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5495,6 +6429,7 @@ This pathophysiological event involves increased extracellular matrix organizati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholestatic-liver-injury" data-dismech-node="Cholestatic Liver Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cholestatic Liver Injury</div>
 
+
                 <div class="item-desc">Persistent obstruction and cholestasis from bile-duct strictures drive cholestatic liver injury and can progress to biliary cirrhosis.</div>
 
 
@@ -5516,11 +6451,11 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1902488" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:1902488</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1902488" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:1902488</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cholangiocyte apoptotic process (GO:1902488). GO:1902488 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5584,7 +6519,10 @@ This pathophysiological event involves increased cholangiocyte apoptotic process
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39250501" target="_blank">PMID:39250501</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5619,7 +6557,7 @@ This pathophysiological event involves increased cholangiocyte apoptotic process
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-periductal-onion-skin-fibrosis">
                 <div class="item-name">
                     Periductal onion-skin fibrosis
 
@@ -5654,7 +6592,7 @@ This pathophysiological event involves increased cholangiocyte apoptotic process
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Gut-Primed Lymphocyte Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gut-primed lymphocytes aberrantly home to the liver and biliary tree, sustaining antigen-driven cholangiocyte injury in PSC-associated gut-liver-axis disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive T cell\", \"Th17 cell\", \"regulatory T cell\"], \"biological_processes\": [\"leukocyte migration\"]}}, {\"id\": \"Bile Acid Signaling Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated bile-acid receptor signaling in cholangiocytes and the gut-liver axis promotes cholestasis, inflammation, and fibrotic remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cholangiocyte\"], \"biological_processes\": [\"bile acid metabolic process\"]}}, {\"id\": \"Bile Duct Fibrostenosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrotic remodeling of affected bile ducts narrows the duct lumen, producing strictures and downstream cholestasis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatic stellate cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Bile Duct Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory injury of the bile-duct epithelium and duct wall is a shared upstream feature across sclerosing cholangitis categories.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cholangiocyte\", \"Kupffer cell / liver macrophage\", \"CD4-positive T cell\", \"Th17 cell\", \"regulatory T cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Cholangiocyte Senescence-Associated Fibrogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stressed cholangiocytes can acquire a senescence-associated secretory phenotype that is proinflammatory and profibrogenic, driving crosstalk with portal fibroblasts and hepatic stellate cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cholangiocyte\", \"Hepatic stellate cell\"], \"biological_processes\": [\"cellular senescence\", \"extracellular matrix organization\"]}}, {\"id\": \"Cholestatic Liver Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent obstruction and cholestasis from bile-duct strictures drive cholestatic liver injury and can progress to biliary cirrhosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cholangiocyte apoptotic process\"]}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001394\"}}, {\"id\": \"ERCP-Based Stricture Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"ERCP can be used diagnostically and therapeutically in dominant or clinically relevant strictures, including dilation or stenting when appropriate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Elevated alkaline phosphatase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Cholestatic Liver Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum alkaline phosphatase reflecting cholestatic liver injury.\"}], \"term_id\": \"HP:0003155\"}}, {\"id\": \"Elevated gamma-glutamyl transferase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Cholestatic Liver Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum gamma-glutamyl transferase reflecting cholestatic liver injury.\"}], \"term_id\": \"HP:0030948\"}}, {\"id\": \"Fecal Microbiota Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FMT is an investigational gut-microbiome-directed intervention for PSC, particularly in PSC with concomitant IBD.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Gut-Liver Axis Barrier Disruption and Dysbiosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In primary sclerosing cholangitis, intestinal barrier disruption and dysbiosis permit microbial products to reach the portal circulation and amplify hepatobiliary immune activation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Hepatic Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microbial and cholestatic signals activate cholangiocytes and liver macrophages, producing inflammatory cytokine and chemokine signaling in the biliary tree.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cholangiocyte\", \"Kupffer cell / liver macrophage\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is used for end-stage or otherwise advanced sclerosing cholangitis when progressive liver failure or complications cannot be controlled.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"norUrsodeoxycholic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"norUDCA is an investigational bile-acid therapy in phase 3 testing for PSC.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Gut-Liver Axis Barrier Disruption and Dysbiosis\", \"target\": \"Hepatic Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Portal microbial products stimulate hepatic innate immune cells.\"}, {\"source\": \"Hepatic Innate Immune Activation\", \"target\": \"Bile Duct Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate inflammatory activation injures the biliary epithelium.\"}, {\"source\": \"Aberrant Gut-Primed Lymphocyte Trafficking\", \"target\": \"Bile Duct Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant immune trafficking sustains bile-duct injury.\"}, {\"source\": \"Bile Acid Signaling Dysregulation\", \"target\": \"Cholestatic Liver Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated bile-acid signaling contributes to cholestasis.\"}, {\"source\": \"Bile Acid Signaling Dysregulation\", \"target\": \"Bile Duct Fibrostenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bile-acid dysregulation can promote inflammation and fibrosis.\"}, {\"source\": \"Bile Duct Inflammation\", \"target\": \"Bile Duct Fibrostenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cholangiocyte Senescence-Associated Fibrogenesis\", \"target\": \"Bile Duct Fibrostenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Senescent cholangiocyte signaling promotes periductal fibrosis.\"}, {\"source\": \"Bile Duct Fibrostenosis\", \"target\": \"Cholestatic Liver Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cholestatic Liver Injury\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cholestatic Liver Injury\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Cirrhosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ERCP-Based Stricture Management\", \"target\": \"Bile Duct Fibrostenosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"norUrsodeoxycholic Acid\", \"target\": \"Bile Acid Signaling Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fecal Microbiota Transplantation\", \"target\": \"Gut-Liver Axis Barrier Disruption and Dysbiosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholestatic Liver Injury\", \"target\": \"Elevated alkaline phosphatase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum alkaline phosphatase reflecting cholestatic liver injury.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Cholestatic Liver Injury\", \"target\": \"Elevated gamma-glutamyl transferase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum gamma-glutamyl transferase reflecting cholestatic liver injury.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Gut-Primed Lymphocyte Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gut-primed lymphocytes aberrantly home to the liver and biliary tree, sustaining antigen-driven cholangiocyte injury in PSC-associated gut-liver-axis disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive T cell\", \"Th17 cell\", \"regulatory T cell\"], \"biological_processes\": [\"leukocyte migration\"]}}, {\"id\": \"Bile Acid Signaling Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated bile-acid receptor signaling in cholangiocytes and the gut-liver axis promotes cholestasis, inflammation, and fibrotic remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cholangiocyte\"], \"biological_processes\": [\"bile acid metabolic process\"]}}, {\"id\": \"Bile Duct Fibrostenosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrotic remodeling of affected bile ducts narrows the duct lumen, producing strictures and downstream cholestasis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatic stellate cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Bile Duct Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory injury of the bile-duct epithelium and duct wall is a shared upstream feature across sclerosing cholangitis categories.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cholangiocyte\", \"Kupffer cell / liver macrophage\", \"CD4-positive T cell\", \"Th17 cell\", \"regulatory T cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"CLDN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CLDN1\"], \"gene_terms\": [{\"label\": \"CLDN1\", \"id\": \"hgnc:2032\"}], \"subtypes\": [\"Neonatal ichthyosis-sclerosing cholangitis syndrome\"], \"association\": \"Biallelic CLDN1 loss of function causes neonatal ichthyosis-sclerosing cholangitis syndrome (MONDO:0011874), also reported as ILVASC. Claudin-1 is a tight-junction protein, and its absence from both liver and skin accounts for the paired cholangiopathy and ichthyosis. The recurrent missense allele p.Arg81His is a founder variant in Jews of Moroccan descent.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cholangiocyte Primary Cilium Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the isolated neonatal form, biallelic DCDC2 variants abolish DCDC2 protein, which is normally expressed in cholangiocyte cilia. Affected bile ducts lose not only the protein but the cilium itself, absent on both immunostaining for acetylated alpha-tubulin and transmission electron microscopy. What the cilium contributes to cholangiocyte function is not established by the sources cited here, so this node records the structural loss and the cholangiopathy that accompanies it rather than an intervening functional step. This is a monogenic route into cholangiopathy, distinct from the immune- and microbiome-driven mechanisms modeled for primary sclerosing cholangitis above.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Cholangiocyte\"], \"biological_processes\": [\"ciliogenesis\"], \"genes\": [\"DCDC2\"], \"gene_terms\": [{\"label\": \"DCDC2\", \"id\": \"hgnc:18141\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous DCDC2 variants. No `zygosity` is recorded: the slot is single-valued and has no biallelic value, and this node\u0027s own cited quote reports four homozygous and two compound heterozygous patients, so naming either one would contradict the evidence. The series seen at King\u0027s College Hospital found only protein-truncating alleles; a second, independent series reported biallelic missense variants and an in-frame deletion in the doublecortin domains, where the protein is mislocalized to the cytoplasm and absent from cilia rather than undetectable. Neither series\u0027 geography is asserted here: PMID:27319779\u0027s cached record carries no affiliation.\", \"gene_terms\": [{\"label\": \"DCDC2\", \"id\": \"hgnc:18141\"}]}, \"subtypes\": [\"Isolated neonatal sclerosing cholangitis\"]}}, {\"id\": \"Cholangiocyte Senescence-Associated Fibrogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stressed cholangiocytes can acquire a senescence-associated secretory phenotype that is proinflammatory and profibrogenic, driving crosstalk with portal fibroblasts and hepatic stellate cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cholangiocyte\", \"Hepatic stellate cell\"], \"biological_processes\": [\"cellular senescence\", \"extracellular matrix organization\"]}}, {\"id\": \"Cholangiocyte Tight-Junction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the syndromic neonatal form, biallelic CLDN1 variants remove claudin-1 from both liver and skin. Claudins are components of tight junctions, which in the liver separate bile flow from plasma, and the founding study proposes that lack of claudin-1 raises paracellular permeability between epithelial cells and that the bile-duct injury follows from its absence in cholangiocytes. That mechanism is the authors\u0027 proposal and is carried here with the same hedge. Claudin-1 is absent from skin as well as liver in affected patients, and this subtype is the one distinguished clinically by ichthyosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cholangiocyte\"], \"biological_processes\": [\"establishment of skin barrier\"], \"genes\": [\"CLDN1\"], \"gene_terms\": [{\"label\": \"CLDN1\", \"id\": \"hgnc:2032\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic CLDN1 loss of function. `HOMOZYGOUS` is recorded here, unlike on the DCDC2 node above, because it is the state the sources report: PMID:37814412 states that most ILVASC cases described to date were attributed to homozygous truncating variants, and the founding report described a 2-bp deletion in exon 1 in inbred kindred, producing a premature stop codon and complete absence of claudin-1 protein. The later founder missense allele p.Arg81His segregates in North African Jewish families; the cited record does not state its zygosity, so the slot carries the modal reported state rather than a claim about every described case.\", \"gene_terms\": [{\"label\": \"CLDN1\", \"id\": \"hgnc:2032\"}]}, \"subtypes\": [\"Neonatal ichthyosis-sclerosing cholangitis syndrome\"]}}, {\"id\": \"Cholestatic Liver Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent obstruction and cholestasis from bile-duct strictures drive cholestatic liver injury and can progress to biliary cirrhosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cholangiocyte apoptotic process\"]}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001394\"}}, {\"id\": \"DCDC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"DCDC2\"], \"gene_terms\": [{\"label\": \"DCDC2\", \"id\": \"hgnc:18141\"}], \"subtypes\": [\"Isolated neonatal sclerosing cholangitis\"], \"association\": \"Biallelic DCDC2 variants cause isolated neonatal sclerosing cholangitis (MONDO:0018816). DCDC2 is expressed in the primary cilium of cuboidal cholangiocytes; affected patients lose both the protein and the cilium, so the subtype is classified as a liver-based ciliopathy. Two independent series reported different allele classes with the same ciliary phenotype: protein-truncating variants in a series seen at King\u0027s College Hospital, and biallelic missense variants or an in-frame deletion in the doublecortin domains in a second, independent series. Only the King\u0027s College attribution is sourced - PMID:27469900\u0027s full text states it - and no geography is asserted for the other series.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ERCP-Based Stricture Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"ERCP can be used diagnostically and therapeutically in dominant or clinically relevant strictures, including dilation or stenting when appropriate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Elevated alkaline phosphatase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Cholestatic Liver Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum alkaline phosphatase reflecting cholestatic liver injury.\"}], \"term_id\": \"HP:0003155\"}}, {\"id\": \"Elevated gamma-glutamyl transferase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Cholestatic Liver Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum gamma-glutamyl transferase reflecting cholestatic liver injury.\"}], \"term_id\": \"HP:0030948\"}}, {\"id\": \"Fecal Microbiota Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FMT is an investigational gut-microbiome-directed intervention for PSC, particularly in PSC with concomitant IBD.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Gut-Liver Axis Barrier Disruption and Dysbiosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In primary sclerosing cholangitis, intestinal barrier disruption and dysbiosis permit microbial products to reach the portal circulation and amplify hepatobiliary immune activation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Hepatic Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microbial and cholestatic signals activate cholangiocytes and liver macrophages, producing inflammatory cytokine and chemokine signaling in the biliary tree.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cholangiocyte\", \"Kupffer cell / liver macrophage\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is used for end-stage or otherwise advanced sclerosing cholangitis when progressive liver failure or complications cannot be controlled.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"norUrsodeoxycholic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"norUDCA is an investigational bile-acid therapy in phase 3 testing for PSC.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Gut-Liver Axis Barrier Disruption and Dysbiosis\", \"target\": \"Hepatic Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Portal microbial products stimulate hepatic innate immune cells.\"}, {\"source\": \"Hepatic Innate Immune Activation\", \"target\": \"Bile Duct Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate inflammatory activation injures the biliary epithelium.\"}, {\"source\": \"Aberrant Gut-Primed Lymphocyte Trafficking\", \"target\": \"Bile Duct Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant immune trafficking sustains bile-duct injury.\"}, {\"source\": \"Bile Acid Signaling Dysregulation\", \"target\": \"Cholestatic Liver Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated bile-acid signaling contributes to cholestasis.\"}, {\"source\": \"Bile Acid Signaling Dysregulation\", \"target\": \"Bile Duct Fibrostenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bile-acid dysregulation can promote inflammation and fibrosis.\"}, {\"source\": \"Cholangiocyte Primary Cilium Loss\", \"target\": \"Bile Duct Fibrostenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cilium-deficient cholangiocytes develop a cholangiopathy with irregular dilatation and strictures of intrahepatic and extrahepatic bile ducts.\"}, {\"source\": \"Cholangiocyte Tight-Junction Failure\", \"target\": \"Bile Duct Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of claudin-1 from cholangiocyte tight junctions is proposed to increase paracellular permeability and so to produce the bile-duct injury of this subtype.\"}, {\"source\": \"Bile Duct Inflammation\", \"target\": \"Bile Duct Fibrostenosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cholangiocyte Senescence-Associated Fibrogenesis\", \"target\": \"Bile Duct Fibrostenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Senescent cholangiocyte signaling promotes periductal fibrosis.\"}, {\"source\": \"Bile Duct Fibrostenosis\", \"target\": \"Cholestatic Liver Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cholestatic Liver Injury\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cholestatic Liver Injury\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Cirrhosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ERCP-Based Stricture Management\", \"target\": \"Bile Duct Fibrostenosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"norUrsodeoxycholic Acid\", \"target\": \"Bile Acid Signaling Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fecal Microbiota Transplantation\", \"target\": \"Gut-Liver Axis Barrier Disruption and Dysbiosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cholestatic Liver Injury\", \"target\": \"Elevated alkaline phosphatase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum alkaline phosphatase reflecting cholestatic liver injury.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Cholestatic Liver Injury\", \"target\": \"Elevated gamma-glutamyl transferase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum gamma-glutamyl transferase reflecting cholestatic liver injury.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"DCDC2\", \"target\": \"Cholangiocyte Primary Cilium Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CLDN1\", \"target\": \"Cholangiocyte Tight-Junction Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5677,9 +6615,9 @@ This pathophysiological event involves increased cholangiocyte apoptotic process
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5706,15 +6644,18 @@ This pathophysiological event involves increased cholangiocyte apoptotic process
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030991" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0030991</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030991" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0030991</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sclerosing cholangitis (HP:0030991). HP:0030991 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5732,7 +6673,10 @@ This clinical feature is Sclerosing cholangitis (HP:0030991). HP:0030991 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30205418" target="_blank">PMID:30205418</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5772,15 +6716,18 @@ This clinical feature is Sclerosing cholangitis (HP:0030991). HP:0030991 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001396</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001396</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5798,7 +6745,10 @@ This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30205418" target="_blank">PMID:30205418</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5838,15 +6788,18 @@ This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000952</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000952</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5864,7 +6817,10 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30205418" target="_blank">PMID:30205418</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5904,15 +6860,18 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001395</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001395</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5930,7 +6889,10 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39250501" target="_blank">PMID:39250501</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5970,15 +6932,18 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001394</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5996,7 +6961,10 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39250501" target="_blank">PMID:39250501</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6045,15 +7013,18 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000989</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6071,7 +7042,10 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30205418" target="_blank">PMID:30205418</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6102,84 +7076,7 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fatigue
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012378</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abdominal pain
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002027</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Metabolism
                     <span class="cat-count">2</span>
                 </summary>
 
@@ -6199,15 +7096,18 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003155</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003155</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating alkaline phosphatase concentration (HP:0003155). HP:0003155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6225,7 +7125,10 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
                         <a href="https://bioregistry.io/DOI:10.1007/s00535-025-02265-5" target="_blank">DOI:10.1007/s00535-025-02265-5</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6267,15 +7170,18 @@ This clinical feature is Elevated circulating alkaline phosphatase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0030948</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0030948</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated gamma-glutamyl transferase, annotated with Elevated gamma-glutamyltransferase level (HP:0030948). HP:0030948 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6293,7 +7199,10 @@ This clinical feature is Elevated gamma-glutamyl transferase, annotated with Ele
                         <a href="https://bioregistry.io/DOI:10.1007/s00535-025-02265-5" target="_blank">DOI:10.1007/s00535-025-02265-5</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6312,6 +7221,89 @@ This clinical feature is Elevated gamma-glutamyl transferase, annotated with Ele
 
         </div>
     </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fatigue
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abdominal pain
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
 
 
 
@@ -6351,8 +7343,278 @@ This clinical feature is Elevated gamma-glutamyl transferase, annotated with Ele
 
         <!-- Genetic Associations -->
 
+        <div class="card" id="genetic">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
+                <h2 class="card-title">Genetic Associations</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-dcdc2" data-dismech-node="DCDC2" data-dismech-type="genetic">
+                <div class="item-name">
+                    DCDC2
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Biallelic DCDC2 variants cause isolated neonatal sclerosing cholangitis (MONDO:0018816). DCDC2 is expressed in the primary cilium of cuboidal cholangiocytes; affected patients lose both the protein and the cilium, so the subtype is classified as a liver-based ciliopathy. Two independent series reported different allele classes with the same ciliary phenotype: protein-truncating variants in a series seen at King&#39;s College Hospital, and biallelic missense variants or an in-frame deletion in the doublecortin domains in a second, independent series. Only the King&#39;s College attribution is sourced - PMID:27469900&#39;s full text states it - and no geography is asserted for the other series.)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DCDC2
+
+
+    <a href="https://bioregistry.io/hgnc:18141" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:18141</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DCDC2 (hgnc:18141). hgnc:18141 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27469900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27469900" target="_blank">PMID:27469900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Four patients had homozygous changes (2 frameshift, 2 stop codon) and 2 patients had compound heterozygous changes (2 frameshift, 1 stop codon). All mutations were therefore predicted to be protein truncating"</div>
+
+
+                <div class="evidence-explanation">Records the allele class found in this cohort, the contrast that makes the second series&#39; missense alleles worth stating separately.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27319779" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27319779" target="_blank">PMID:27319779</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified biallelic missense mutations or in-frame deletion in DCDC2 in four affected children."</div>
+
+
+                <div class="evidence-explanation">An independent series establishing biallelic DCDC2 variants as causal, with a different allele class from the UK cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27319779" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27319779" target="_blank">PMID:27319779</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This data expands the molecular spectrum of NSC, that can be considered as a ciliopathy and also expands the clinical spectrum of the DCDC2 mutations, previously reported in dyslexia, deafness, and nephronophtisis."</div>
+
+
+                <div class="evidence-explanation">Notes that DCDC2 is pleiotropic - the same gene is reported in dyslexia, deafness and nephronophthisis - so a DCDC2 finding is not by itself specific to this subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-cldn1" data-dismech-node="CLDN1" data-dismech-type="genetic">
+                <div class="item-name">
+                    CLDN1
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Biallelic CLDN1 loss of function causes neonatal ichthyosis-sclerosing cholangitis syndrome (MONDO:0011874), also reported as ILVASC. Claudin-1 is a tight-junction protein, and its absence from both liver and skin accounts for the paired cholangiopathy and ichthyosis. The recurrent missense allele p.Arg81His is a founder variant in Jews of Moroccan descent.)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CLDN1
+
+
+    <a href="https://bioregistry.io/hgnc:2032" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:2032</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CLDN1 (hgnc:2032). hgnc:2032 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15521008" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15521008" target="_blank">PMID:15521008</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We previously assigned a syndrome associating ichthyosis and neonatal sclerosing cholangitis (NISCH syndrome) to chromosome 3q27-q28."</div>
+
+
+                <div class="evidence-explanation">Records the mapped interval that identified claudin-1 as the positional candidate gene for this subtype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37814412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814412" target="_blank">PMID:37814412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"show through haplotype analysis in the vicinity of the CLDN1 gene, that this variant represents a founder variant in Jews of Moroccan descent with an estimated carrier frequency of 1:220"</div>
+
+
+                <div class="evidence-explanation">Sources the founder status and carrier frequency of the recurrent p.Arg81His allele.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37814412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814412" target="_blank">PMID:37814412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although most ILVASC cases described to date were attributed to homozygous truncating variants in CLDN1, a single missense variant CLDN1 p.Arg81His, associated with isolated skin ichthyosis phenotype, has been recently reported in a family of Moroccan Jewish descent."</div>
+
+
+                <div class="evidence-explanation">Establishes truncating variants as the usual allele class and the missense founder allele as the exception, supporting the two allele classes recorded in the pathophysiology node&#39;s genetic context.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6368,6 +7630,20 @@ This clinical feature is Elevated gamma-glutamyl transferase, annotated with Ele
                 <div class="item-name">
                     Etiology-Directed Management
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6391,7 +7667,7 @@ This clinical feature is Elevated gamma-glutamyl transferase, annotated with Ele
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Liver Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Liver Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6423,6 +7699,20 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Liver transplantation is used for end-stage or otherwise advanced sclerosing cholangitis when progressive liver failure or complications cannot be controlled.</div>
 
 
@@ -6438,11 +7728,11 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001394</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6464,7 +7754,10 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                         <a href="https://bioregistry.io/DOI:10.3390/jcm15031149" target="_blank">DOI:10.3390/jcm15031149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6495,7 +7788,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">endoscopic retrograde cholangiopancreatography<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">endoscopic retrograde cholangiopancreatography<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is endoscopic retrograde cholangiopancreatography (NCIT:C16430). NCIT:C16430 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6523,6 +7816,20 @@ This treatment is endoscopic retrograde cholangiopancreatography (NCIT:C16430). 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6559,13 +7866,16 @@ This treatment is endoscopic retrograde cholangiopancreatography (NCIT:C16430). 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s00535-025-02265-5" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s00535-025-02265-5" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s00535-025-02265-5" target="_blank">DOI:10.1007/s00535-025-02265-5</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6596,7 +7906,7 @@ This treatment is endoscopic retrograde cholangiopancreatography (NCIT:C16430). 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6623,6 +7933,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6665,7 +7989,10 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="https://clinicaltrials.gov/study/NCT03872921" target="_blank">clinicaltrials:NCT03872921</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6696,7 +8023,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Fecal Microbiota Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Fecal Microbiota Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6723,6 +8050,20 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6765,7 +8106,10 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
                         <a href="https://clinicaltrials.gov/study/NCT02424175" target="_blank">clinicaltrials:NCT02424175</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6805,6 +8149,10 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
 
 
+
+
+
+
                 <div class="item-desc">IBD is not modeled in a dedicated comorbidities slot because the current Disease schema has no such top-level slot, but the PSC-IBD association is a major clinical context for sclerosing cholangitis.</div>
 
 
@@ -6821,7 +8169,10 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
                         <a href="https://bioregistry.io/DOI:10.1136/gutjnl-2023-330856" target="_blank">DOI:10.1136/gutjnl-2023-330856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6883,7 +8234,10 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30205418" target="_blank">PMID:30205418</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6943,6 +8297,298 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cholangiographic-stricture-pattern">
+                <div class="item-name">
+                    Cholangiographic Stricture Pattern
+
+                </div>
+
+                <div class="item-desc">Diagnosis depends on recognizing intrahepatic and/or extrahepatic bile-duct strictures and then distinguishing primary, secondary, IgG4-related, and neonatal etiologies using clinical context, serology, histology, and exclusion of mimics.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Multifocal or segmental biliary stenosis with evidence of cholestasis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27625195" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27625195" target="_blank">PMID:27625195</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These diseases can present with biliary strictures and/or mass lesions, making them difficult to differentiate from primary sclerosing cholangitis (PSC) or other hepatobiliary malignancies."</div>
+
+
+                <div class="evidence-explanation">This supports biliary strictures as a diagnostic presentation and highlights the need to distinguish sclerosing cholangitis subtypes and malignancy mimics.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-endoscopic-or-magnetic-cholangiography">
+                <div class="item-name">
+                    Endoscopic or Magnetic Cholangiography
+
+                </div>
+
+                <div class="item-desc">MRCP and ERCP are used to document characteristic biliary strictures and support subtype-level diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        endoscopic retrograde cholangiopancreatography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16430" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C16430</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30205418" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30205418" target="_blank">PMID:30205418</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cholangiography, endoscopic or magnetic, is inevitably required for making a diagnosis."</div>
+
+
+                <div class="evidence-explanation">Supports cholangiography as required diagnostic imaging for sclerosing cholangitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-chronic-fibroinflammatory-cholangiopathy">
+                <div class="item-name">Chronic fibroinflammatory cholangiopathy</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Sclerosing cholangitis is usually chronic and progressive, with persistent biliary inflammation, ductal obliteration, hepatic dysfunction, and eventual risk of cirrhosis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/jcm15031149" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/jcm15031149" target="_blank">DOI:10.3390/jcm15031149</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary sclerosing cholangitis is a rare, chronic, inflammatory disease of the biliary tree that leads to progressive ductal obliteration, hepatic dysfunction, and ultimately liver cirrhosis."</div>
+
+
+                <div class="evidence-explanation">Supports chronic progression from biliary inflammation and ductal obliteration to hepatic dysfunction and cirrhosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-advanced-complications">
+                <div class="item-name">Advanced complications</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Advanced disease can require transplantation and PSC-IBD carries elevated colorectal and cholangiocarcinoma surveillance burden.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/cancers17132165" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers17132165" target="_blank">DOI:10.3390/cancers17132165</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with inflammatory bowel disease (IBD) and primary sclerosing cholangitis (PSC) face a significantly increased risk of malignancies, including a 10-fold higher risk for colorectal cancer (CRC) and a lifetime risk for cholangiocarcinoma (CCA) exceeding 20%."</div>
+
+
+                <div class="evidence-explanation">Supports malignancy risk as a major advanced-disease surveillance issue in PSC-IBD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -6955,9 +8601,9 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse177044">
                 <div class="item-name">
-                    Large-scale whole blood RNA-Seq identifies transcriptional differences between primary sclerosing cholangitis and ulcerative colitis 
+                    Large-scale whole blood RNA-Seq identifies transcriptional differences between primary sclerosing cholangitis and ulcerative colitis
 
                     <span class="dataset-accession">
                         <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE177044" target="_blank">geo:GSE177044</a>
@@ -6998,7 +8644,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse283289">
                 <div class="item-name">
                     Multi-omic sequencing reveals distinctive gene expression and epigenetic alterations associated with primary sclerosing cholangitis development in treatment-naïve paediatric ulcerative colitis
 
@@ -7041,7 +8687,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse239283">
                 <div class="item-name">
                     Il-17 Signaling in Primary Sclerosing Cholangitis Patient-Derived Organoids
 
@@ -7080,7 +8726,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004497">
                 <div class="item-name">
                     Molecular analysis of CRC in patients with Primary Sclerosing Cholangitis (PSC) and Inflammatory Bowel Disease (IBD)
 
@@ -7113,7 +8759,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000998">
                 <div class="item-name">
                     Bile Acid of Primary Sclerosing Cholangitis (part IV)
 
@@ -7144,7 +8790,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000997">
                 <div class="item-name">
                     Acyl Carnitines Concentrations of Primary Sclerosing Cholangitis (part III)
 
@@ -7175,7 +8821,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000995">
                 <div class="item-name">
                     Amino Acid Concentrations of Primary Sclerosing Cholangitis (part I)
 
@@ -7218,7 +8864,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03872921">
                 <div class="item-name">
                     NCT03872921
 
@@ -7244,7 +8890,10 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
                         <a href="https://clinicaltrials.gov/study/NCT03872921" target="_blank">clinicaltrials:NCT03872921</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7267,7 +8916,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02424175">
                 <div class="item-name">
                     NCT02424175
 
@@ -7291,7 +8940,10 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
                         <a href="https://clinicaltrials.gov/study/NCT02424175" target="_blank">clinicaltrials:NCT02424175</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7314,7 +8966,7 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06286709">
                 <div class="item-name">
                     NCT06286709
 
@@ -7340,7 +8992,10 @@ This treatment is Fecal Microbiota Transplantation (NCIT:C118643). NCIT:C118643 
                         <a href="https://clinicaltrials.gov/study/NCT06286709" target="_blank">clinicaltrials:NCT06286709</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7441,16 +9096,72 @@ has_subtypes:
     term:
       id: MONDO:0011874
       label: neonatal ichthyosis-sclerosing cholangitis syndrome
+  genes:
+  - preferred_term: CLDN1
+    term:
+      id: hgnc:2032
+      label: CLDN1
+  inheritance:
+  - name: Autosomal recessive inheritance
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
   description: &gt;-
-    Syndromic neonatal form with sclerosing cholangitis and ichthyosis.
+    Syndromic neonatal form with sclerosing cholangitis and ichthyosis, caused
+    by biallelic loss of function of the tight-junction protein claudin-1
+    (CLDN1). Also reported under the name ichthyosis, leukocyte vacuoles,
+    alopecia and sclerosing cholangitis (ILVASC).
+  evidence:
+  - reference: PMID:37814412
+    reference_title: &#34;CLDN1 Arg81His founder variant causes ichthyosis, leukocyte vacuoles, alopecia, and sclerosing cholangitis (ILVASC) syndrome in Moroccan Jews.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Neonatal ichthyosis and sclerosing cholangitis syndrome (NISCH), also
+      known as ichthyosis, leukocyte vacuoles, alopecia, and sclerosing
+      cholangitis (ILVASC), is an extremely rare disease of autosomal recessive
+      inheritance, resulting from loss of function of the tight junction protein
+      claudin-1.
+    explanation: &gt;-
+      States the inheritance mode and the causal gene product for this subtype,
+      and records the ILVASC name under which the same entity is reported.
 - name: Isolated neonatal sclerosing cholangitis
   subtype_term:
     preferred_term: isolated neonatal sclerosing cholangitis
     term:
       id: MONDO:0018816
       label: isolated neonatal sclerosing cholangitis
+  genes:
+  - preferred_term: DCDC2
+    term:
+      id: hgnc:18141
+      label: DCDC2
+  inheritance:
+  - name: Autosomal recessive inheritance
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
   description: &gt;-
     Neonatal sclerosing cholangitis without the syndromic ichthyosis component.
+    Biallelic DCDC2 variants account for a substantial share of cases; the
+    resulting loss of cholangiocyte primary cilia makes this subtype a
+    liver-based ciliopathy rather than an immune-mediated cholangiopathy.
+  evidence:
+  - reference: PMID:27469900
+    reference_title: &#34;Mutations in DCDC2 (doublecortin domain containing protein 2) in neonatal sclerosing cholangitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Among 24 NSC patients with available DNA, 7 had mutations in DCDC2 (6 of
+      19 families). NSC patients in substantial proportion harbour mutations in
+      DCDC2. Their disease represents a novel liver-based ciliopathy.
+    explanation: &gt;-
+      Quantifies the DCDC2 share of a neonatal sclerosing cholangitis series and
+      states the ciliopathy classification asserted in this subtype description.
 progression:
 - phase: Chronic fibroinflammatory cholangiopathy
   notes: &gt;-
@@ -7459,7 +9170,7 @@ progression:
     risk of cirrhosis.
   evidence:
   - reference: DOI:10.3390/jcm15031149
-    reference_title: Primary Sclerosing Cholangitis in 2026
+    reference_title: &#34;Primary Sclerosing Cholangitis: Diagnosis, Management, and Clinical Challenges&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7478,7 +9189,7 @@ progression:
     reference_title: Navigating Neoplasm Risk in Inflammatory Bowel Disease and
       Primary Sclerosing Cholangitis
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Patients with inflammatory bowel disease (IBD) and primary sclerosing
       cholangitis (PSC) face a significantly increased risk of malignancies,
@@ -7647,6 +9358,196 @@ pathophysiology:
       immune regulation.
     explanation: &gt;-
       Supports cholangiocyte bile-acid receptor dysregulation in PSC.
+- name: Cholangiocyte Primary Cilium Loss
+  description: &gt;-
+    In the isolated neonatal form, biallelic DCDC2 variants abolish DCDC2
+    protein, which is normally expressed in cholangiocyte cilia. Affected bile
+    ducts lose not only the protein but the cilium itself, absent on both
+    immunostaining for acetylated alpha-tubulin and transmission electron
+    microscopy. What the cilium contributes to cholangiocyte function is not
+    established by the sources cited here, so this node records the structural
+    loss and the cholangiopathy that accompanies it rather than an intervening
+    functional step. This is a monogenic route into cholangiopathy, distinct
+    from the immune- and microbiome-driven mechanisms modeled for primary
+    sclerosing cholangitis above.
+  biological_scale: CELLULAR
+  subtypes:
+  - Isolated neonatal sclerosing cholangitis
+  genes:
+  - preferred_term: DCDC2
+    term:
+      id: hgnc:18141
+      label: DCDC2
+  genetic_context:
+    gene:
+      preferred_term: DCDC2
+      term:
+        id: hgnc:18141
+        label: DCDC2
+    variant_origin: GERMLINE
+    functional_impact_category: LOSS_OF_FUNCTION
+    description: &gt;-
+      Homozygous or compound heterozygous DCDC2 variants. No `zygosity` is
+      recorded: the slot is single-valued and has no biallelic value, and this
+      node&#39;s own cited quote reports four homozygous and two compound
+      heterozygous patients, so naming either one would contradict the
+      evidence. The series seen at King&#39;s College Hospital found only
+      protein-truncating alleles; a second, independent series reported
+      biallelic missense variants and an in-frame deletion in the doublecortin
+      domains, where the protein is mislocalized to the cytoplasm and absent
+      from cilia rather than undetectable. Neither series&#39; geography is
+      asserted here: PMID:27319779&#39;s cached record carries no affiliation.
+  cell_types:
+  - preferred_term: Cholangiocyte
+    term:
+      id: CL:1000488
+      label: cholangiocyte
+  cellular_components:
+  - preferred_term: cholangiocyte primary cilium
+    term:
+      id: GO:0005929
+      label: cilium
+    modifier: ABSENT
+  biological_processes:
+  - preferred_term: ciliogenesis
+    term:
+      id: GO:0060271
+      label: cilium assembly
+    modifier: DECREASED
+  downstream:
+  - target: Bile Duct Fibrostenosis
+    description: &gt;-
+      Cilium-deficient cholangiocytes develop a cholangiopathy with irregular
+      dilatation and strictures of intrahepatic and extrahepatic bile ducts.
+  evidence:
+  - reference: PMID:27469900
+    reference_title: &#34;Mutations in DCDC2 (doublecortin domain containing protein 2) in neonatal sclerosing cholangitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Four of 13 patients were homozygous and two were compound heterozygous
+      for mutations in the doublecortin domain containing 2 gene (DCDC2), which
+      encodes DCDC2 protein and is expressed in cholangiocyte cilia.
+    explanation: &gt;-
+      Establishes biallelic DCDC2 variants in neonatal sclerosing cholangitis
+      and the ciliary localization of the protein in cholangiocytes.
+  - reference: PMID:27469900
+    reference_title: &#34;Mutations in DCDC2 (doublecortin domain containing protein 2) in neonatal sclerosing cholangitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      transmission electron microscopy found that cholangiocytes lacked primary
+      cilia (n=5)
+    explanation: &gt;-
+      Ultrastructural confirmation that the cilium itself, not only the DCDC2
+      protein, is absent in patient cholangiocytes.
+  - reference: PMID:27469900
+    reference_title: &#34;Mutations in DCDC2 (doublecortin domain containing protein 2) in neonatal sclerosing cholangitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Radiological features included irregular dilatation and strictures in
+      intrahepatic or extrahepatic bile ducts, consistent with a cholangiopathy.
+    explanation: &gt;-
+      Supports the downstream edge from cilium loss to the stricturing
+      bile-duct phenotype this entry models as Bile Duct Fibrostenosis.
+  - reference: PMID:27319779
+    reference_title: &#34;DCDC2 Mutations Cause Neonatal Sclerosing Cholangitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In cholangiocytes, DCDC2 protein is normally located in the cytoplasm and
+      cilia, whereas in patients the mutated protein is accumulated in the
+      cytoplasm, absent from cilia, and associated with ciliogenesis defect.
+    explanation: &gt;-
+      An independent series links DCDC2 variants to a ciliogenesis defect,
+      supporting the decreased cilium-assembly annotation on this node.
+- name: Cholangiocyte Tight-Junction Failure
+  description: &gt;-
+    In the syndromic neonatal form, biallelic CLDN1 variants remove claudin-1
+    from both liver and skin. Claudins are components of tight junctions, which
+    in the liver separate bile flow from plasma, and the founding study
+    proposes that lack of claudin-1 raises paracellular permeability between
+    epithelial cells and that the bile-duct injury follows from its absence in
+    cholangiocytes. That mechanism is the authors&#39; proposal and is carried here
+    with the same hedge. Claudin-1 is absent from skin as well as liver in
+    affected patients, and this subtype is the one distinguished clinically by
+    ichthyosis.
+  biological_scale: CELLULAR
+  subtypes:
+  - Neonatal ichthyosis-sclerosing cholangitis syndrome
+  genes:
+  - preferred_term: CLDN1
+    term:
+      id: hgnc:2032
+      label: CLDN1
+  genetic_context:
+    gene:
+      preferred_term: CLDN1
+      term:
+        id: hgnc:2032
+        label: CLDN1
+    variant_origin: GERMLINE
+    zygosity: HOMOZYGOUS
+    functional_impact_category: LOSS_OF_FUNCTION
+    description: &gt;-
+      Biallelic CLDN1 loss of function. `HOMOZYGOUS` is recorded here, unlike
+      on the DCDC2 node above, because it is the state the sources report:
+      PMID:37814412 states that most ILVASC cases described to date were
+      attributed to homozygous truncating variants, and the founding report
+      described a 2-bp deletion in exon 1 in inbred kindred, producing a
+      premature stop codon and complete absence of claudin-1 protein. The
+      later founder missense allele p.Arg81His segregates in North African
+      Jewish families; the cited record does not state its zygosity, so the
+      slot carries the modal reported state rather than a claim about every
+      described case.
+  cell_types:
+  - preferred_term: Cholangiocyte
+    term:
+      id: CL:1000488
+      label: cholangiocyte
+  cellular_components:
+  - preferred_term: cholangiocyte tight junction
+    term:
+      id: GO:0005923
+      label: bicellular tight junction
+  biological_processes:
+  - preferred_term: establishment of skin barrier
+    term:
+      id: GO:0061436
+      label: establishment of skin barrier
+    modifier: DECREASED
+  downstream:
+  - target: Bile Duct Inflammation
+    description: &gt;-
+      Loss of claudin-1 from cholangiocyte tight junctions is proposed to
+      increase paracellular permeability and so to produce the bile-duct injury
+      of this subtype.
+  evidence:
+  - reference: PMID:15521008
+    reference_title: &#34;Claudin-1 gene mutations in neonatal sclerosing cholangitis associated with ichthyosis: a tight junction disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We described in 4 patients, of 2 inbred kindred of Moroccan origin, a
+      2-bp deletion (200-201 TT) in exon 1 of the claudin-1 gene arising in a
+      premature stop codon and resulting in total absence of claudin-1 protein
+      in the liver and skin.
+    explanation: &gt;-
+      The founding report of CLDN1 loss of function in this subtype, showing
+      absence of the protein in both affected organs.
+  - reference: PMID:15521008
+    reference_title: &#34;Claudin-1 gene mutations in neonatal sclerosing cholangitis associated with ichthyosis: a tight junction disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Lack of claudin-1 in NISCH syndrome may lead to increased paracellular
+      permeability between epithelial cells. Bile duct injury may be related to
+      the absence of claudin-1 expression in cholangiocytes.
+    explanation: &gt;-
+      The authors&#39; proposed mechanism linking claudin-1 loss to bile-duct
+      injury. It is stated as a proposal (&#34;may&#34;), and this node&#39;s description
+      carries it with the same hedge.
 - name: Bile Duct Inflammation
   description: &gt;-
     Inflammatory injury of the bile-duct epithelium and duct wall is a shared
@@ -7697,6 +9598,7 @@ pathophysiology:
       fibrosis, stenosis, and destruction and identifies major clinical
       categories.
 - name: Cholangiocyte Senescence-Associated Fibrogenesis
+  conforms_to: &#34;cholestatic_liver_injury#Ductular Reaction and Cholangiocyte-Driven Fibrogenesis&#34;
   description: &gt;-
     Stressed cholangiocytes can acquire a senescence-associated secretory
     phenotype that is proinflammatory and profibrogenic, driving crosstalk with
@@ -7771,6 +9673,7 @@ pathophysiology:
       The definition directly supports progressive bile-duct stenosis and
       fibrosis as central shared pathobiology.
 - name: Cholestatic Liver Injury
+  conforms_to: &#34;cholestatic_liver_injury#Bile Acid-Mediated Hepatocyte and Cholangiocyte Injury&#34;
   description: &gt;-
     Persistent obstruction and cholestasis from bile-duct strictures drive
     cholestatic liver injury and can progress to biliary cirrhosis.
@@ -8004,6 +9907,138 @@ phenotypes:
       cholestatic liver injury, fibrosis, and often cirrhosis and its sequela.
     explanation: &gt;-
       Supports cirrhosis as an advanced outcome of chronic cholangiopathy.
+genetic:
+- name: DCDC2
+  gene_term:
+    preferred_term: DCDC2
+    term:
+      id: hgnc:18141
+      label: DCDC2
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  subtype: Isolated neonatal sclerosing cholangitis
+  association: &gt;-
+    Biallelic DCDC2 variants cause isolated neonatal sclerosing cholangitis
+    (MONDO:0018816). DCDC2 is expressed in the primary cilium of cuboidal
+    cholangiocytes; affected patients lose both the protein and the cilium, so
+    the subtype is classified as a liver-based ciliopathy. Two independent
+    series reported different allele classes with the same ciliary phenotype:
+    protein-truncating variants in a series seen at King&#39;s College Hospital,
+    and biallelic missense variants or an in-frame deletion in the doublecortin
+    domains in a second, independent series. Only the King&#39;s College
+    attribution is sourced - PMID:27469900&#39;s full text states it - and no
+    geography is asserted for the other series.
+  case_fractions:
+  - population: &gt;-
+      Neonatal sclerosing cholangitis patients with available DNA at a single
+      UK paediatric liver centre, selected for parental consanguinity at the
+      exome-sequencing stage
+    case_fraction_percent: 29.2
+    cohort_size: 24
+    notes: &gt;-
+      7 of 24 patients (6 of 19 families); the percentage is that ratio
+      expressed as a percentage, and the raw counts are in the quoted snippet.
+      The exome-sequenced subgroup was chosen for consanguinity, so this share
+      is not a population estimate for neonatal sclerosing cholangitis at
+      large.
+    evidence:
+    - reference: PMID:27469900
+      reference_title: &#34;Mutations in DCDC2 (doublecortin domain containing protein 2) in neonatal sclerosing cholangitis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Among 24 NSC patients with available DNA, 7 had mutations in DCDC2 (6
+        of 19 families).
+      explanation: Gives the numerator, denominator and family counts behind this share.
+  evidence:
+  - reference: PMID:27469900
+    reference_title: &#34;Mutations in DCDC2 (doublecortin domain containing protein 2) in neonatal sclerosing cholangitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Four patients had homozygous changes (2 frameshift, 2 stop codon) and 2
+      patients had compound heterozygous changes (2 frameshift, 1 stop codon).
+      All mutations were therefore predicted to be protein truncating
+    explanation: &gt;-
+      Records the allele class found in this cohort, the contrast that makes
+      the second series&#39; missense alleles worth stating separately.
+  - reference: PMID:27319779
+    reference_title: &#34;DCDC2 Mutations Cause Neonatal Sclerosing Cholangitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We identified biallelic missense mutations or in-frame deletion in DCDC2
+      in four affected children.
+    explanation: &gt;-
+      An independent series establishing biallelic DCDC2 variants as causal,
+      with a different allele class from the UK cohort.
+  - reference: PMID:27319779
+    reference_title: &#34;DCDC2 Mutations Cause Neonatal Sclerosing Cholangitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This data expands the molecular spectrum of NSC, that can be considered
+      as a ciliopathy and also expands the clinical spectrum of the DCDC2
+      mutations, previously reported in dyslexia, deafness, and nephronophtisis.
+    explanation: &gt;-
+      Notes that DCDC2 is pleiotropic - the same gene is reported in dyslexia,
+      deafness and nephronophthisis - so a DCDC2 finding is not by itself
+      specific to this subtype.
+- name: CLDN1
+  gene_term:
+    preferred_term: CLDN1
+    term:
+      id: hgnc:2032
+      label: CLDN1
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  subtype: Neonatal ichthyosis-sclerosing cholangitis syndrome
+  association: &gt;-
+    Biallelic CLDN1 loss of function causes neonatal ichthyosis-sclerosing
+    cholangitis syndrome (MONDO:0011874), also reported as ILVASC. Claudin-1 is
+    a tight-junction protein, and its absence from both liver and skin accounts
+    for the paired cholangiopathy and ichthyosis. The recurrent missense allele
+    p.Arg81His is a founder variant in Jews of Moroccan descent.
+  notes: &gt;-
+    The 3q27-q28 assignment quoted below is the linkage interval the founding
+    study had previously mapped, which is how claudin-1 was reached as a
+    positional candidate; it is recorded here as that study states it and is
+    not a separate locus claim.
+  evidence:
+  - reference: PMID:15521008
+    reference_title: &#34;Claudin-1 gene mutations in neonatal sclerosing cholangitis associated with ichthyosis: a tight junction disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We previously assigned a syndrome associating ichthyosis and neonatal
+      sclerosing cholangitis (NISCH syndrome) to chromosome 3q27-q28.
+    explanation: &gt;-
+      Records the mapped interval that identified claudin-1 as the positional
+      candidate gene for this subtype.
+  - reference: PMID:37814412
+    reference_title: &#34;CLDN1 Arg81His founder variant causes ichthyosis, leukocyte vacuoles, alopecia, and sclerosing cholangitis (ILVASC) syndrome in Moroccan Jews.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      show through haplotype analysis in the vicinity of the CLDN1 gene, that
+      this variant represents a founder variant in Jews of Moroccan descent
+      with an estimated carrier frequency of 1:220
+    explanation: &gt;-
+      Sources the founder status and carrier frequency of the recurrent
+      p.Arg81His allele.
+  - reference: PMID:37814412
+    reference_title: &#34;CLDN1 Arg81His founder variant causes ichthyosis, leukocyte vacuoles, alopecia, and sclerosing cholangitis (ILVASC) syndrome in Moroccan Jews.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Although most ILVASC cases described to date were attributed to
+      homozygous truncating variants in CLDN1, a single missense variant CLDN1
+      p.Arg81His, associated with isolated skin ichthyosis phenotype, has been
+      recently reported in a family of Moroccan Jewish descent.
+    explanation: &gt;-
+      Establishes truncating variants as the usual allele class and the
+      missense founder allele as the exception, supporting the two allele
+      classes recorded in the pathophysiology node&#39;s genetic context.
 biochemical:
 - name: Cholestatic Enzymes
   presence: Elevated
@@ -8056,7 +10091,7 @@ diagnosis:
   evidence:
   - reference: PMID:27625195
     reference_title: &#34;IgG4-related hepatobiliary disease: an overview.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       These diseases can present with biliary strictures and/or mass lesions,
@@ -8111,7 +10146,7 @@ treatments:
       label: Cirrhosis
   evidence:
   - reference: DOI:10.3390/jcm15031149
-    reference_title: Primary Sclerosing Cholangitis in 2026
+    reference_title: &#34;Primary Sclerosing Cholangitis: Diagnosis, Management, and Clinical Challenges&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8138,7 +10173,7 @@ treatments:
   - reference: DOI:10.1007/s00535-025-02265-5
     reference_title: The 2024 diagnostic criteria for primary sclerosing
       cholangitis
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The 2024 diagnostic criteria facilitate the use of magnetic resonance
@@ -8367,12 +10402,12 @@ references:
   found_in:
   - Sclerosing_Cholangitis-deep-research-falcon.md
   findings:
-  - statement: Primary sclerosing cholangitis associated with inflammatory bowel
-      disease [IBD-PSC] carries significant morbidity compared to IBD without
-      PSC.
-    supporting_text: Primary sclerosing cholangitis associated with inflammatory
-      bowel disease [IBD-PSC] carries significant morbidity compared to IBD
-      without PSC.
+  - statement: &gt;-
+      IBD associated with PSC has distinct gut microbial species, functional capacity, and serum
+      bile acid profiles compared with IBD alone.
+    supporting_text: &gt;-
+      We identified differences in microbial species, functional capacity, and serum BA profiles in
+      IBD-PSC compared with IBD-only.
     evidence:
     - reference: DOI:10.1093/ecco-jcc/jjae096
       reference_title: Inflammatory Bowel Disease Associated with Primary
@@ -8380,11 +10415,12 @@ references:
         Bile Acid Profile
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: Primary sclerosing cholangitis associated with inflammatory bowel
-        disease [IBD-PSC] carries significant morbidity compared to IBD without
-        PSC.
-      explanation: Deep research cited this publication as relevant literature
-        for Sclerosing Cholangitis.
+      snippet: &gt;-
+        We identified differences in microbial species, functional capacity, and serum BA profiles
+        in IBD-PSC compared with IBD-only.
+      explanation: &gt;-
+        The comparative study directly reports differences in the gut microbiome and serum bile acid
+        profile in IBD-PSC.
 - reference: DOI:10.1111/j.1478-3231.2011.02484.x
   title: &#39;Validity of administrative data for the diagnosis of primary sclerosing
     cholangitis: a population-based study&#39;
@@ -8483,26 +10519,24 @@ references:
   found_in:
   - Sclerosing_Cholangitis-deep-research-falcon.md
   findings:
-  - statement: Navigating Neoplasm Risk in Inflammatory Bowel Disease and
-      Primary Sclerosing Cholangitis
-    supporting_text: (1) Background and Patients with inflammatory bowel disease
-      (IBD) and primary sclerosing cholangitis (PSC) face a significantly
-      increased risk of malignancies, including a 10-fold higher risk for
-      colorectal cancer (CRC) and a lifetime risk for cholangiocarcinoma (CCA)
-      exceeding 20%.
+  - statement: &gt;-
+      Patients with both inflammatory bowel disease and primary sclerosing cholangitis have
+      increased risks of colorectal cancer and cholangiocarcinoma.
+    supporting_text: &gt;-
+      Patients with inflammatory bowel disease (IBD) and primary sclerosing cholangitis (PSC) face a
+      significantly increased risk of malignancies, including a 10-fold higher risk for colorectal
+      cancer (CRC) and a lifetime risk for cholangiocarcinoma (CCA) exceeding 20%.
     evidence:
     - reference: DOI:10.3390/cancers17132165
       reference_title: Navigating Neoplasm Risk in Inflammatory Bowel Disease
         and Primary Sclerosing Cholangitis
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
-      snippet: (1) Background and Patients with inflammatory bowel disease (IBD)
-        and primary sclerosing cholangitis (PSC) face a significantly increased
-        risk of malignancies, including a 10-fold higher risk for colorectal
-        cancer (CRC) and a lifetime risk for cholangiocarcinoma (CCA) exceeding
-        20%.
-      explanation: Deep research cited this publication as relevant literature
-        for Sclerosing Cholangitis.
+      evidence_source: &#34;OTHER&#34;
+      snippet: &gt;-
+        Patients with inflammatory bowel disease (IBD) and primary sclerosing cholangitis (PSC) face
+        a significantly increased risk of malignancies, including a 10-fold higher risk for
+        colorectal cancer (CRC) and a lifetime risk for cholangiocarcinoma (CCA) exceeding 20%.
+      explanation: &#34;The review summarizes the increased malignancy risk in patients with IBD and PSC.&#34;
 - reference: DOI:10.3390/cells13191650
   title: &#39;Bile Acids-Based Therapies for Primary Sclerosing Cholangitis: Current Landscape
     and Future Developments&#39;
@@ -8596,7 +10630,7 @@ references:
         for Sclerosing Cholangitis.
 datasets:
 - accession: geo:GSE177044
-  title: Large-scale whole blood RNA-Seq identifies transcriptional differences between primary sclerosing cholangitis and ulcerative colitis 
+  title: Large-scale whole blood RNA-Seq identifies transcriptional differences between primary sclerosing cholangitis and ulcerative colitis
   description: &#39;Background: Patients suffering from primary sclerosing cholangitis (PSC) often also have ulcerative colitis (UC). Cross-disease genetic and microbiome studies across PSC und UC patients indicated that UC in PSC is a separate disease entity from primary UC, but expression studies for PSC are lacking. In this study, we performed a molecular comparison of whole blood expression levels in PSC only, PSC patients with additional UC diagnosis (PSC/UC), and UC, using a large collection of whole blood transcriptome data. Methods: We conducted whole blood RNA-Seq experiments for 495 UC patients, 220 PSC patients (of whom 177 have also a UC diagnosis), and 320 healthy controls from Germany and Norway.&#39;
   organism:
     preferred_term: human
@@ -8647,6 +10681,14 @@ datasets:
 - accession: metabolomics_workbench:ST000995
   title: Amino Acid Concentrations of Primary Sclerosing Cholangitis (part I)
   notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Sclerosing Cholangitis&#34;). Retrieved 2026-08-02.
+review_notes: &gt;-
+  Scope of the dismech#12205 genetics pass. Only the two Mendelian neonatal
+  subtypes of this umbrella entry are curated with a causal gene, because they
+  are the subtypes MONDO records one for (MONDO:0018816 / DCDC2 and
+  MONDO:0011874 / CLDN1). No susceptibility locus for primary sclerosing
+  cholangitis is curated in this entry. That was left out of scope for this
+  pass rather than investigated and rejected, and this note makes no claim
+  about what PSC&#39;s genetic architecture is.
 </pre>
             </div>
         </div>
@@ -8776,7 +10818,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1007/s00535-025-02265-5" target="_blank">DOI:10.1007/s00535-025-02265-5</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8845,7 +10890,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1007/s00535-026-02388-3" target="_blank">DOI:10.1007/s00535-026-02388-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8914,7 +10962,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1007/s12072-023-10521-0" target="_blank">DOI:10.1007/s12072-023-10521-0</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9038,10 +11089,10 @@ datasets:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">Primary sclerosing cholangitis associated with inflammatory bowel disease [IBD-PSC] carries significant morbidity compared to IBD without PSC.</div>
+            <div class="reference-finding-statement">IBD associated with PSC has distinct gut microbial species, functional capacity, and serum bile acid profiles compared with IBD alone.</div>
 
 
-            <div class="reference-finding-supporting">"Primary sclerosing cholangitis associated with inflammatory bowel disease [IBD-PSC] carries significant morbidity compared to IBD without PSC."</div>
+            <div class="reference-finding-supporting">"We identified differences in microbial species, functional capacity, and serum BA profiles in IBD-PSC compared with IBD-only."</div>
 
 
 
@@ -9057,17 +11108,20 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1093/ecco-jcc/jjae096" target="_blank">DOI:10.1093/ecco-jcc/jjae096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Primary sclerosing cholangitis associated with inflammatory bowel disease [IBD-PSC] carries significant morbidity compared to IBD without PSC."</div>
+                <div class="evidence-snippet">"We identified differences in microbial species, functional capacity, and serum BA profiles in IBD-PSC compared with IBD-only."</div>
 
 
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Sclerosing Cholangitis.</div>
+                <div class="evidence-explanation">The comparative study directly reports differences in the gut microbiome and serum bile acid profile in IBD-PSC.</div>
 
 
 
@@ -9163,7 +11217,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1136/gutjnl-2023-330856" target="_blank">DOI:10.1136/gutjnl-2023-330856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9232,7 +11289,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1186/s12876-024-03162-6" target="_blank">DOI:10.1186/s12876-024-03162-6</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9301,7 +11361,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.15403/jgld-5476" target="_blank">DOI:10.15403/jgld-5476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9388,10 +11451,10 @@ datasets:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">Navigating Neoplasm Risk in Inflammatory Bowel Disease and Primary Sclerosing Cholangitis</div>
+            <div class="reference-finding-statement">Patients with both inflammatory bowel disease and primary sclerosing cholangitis have increased risks of colorectal cancer and cholangiocarcinoma.</div>
 
 
-            <div class="reference-finding-supporting">"(1) Background and Patients with inflammatory bowel disease (IBD) and primary sclerosing cholangitis (PSC) face a significantly increased risk of malignancies, including a 10-fold higher risk for colorectal cancer (CRC) and a lifetime risk for cholangiocarcinoma (CCA) exceeding 20%."</div>
+            <div class="reference-finding-supporting">"Patients with inflammatory bowel disease (IBD) and primary sclerosing cholangitis (PSC) face a significantly increased risk of malignancies, including a 10-fold higher risk for colorectal cancer (CRC) and a lifetime risk for cholangiocarcinoma (CCA) exceeding 20%."</div>
 
 
 
@@ -9407,17 +11470,20 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers17132165" target="_blank">DOI:10.3390/cancers17132165</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"(1) Background and Patients with inflammatory bowel disease (IBD) and primary sclerosing cholangitis (PSC) face a significantly increased risk of malignancies, including a 10-fold higher risk for colorectal cancer (CRC) and a lifetime risk for cholangiocarcinoma (CCA) exceeding 20%."</div>
+                <div class="evidence-snippet">"Patients with inflammatory bowel disease (IBD) and primary sclerosing cholangitis (PSC) face a significantly increased risk of malignancies, including a 10-fold higher risk for colorectal cancer (CRC) and a lifetime risk for cholangiocarcinoma (CCA) exceeding 20%."</div>
 
 
-                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Sclerosing Cholangitis.</div>
+                <div class="evidence-explanation">The review summarizes the increased malignancy risk in patients with IBD and PSC.</div>
 
 
 
@@ -9476,7 +11542,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/cells13191650" target="_blank">DOI:10.3390/cells13191650</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9545,7 +11614,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/jcm14217817" target="_blank">DOI:10.3390/jcm14217817</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9614,7 +11686,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/jcm15031149" target="_blank">DOI:10.3390/jcm15031149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9683,7 +11758,10 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.4103/eus-d-22-00208" target="_blank">DOI:10.4103/eus-d-22-00208</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9720,6 +11798,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10800,7 +12880,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sclerosing Cholangitis", "mondoId": "MONDO:0018646", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sclerosing_Cholangitis", "yamlRevision": "241f37933cb2"};
+        const OS_CONFIG = {"diseaseName": "Sclerosing Cholangitis", "mondoId": "MONDO:0018646", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sclerosing_Cholangitis", "yamlRevision": "2504e0425aaa"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

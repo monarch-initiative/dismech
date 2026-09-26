@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Limbic Encephalitis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Limbic Encephalitis</h1>
             <div class="header-meta">
 
@@ -4053,7 +4196,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-limbic-encephalitis-clinical-syndrome">
                 <div class="item-name">Limbic encephalitis clinical syndrome</div>
 
                 <div class="item-desc">Limbic encephalitis is recognized clinically by an encephalitic syndrome centered on limbic structures, especially subacute short-term memory impairment, seizures, confusion, psychiatric or behavioral symptoms, and supportive MRI, EEG, CSF, or antibody evidence after exclusion of competing causes.</div>
@@ -4155,7 +4298,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4178,7 +4324,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4218,7 +4367,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26906964" target="_blank">PMID:26906964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4292,7 +4444,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-autoimmune-limbic-encephalitis">
 
                     <div class="item-name">
                         Autoimmune Limbic Encephalitis
@@ -4328,7 +4480,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26906964" target="_blank">PMID:26906964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4355,7 +4510,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-classic-paraneoplastic-limbic-encephalitis">
 
                     <div class="item-name">
                         Classic Paraneoplastic Limbic Encephalitis
@@ -4391,7 +4546,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4414,7 +4572,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4441,7 +4602,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-limbic-encephalitis-with-lgi1-antibodies">
 
                     <div class="item-name">
                         Limbic Encephalitis with LGI1 Antibodies
@@ -4477,7 +4638,10 @@
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2021.674368" target="_blank">DOI:10.3389/fneur.2021.674368</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4500,7 +4664,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20663977" target="_blank">PMID:20663977</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4527,7 +4694,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-limbic-encephalitis-with-caspr2-antibodies">
 
                     <div class="item-name">
                         Limbic Encephalitis with CASPR2 Antibodies
@@ -4563,7 +4730,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20663977" target="_blank">PMID:20663977</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4590,7 +4760,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gabab-receptor-autoimmune-limbic-encephalitis">
 
                     <div class="item-name">
                         GABAB Receptor Autoimmune Limbic Encephalitis
@@ -4624,7 +4794,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4651,7 +4824,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ampar-autoimmune-limbic-encephalitis">
 
                     <div class="item-name">
                         AMPAR Autoimmune Limbic Encephalitis
@@ -4685,7 +4858,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4733,6 +4909,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limbic-gray-matter-inflammation" data-dismech-node="Limbic Gray Matter Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Limbic Gray Matter Inflammation</div>
+
 
                 <div class="item-desc">Inflammation predominates in medial temporal and limbic gray matter, explaining the memory, seizure, psychiatric, and behavioral syndrome.</div>
 
@@ -4858,7 +5035,10 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4884,6 +5064,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-antigen-humoral-autoimmunity" data-dismech-node="Neuronal Antigen Humoral Autoimmunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Antigen Humoral Autoimmunity</div>
+
 
                 <div class="item-desc">Serum or CSF antibodies against neuronal intracellular or cell-surface antigens identify major mechanistic and prognostic subgroups.</div>
 
@@ -5035,7 +5216,10 @@ This pathophysiological event involves increased immunoglobulin production (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5061,6 +5245,7 @@ This pathophysiological event involves increased immunoglobulin production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lgi1-caspr2-vgkc-complex-autoimmunity" data-dismech-node="LGI1-CASPR2 VGKC-Complex Autoimmunity" data-dismech-type="pathophysiology">
                 <div class="item-name">LGI1-CASPR2 VGKC-Complex Autoimmunity</div>
+
 
                 <div class="item-desc">Many patients formerly classified by high voltage-gated potassium channel complex antibodies have antibodies to LGI1 or CASPR2, which correlate with distinct limbic encephalitis, Morvan/neuromyotonia, tumor, and prognosis phenotypes.</div>
 
@@ -5203,7 +5388,10 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20663977" target="_blank">PMID:20663977</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5229,6 +5417,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ampar-synaptic-cluster-loss" data-dismech-node="AMPAR Synaptic Cluster Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">AMPAR Synaptic Cluster Loss</div>
+
 
                 <div class="item-desc">AMPAR autoantibodies bind GluR1/GluR2-containing receptors on hippocampal neurons and reduce synaptic AMPAR cluster number and localization, producing potentially reversible limbic dysfunction.</div>
 
@@ -5405,7 +5594,10 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5431,6 +5623,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gabab-receptor-autoimmunity-and-neuronal-hyperexcitability" data-dismech-node="GABAB Receptor Autoimmunity and Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">GABAB Receptor Autoimmunity and Neuronal Hyperexcitability</div>
+
 
                 <div class="item-desc">GABAB receptor antibodies target inhibitory GABAB1 receptors and are linked to prominent seizures, temporal-lobe EEG abnormalities, and memory dysfunction.</div>
 
@@ -5573,7 +5766,10 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5599,6 +5795,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limbic-network-dysfunction" data-dismech-node="Limbic Network Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Limbic Network Dysfunction</div>
+
 
                 <div class="item-desc">Limbic-region inflammation and synaptic antibody effects converge on temporal-lobe networks, producing memory impairment, seizures, confusion, psychiatric symptoms, EEG abnormalities, and MRI signal changes.</div>
 
@@ -5691,7 +5888,10 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5761,9 +5961,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(8)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(11)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5801,6 +5999,9 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Hyponatremia is especially associated with LGI1-antibody limbic encephalitis rather than all antibody subtypes.
 </div>
 
@@ -5819,7 +6020,10 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2021.674368" target="_blank">DOI:10.3389/fneur.2021.674368</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5842,7 +6046,10 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5875,7 +6082,7 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">11</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-memory-impairment" data-dismech-node="Memory Impairment" data-dismech-type="phenotype">
@@ -5906,6 +6113,9 @@ This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5918,7 +6128,10 @@ This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5973,6 +6186,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5985,7 +6201,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6008,7 +6227,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6060,6 +6282,9 @@ This clinical feature is Faciobrachial dystonic seizures, annotated with Seizure
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO does not currently expose a specific faciobrachial dystonic seizure term; the broader seizure term is used for brief dystonic seizures involving face and arm in LGI1-antibody disease.
 </div>
 
@@ -6078,7 +6303,10 @@ This clinical feature is Faciobrachial dystonic seizures, annotated with Seizure
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24014519" target="_blank">PMID:24014519</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6101,7 +6329,10 @@ This clinical feature is Faciobrachial dystonic seizures, annotated with Seizure
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24014519" target="_blank">PMID:24014519</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6156,6 +6387,9 @@ This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6168,7 +6402,10 @@ This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6222,6 +6459,9 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO psychosis is used as the closest structured term for the psychiatric limbic syndrome; individual presentations may include hallucinations, anxiety, mood symptoms, agitation, or broader behavioral changes.
 </div>
 
@@ -6240,7 +6480,10 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6295,6 +6538,9 @@ This clinical feature is Personality changes (HP:0000751). HP:0000751 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6307,7 +6553,10 @@ This clinical feature is Personality changes (HP:0000751). HP:0000751 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6334,152 +6583,6 @@ This clinical feature is Personality changes (HP:0000751). HP:0000751 is a pheno
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-abnormality" data-dismech-node="EEG Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        EEG Abnormality
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002353</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19962348" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"EEG results were available from 12 patients: nine had temporal-lobe seizures, epileptiform discharges, or temporal-lobe slowing; two had generalised slowing; and one had no abnormalities."</div>
-
-
-                <div class="evidence-explanation">Temporal-lobe epileptiform or slowing abnormalities support EEG abnormality as a supportive diagnostic feature.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep Disturbance
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002360</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Sleep disturbance is particularly supported for anti-LGI1 encephalitis and may include insomnia, hypersomnia, or other sleep-wake disruption depending on antibody subtype.
-</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fneur.2021.674368" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3389/fneur.2021.674368" target="_blank">DOI:10.3389/fneur.2021.674368</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other common manifestations included cognitive dysfunction (82.2%), psychiatric disturbance (66.7%), sleep disorder (54.5%), and hyponatremia (66.7%)."</div>
-
-
-                <div class="evidence-explanation">Sleep disorder affected 54.5% of this anti-LGI1 encephalitis cohort.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-status-epilepticus" data-dismech-node="Status Epilepticus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Status Epilepticus
@@ -6494,15 +6597,18 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002133</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6520,7 +6626,10 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6561,15 +6670,18 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0025100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0025100</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal hippocampus morphology (HP:0025100). HP:0025100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Used to represent medial temporal/hippocampal T2 or FLAIR signal change on MRI, which is central to many limbic encephalitis diagnostic workflows.
@@ -6590,7 +6702,10 @@ This clinical feature is Abnormal hippocampus morphology (HP:0025100). HP:002510
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38497971" target="_blank">PMID:38497971</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6613,7 +6728,10 @@ This clinical feature is Abnormal hippocampus morphology (HP:0025100). HP:002510
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6624,6 +6742,79 @@ This clinical feature is Abnormal hippocampus morphology (HP:0025100). HP:002510
 
 
                 <div class="evidence-explanation">Medial temporal FLAIR/T2 abnormalities occurred in most GABAB receptor antibody cases with available MRI.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-abnormality" data-dismech-node="EEG Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        EEG Abnormality
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002353</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19962348" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EEG results were available from 12 patients: nine had temporal-lobe seizures, epileptiform discharges, or temporal-lobe slowing; two had generalised slowing; and one had no abnormalities."</div>
+
+
+                <div class="evidence-explanation">Temporal-lobe epileptiform or slowing abnormalities support EEG abnormality as a supportive diagnostic feature.
 </div>
 
 
@@ -6654,15 +6845,18 @@ This clinical feature is Abnormal hippocampus morphology (HP:0025100). HP:002510
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012229</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012229</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6680,7 +6874,10 @@ This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6691,6 +6888,82 @@ This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype
 
 
                 <div class="evidence-explanation">CSF pleocytosis is a common inflammatory CSF finding in this GABAB receptor antibody cohort.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sleep Disturbance
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Sleep disturbance is particularly supported for anti-LGI1 encephalitis and may include insomnia, hypersomnia, or other sleep-wake disruption depending on antibody subtype.
+</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fneur.2021.674368" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fneur.2021.674368" target="_blank">DOI:10.3389/fneur.2021.674368</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other common manifestations included cognitive dysfunction (82.2%), psychiatric disturbance (66.7%), sleep disorder (54.5%), and hyponatremia (66.7%)."</div>
+
+
+                <div class="evidence-explanation">Sleep disorder affected 54.5% of this anti-LGI1 encephalitis cohort.
 </div>
 
 
@@ -6743,6 +7016,9 @@ This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6793,6 +7069,20 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line treatment commonly uses high-dose corticosteroids, intravenous immunoglobulin, plasma exchange, or combinations, with escalation based on severity, antibody subtype, and tumor context.</div>
 
 
@@ -6822,7 +7112,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26559389" target="_blank">PMID:26559389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6864,7 +7157,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6887,7 +7183,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26559389" target="_blank">PMID:26559389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6910,7 +7209,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="https://bioregistry.io/DOI:10.1055/s-0044-1788586" target="_blank">DOI:10.1055/s-0044-1788586</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6975,6 +7277,20 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">High-dose systemic corticosteroids are a core first-line immunosuppressive treatment for autoimmune limbic encephalitis.</div>
 
 
@@ -7003,7 +7319,10 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7045,7 +7364,10 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7110,6 +7432,20 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intravenous immunoglobulin is used as first-line immune modulation alone or in combination with corticosteroids or plasma exchange.</div>
 
 
@@ -7138,7 +7474,10 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7180,7 +7519,10 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7245,6 +7587,20 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Plasma exchange is used to remove pathogenic circulating antibodies in antibody-mediated limbic encephalitis.</div>
 
 
@@ -7273,7 +7629,10 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7315,7 +7674,10 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7418,6 +7780,20 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Severe, refractory, or relapsing autoimmune limbic encephalitis can be escalated to second-line B-cell-directed or cytotoxic immunotherapy.</div>
 
 
@@ -7447,7 +7823,10 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26559389" target="_blank">PMID:26559389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7489,7 +7868,10 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7512,7 +7894,10 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26559389" target="_blank">PMID:26559389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7535,7 +7920,10 @@ This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic a
                         <a href="https://bioregistry.io/DOI:10.1055/s-0044-1788586" target="_blank">DOI:10.1055/s-0044-1788586</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7600,6 +7988,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Tumor-directed treatment is required when limbic encephalitis is paraneoplastic or a tumor is identified alongside a neuronal antibody syndrome.</div>
 
 
@@ -7629,7 +8042,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7671,7 +8087,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7694,7 +8113,10 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26559389" target="_blank">PMID:26559389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7759,6 +8181,20 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Selected relapsing or deteriorating cases may require maintenance immunosuppression after acute treatment.</div>
 
 
@@ -7787,7 +8223,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7829,7 +8268,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7870,6 +8312,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
+
+
+
                 <div class="item-desc">Limbic encephalitis can be paraneoplastic; tumor type and antibody class affect prognosis, evaluation, and treatment.</div>
 
 
@@ -7886,7 +8332,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7936,7 +8385,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7968,6 +8420,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
+
+
+
                 <div class="item-desc">Small-cell lung cancer is a major tumor association, particularly in classic paraneoplastic limbic encephalitis and GABAB receptor antibody limbic encephalitis.</div>
 
 
@@ -7984,7 +8440,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8034,7 +8493,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8066,6 +8528,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
+
+
+
                 <div class="item-desc">AMPAR antibody limbic encephalitis is often associated with tumors of the thymus, breast, or lung.</div>
 
 
@@ -8082,7 +8548,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8132,7 +8601,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8197,7 +8669,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8220,7 +8695,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="https://bioregistry.io/DOI:10.3390/cells13010015" target="_blank">DOI:10.3390/cells13010015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8270,7 +8748,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20663977" target="_blank">PMID:20663977</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8320,7 +8801,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20663977" target="_blank">PMID:20663977</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8370,7 +8854,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8420,7 +8907,10 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8447,6 +8937,253 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-subacute-limbic-syndrome-onset">
+                <div class="item-name">Subacute limbic syndrome onset</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Limbic encephalitis commonly begins over weeks with memory impairment, confusion, behavioral or psychiatric change, and seizures.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19338055" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nine patients presented with subacute (&lt; 8 weeks) confusion, disorientation and memory loss, classic of LE; 1 patient presented with a 4 month history of progressive memory loss, behavioral change and agitation"</div>
+
+
+                <div class="evidence-explanation">The AMPAR cohort illustrates the usual subacute limbic presentation.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-diagnostic-evaluation-and-antibody-tumor-stratification">
+                <div class="item-name">Diagnostic evaluation and antibody/tumor stratification</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Workup integrates MRI, EEG, CSF, serum/CSF antibody testing, and malignancy screening because antibody subtype and tumor status shape prognosis and treatment.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23250843" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"According to the type of antibodies found, patients may be classified into two broad groups, with implications for neurological and cancer diagnosis, treatment and prognosis."</div>
+
+
+                <div class="evidence-explanation">Antibody grouping is central to diagnostic and prognostic stratification.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38497971" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38497971" target="_blank">PMID:38497971</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These observations should assist clinical decision-making toward expediting immunotherapy."</div>
+
+
+                <div class="evidence-explanation">MRI patterns can help distinguish autoimmune limbic encephalitis from infectious and degenerative mimics while antibody results are pending.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-treatment-response-recovery-or-relapse">
+                <div class="item-name">Treatment response, recovery, or relapse</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Cell-surface antibody-associated disease is often immunotherapy responsive, but relapse and residual cognitive or behavioral deficits can occur, especially if relapses are not promptly controlled.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19338055" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Antibodies to GluR1/2 associate with LE that is often paraneoplastic, treatment responsive, and has a tendency to relapse."</div>
+
+
+                <div class="evidence-explanation">AMPAR antibody limbic encephalitis illustrates both treatment response and relapse risk.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26559389" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26559389" target="_blank">PMID:26559389</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"patients given immune therapy do better and relapse less than patients given no treatment."</div>
+
+
+                <div class="evidence-explanation">The systematic review supports immune therapy as improving outcomes and reducing relapse across autoimmune encephalitis.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -8459,7 +9196,7 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse303749">
                 <div class="item-name">
                     mRNA signatures of a T-cell driven Limbic Encephalitis mouse model
 
@@ -8502,7 +9239,7 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse303810">
                 <div class="item-name">
                     snRNA-seq profiles distinguish anti-Drebrin- and anti-GAD65-positive encephalitis
 
@@ -8557,7 +9294,7 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05503264">
                 <div class="item-name">
                     NCT05503264
 
@@ -8624,7 +9361,10 @@ This clinical trial targets Memory impairment (HP:0002354). HP:0002354 is a phen
                         <a href="https://clinicaltrials.gov/study/NCT05503264" target="_blank">clinicaltrials:NCT05503264</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9960,7 +10700,7 @@ references:
   - Limbic_Encephalitis-deep-research-falcon.md
   findings: []
 - reference: DOI:10.1212/nxi.0000000000200225
-  title: &#34;Risk of Seizure Recurrence Due to Autoimmune Encephalitis With NMDAR, LGI1, CASPR2, and GABAB Receptor Antibodies&#34;
+  title: &#34;Risk of Seizure Recurrence Due to Autoimmune Encephalitis With NMDAR, LGI1, CASPR2, and GABA &lt;sub&gt;B&lt;/sub&gt; R Antibodies&#34;
   found_in:
   - Limbic_Encephalitis-deep-research-falcon.md
   findings: []
@@ -10077,7 +10817,7 @@ references:
                                 <a href="https://bioregistry.io/DOI:10.1212/nxi.0000000000200225" target="_blank">DOI:10.1212/nxi.0000000000200225</a>
                             </div>
 
-                            <div class="reference-title">Risk of Seizure Recurrence Due to Autoimmune Encephalitis With NMDAR, LGI1, CASPR2, and GABAB Receptor Antibodies</div>
+                            <div class="reference-title">Risk of Seizure Recurrence Due to Autoimmune Encephalitis With NMDAR, LGI1, CASPR2, and GABA &lt;sub&gt;B&lt;/sub&gt; R Antibodies</div>
 
                         </div>
 
@@ -10163,6 +10903,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10825,7 +11567,7 @@ The Canadian guideline notes an infectious prodrome is common in autoimmune ence
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Limbic Encephalitis", "mondoId": "MONDO:0015588", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Limbic_Encephalitis", "yamlRevision": "8a4e5bb7866c"};
+        const OS_CONFIG = {"diseaseName": "Limbic Encephalitis", "mondoId": "MONDO:0015588", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Limbic_Encephalitis", "yamlRevision": "95e9e90a1eb4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

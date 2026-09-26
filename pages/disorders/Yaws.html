@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Yaws</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Yaws</h1>
             <div class="header-meta">
 
@@ -3981,6 +4124,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-treponemal-inoculation" data-dismech-node="Cutaneous Treponemal Inoculation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Treponemal Inoculation</div>
 
+
                 <div class="item-desc">Direct skin contact with an infectious lesion introduces Treponema pallidum subsp. pertenue into skin, where primary yaws presents as a highly contagious papilloma or ulcer.</div>
 
 
@@ -4099,7 +4243,10 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4121,7 +4268,10 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4146,6 +4296,7 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disseminated-secondary-yaws" data-dismech-node="Disseminated Secondary Yaws" data-dismech-type="pathophysiology">
                 <div class="item-name">Disseminated Secondary Yaws</div>
+
 
                 <div class="item-desc">Untreated primary infection can disseminate through the skin, producing widespread lesions and palmoplantar hyperkeratosis; osteoarticular involvement can produce bone pain, periostitis, and dactylitis.</div>
 
@@ -4279,7 +4430,10 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4304,6 +4458,7 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tertiary-destructive-disease" data-dismech-node="Tertiary Destructive Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Tertiary Destructive Disease</div>
+
 
                 <div class="item-desc">Untreated yaws can rarely progress to a tertiary stage with severe, disfiguring tissue damage, including chronic destructive lesions of bone. Cartilage may also be involved in later stages, but the cited evidence does not characterize that involvement as destructive. This stage is now uncommon where treatment is available.</div>
 
@@ -4392,7 +4547,10 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4417,6 +4575,7 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-treponemal-ribosomal-translation-azithromycin-target" data-dismech-node="Treponemal Ribosomal Translation (Azithromycin Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Treponemal Ribosomal Translation (Azithromycin Target)</div>
+
 
                 <div class="item-desc">Treponema pallidum subsp. pertenue depends on bacterial ribosomal translation. Azithromycin inhibits bacterial protein synthesis by binding the 50S component of the 70S ribosome, creating a therapeutically exploitable vulnerability.</div>
 
@@ -4499,7 +4658,10 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1319048" target="_blank">PMID:1319048</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4524,6 +4686,7 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-23s-rrna-a2058g-a2059g-mediated-azithromycin-resistance" data-dismech-node="23S rRNA A2058G/A2059G-Mediated Azithromycin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">23S rRNA A2058G/A2059G-Mediated Azithromycin Resistance</div>
+
 
                 <div class="item-desc">A2058G and A2059G substitutions in TPE 23S rRNA are associated with azithromycin resistance. A2058G was reported in three isolates from one PNG study, while a separate longitudinal cohort identified A2059G in five treatment-failure cases linked within one village. These localized findings establish resistance emergence, not its population prevalence.</div>
 
@@ -4606,7 +4769,10 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38166151" target="_blank">PMID:38166151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4628,7 +4794,10 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29428183" target="_blank">PMID:29428183</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4653,6 +4822,7 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-azithromycin-clinical-failure-in-a-localized-resistant-cluster" data-dismech-node="Azithromycin Clinical Failure in a Localized Resistant Cluster" data-dismech-type="pathophysiology">
                 <div class="item-name">Azithromycin Clinical Failure in a Localized Resistant Cluster</div>
+
 
                 <div class="item-desc">Five active-yaws cases from one village showed clinical failure after azithromycin, with PCR-detected 23S rRNA resistance mutations. The cited evidence does not assign these cases to primary or secondary clinical stage and is not generalized to community-wide re-emergence.</div>
 
@@ -4686,7 +4856,10 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29428183" target="_blank">PMID:29428183</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4711,6 +4884,7 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-benzathine-benzylpenicillin-treatment-vulnerability" data-dismech-node="Benzathine Benzylpenicillin Treatment Vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Benzathine Benzylpenicillin Treatment Vulnerability</div>
+
 
                 <div class="item-desc">Benzathine benzylpenicillin is clinically effective against yaws. General beta-lactam pharmacology supports inhibition of peptidoglycan transpeptidation, but the cited evidence does not establish a TPE-specific penicillin-binding-protein mechanism.</div>
 
@@ -4738,13 +4912,16 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22203377" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22203377" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22203377" target="_blank">PMID:22203377</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4766,7 +4943,10 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4839,15 +5019,15 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4888,6 +5068,9 @@ This clinical feature is Generalized lymphadenopathy (HP:0008940). HP:0008940 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4900,7 +5083,10 @@ This clinical feature is Generalized lymphadenopathy (HP:0008940). HP:0008940 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4965,6 +5151,9 @@ This clinical feature is Disseminated skin eruption, annotated with Skin rash (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4977,7 +5166,10 @@ This clinical feature is Disseminated skin eruption, annotated with Skin rash (H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5042,6 +5234,9 @@ This clinical feature is Verrucous papule (HP:0012500). HP:0012500 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5054,7 +5249,10 @@ This clinical feature is Verrucous papule (HP:0012500). HP:0012500 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5108,6 +5306,9 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5120,7 +5321,10 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5176,6 +5380,9 @@ This clinical feature is Painful palmoplantar hyperkeratosis, annotated with Pal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5188,7 +5395,10 @@ This clinical feature is Painful palmoplantar hyperkeratosis, annotated with Pal
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5220,8 +5430,80 @@ This clinical feature is Painful palmoplantar hyperkeratosis, annotated with Pal
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-finger-dactylitis" data-dismech-node="Finger dactylitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Finger dactylitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031090</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://pmc.ncbi.nlm.nih.gov/articles/PMC3122353/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC3122353/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC3122353/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Includes seven cases of radiologically confirmed yaws osteoperiostitis among three patients who had dactylilitis."</div>
+
+
+                <div class="evidence-explanation">Directly documents dactylitis in patients with radiologically confirmed yaws osteoperiostitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-saber-tibia" data-dismech-node="Saber tibia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5239,15 +5521,18 @@ This clinical feature is Painful palmoplantar hyperkeratosis, annotated with Pal
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002982" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002982</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002982" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002982</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5265,7 +5550,10 @@ This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5314,15 +5602,18 @@ This clinical feature is Tibial bowing (HP:0002982). HP:0002982 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5340,7 +5631,10 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5372,8 +5666,80 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-periostitis" data-dismech-node="Periostitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Periostitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040165" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0040165</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Periostitis (HP:0040165). HP:0040165 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28193743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28193743" target="_blank">PMID:28193743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bone lesions in the form of osteoperiostitis are common and occur in numerous bones simultaneously in early stages."</div>
+
+
+                <div class="evidence-explanation">Directly supports early multifocal osteoperiostitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-late-bone-destruction" data-dismech-node="Late bone destruction" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5391,15 +5757,18 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002797" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002797</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002797" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002797</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteolysis (HP:0002797). HP:0002797 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5417,7 +5786,10 @@ This clinical feature is Osteolysis (HP:0002797). HP:0002797 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25193248" target="_blank">PMID:25193248</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5466,15 +5838,18 @@ This clinical feature is Osteolysis (HP:0002797). HP:0002797 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002653</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002653</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5492,7 +5867,10 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
                         <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC3122353/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC3122353/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5532,15 +5910,18 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0033834</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0033834</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5558,7 +5939,10 @@ This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5590,140 +5974,8 @@ This clinical feature is Malaise (HP:0033834). HP:0033834 is a phenotype from th
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">4</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-periostitis" data-dismech-node="Periostitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Periostitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040165" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0040165</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Periostitis (HP:0040165). HP:0040165 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28193743" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28193743" target="_blank">PMID:28193743</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Bone lesions in the form of osteoperiostitis are common and occur in numerous bones simultaneously in early stages."</div>
-
-
-                <div class="evidence-explanation">Directly supports early multifocal osteoperiostitis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-finger-dactylitis" data-dismech-node="Finger dactylitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Finger dactylitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0031090</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://pmc.ncbi.nlm.nih.gov/articles/PMC3122353/" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://pmc.ncbi.nlm.nih.gov/articles/PMC3122353/" target="_blank">url:https://pmc.ncbi.nlm.nih.gov/articles/PMC3122353/</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Includes seven cases of radiologically confirmed yaws osteoperiostitis among three patients who had dactylilitis."</div>
-
-
-                <div class="evidence-explanation">Directly documents dactylitis in patients with radiologically confirmed yaws osteoperiostitis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-later-stage-cartilage-involvement" data-dismech-node="Later-stage cartilage involvement" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5731,6 +5983,9 @@ This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenoty
 
 
                     </div>
+
+
+
 
 
 
@@ -5748,7 +6003,10 @@ This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38166151" target="_blank">PMID:38166151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5785,6 +6043,9 @@ This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5797,7 +6058,10 @@ This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5834,6 +6098,9 @@ This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5846,7 +6113,10 @@ This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5883,6 +6153,9 @@ This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5895,7 +6168,10 @@ This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5955,6 +6231,9 @@ This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenoty
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6028,6 +6307,31 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Preferred regimen for individual or mass treatment: one oral dose of 30 mg/kg, capped at 2 g.</div>
 
 
@@ -6056,7 +6360,10 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1319048" target="_blank">PMID:1319048</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6097,7 +6404,10 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28072863" target="_blank">PMID:28072863</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6119,7 +6429,10 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6141,7 +6454,10 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24396138" target="_blank">PMID:24396138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6226,6 +6542,31 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Alternative or azithromycin-failure rescue treatment. In the cited Ghana trial, the single intramuscular BPG dose was 0.6 million units for participants under 10 years and 1.2 million units for participants aged 10–15 years; this trial does not establish the 1.2-million-unit dose outside that age range.</div>
 
 
@@ -6248,13 +6589,16 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22203377" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22203377" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22203377" target="_blank">PMID:22203377</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6295,7 +6639,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28072863" target="_blank">PMID:28072863</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6317,7 +6664,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29428183" target="_blank">PMID:29428183</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6339,7 +6689,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6371,6 +6724,20 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Begin with total community treatment (TCT) using single-dose azithromycin in the entire endemic community, then use repeat TCT or active case-finding and total targeted treatment of active cases and their household, school, and play contacts. Continue active post-campaign surveillance; contact-only targeting can miss geographically dispersed latent infections.</div>
 
 
@@ -6390,7 +6757,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29140407" target="_blank">PMID:29140407</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -6412,7 +6782,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29140407" target="_blank">PMID:29140407</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -6434,7 +6807,12 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="https://bioregistry.io/DOI:10.1101/2024.11.07.24316738" target="_blank">DOI:10.1101/2024.11.07.24316738</a>
                     </span>
 
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6478,6 +6856,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
 
 
 
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6490,7 +6872,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38900827" target="_blank">PMID:38900827</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6533,13 +6918,16 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38900827" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38900827" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38900827" target="_blank">PMID:38900827</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6570,6 +6958,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                 <div class="item-name">Natural TPE infection in nonhuman primates (potential reservoir)</div>
 
 
+
+
+
+
                 <div class="item-desc">Naturally infected nonhuman primates harbor TPE strains genomically indistinguishable from human strains, supporting potential reservoir status. Current spillover evidence is missing, so this record does not assert ongoing zoonotic transmission.</div>
 
 
@@ -6587,7 +6979,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37703251" target="_blank">PMID:37703251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6603,13 +6998,16 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37703251" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37703251" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37703251" target="_blank">PMID:37703251</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6639,6 +7037,1084 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-examination-with-serological-confirmation">
+                <div class="item-name">
+                    Clinical examination with serological confirmation
+
+                </div>
+
+                <div class="item-desc">Clinical suspicion requires combined serology, but serology does not identify T. pallidum subsp. pertenue. Treponemal reactivity cannot distinguish yaws from syphilis or another treponematosis and generally cannot distinguish past or treated infection from current infection. RPR is a nonspecific nontreponemal activity/treatment-response marker, not a test of TPE identity.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Interpret a treponemal result as evidence of treponemal exposure and an RPR titre as evidence bearing on activity; use lesion molecular testing when organism and subspecies identity matter.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39693168" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of yaws is based on clinical findings with serological confirmation."</div>
+
+
+                <div class="evidence-explanation">Directly supports the combined clinical and serologic diagnostic approach.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23016260" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23016260" target="_blank">PMID:23016260</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Serological tests cannot distinguish between yaws and syphilis or other non-venereal treponematoses."</div>
+
+
+                <div class="evidence-explanation">Directly supports the organism-identity limitation of serology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38319847" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38319847" target="_blank">PMID:38319847</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"T reponemal antibodies generally persist after treatment and cannot be used to distinguish between a current infection or a previously treated infection."</div>
+
+
+                <div class="evidence-explanation">Supports the past-versus-current limitation of treponemal antibody tests.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-standard-q-syphilis-antibody-rapid-diagnostic-test">
+                <div class="item-name">
+                    Standard Q Syphilis Antibody rapid diagnostic test
+
+                </div>
+
+                <div class="item-desc">Point-of-care screening test evaluated against TPHA and RPR in children with yaws.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> High sensitivity and specificity; RPR remains necessary for confirmation when findings are unusual.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39693168" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The sensitivity and specificity of RDT compared to TPHA were 93.3% and 99.4%, respectively. The sensitivity and specificity of RDT compared to RPR were 100% and 98.4%, respectively."</div>
+
+
+                <div class="evidence-explanation">Directly reports the screening test&#39;s accuracy against both comparators.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39693168" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, unusual clinical findings, like scars in RDT reactive patients, indicated that RPR is still required to confirm the diagnosis of yaws."</div>
+
+
+                <div class="evidence-explanation">Directly supports retaining RPR confirmation for unusual presentations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-lesion-pcr-and-multiplex-differential-diagnosis-of-yaws-like-ulcers">
+                <div class="item-name">
+                    Lesion PCR and multiplex differential diagnosis of yaws-like ulcers
+
+                </div>
+
+                <div class="item-desc">PCR on material from an active skin lesion directly detects T. pallidum DNA; subspecies-specific targets or sequencing are needed to establish TPE. Multiplex testing should also assess Haemophilus ducreyi and HSV-1/HSV-2 in clinically similar ulcers.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> TPE-positive lesion PCR supports active yaws; detection of H. ducreyi or HSV identifies a non-yaws ulcer cause, while serology alone may reflect latent or past treponemal infection.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29428183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29428183" target="_blank">PMID:29428183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Active yaws confirmed by PCR specific for Treponema pallidum was the primary outcome indicator."</div>
+
+
+                <div class="evidence-explanation">Directly supports lesion molecular confirmation of active yaws.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38776332" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38776332" target="_blank">PMID:38776332</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multiplex PCR results showed that 9.1%, 1.8% and 0.9% of yaws-like lesions were positive for Haemophilus ducreyi, herpes simplex virus-1 (HSV-1) and T. pallidum respectively."</div>
+
+
+                <div class="evidence-explanation">Directly demonstrates pathogen heterogeneity among clinically yaws-like lesions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-four-week-post-treatment-response-and-resistance-assessment">
+                <div class="item-name">
+                    Four-week post-treatment response and resistance assessment
+
+                </div>
+
+                <div class="item-desc">Re-examine treated lesions at four weeks. Persistent lesions require renewed etiologic evaluation, lesion PCR confirmation, and testing of 23S rRNA for macrolide-resistance mutations; presumed azithromycin failure is managed with intramuscular benzathine penicillin G rescue.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Complete healing supports treatment response. A persistent PCR-confirmed TPE lesion with A2058G or A2059G supports macrolide-resistant treatment failure.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41911295" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41911295" target="_blank">PMID:41911295</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment was with a single dose of oral azithromycin and outcomes were evaluated 4 weeks post-treatment, assessing clinical resolution and time to healing, with results stratified by the identified aetiological agents."</div>
+
+
+                <div class="evidence-explanation">Directly supports the four-week clinical response assessment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29428183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29428183" target="_blank">PMID:29428183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At months 36 and 42, five cases of active yaws, all from the same village, showed clinical failure following azithromycin treatment, with PCR-detected mutations in the 23S ribosomal RNA genes conferring resistance to azithromycin."</div>
+
+
+                <div class="evidence-explanation">Directly supports PCR-based investigation of azithromycin treatment failure.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29428183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29428183" target="_blank">PMID:29428183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of 208 PCR-confirmed active yaws cases in the post-MDA period, the 23S rRNA gene could be amplified by PCR in 186 (89·4%), of which 181 (97·3%) had wild-type strains, but two cases at 36 months and three cases at 42 months revealed A2059G mutations associated with macrolide-resistance."</div>
+
+
+                <div class="evidence-explanation">Directly supports A2059G testing in the localized treatment-failure cluster.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+        <div class="card" id="stages">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">🪜</div>
+                <h2 class="card-title">Stages</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="stage-primary-yaws">
+                <div class="item-name">Primary yaws</div>
+
+                <div class="item-desc">After an incubation period of 10–90 days (mean about three weeks), primary yaws presents as a usually painless, highly contagious papilloma or ulcer, often on a lower extremity.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40036381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the primary stage, patients develop a, usually painless, papilloma or ulcer, often on the lower extremities, which is highly contagious."</div>
+
+
+                <div class="evidence-explanation">Directly defines the primary-stage lesion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39693168" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the primary stage, skin lesions appear after an incubation period of 10-90 days (with a mean of three weeks)."</div>
+
+
+                <div class="evidence-explanation">Directly supports the primary-stage incubation range and mean.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-secondary-yaws">
+                <div class="item-name">Secondary yaws</div>
+
+                <div class="item-desc">Disseminated skin lesions, scaly papules, and painful palmoplantar hyperkeratotic plaques, with osteoarticular manifestations including bone pain, periostitis, and dactylitis; fever, malaise, and generalized lymphadenopathy can accompany this stage.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40036381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"If untreated, this lesion heals spontaneously but may progress to secondary yaws, characterised by disseminated skin lesions, scaly papules and painful hyperkeratotic plaques on the palms and soles."</div>
+
+
+                <div class="evidence-explanation">Directly defines secondary-stage progression and manifestations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21734134" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21734134" target="_blank">PMID:21734134</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A high proportion of cases (46%) were in the secondary stage; 92% of them had osteoarticular involvement, and only 24% had a Venereal Disease Research Laboratory titer greater than 1:32."</div>
+
+
+                <div class="evidence-explanation">Directly places osteoarticular involvement in secondary yaws.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28193743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28193743" target="_blank">PMID:28193743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bone lesions in the form of osteoperiostitis are common and occur in numerous bones simultaneously in early stages."</div>
+
+
+                <div class="evidence-explanation">Directly supports early multifocal periostitis.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-latent-or-asymptomatic-yaws">
+                <div class="item-name">Latent or asymptomatic yaws</div>
+
+                <div class="item-desc">Seroreactive infection without active skin lesions or other symptoms can persist for years and later reactivate. Latent infections form a clinically silent reservoir that can be missed by lesion-based case finding.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23016260" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23016260" target="_blank">PMID:23016260</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The infection remains asymptomatic for several years."</div>
+
+
+                <div class="evidence-explanation">This review directly supports a prolonged asymptomatic stage.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29428183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29428183" target="_blank">PMID:29428183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A sustained decrease in the prevalence of high-titre latent yaws from 13·7% to &lt;1·5% in asymptomatic children aged 1-5 years old and of genetic diversity of yaws strains from 0·139 to less than 0·046 between months 24 and 42 indicated a reduction in transmission of infection."</div>
+
+
+                <div class="evidence-explanation">Longitudinal human surveillance directly measured high-titre latent yaws among asymptomatic children in this age-defined study cohort; the rate is not presented as global prevalence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34986286" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34986286" target="_blank">PMID:34986286</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of latent yaws at 18 months was 6.54% (95% CI, 5.00 to 8.08) among 994 children in the control group and 3.28% (95% CI, 2.14 to 4.42) among 945 children in the experimental group (relative risk adjusted for clustering and age, 2.03; 95% CI, 1.12 to 3.70)."</div>
+
+
+                <div class="evidence-explanation">Directly measures latent infection in asymptomatic children enrolled in the trial; these selected-cohort rates are not generalized globally.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-tertiary-yaws">
+                <div class="item-name">Tertiary yaws</div>
+
+                <div class="item-desc">Rare late stage, historically occurring within 5–10 years after inoculation in about 10% of untreated cases, with severe disfigurement, gummas, gangosa, saber tibia, destructive bone lesions, and reported later-stage cartilage involvement.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40036381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tertiary cases occur in 10% of untreated individuals and can cause severe disfigurement, but with the wider availability of treatment this is rare today."</div>
+
+
+                <div class="evidence-explanation">Directly defines tertiary-stage frequency in untreated individuals and current rarity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38166151" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38166151" target="_blank">PMID:38166151</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical manifestations in the primary stage include chronic skin ulcers and other skin lesions, potentially affecting bones and cartilage in the later stages"</div>
+
+
+                <div class="evidence-explanation">Directly supports later-stage involvement of bone and cartilage without characterizing the cartilage involvement as destructive.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39693168" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The tertiary stage is a non-infectious stage that occurs in 10% of cases within 5-10 years after bacterial inoculation."</div>
+
+
+                <div class="evidence-explanation">Directly supports the reported tertiary-stage interval and untreated-era proportion.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-countries-where-yaws-remains-endemic">
+                <div class="item-name">Countries where yaws remains endemic</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Yaws is reported as endemic in at least 15 countries, but inadequate surveillance prevents a defensible global prevalence estimate. The 0.50%-43.0% range reported by the same review comes from selected studies in 11 African countries and is not represented as worldwide prevalence.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39851478" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39851478" target="_blank">PMID:39851478</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Yaws is currently endemic in at least 15 countries, but adequate surveillance data are lacking."</div>
+
+
+                <div class="evidence-explanation">Supports endemic-country distribution and the decision not to derive a global numerical prevalence from selected study cohorts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-endemic-childhood-disease-of-rural-humid-tropical-communities">
+                <div class="item-name">Endemic childhood disease of rural humid tropical communities</div>
+
+                <div class="item-desc">Yaws is concentrated among children and adolescents living in poor, rural, low-income communities in humid tropical areas of Africa, Southeast Asia, and the Pacific Islands.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag">childhood and adolescence</span>
+
+                    <span class="tag">rural residence</span>
+
+                    <span class="tag">poverty and low income</span>
+
+                    <span class="tag">humid tropical climate</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39851478" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39851478" target="_blank">PMID:39851478</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Yaws is an infectious, neglected tropical disease that affects the skin of many children and adolescents who live in poor, rural, low-income communities in humid, tropical areas of Africa, Southeast Asia, and the Pacific Islands."</div>
+
+
+                <div class="evidence-explanation">This review directly supports the age, socioeconomic, rural, climatic, and geographic epidemiology summarized here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-treponema-pallidum-subsp-pertenue">
+                <div class="item-name">Treponema pallidum subsp. pertenue</div>
+
+                <div class="item-desc">Spirochete that causes yaws.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Treponema pallidum subsp. pertenue
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_168" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-22">NCBITaxon:168</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40036381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Yaws, a neglected tropical disease caused by Treponema pallidum subsp. pertenue, primarily affects children in impoverished rural areas."</div>
+
+
+                <div class="evidence-explanation">The abstract identifies T. pallidum subsp. pertenue as the cause of yaws.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-direct-skin-contact">
+                <div class="item-name">Direct skin contact</div>
+
+                <div class="item-desc">Transmitted through direct skin contact with infected individuals.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40036381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40036381" target="_blank">PMID:40036381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is spread through direct skin contact."</div>
+
+
+                <div class="evidence-explanation">The abstract states yaws is spread through direct skin contact.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6653,7 +8129,7 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-syphilis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Syphilis.html">Syphilis</a>
@@ -6694,7 +8170,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25193248" target="_blank">PMID:25193248</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6719,7 +8198,7 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-haemophilus-ducreyi-associated-cutaneous-ulcer">
                 <div class="item-name">
 
                     Haemophilus ducreyi-associated cutaneous ulcer
@@ -6758,7 +8237,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38776332" target="_blank">PMID:38776332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6783,7 +8265,7 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-herpes-simplex-virus-associated-ulcer">
                 <div class="item-name">
 
                     Herpes simplex virus-associated ulcer
@@ -6822,7 +8304,10 @@ This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38776332" target="_blank">PMID:38776332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7341,7 +8826,7 @@ pathophysiology:
   evidence:
   - reference: PMID:22203377
     reference_title: From the regulation of peptidoglycan synthesis to bacterial growth and morphology.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       although glycan chain polymerization occurs in the absence of
@@ -7943,7 +9428,7 @@ environmental:
     evidence:
     - reference: PMID:38900827
       reference_title: Knowledge, attitudes and practices towards yaws in endemic areas of Ghana, Cameroon and Côte d’Ivoire
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Yaws, caused by Treponema pallidum ssp. pertenue, remains a significant
@@ -7984,7 +9469,7 @@ environmental:
       and their potential reservoir role; it does not establish human spillover.
   - reference: PMID:37703251
     reference_title: &#34;The genomes of the yaws bacterium, Treponema pallidum subsp. pertenue, of nonhuman primate and human origin are not genomically distinct.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Although interspecies transmission in NHPs is a rare event and evidence for
@@ -8075,7 +9560,7 @@ treatments:
     evidence:
     - reference: PMID:22203377
       reference_title: From the regulation of peptidoglycan synthesis to bacterial growth and morphology.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         although glycan chain polymerization occurs in the absence of
@@ -8365,7 +9850,12 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1101/2024.10.27.24316187" target="_blank">DOI:10.1101/2024.10.27.24316187</a>
                     </span>
 
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8434,7 +9924,12 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1101/2024.11.07.24316738" target="_blank">DOI:10.1101/2024.11.07.24316738</a>
                     </span>
 
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8503,7 +9998,10 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37703251" target="_blank">PMID:37703251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8572,7 +10070,10 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38166151" target="_blank">PMID:38166151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8641,7 +10142,10 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38900827" target="_blank">PMID:38900827</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8710,7 +10214,10 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267048" target="_blank">PMID:40267048</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8779,7 +10286,10 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38776332" target="_blank">PMID:38776332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8848,7 +10358,10 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39851478" target="_blank">PMID:39851478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8917,7 +10430,10 @@ references:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39693168" target="_blank">PMID:39693168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8954,6 +10470,57 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Yaws completeness and evidence alignment</strong> · 2026-08-07T20:44:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Yaws/2026-08-07T204459Z-codex-e9a95d.yaml">View source</a></p>
+                        <p class="research-review-text">Audited the Yaws entry against its Falcon deep-research report and citation
+sidecar. The completeness checklist found the original entry under-consumed:
+it contained the infectious agent, contact transmission, one antibiotic
+target, one phenotype, and azithromycin, but omitted the central clinical
+stages, disseminated and destructive disease, bone involvement, diagnostic
+workflow and ulcer differentials, benzathine penicillin, macrolide resistance,
+and the nonhuman-primate reservoir caveat.
+
+Expanded those central themes using exact, cache-backed PubMed abstract
+snippets. Removed the unsupported FREQUENT qualifier from skin ulcer because
+the cited sentence established association but not a quantitative frequency.
+Converted seven DOI-only deep-research findings to their PubMed identifiers
+so their snippets are checked, and repaired the whitespace-corrupted TPE
+causation quote exposed by that conversion. The two remaining DOI findings
+are medRxiv reports without PubMed identifiers and remain explicit skipped-
+prefix items.
+
+Claim-level review kept the reservoir wording narrower than zoonotic
+transmission: the study demonstrates naturally infected nonhuman primates
+with genomically indistinguishable TPE, while explicitly reporting that
+evidence for current spillover is missing. The evidence is classified OTHER
+because the cited publication is genomic natural-infection/reservoir evidence,
+not an experimental animal model. The review also added the clinically silent
+latent stage; childhood, rural, humid-tropical epidemiology; exact single-dose
+azithromycin and benzathine penicillin regimens; four-week response review;
+resistance testing and penicillin rescue; and the Morges TCT, contact-treatment,
+and surveillance sequence. Diagnostic wording now separates treponemal
+exposure, RPR activity, and TPE identity and includes lesion PCR plus syphilis,
+H. ducreyi, and HSV differentials. Narrative reviews PMID:40036381 and
+PMID:39851478 are consistently classified OTHER. Host-immune/cytokine
+mechanisms suggested only inferentially by the research report were not added.
+No human genetic section or experimental-model section was warranted for this
+infectious disease, and the research surfaced no clinical trial identifiers.
+
+The exact batched pre-PR command used by CI, `just validate-disorders
+kb/disorders/Yaws.yaml`, passed schema, authoritative ontology-term, and
+no-full-text reference validation. Its cache audit verified 59 of 62 snippets;
+the three skipped evidence items use the two explicitly retained medRxiv DOI
+references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9308,7 +10875,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Yaws", "mondoId": "MONDO:0006019", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Yaws", "yamlRevision": "6ea5630ca11e"};
+        const OS_CONFIG = {"diseaseName": "Yaws", "mondoId": "MONDO:0006019", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Yaws", "yamlRevision": "7828d736efaf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
