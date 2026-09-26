@@ -136038,6 +136038,82 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Gas Gangrene",
+    "disease_id": "MONDO:0005767",
+    "category": "Infectious Disease",
+    "parents": [
+      "bacterial infectious disease with sepsis",
+      "commensal bacterial infectious disease",
+      "infection due to clostridium perfringens",
+      "skin disease caused by bacterial infection",
+      "vesiculobullous skin disease"
+    ],
+    "creation_date": "2026-09-25T18:27:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Gas gangrene, or clostridial myonecrosis, is a rapidly progressive toxin-mediated soft-tissue infection caused mainly by Clostridium perfringens after trauma or surgery and less often by spontaneous Clostridium septicum infection in immunosuppressed or malignancy-associated settings.",
+    "pathophysiology": [
+      "Anaerobic clostridial toxin production in infected muscle",
+      "Alpha-toxin membrane injury",
+      "Alpha-toxin and theta-toxin vascular leukostasis",
+      "Systemic shock and hemolysis"
+    ],
+    "cell_types": [
+      "vascular endothelial cell",
+      "skeletal muscle cell",
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000188",
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "platelet aggregation"
+    ],
+    "phenotypes": [
+      "Myonecrosis",
+      "Fever",
+      "Pain",
+      "Edema",
+      "Shock",
+      "Hemolytic anemia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003713",
+      "HP:0001945",
+      "HP:0012531",
+      "HP:0000969",
+      "HP:0031273",
+      "HP:0001878"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Radical surgical debridement",
+      "Antibiotic therapy",
+      "Hyperbaric oxygen therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Gas_Gangrene.yaml",
+    "page_url": "../pages/disorders/Gas_Gangrene.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Gastric Adenocarcinoma",
     "disease_id": "MONDO:0005036",
     "category": "",
@@ -291464,6 +291540,77 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Septicemic Plague",
+    "disease_id": "MONDO:0005956",
+    "category": "Infectious Disease",
+    "parents": [
+      "Plague"
+    ],
+    "creation_date": "2026-09-25T15:30:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Septicemic plague is the bloodstream form of plague: Yersinia pestis enters the blood, produces systemic infection with dysregulated inflammation, and can cause disseminated intravascular coagulation, purpura, and rapidly fatal multi-organ dysfunction.",
+    "pathophysiology": [
+      "Yersinia pestis Innate Immune Evasion",
+      "Systemic Yersinia pestis Bacteremia",
+      "Dysregulated Systemic Inflammatory Response"
+    ],
+    "cell_types": [
+      "macrophage",
+      "neutrophil",
+      "monocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000576"
+    ],
+    "biological_processes": [
+      "innate immune response",
+      "phagocytosis",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Sepsis",
+      "Disseminated Intravascular Coagulation",
+      "Purpura",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Hematologic",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0100806",
+      "HP:0005521",
+      "HP:0000979",
+      "HP:0001945"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Early antibiotic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Septicemic_Plague.yaml",
+    "page_url": "../pages/disorders/Septicemic_Plague.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Severe Combined Immunodeficiency",
     "disease_id": "MONDO:0015974",
     "category": "Mendelian",
@@ -335334,17 +335481,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3175,
+  "total_disorder_pages": 3177,
   "total_subtypes": 4126,
-  "total_disorders_and_subtypes": 7301,
-  "total_unique_evidence_sources": 46081,
-  "total_unique_publications": 43304,
+  "total_disorders_and_subtypes": 7303,
+  "total_unique_evidence_sources": 46095,
+  "total_unique_publications": 43318,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 286,
-  "total_pathographs": 3170,
-  "total_unique_pathological_events": 20002,
+  "total_pathographs": 3172,
+  "total_unique_pathological_events": 20009,
   "total_modules": 178,
-  "total_research_reports": 3287,
+  "total_research_reports": 3289,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 105
