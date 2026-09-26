@@ -38691,15 +38691,17 @@ window.searchData = [
     "creation_date": "2026-09-03T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "DFNB124 is bilateral, nonsyndromic sensorineural hearing loss caused by biallelic variants in PKHD1L1. Its interest for this knowledge base is where in the hair bundle the lesion sits. The cochlear entries curated alongside it fail in the bundle's actin core and taper (CLIC5, DFNB103), in transduction, or at the synapse. PKHD1L1 is none of those: it is a very large, almost entirely extracellular protein that sits on the outside of the stereocilia, and it is the first identified molecular component of the electron-dense surface coat that decorates them.\nThat coat had been described morphologically for decades without anyone knowing what it was made of. Mice lacking PKHD1L1 in hair cells lose it - specifically at the upper part of the stereocilia, where PKHD1L1 is concentrated, while the coat at the stereocilia bases is unaffected. So the lesion is compartmentalised twice over: it is on the extracellular surface rather than inside the cell, and it is on the upper stereocilia rather than the whole length.\nThe ordering of events is the second thing this entry should say clearly, because it is unusual for a hair-bundle gene. Development is normal. PKHD1L1-deficient mice show no disruption of bundle cohesion and no failure of tectorial-membrane attachment-crown formation; stereocilin localises correctly and the bundle imprints in the tectorial membrane still form. Mechanotransduction is intact - FM1-43 loads normally. Only from about six weeks of age do stereocilia start to go missing and bundles lose coherence, beginning in the shortest row and in the high-frequency base. This is a maintenance failure of a bundle that was built correctly, not a developmental malformation, and it is what separates PKHD1L1 from the link and transduction genes whose mutants have severely damaged bundles from the start.\nA third finding has no human counterpart yet and is worth stating as such. A noise dose that produces only a temporary threshold shift in wild-type mice produces a permanent one in PKHD1L1-deficient mice, with tall-row stereocilia loss on top of the short-row loss that ageing alone causes. That is a gene-environment interaction, and it is curated here as one - but nobody has measured noise susceptibility in a person with DFNB124, and the human paper says so explicitly.\nIn humans the picture is four unrelated families, congenital and bilateral, mild-moderate to severe, and only slowly progressive: the best-documented proband gained 5 to 8 dB of threshold over nine years. That is a different time course from the mouse, which hears normally at first and then deteriorates, and closer to the zebrafish double mutant, which is already impaired as a larva. The disagreement is recorded as a human-model mismatch rather than smoothed over, because almost all of the mechanism comes from the mouse.",
+    "description": "DFNB124 is autosomal recessive nonsyndromic sensorineural hearing loss associated with biallelic PKHD1L1 variants. The founding human series described four unrelated probands with bilateral congenital or presumed-congenital hearing loss, ranging from mild-moderate to severe. Quantitative progression over nine years was documented in one proband; another was described as progressive. Attribution in the most severely affected proband remains uncertain because of a competing homozygous MYO7A variant. PKHD1L1 is a large, predominantly extracellular membrane protein associated with the developmental stereocilia surface coat. Knockout mice lose the upper stereociliary coat and subsequently develop stereocilia loss, bundle disorganization and progressive hearing impairment. Gross early bundle morphology and FM1-43 uptake were preserved under the tested conditions; these results do not establish normal mechanotransduction throughout life. Increased vulnerability to noise was demonstrated in mice, but has not been established in the reported human families. Human cochlear coat pathology and the relationship between developmental protein expression and later bundle maintenance remain unresolved.",
     "pathophysiology": [
-      "PKHD1L1 Biallelic Loss of Function",
+      "Biallelic PKHD1L1 Functional Impairment",
       "Loss of the Stereocilia Surface Coat at Stereocilia Tips",
-      "Failure of Stereocilia Bundle Maintenance After Normal Development",
-      "Progressive Stereocilia Loss and Bundle Disorganisation",
+      "Impaired Stereocilia Bundle Maintenance",
+      "Progressive Stereocilia Loss",
+      "Stereocilia Bundle Disorganization",
       "Reduced Resilience to Acoustic Overexposure",
-      "Outer Hair Cell Dysfunction and Loss of Cochlear Amplification",
-      "Progressive Cochlear Hearing Loss"
+      "Outer Hair Cell Dysfunction",
+      "Reduced Cochlear Amplification",
+      "Cochlear Hearing Loss"
     ],
     "cell_types": [
       "cochlear outer hair cell",
@@ -38710,8 +38712,7 @@ window.searchData = [
       "CL:0000589"
     ],
     "biological_processes": [
-      "auditory receptor cell stereocilium organization",
-      "sensory perception of sound"
+      "auditory receptor cell stereocilium organization"
     ],
     "phenotypes": [
       "Bilateral Sensorineural Hearing Impairment",
@@ -38733,18 +38734,16 @@ window.searchData = [
       "HP:0008625",
       "HP:6000182"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "PKHD1L1"
     ],
     "treatments": [
       "Hearing Amplification and Audiological Management",
-      "Genetic Counselling and Cascade Testing"
+      "Genetic Counselling and Cascade Testing",
+      "Cochlear implantation when clinically indicated",
+      "Communication and language support",
+      "Hearing-conservation counseling"
     ],
     "environmental": [
       "Moderate acoustic overexposure"
@@ -38753,11 +38752,11 @@ window.searchData = [
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_124.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_124.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "8"
+    "num_treatments": 5,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 15",
@@ -274573,6 +274572,116 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Relapsing Fever",
+    "disease_id": "MONDO:0019633",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Vector-borne disease"
+    ],
+    "creation_date": "2026-09-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Louse-borne relapsing fever",
+      "Soft-tick-borne relapsing fever",
+      "Hard-tick relapsing fever"
+    ],
+    "description": "Relapsing fever is an arthropod-borne infection caused by relapsing-fever Borrelia species. Louse-borne disease is caused by Borrelia recurrentis, soft-tick-borne disease is caused by species such as B. hermsii and B. crocidurae, and hard-tick relapsing fever can be caused by B. miyamotoi. Its recurrent bacteremic fever waves arise when Vmp antigenic switching lets rare spirochete variants escape the IgM response that cleared the previous serotype.",
+    "pathophysiology": [
+      "Arthropod-Mediated Borrelia Inoculation",
+      "Plasmin-Assisted Spirochete Dissemination",
+      "Vmp-Switched Relapsing Bacteremia",
+      "B1b IgM Serotype Clearance",
+      "Macrophage-Mediated Cytopenias",
+      "Severe Systemic Relapsing Fever",
+      "Antibiotic-Triggered Jarisch-Herxheimer Reaction"
+    ],
+    "cell_types": [
+      "B-1b B cell",
+      "macrophage",
+      "erythrocyte",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000821",
+      "CL:0000235",
+      "CL:0000232",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "plasminogen activation",
+      "proteolysis",
+      "antigenic variation",
+      "DNA recombination",
+      "humoral immune response",
+      "immunoglobulin production",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Recurrent Fever",
+      "Anemia",
+      "Thrombocytopenia",
+      "Acute Respiratory Distress Syndrome",
+      "Shock",
+      "Chills",
+      "Altered mental status",
+      "Arthralgia",
+      "Skin rash",
+      "Jarisch-Herxheimer reaction",
+      "Premature birth"
+    ],
+    "phenotype_categories": [
+      "Systemic",
+      "Hematologic",
+      "Respiratory",
+      "Cardiovascular",
+      "Constitutional",
+      "Neurologic",
+      "Musculoskeletal",
+      "Dermatologic",
+      "Obstetric"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001954",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0033677",
+      "HP:0031273",
+      "HP:0025143",
+      "HP:0004372",
+      "HP:0002829",
+      "HP:0000988",
+      "HP:0001622"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Doxycycline or Ceftriaxone"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Relapsing_Fever.yaml",
+    "page_url": "../pages/disorders/Relapsing_Fever.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Relapsing Polychondritis",
     "disease_id": "MONDO:0019125",
     "category": "Complex",
@@ -336325,17 +336434,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3184,
-  "total_subtypes": 4216,
-  "total_disorders_and_subtypes": 7400,
-  "total_unique_evidence_sources": 46302,
-  "total_unique_publications": 43510,
+  "total_disorder_pages": 3185,
+  "total_subtypes": 4219,
+  "total_disorders_and_subtypes": 7404,
+  "total_unique_evidence_sources": 46320,
+  "total_unique_publications": 43528,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 286,
-  "total_pathographs": 3179,
-  "total_unique_pathological_events": 20084,
+  "total_pathographs": 3180,
+  "total_unique_pathological_events": 20093,
   "total_modules": 178,
-  "total_research_reports": 3296,
+  "total_research_reports": 3297,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 105
