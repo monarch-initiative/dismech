@@ -16850,6 +16850,72 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Agoraphobia",
+    "disease_id": "MONDO:0003709",
+    "category": "Psychiatric",
+    "parents": [
+      "Anxiety Disorder",
+      "Mental Health Disorder"
+    ],
+    "creation_date": "2026-09-07T15:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Agoraphobia is a phobic anxiety disorder characterized by marked fear or anxiety about situations such as public transport, open spaces, enclosed places, crowds or queues, and being outside the home alone, arising from the thought that escape might be difficult or help unavailable should panic-like or other incapacitating symptoms occur. DSM-5 and ICD-11 established agoraphobia as a diagnosis independent of panic disorder rather than a residual panic disorder specifier. Two partly separable mechanistic strands are described: a fear-learning strand in which heightened startle and fear-network reactivity support catastrophic agoraphobic cognitions, and a spatial-orientation strand in which vestibular dysfunction drives a compensatory dependence on visual and proprioceptive cues, producing discomfort precisely in the settings where those cues are unreliable.",
+    "pathophysiology": [
+      "GLRB Glycine Receptor Variation",
+      "Exaggerated Startle and Fear Network Activation",
+      "Vestibular Dysfunction",
+      "Non-Vestibular Balance Control Strategy",
+      "Space and Motion Discomfort",
+      "Agoraphobic Cognitions",
+      "Situational Fear and Avoidance"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "startle response"
+    ],
+    "phenotypes": [
+      "Agoraphobia",
+      "Anxiety",
+      "Exaggerated startle response",
+      "Abnormal vestibular function"
+    ],
+    "phenotype_categories": [
+      "Behavioral",
+      "Clinical Sign"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000756",
+      "HP:0000739",
+      "HP:0002267",
+      "HP:0001751"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GLRB",
+      "TMEM132D"
+    ],
+    "treatments": [
+      "Exposure in vivo combined with antidepressant pharmacotherapy",
+      "Antidepressant pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Agoraphobia.yaml",
+    "page_url": "../pages/disorders/Agoraphobia.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Aicardi-Goutieres Syndrome",
     "disease_id": "MONDO:0018866",
     "category": "Mendelian",
@@ -335187,17 +335253,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3173,
+  "total_disorder_pages": 3174,
   "total_subtypes": 4116,
-  "total_disorders_and_subtypes": 7289,
-  "total_unique_evidence_sources": 46059,
-  "total_unique_publications": 43281,
+  "total_disorders_and_subtypes": 7290,
+  "total_unique_evidence_sources": 46067,
+  "total_unique_publications": 43289,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 286,
-  "total_pathographs": 3168,
-  "total_unique_pathological_events": 19990,
+  "total_pathographs": 3169,
+  "total_unique_pathological_events": 19997,
   "total_modules": 178,
-  "total_research_reports": 3285,
+  "total_research_reports": 3286,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 105
