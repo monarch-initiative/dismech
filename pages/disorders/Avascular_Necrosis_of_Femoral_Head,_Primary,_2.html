@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4121,6 +4189,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4239,6 +4308,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4339,6 +4409,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4432,6 +4503,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4466,6 +4538,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trpv4-calmodulin-binding-domain-truncating-gain-of-function-variant" data-dismech-node="TRPV4 Calmodulin-Binding-Domain Truncating Gain-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">TRPV4 Calmodulin-Binding-Domain Truncating Gain-of-Function Variant</div>
+
 
                 <div class="item-desc">A c.2480_2483delCCCG frameshift deletion followed by a c.2486T&gt;A substitution in the last exon of TRPV4 truncates the 871-amino-acid channel protein (p.V829Wfs*3), eliminating a highly conserved C-terminal region that includes residues within a calmodulin-binding domain. Unlike previously characterized TRPV4 C-terminal truncations, which cause loss of channel activity, this variant produces a gain of function: functional measurements in patient-derived dermal fibroblasts and stably transduced HEK293 cells show markedly increased TRPV4 activity, caused specifically by longer channel open times rather than an increase in the number of channels per site.</div>
 
@@ -4526,6 +4599,8 @@ This pathophysiological event involves TRPV4 (hgnc:18083). hgnc:18083 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: frameshift deletion (c.2480_2483delCCCG) with adjacent c.2486T&gt;A substitution, C-terminal truncating</span>
 
 
@@ -4541,6 +4616,9 @@ This pathophysiological event involves TRPV4 (hgnc:18083). hgnc:18083 is a gene 
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4624,6 +4702,7 @@ This pathophysiological event involves calcium channel activity (GO:0005262), qu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4645,6 +4724,7 @@ This pathophysiological event involves calcium channel activity (GO:0005262), qu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4672,6 +4752,7 @@ This pathophysiological event involves calcium channel activity (GO:0005262), qu
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4694,6 +4775,7 @@ This pathophysiological event involves calcium channel activity (GO:0005262), qu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-trpv4-mediated-calcium-influx" data-dismech-node="Increased TRPV4-Mediated Calcium Influx" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased TRPV4-Mediated Calcium Influx</div>
+
 
                 <div class="item-desc">Optical recording of TRPV4 Ca2+ &#34;sparklets&#34; (local, quantal fluorescence transients representing single-channel openings within a cluster) shows markedly increased channel activity per site in both proband-derived dermal fibroblasts and mutant-TRPV4-transduced HEK293 cells compared with controls, without an increase in the number of channels per site - confirming the calcium overload is driven by longer channel open times.</div>
 
@@ -4829,6 +4911,7 @@ This pathophysiological event involves increased calcium ion transmembrane trans
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4850,6 +4933,7 @@ This pathophysiological event involves increased calcium ion transmembrane trans
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4875,6 +4959,7 @@ This pathophysiological event involves increased calcium ion transmembrane trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteoclast-calcium-signaling-dysregulation" data-dismech-node="Osteoclast Calcium Signaling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteoclast Calcium Signaling Dysregulation</div>
+
 
                 <div class="item-desc">TRPV4 mediates basolateral Ca2+ influx specifically in large osteoclasts once RANKL-evoked Ca2+ oscillations decline, sustaining the NFATc1-dependent gene transcription required for terminal differentiation and resorptive activity. Genetic ablation of Trpv4 in mice increases bone mass by impairing bone resorption, indicating that TRPV4 signaling normally promotes osteoclast differentiation and resorption. This evidence is from the opposite (loss-of-function) direction: no study has directly measured osteoclast activity in cells carrying the ANFH2 gain-of-function variant, so the inference that excess TRPV4 activity would drive excess resorption is proposed by analogy rather than demonstrated.</div>
 
@@ -5042,6 +5127,7 @@ This pathophysiological event involves increased osteoclast differentiation (GO:
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5068,6 +5154,7 @@ This pathophysiological event involves increased osteoclast differentiation (GO:
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5090,6 +5177,7 @@ This pathophysiological event involves increased osteoclast differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-endothelial-dysfunction-and-vasoconstriction" data-dismech-node="Vascular Endothelial Dysfunction and Vasoconstriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Endothelial Dysfunction and Vasoconstriction</div>
+
 
                 <div class="item-desc">The authors propose that TRPV4 gain-of-function calcium overload in vascular endothelium, acting together with the mechanical stress of weight-bearing at the hip, causes endothelial dysfunction and vasoconstriction. TRPV4 is expressed in vascular endothelium, where it normally regulates vasodilation and vascular tone, and TRPV4-mediated vasoconstriction (via COX-dependent prostanoid production and thromboxane receptor potentiation) has been demonstrated elsewhere in the vascular endothelium. This step is explicitly framed by the authors as a proposed, not directly demonstrated, mechanism for this disease.</div>
 
@@ -5237,6 +5325,7 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5263,6 +5352,7 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5284,6 +5374,7 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5309,6 +5400,7 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-femoral-head-microvascular-thrombosis-and-ischemia" data-dismech-node="Femoral Head Microvascular Thrombosis and Ischemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Femoral Head Microvascular Thrombosis and Ischemia</div>
+
 
                 <div class="item-desc">Osteonecrosis of the femoral head is characterized by compromised blood flow to the femoral head, with microvascular thrombosis a common finding across non-traumatic osteonecrosis generally. The femoral head is anatomically vulnerable because it lacks collateral blood vessels and is a constantly weight-bearing, mechanically stressed joint - features the authors propose synergize with systemic TRPV4 gain-of-function activation to produce localized ischemia.</div>
 
@@ -5360,6 +5452,7 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5382,6 +5475,7 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteocyte-death-and-bone-cell-apoptosis" data-dismech-node="Osteocyte Death and Bone Cell Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteocyte Death and Bone Cell Apoptosis</div>
+
 
                 <div class="item-desc">Compromised blood flow to the femoral head leads to bone cell (osteocyte) apoptosis, the defining lesion of osteonecrosis.</div>
 
@@ -5433,6 +5527,7 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5455,6 +5550,7 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subchondral-fracture-and-structural-collapse" data-dismech-node="Subchondral Fracture and Structural Collapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Subchondral Fracture and Structural Collapse</div>
+
 
                 <div class="item-desc">Cumulative osteocyte death leaves the femoral head unable to withstand ongoing weight-bearing mechanical load, producing subchondral fracture and progressive structural collapse. The femoral head&#39;s lack of collateral blood supply is the anatomical reason this specific site is vulnerable to fracture once ischemic.</div>
 
@@ -5503,6 +5599,7 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5568,16 +5665,36 @@ This pathophysiological event involves increased vasoconstriction (GO:0042310). 
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-osteonecrosis-of-the-femoral-head" data-dismech-node="Osteonecrosis of the femoral head" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Osteonecrosis of the femoral head
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
+
+
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteonecrosis-of-the-femoral-head" data-dismech-node="Osteonecrosis of the femoral head" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Osteonecrosis of the femoral head
+
 
 
 
 
 
                     <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Avascular necrosis of the capital femoral epiphysis</span>
+
 
 
 
@@ -5589,16 +5706,19 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Osteonecrosis of the femoral head, annotated with Avascular necrosis of the capital femoral epiphysis (HP:0005743). HP:0005743 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
 
 
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
-                    <span class="tag" style="background: #bbf7d0; color: #166534;">Hip pain</span>
 
-                </div>
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Hip pain</span>
+
+                    </div>
 
 
 
@@ -5616,6 +5736,7 @@ This clinical feature is Osteonecrosis of the femoral head, annotated with Avasc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5643,6 +5764,7 @@ This clinical feature is Osteonecrosis of the femoral head, annotated with Avasc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5664,6 +5786,7 @@ This clinical feature is Osteonecrosis of the femoral head, annotated with Avasc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5690,17 +5813,28 @@ This clinical feature is Osteonecrosis of the femoral head, annotated with Avasc
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-hip-pain" data-dismech-node="Hip pain" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Hip pain
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-pain" data-dismech-node="Hip pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hip pain
+
 
 
 
 
 
                     <span class="phenotype-id">
+
 
 
 
@@ -5712,9 +5846,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Hip pain (HP:0030838), qualified as young adult onset. HP:0030838 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
-                <div class="item-meta">
+                    <div class="item-meta">
 
 
 
@@ -5741,7 +5875,10 @@ This clinical feature is Hip pain (HP:0030838), qualified as young adult onset. 
 
 
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5761,6 +5898,7 @@ This clinical feature is Hip pain (HP:0030838), qualified as young adult onset. 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5785,8 +5923,34 @@ This clinical feature is Hip pain (HP:0030838), qualified as young adult onset. 
 
 
 
-            </div>
+                </div>
 
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -5831,6 +5995,9 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5845,6 +6012,7 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5872,6 +6040,7 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5893,6 +6062,7 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5979,6 +6149,9 @@ This treatment is total hip arthroplasty, annotated with Hip Replacement (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5989,6 +6162,9 @@ This treatment is total hip arthroplasty, annotated with Hip Replacement (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -6016,6 +6192,7 @@ This treatment is total hip arthroplasty, annotated with Hip Replacement (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6083,6 +6260,9 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6093,6 +6273,9 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
     </div>
+
+
+
 
 
 
@@ -6120,6 +6303,7 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6230,6 +6414,7 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6319,6 +6504,7 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6343,6 +6529,7 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6364,6 +6551,7 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6453,6 +6641,7 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6659,6 +6848,7 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6701,6 +6891,7 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6747,6 +6938,7 @@ This treatment is bilateral hip core decompression and bone grafting, annotated 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7726,6 +7918,21 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Avascular Necrosis of Femoral Head, Primary, 2</strong> · 2026-09-04T04:03:28Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Avascular_Necrosis_Of_Femoral_Head_Primary_2/2026-09-04T040328Z-claude-code-904399.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of ANFH2 (MONDO:0054551), an autosomal dominant, TRPV4-associated form of inherited osteonecrosis of the femoral head. Claimed via issue #10880. Deep research: attempted falcon (Edison) first per skill default, but Edison&#39;s API host (api.platform.edisonscientific.com) is blocked by this environment&#39;s outbound network policy (proxy returns 403 on CONNECT), not a bad key -- confirmed via /__agentproxy/status. The --fallback flag did not recover because the auth failure crashes before the client&#39;s internal retry/fallback chain engages. Switched explicitly to the claude_code provider (no external API key required; report at research/Avascular_Necrosis_Of_Femoral_Head_Primary_2-deep-research-claude_code.md), which completed with needs_review: true on both reference and term validation -- its term suggestions included several mislabelled CURIEs (e.g. HP:0010734 is actually &#39;Fibrous dysplasia of the bones&#39;, not femoral head osteonecrosis; HP:0100787 is &#39;Prostate neoplasm&#39;, not gait disturbance; the HGNC:12716 it and my own initial skeleton used for TRPV4 is actually TRPV1). None of these mislabelled report-suggested CURIEs were used; every ontology term in the entry (hgnc:18083 TRPV4, HP:0005743, HP:0030838, GO:0005262, GO:0070588, GO:0042310, CL:0000092, CL:0000115, GO:0030316) was independently verified via runoak against the live OAK adapters before binding. Core evidence is built from two primary PubMed sources found directly (not via the deep-research report): PMID:27330106 (Mah et al. 2016, J Med Genet, the discovery paper; full text was available via PMC and used for exact-quote snippets) establishing the causal TRPV4 c.2480_2483delCCCG+c.2486T&gt;A gain-of-function frameshift/truncation variant and its calcium-sparklet electrophysiology, and PMID:30328481 (Wang et al. 2019 review) for genetic-basis context. Added a second pathophysiology branch (osteoclast calcium signaling / bone resorption) supported by PMID:18762026 (Masuyama et al. 2008, Cell Metab), graded directness: INDIRECT since it is opposite-direction (Trpv4-knockout) mouse evidence rather than direct GOF-variant data. Two mechanistic_hypotheses groups record the vascular-vasoconstriction and osteoclast-resorption branches as EMERGING, both explicitly hedged per the discovery paper&#39;s own limitations paragraph, which is also cited directly in a HUMAN_MODEL_MISMATCH discussion noting no animal or cellular model directly recapitulates the ANFH2 gain-of-function phenotype. No GeneReviews article exists for this disease (searched PubMed TI:GeneReviews, no hit) so no GeneReviews baseline was applicable. Validated: linkml-validate (Disease, no issues), linkml-term-validator (validate-data --labels, passed), reference_snippet_audit (20/20 snippets verified), full linkml-reference-validator (all checks pass), check-duplicate-keys / check-enum-values / check-entity-refs / check-causal-targets / check-qualifier-terms (all OK), whole-KB check-not4curation / check-folded-hyphens / check-snippet-length / check-title-snippets / check-snippet-grading (all OK, no new issues), term_cache_integrity (OK), and tests/test_data.py -k Avascular (2768 selected tests passed, no failures). linkml-data-qc weighted compliance 87.0%. Deleted stubs/Avascular_Necrosis_Of_Femoral_Head_Primary_2.yaml as part of this curation.
+
+Self-review round (before PR): ran a fresh-context adversarial review subagent against the entry, following dismech-pr-review, before opening a PR. It independently re-verified all evidence snippets by exact substring match against the cached references (found zero fabrication/misquoting) and checked ontology term/label pairs, pathophysiology chain integrity, mechanistic_hypotheses/discussions foreign keys, and evidence_source/directness classification. It confirmed the mislabelled-CURIE-avoidance claim above against the deep-research report&#39;s own term_validation frontmatter. It surfaced three real gaps, all fixed in this same session: (1) added a diagnosis: block (hip radiography + MRI + Steinberg staging, bound to NCIT:C18020 Diagnostic Procedure) quoting PMID:27330106&#39;s diagnostic-modality sentence, which had been omitted despite being in-scope, quotable, primary-source content; (2) reconciled the top-level references: block, which had PMID:18762026 missing (cited as evidence but absent from the list) and PMID:30328481 orphaned (listed but never cited) -- added 18762026 and added a genuine corroborating evidence item for 30328481 in the genetic: block (its own restatement of the TRPV4-ONFH finding); (3) re-graded three evidence items: the two instances of the authors&#39; own hedged vasoconstriction-mechanism quote from HUMAN_CLINICAL to OTHER (it is interpretive synthesis prose, not a direct clinical observation), and the calmodulin-binding-domain truncation/localization quote from IN_VITRO to HUMAN_CLINICAL (it is a genomic/protein-sequence finding from patient DNA analysis, not a cell-based functional assay). Re-ran the full validation suite after each fix (schema, term, 23/23 snippets verified, snippet-grading, entity-refs, duplicate-keys, enum-values, causal-targets all clean). Final linkml-data-qc weighted compliance: 88.1%. Reviewer also flagged optional/non-blocking polish items (a note on the allelic ANFH1/COL2A1 differential, an IN_VITRO-vs-structural-finding quibble on one already-fixed snippet) which were judged not to warrant further changes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

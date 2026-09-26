@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Aniridia"
@@ -3957,7 +4025,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3986,7 +4054,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3995,11 +4063,19 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
 
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#treatments">
@@ -4114,6 +4190,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4136,6 +4213,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4232,6 +4310,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4295,6 +4374,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4433,18 +4513,407 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pax6-haploinsufficiency" data-dismech-node="PAX6 Haploinsufficiency" data-dismech-type="pathophysiology">
-                <div class="item-name">PAX6 Haploinsufficiency</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-deletion-of-the-pax6-downstream-regulatory-region" data-dismech-node="Deletion of the PAX6 Downstream Regulatory Region" data-dismech-type="pathophysiology">
+                <div class="item-name">Deletion of the PAX6 Downstream Regulatory Region</div>
 
-                <div class="item-desc">A heterozygous loss-of-function variant, whole-gene deletion, or disruption of the distal cis-regulatory enhancer leaves a single functional PAX6 allele. PAX6 is a paired-box and homeodomain transcription factor whose dose is read quantitatively across every tissue that builds the eye - surface ectoderm, lens placode, optic cup, and the neural-crest-derived periocular mesenchyme - so a 50% reduction is not silent anywhere. Because the gene acts as a developmental regulator rather than a structural protein, the consequences are set in embryogenesis and cannot be corrected postnatally.
+
+                <div class="item-desc">The two patients reported by Lauderdale et al. carry submicroscopic de novo deletions at 11p13 that start more than 11 kb beyond the PAX6 3&#39; end and retain its transcription unit. These lesions affect the downstream regulatory landscape containing the ELP4-intronic DRR. Patient deletion boundaries differ; the enhancer-region annotation does not define one shared complete deletion or exclude contributions from other deleted genes.</div>
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: deletion</span>
+
+
+        <span class="tag tag-classification">Genomic context: intron</span>
+
+
+        <span class="tag tag-classification">allele_type: de novo downstream deletions retaining the PAX6 transcription unit</span>
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+    </div>
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>PAX6 downstream regulatory region (DRR)</strong>
+            <span class="tag tag-classification">11p13</span>
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">ELP4 <a href="https://bioregistry.io/hgnc:1171" target="_blank" class="curie-chip" title="Open hgnc:1171">hgnc:1171</a></span>
+</div>
+
+
+
+        <div class="item-desc">Cluster of PAX6-specific long-range control elements in ELP4 introns, downstream of PAX6. The named region identifies regulatory sequence within the larger patient deletions; it is not the entire deletion interval or a claim that ELP4 protein loss causes aniridia.</div>
+    </div>
+
 </div>
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Reduced PAX6 Expression after Downstream Regulatory Deletion</span>
+
+	                            <span class="crosslink-desc">Loss of downstream cis-regulatory DNA prevents normal expression from the intact PAX6 allele.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11087823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11087823" target="_blank">PMID:11087823</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report two submicroscopic de novo deletions of 11p13 that cause aniridia but are located &gt;11 kb from the 3&#39; end of PAX6."</div>
+
+
+                <div class="evidence-explanation">Defines the gene-intact downstream human deletion class.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17014839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17014839" target="_blank">PMID:17014839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Analysis of the region beyond this breakpoint using YAC transgenic mice, DNaseI hypersensitivity mapping and reporter transgenic assays revealed the presence of several putative cis-regulatory elements, including ones driving expression in lens and retina (Kleinjan et al., 2001). These elements..."</div>
+
+
+                <div class="evidence-explanation">Summarizes earlier transgenic-mouse enhancer mapping and the human locus annotation placing the DRR within ELP4. This is background support for the enhancer host and target, not a new patient deletion measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pax6-expression-after-downstream-regulatory-deletion" data-dismech-node="Reduced PAX6 Expression after Downstream Regulatory Deletion" data-dismech-type="pathophysiology">
+                <div class="item-name">Reduced PAX6 Expression after Downstream Regulatory Deletion</div>
+
+
+                <div class="item-desc">Human-mouse retinoblastoma somatic-cell hybrids carrying the patient chromosomes express PAX6 from the normal homolog but not the deletion homolog. Separately, deletion of the DRR from a human PAX6 reporter YAC in transgenic mice removes retinal expression while lens expression remains at embryonic day E10.5. Together these experiments support loss of regulatory input to intact PAX6. They do not establish uniform loss across all tissues in the patients, so no all-tissue expression-loss category is assigned to these deletions.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PAX6
+
+
+    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8620</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX6 (hgnc:8620). hgnc:8620 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        PAX6 gene expression
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0010467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0010467</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased PAX6 gene expression, annotated with gene expression (GO:0010467). GO:0010467 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">PAX6 Haploinsufficiency</span>
+
+	                            <span class="crosslink-desc">Reduced expression from the deletion-bearing chromosome is inferred to lower functional PAX6 dosage in affected ocular tissues.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11087823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11087823" target="_blank">PMID:11087823</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using human x mouse retinoblastoma somatic cell hybrids, we show that PAX6 is transcribed only from the normal allele but not from the deleted chromosome 11 homolog."</div>
+
+
+                <div class="evidence-explanation">Direct allele-specific expression evidence comes from somatic-cell hybrids, not patient embryonic eyes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17014839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17014839" target="_blank">PMID:17014839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Similarly at E10.5, when Y001 has strong expression in both lens and retina, Y001ΔDRR maintains lens expression but expression in the retina is completely lost"</div>
+
+
+                <div class="evidence-explanation">The engineered human-locus reporter establishes different requirements for the DRR in retina and lens at E10.5; it does not imply preservation of lens expression at later developmental stages.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pax6-haploinsufficiency" data-dismech-node="PAX6 Haploinsufficiency" data-dismech-type="pathophysiology">
+                <div class="item-name">PAX6 Haploinsufficiency</div>
+
+
+                <div class="item-desc">Heterozygous coding loss-of-function variants, whole-gene deletions, and downstream regulatory deletions converge on insufficient PAX6 activity in ocular tissues. Regulatory deletions can reduce expression while retaining the PAX6 transcription unit; their effects need not be uniform across tissues. PAX6 is a paired-box and homeodomain transcription factor required for ocular development and maintenance.
+</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PAX6
+
+
+    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:8620</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX6 (hgnc:8620). hgnc:8620 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4461,11 +4930,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0043010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0043010</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Camera-type eye development (GO:0043010). GO:0043010 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4500,11 +4969,11 @@ This pathophysiological event involves decreased Camera-type eye development (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0003700</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4572,6 +5041,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4596,6 +5066,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-anterior-segment-and-foveal-differentiation" data-dismech-node="Failed Anterior Segment and Foveal Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Anterior Segment and Foveal Differentiation</div>
 
+
                 <div class="item-desc">Reduced PAX6 dose during ocular morphogenesis leaves the periocular mesenchyme-derived structures of the anterior segment incompletely differentiated, and simultaneously arrests the specialization of the central retina. The iris stroma and its muscle fail to form beyond a rudimentary stump; the iridocorneal angle and trabecular meshwork are maldeveloped; the lens is prone to opacification; and the foveal pit, which requires postnatal displacement of inner retinal layers over a cone-only centre, never fully excavates. That the same lesion hits both the anterior segment and the fovea is why aniridia is a pan-ocular disease rather than an iris disease.
 </div>
 
@@ -4611,11 +5082,11 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000008</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000008</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves migratory cranial neural crest cell (CL:0000008). CL:0000008 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4641,11 +5112,11 @@ This pathophysiological event involves migratory cranial neural crest cell (CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002367" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002367</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002367" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002367</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves trabecular meshwork cell (CL:0002367). CL:0002367 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4682,11 +5153,11 @@ This pathophysiological event involves trabecular meshwork cell (CL:0002367). CL
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061072" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0061072</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061072" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0061072</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Iris morphogenesis (GO:0061072). GO:0061072 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4716,11 +5187,11 @@ This pathophysiological event involves decreased Iris morphogenesis (GO:0061072)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0002930</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0002930</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Trabecular meshwork development (GO:0002930). GO:0002930 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4750,11 +5221,11 @@ This pathophysiological event involves decreased Trabecular meshwork development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0060041</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0060041</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Retina development in camera-type eye (GO:0060041). GO:0060041 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4791,11 +5262,11 @@ This pathophysiological event involves abnormal Retina development in camera-typ
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001801" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001801</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001801" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001801</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001801). UBERON:0001801 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4844,6 +5315,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4866,6 +5338,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4893,6 +5366,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limbal-stem-cell-deficiency" data-dismech-node="Limbal Stem Cell Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Limbal Stem Cell Deficiency</div>
 
+
                 <div class="item-desc">A distinct, postnatally progressive arm. PAX6 is required not only to build the cornea but to maintain the limbal epithelial stem cell niche that renews it throughout life. With one allele, the stem cell compartment is functionally deficient: single-cell profiling of Pax6-heterozygous mouse cornea shows an accumulation of stem-like and early transit-amplifying cells that fail to commit to a mature corneal epithelial fate. Chronic inflammation and ocular surface dryness compound the defect. This is why aniridia-associated keratopathy is the one feature of the disease that reliably worsens with age rather than being fixed at birth.
 </div>
 
@@ -4908,11 +5382,11 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4033093" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:4033093</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4033093" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:4033093</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves limbal epithelial stem cell of cornea (CL:4033093). CL:4033093 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4938,11 +5412,11 @@ This pathophysiological event involves limbal epithelial stem cell of cornea (CL
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000575</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000575</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:0000575 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4979,11 +5453,11 @@ This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030855" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030855</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030855" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030855</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Epithelial cell differentiation (GO:0030855). GO:0030855 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5013,11 +5487,11 @@ This pathophysiological event involves decreased Epithelial cell differentiation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061303" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0061303</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061303" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0061303</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Cornea development in camera-type eye (GO:0061303). GO:0061303 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5054,11 +5528,11 @@ This pathophysiological event involves abnormal Cornea development in camera-typ
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0000964</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5140,6 +5614,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5162,6 +5637,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5189,6 +5665,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aniridia-associated-keratopathy" data-dismech-node="Aniridia-Associated Keratopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Aniridia-Associated Keratopathy</div>
 
+
                 <div class="item-desc">The clinical expression of limbal failure: conjunctival epithelium progressively invades the corneal surface, bringing vessels with it, and the cornea becomes vascularized, opaque and unstable. It begins peripherally and advances centrally over decades, so a patient whose acuity was limited by foveal hypoplasia in childhood may lose further vision to the cornea in adulthood. Keratopathy is the feature that most often prompts surgery, and the one whose surgery most often fails, because a transplanted cornea placed on a limbally deficient surface is re-invaded.
 </div>
 
@@ -5204,11 +5681,11 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000575</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000575</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:0000575 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5248,11 +5725,11 @@ This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0000964</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5282,6 +5759,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5306,6 +5784,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maldeveloped-aqueous-outflow-and-secondary-glaucoma" data-dismech-node="Maldeveloped Aqueous Outflow and Secondary Glaucoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Maldeveloped Aqueous Outflow and Secondary Glaucoma</div>
 
+
                 <div class="item-desc">The maldeveloped iridocorneal angle limits aqueous outflow, and in many patients the rudimentary iris stump progressively rotates forward to occlude what angle there is. Intraocular pressure rises, typically in later childhood or adolescence rather than infancy, and glaucomatous optic neuropathy follows. Glaucoma affects roughly a fifth of eyes in longitudinal cohorts and is, with keratopathy, one of the two acquired threats that make aniridia a lifelong surveillance diagnosis rather than a static malformation.
 </div>
 
@@ -5321,11 +5800,11 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002367" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002367</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002367" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002367</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves trabecular meshwork cell (CL:0002367). CL:0002367 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5362,11 +5841,11 @@ This pathophysiological event involves trabecular meshwork cell (CL:0002367). CL
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0002930</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0002930</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Trabecular meshwork development (GO:0002930). GO:0002930 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5403,11 +5882,11 @@ This pathophysiological event involves decreased Trabecular meshwork development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005969" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0005969</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005969" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0005969</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in eye trabecular meshwork (UBERON:0005969). UBERON:0005969 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5437,6 +5916,7 @@ This pathophysiological event occurs in eye trabecular meshwork (UBERON:0005969)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5459,6 +5939,7 @@ This pathophysiological event occurs in eye trabecular meshwork (UBERON:0005969)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5486,6 +5967,7 @@ This pathophysiological event occurs in eye trabecular meshwork (UBERON:0005969)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-visual-impairment-with-nystagmus" data-dismech-node="Congenital Visual Impairment with Nystagmus" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Visual Impairment with Nystagmus</div>
 
+
                 <div class="item-desc">Foveal hypoplasia deprives the developing visual system of a high-acuity fixation locus, so acuity is subnormal from birth and infantile nystagmus develops as a consequence of that sensory deficit rather than as an independent motor abnormality. The absent or deficient iris compounds disability by removing the aperture stop, producing the photophobia and glare that patients frequently rank above acuity loss as their dominant symptom. Because the sensory deficit is congenital and structural, acuity in aniridia does not improve with refractive correction.
 </div>
 
@@ -5508,11 +5990,11 @@ This pathophysiological event occurs in eye trabecular meshwork (UBERON:0005969)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007601" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007601</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007601" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0007601</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Visual perception (GO:0007601). GO:0007601 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5562,6 +6044,7 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5608,7 +6091,7 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aniridia-Associated Keratopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive conjunctivalization, vascularization and opacification of the cornea arising from limbal stem cell deficiency, advancing from periphery to centre over decades.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000481\"}}, {\"id\": \"Congenital Visual Impairment with Nystagmus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Foveal hypoplasia deprives the developing visual system of a high-acuity fixation locus, so acuity is subnormal from birth and infantile nystagmus develops as a consequence of that sensory deficit rather than as an independent motor abnormality. The absent or deficient iris compounds disability by removing the aperture stop, producing the photophobia and glare that patients frequently rank above acuity loss as their dominant symptom. Because the sensory deficit is congenital and structural, acuity in aniridia does not improve with refractive correction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Visual perception\"], \"role\": \"consequence\"}}, {\"id\": \"Failed Anterior Segment and Foveal Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced PAX6 dose during ocular morphogenesis leaves the periocular mesenchyme-derived structures of the anterior segment incompletely differentiated, and simultaneously arrests the specialization of the central retina. The iris stroma and its muscle fail to form beyond a rudimentary stump; the iridocorneal angle and trabecular meshwork are maldeveloped; the lens is prone to opacification; and the foveal pit, which requires postnatal displacement of inner retinal layers over a cone-only centre, never fully excavates. That the same lesion hits both the anterior segment and the fovea is why aniridia is a pan-ocular disease rather than an iris disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"migratory cranial neural crest cell\", \"trabecular meshwork cell\"], \"biological_processes\": [\"Iris morphogenesis\", \"Trabecular meshwork development\", \"Retina development in camera-type eye\"], \"role\": \"central_effector\", \"locations\": [\"anterior segment of eyeball\"]}}, {\"id\": \"Glaucoma Surgery for Medically Uncontrolled Intraocular Pressure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Angle or filtering surgery, or a glaucoma drainage device, when topical therapy fails to control pressure. Separated from the medical arm because it is a different modality with a different risk profile, and because surgically naive eyes in the longitudinal cohort maintained better visual acuity - so the decision to operate is itself consequential rather than a simple escalation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Limbal Stem Cell Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct, postnatally progressive arm. PAX6 is required not only to build the cornea but to maintain the limbal epithelial stem cell niche that renews it throughout life. With one allele, the stem cell compartment is functionally deficient: single-cell profiling of Pax6-heterozygous mouse cornea shows an accumulation of stem-like and early transit-amplifying cells that fail to commit to a mature corneal epithelial fate. Chronic inflammation and ocular surface dryness compound the defect. This is why aniridia-associated keratopathy is the one feature of the disease that reliably worsens with age rather than being fixed at birth.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"limbal epithelial stem cell of cornea\", \"corneal epithelial cell\"], \"biological_processes\": [\"Epithelial cell differentiation\", \"Cornea development in camera-type eye\"], \"role\": \"effector\", \"locations\": [\"cornea\"], \"experimental_models\": [{\"name\": \"Patient-derived iPSC corneal organoid model of aniridia-associated keratopathy\", \"model_type\": \"ORGANOID\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The organoid provides a human, patient-genotype platform for interrogating corneal epithelial differentiation, which is the process this node asserts is defective.\\n\"}], \"animal_models\": [{\"name\": \"Pax6 heterozygous mouse\", \"species\": \"Mouse\", \"genotype\": \"Pax6 heterozygous (Pax6+/-)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the human haploinsufficient genotype and the corneal stem-cell-commitment defect, in the tissue where the human disease progresses.\\n\"}]}}, {\"id\": \"Limbal Stem Cell Replacement and Keratoprosthesis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management of advanced keratopathy. Because the corneal opacity is driven by a deficient stem cell niche rather than by the cornea itself, plain penetrating keratoplasty is re-conjunctivalized; the options are to replace the limbal stem cells by keratolimbal allograft, with or without subsequent keratoplasty, or to bypass the surface entirely with a Boston type 1 keratoprosthesis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maldeveloped Aqueous Outflow and Secondary Glaucoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The maldeveloped iridocorneal angle limits aqueous outflow, and in many patients the rudimentary iris stump progressively rotates forward to occlude what angle there is. Intraocular pressure rises, typically in later childhood or adolescence rather than infancy, and glaucomatous optic neuropathy follows. Glaucoma affects roughly a fifth of eyes in longitudinal cohorts and is, with keratopathy, one of the two acquired threats that make aniridia a lifelong surveillance diagnosis rather than a static malformation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"trabecular meshwork cell\"], \"biological_processes\": [\"Trabecular meshwork development\"], \"role\": \"consequence\", \"locations\": [\"eye trabecular meshwork\"]}}, {\"id\": \"PAX6 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous loss-of-function variant, whole-gene deletion, or disruption of the distal cis-regulatory enhancer leaves a single functional PAX6 allele. PAX6 is a paired-box and homeodomain transcription factor whose dose is read quantitatively across every tissue that builds the eye - surface ectoderm, lens placode, optic cup, and the neural-crest-derived periocular mesenchyme - so a 50% reduction is not silent anywhere. Because the gene acts as a developmental regulator rather than a structural protein, the consequences are set in embryogenesis and cannot be corrected postnatally.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Camera-type eye development\"], \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"role\": \"trigger\"}}, {\"id\": \"Patient-derived iPSC corneal organoid model of aniridia-associated keratopathy\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Three-dimensional corneal organoids differentiated from induced pluripotent stem cells of aniridia patients, generating corneal epithelial-like cells in a self-assembled tissue that reproduces the native corneal microenvironment. Provides a human genotype-matched system for the limbal arm of the disease, complementing the Pax6-heterozygous mouse.\\n\", \"meta\": {\"model_type\": \"ORGANOID\", \"publication\": \"PMID:42612147\"}}, {\"id\": \"Pax6 heterozygous mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The standard genetic model of aniridia-associated keratopathy, matching the human haploinsufficient genotype. Single-cell RNA sequencing of its cornea and limbus identified an accumulation of quiescent limbal stem cell-like and early transit-amplifying cells that fail to commit to a corneal epithelial fate.\\n\"}, {\"id\": \"Topical Intraocular Pressure-Lowering Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line medical management of the secondary glaucoma, using topical agents such as prostaglandin analogues, beta-blockers and carbonic anhydrase inhibitors. Glaucoma in aniridia responds less predictably than primary open-angle glaucoma because the outflow pathway is structurally maldeveloped rather than merely obstructed, so lifelong pressure surveillance is required from diagnosis.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"prostaglandin analogue (e.g. latanoprost)\", \"topical beta-blocker (e.g. timolol)\"]}}], \"edges\": [{\"source\": \"PAX6 Haploinsufficiency\", \"target\": \"Failed Anterior Segment and Foveal Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAX6 Haploinsufficiency\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Anterior Segment and Foveal Differentiation\", \"target\": \"Maldeveloped Aqueous Outflow and Secondary Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Anterior Segment and Foveal Differentiation\", \"target\": \"Congenital Visual Impairment with Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Limbal Stem Cell Deficiency\", \"target\": \"Aniridia-Associated Keratopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Topical Intraocular Pressure-Lowering Pharmacotherapy\", \"target\": \"Maldeveloped Aqueous Outflow and Secondary Glaucoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glaucoma Surgery for Medically Uncontrolled Intraocular Pressure\", \"target\": \"Maldeveloped Aqueous Outflow and Secondary Glaucoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Limbal Stem Cell Replacement and Keratoprosthesis\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived iPSC corneal organoid model of aniridia-associated keratopathy\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The organoid provides a human, patient-genotype platform for interrogating corneal epithelial differentiation, which is the process this node asserts is defective.\\n\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Organoids lack the limbal niche vasculature, tear film, innervation and chronic inflammatory environment in which aniridia-associated keratopathy actually progresses, so they can model the differentiation defect but not the decades-long clinical progression it drives.\\n\"}, {\"source\": \"Pax6 heterozygous mouse\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the human haploinsufficient genotype and the corneal stem-cell-commitment defect, in the tissue where the human disease progresses.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse and human corneal limbal anatomy differ, and the mouse does not develop the decades-long conjunctivalization and vascularization that define the human keratopathy endpoint.\\n\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aniridia-Associated Keratopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive conjunctivalization, vascularization and opacification of the cornea arising from limbal stem cell deficiency, advancing from periphery to centre over decades.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000481\"}}, {\"id\": \"Congenital Visual Impairment with Nystagmus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Foveal hypoplasia deprives the developing visual system of a high-acuity fixation locus, so acuity is subnormal from birth and infantile nystagmus develops as a consequence of that sensory deficit rather than as an independent motor abnormality. The absent or deficient iris compounds disability by removing the aperture stop, producing the photophobia and glare that patients frequently rank above acuity loss as their dominant symptom. Because the sensory deficit is congenital and structural, acuity in aniridia does not improve with refractive correction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Visual perception\"], \"role\": \"consequence\"}}, {\"id\": \"Deletion of the PAX6 Downstream Regulatory Region\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The two patients reported by Lauderdale et al. carry submicroscopic de novo deletions at 11p13 that start more than 11 kb beyond the PAX6 3\u0027 end and retain its transcription unit. These lesions affect the downstream regulatory landscape containing the ELP4-intronic DRR. Patient deletion boundaries differ; the enhancer-region annotation does not define one shared complete deletion or exclude contributions from other deleted genes.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"allele_type\": \"de novo downstream deletions retaining the PAX6 transcription unit\", \"variant_type\": \"deletion\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"genomic_contexts\": [\"intron\"], \"affected_regions\": [{\"name\": \"PAX6 downstream regulatory region (DRR)\", \"chromosomal_region\": \"11p13\", \"regulatory_element_type\": \"ENHANCER\", \"within_gene\": {\"preferred_term\": \"ELP4\", \"term\": {\"id\": \"hgnc:1171\", \"label\": \"ELP4\"}}, \"description\": \"Cluster of PAX6-specific long-range control elements in ELP4 introns, downstream of PAX6. The named region identifies regulatory sequence within the larger patient deletions; it is not the entire deletion interval or a claim that ELP4 protein loss causes aniridia.\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Failed Anterior Segment and Foveal Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced PAX6 dose during ocular morphogenesis leaves the periocular mesenchyme-derived structures of the anterior segment incompletely differentiated, and simultaneously arrests the specialization of the central retina. The iris stroma and its muscle fail to form beyond a rudimentary stump; the iridocorneal angle and trabecular meshwork are maldeveloped; the lens is prone to opacification; and the foveal pit, which requires postnatal displacement of inner retinal layers over a cone-only centre, never fully excavates. That the same lesion hits both the anterior segment and the fovea is why aniridia is a pan-ocular disease rather than an iris disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"migratory cranial neural crest cell\", \"trabecular meshwork cell\"], \"biological_processes\": [\"Iris morphogenesis\", \"Trabecular meshwork development\", \"Retina development in camera-type eye\"], \"role\": \"central_effector\", \"locations\": [\"anterior segment of eyeball\"]}}, {\"id\": \"Glaucoma Surgery for Medically Uncontrolled Intraocular Pressure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Angle or filtering surgery, or a glaucoma drainage device, when topical therapy fails to control pressure. Separated from the medical arm because it is a different modality with a different risk profile, and because surgically naive eyes in the longitudinal cohort maintained better visual acuity - so the decision to operate is itself consequential rather than a simple escalation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lauderdale et al. PAX6 downstream deletions (cases 1 and 2)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Two de novo submicroscopic deletions in the sporadic aniridia cases reported by Lauderdale et al. retain PAX6 and lie more than 11 kb beyond its 3\u0027 end. Their expression defect was assayed in human-mouse somatic-cell hybrids. These are two distinct alleles, not one recurrent deletion; the regional annotation does not assign common nucleotide breakpoints.\", \"meta\": {\"evidence_count\": 3, \"regulatory_target_gene\": {\"label\": \"PAX6\", \"id\": \"hgnc:8620\"}, \"genes\": [\"ELP4\", \"PAX6\"], \"gene_terms\": [{\"label\": \"ELP4\", \"id\": \"hgnc:1171\"}, {\"label\": \"PAX6\", \"id\": \"hgnc:8620\"}], \"variant_type\": \"deletion\", \"genomic_contexts\": [\"intron\"], \"affected_regions\": [{\"name\": \"PAX6 downstream regulatory region (DRR)\", \"chromosomal_region\": \"11p13\", \"regulatory_element_type\": \"ENHANCER\", \"within_gene\": {\"preferred_term\": \"ELP4\", \"term\": {\"id\": \"hgnc:1171\", \"label\": \"ELP4\"}}, \"description\": \"The affected enhancer cluster is one component of the larger downstream deletions.\"}]}}, {\"id\": \"Limbal Stem Cell Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct, postnatally progressive arm. PAX6 is required not only to build the cornea but to maintain the limbal epithelial stem cell niche that renews it throughout life. With one allele, the stem cell compartment is functionally deficient: single-cell profiling of Pax6-heterozygous mouse cornea shows an accumulation of stem-like and early transit-amplifying cells that fail to commit to a mature corneal epithelial fate. Chronic inflammation and ocular surface dryness compound the defect. This is why aniridia-associated keratopathy is the one feature of the disease that reliably worsens with age rather than being fixed at birth.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"limbal epithelial stem cell of cornea\", \"corneal epithelial cell\"], \"biological_processes\": [\"Epithelial cell differentiation\", \"Cornea development in camera-type eye\"], \"role\": \"effector\", \"locations\": [\"cornea\"], \"experimental_models\": [{\"name\": \"Patient-derived iPSC corneal organoid model of aniridia-associated keratopathy\", \"model_type\": \"ORGANOID\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"The organoid provides a human, patient-genotype platform for interrogating corneal epithelial differentiation, which is the process this node asserts is defective.\\n\"}], \"animal_models\": [{\"name\": \"Pax6 heterozygous mouse\", \"species\": \"Mouse\", \"genotype\": \"Pax6 heterozygous (Pax6+/-)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the human haploinsufficient genotype and the corneal stem-cell-commitment defect, in the tissue where the human disease progresses.\\n\"}]}}, {\"id\": \"Limbal Stem Cell Replacement and Keratoprosthesis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management of advanced keratopathy. Because the corneal opacity is driven by a deficient stem cell niche rather than by the cornea itself, plain penetrating keratoplasty is re-conjunctivalized; the options are to replace the limbal stem cells by keratolimbal allograft, with or without subsequent keratoplasty, or to bypass the surface entirely with a Boston type 1 keratoprosthesis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maldeveloped Aqueous Outflow and Secondary Glaucoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The maldeveloped iridocorneal angle limits aqueous outflow, and in many patients the rudimentary iris stump progressively rotates forward to occlude what angle there is. Intraocular pressure rises, typically in later childhood or adolescence rather than infancy, and glaucomatous optic neuropathy follows. Glaucoma affects roughly a fifth of eyes in longitudinal cohorts and is, with keratopathy, one of the two acquired threats that make aniridia a lifelong surveillance diagnosis rather than a static malformation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"trabecular meshwork cell\"], \"biological_processes\": [\"Trabecular meshwork development\"], \"role\": \"consequence\", \"locations\": [\"eye trabecular meshwork\"]}}, {\"id\": \"PAX6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PAX6\"], \"gene_terms\": [{\"label\": \"PAX6\", \"id\": \"hgnc:8620\"}], \"association\": \"Heterozygous loss-of-function variant or whole-gene deletion\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PAX6 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous coding loss-of-function variants, whole-gene deletions, and downstream regulatory deletions converge on insufficient PAX6 activity in ocular tissues. Regulatory deletions can reduce expression while retaining the PAX6 transcription unit; their effects need not be uniform across tissues. PAX6 is a paired-box and homeodomain transcription factor required for ocular development and maintenance.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Camera-type eye development\"], \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"genes\": [\"PAX6\"], \"gene_terms\": [{\"label\": \"PAX6\", \"id\": \"hgnc:8620\"}], \"role\": \"convergence\"}}, {\"id\": \"Patient-derived iPSC corneal organoid model of aniridia-associated keratopathy\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Three-dimensional corneal organoids differentiated from induced pluripotent stem cells of aniridia patients, generating corneal epithelial-like cells in a self-assembled tissue that reproduces the native corneal microenvironment. Provides a human genotype-matched system for the limbal arm of the disease, complementing the Pax6-heterozygous mouse.\\n\", \"meta\": {\"model_type\": \"ORGANOID\", \"publication\": \"PMID:42612147\"}}, {\"id\": \"Pax6 heterozygous mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The standard genetic model of aniridia-associated keratopathy, matching the human haploinsufficient genotype. Single-cell RNA sequencing of its cornea and limbus identified an accumulation of quiescent limbal stem cell-like and early transit-amplifying cells that fail to commit to a corneal epithelial fate.\\n\"}, {\"id\": \"Reduced PAX6 Expression after Downstream Regulatory Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human-mouse retinoblastoma somatic-cell hybrids carrying the patient chromosomes express PAX6 from the normal homolog but not the deletion homolog. Separately, deletion of the DRR from a human PAX6 reporter YAC in transgenic mice removes retinal expression while lens expression remains at embryonic day E10.5. Together these experiments support loss of regulatory input to intact PAX6. They do not establish uniform loss across all tissues in the patients, so no all-tissue expression-loss category is assigned to these deletions.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"PAX6 gene expression\"], \"genes\": [\"PAX6\"], \"gene_terms\": [{\"label\": \"PAX6\", \"id\": \"hgnc:8620\"}]}}, {\"id\": \"Topical Intraocular Pressure-Lowering Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line medical management of the secondary glaucoma, using topical agents such as prostaglandin analogues, beta-blockers and carbonic anhydrase inhibitors. Glaucoma in aniridia responds less predictably than primary open-angle glaucoma because the outflow pathway is structurally maldeveloped rather than merely obstructed, so lifelong pressure surveillance is required from diagnosis.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"prostaglandin analogue (e.g. latanoprost)\", \"topical beta-blocker (e.g. timolol)\"]}}], \"edges\": [{\"source\": \"Deletion of the PAX6 Downstream Regulatory Region\", \"target\": \"Reduced PAX6 Expression after Downstream Regulatory Deletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of downstream cis-regulatory DNA prevents normal expression from the intact PAX6 allele.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced PAX6 Expression after Downstream Regulatory Deletion\", \"target\": \"PAX6 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced expression from the deletion-bearing chromosome is inferred to lower functional PAX6 dosage in affected ocular tissues.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAX6 Haploinsufficiency\", \"target\": \"Failed Anterior Segment and Foveal Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAX6 Haploinsufficiency\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Anterior Segment and Foveal Differentiation\", \"target\": \"Maldeveloped Aqueous Outflow and Secondary Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Anterior Segment and Foveal Differentiation\", \"target\": \"Congenital Visual Impairment with Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Limbal Stem Cell Deficiency\", \"target\": \"Aniridia-Associated Keratopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Topical Intraocular Pressure-Lowering Pharmacotherapy\", \"target\": \"Maldeveloped Aqueous Outflow and Secondary Glaucoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glaucoma Surgery for Medically Uncontrolled Intraocular Pressure\", \"target\": \"Maldeveloped Aqueous Outflow and Secondary Glaucoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Limbal Stem Cell Replacement and Keratoprosthesis\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived iPSC corneal organoid model of aniridia-associated keratopathy\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The organoid provides a human, patient-genotype platform for interrogating corneal epithelial differentiation, which is the process this node asserts is defective.\\n\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Organoids lack the limbal niche vasculature, tear film, innervation and chronic inflammatory environment in which aniridia-associated keratopathy actually progresses, so they can model the differentiation defect but not the decades-long clinical progression it drives.\\n\"}, {\"source\": \"Pax6 heterozygous mouse\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the human haploinsufficient genotype and the corneal stem-cell-commitment defect, in the tissue where the human disease progresses.\\n\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse and human corneal limbal anatomy differ, and the mouse does not develop the decades-long conjunctivalization and vascularization that define the human keratopathy endpoint.\\n\"}, {\"source\": \"PAX6\", \"target\": \"PAX6 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX6\", \"target\": \"Reduced PAX6 Expression after Downstream Regulatory Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Lauderdale et al. PAX6 downstream deletions (cases 1 and 2)\", \"target\": \"PAX6\", \"predicate\": \"has_regulatory_target\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5631,13 +6114,11 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(9)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5666,15 +6147,18 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001097</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5694,6 +6178,7 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5746,15 +6231,18 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005978</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0005978</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5774,6 +6262,7 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5807,7 +6296,7 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-aniridia" data-dismech-node="Aniridia" data-dismech-type="phenotype">
@@ -5824,15 +6313,18 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000526</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000526</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5855,6 +6347,7 @@ This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5863,6 +6356,83 @@ This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from t
 
 
                 <div class="evidence-explanation">Establishes bilateral iris absence or malformation as the defining presenting feature. No frequency band is asserted: this source states a definition rather than a proportion, and the guideline literature reports that iris absence is LESS consistent than foveal hypoplasia, which is banded FREQUENT here on a measured 75%. Claiming a higher band for the iris finding than for the foveal one would contradict that source.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-foveal-hypoplasia" data-dismech-node="Foveal Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Foveal Hypoplasia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypoplasia of the fovea</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0007750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the fovea (HP:0007750). HP:0007750 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34101622" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34101622" target="_blank">PMID:34101622</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nystagmus was recorded in 87.2% of the eyes, and foveal hypoplasia was found in 75%."</div>
+
+
+                <div class="evidence-explanation">Quantifies foveal hypoplasia at 75% of 172 eyes, supporting the FREQUENT band (80-30%).
 </div>
 
 
@@ -5895,15 +6465,18 @@ This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000639</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5923,6 +6496,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5966,10 +6540,10 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518), qualified as course progressive. HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5998,6 +6572,9 @@ This clinical feature is Cataract (HP:0000518), qualified as course progressive.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6015,6 +6592,7 @@ This clinical feature is Cataract (HP:0000518), qualified as course progressive.
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6023,6 +6601,101 @@ This clinical feature is Cataract (HP:0000518), qualified as course progressive.
 
 
                 <div class="evidence-explanation">70.3% of eyes places cataract in the FREQUENT band (80-30%).
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aniridia-associated-keratopathy" data-dismech-node="Aniridia-Associated Keratopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Aniridia-Associated Keratopathy
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal cornea morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000481" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000481</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aniridia-associated keratopathy, annotated with Abnormal cornea morphology (HP:0000481), qualified as course progressive. HP:0000481 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34101622" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34101622" target="_blank">PMID:34101622</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cataracts were diagnosed in 70.3%, glaucoma in 20.6%, and ARK in 68.6% of eyes."</div>
+
+
+                <div class="evidence-explanation">68.6% of eyes affected by aniridia-related keratopathy, placing it in the FREQUENT band (30-79%). The phenotype is bound to the broad corneal term because the 68.6% figure was measured for keratopathy as a whole; binding it to a narrower feature such as corneal neovascularization would apply a frequency to something this source did not measure.
 </div>
 
 
@@ -6055,15 +6728,18 @@ This clinical feature is Cataract (HP:0000518), qualified as course progressive.
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000501</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6083,6 +6759,7 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6124,15 +6801,18 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000613</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000613</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6152,6 +6832,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6193,15 +6874,18 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0007663</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6224,6 +6908,7 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6232,6 +6917,79 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
                 <div class="evidence-explanation">Documents low visual acuity as a core feature. Evidence source is OTHER because this is a consensus guideline review.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-nerve-hypoplasia" data-dismech-node="Optic Nerve Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Optic Nerve Hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000609</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40892309" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40892309" target="_blank">PMID:40892309</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other ocular comorbidities are associated with the disease, such as cataract, keratopathy and optic nerve hypoplasia."</div>
+
+
+                <div class="evidence-explanation">Lists optic nerve hypoplasia among the recognized ocular comorbidities of congenital aniridia.
 </div>
 
 
@@ -6273,15 +7031,18 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002667</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002667</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nephroblastoma (HP:0002667). HP:0002667 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6301,6 +7062,7 @@ This clinical feature is Nephroblastoma (HP:0002667). HP:0002667 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6351,15 +7113,18 @@ This clinical feature is Nephroblastoma (HP:0002667). HP:0002667 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6382,6 +7147,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6390,248 +7156,6 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                 <div class="evidence-explanation">Establishes intellectual disability as a defining component of the contiguous deletion syndrome rather than of PAX6-related aniridia itself.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-foveal-hypoplasia" data-dismech-node="Foveal Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Foveal Hypoplasia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypoplasia of the fovea</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007750</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the fovea (HP:0007750). HP:0007750 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34101622" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34101622" target="_blank">PMID:34101622</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Nystagmus was recorded in 87.2% of the eyes, and foveal hypoplasia was found in 75%."</div>
-
-
-                <div class="evidence-explanation">Quantifies foveal hypoplasia at 75% of 172 eyes, supporting the FREQUENT band (80-30%).
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aniridia-associated-keratopathy" data-dismech-node="Aniridia-Associated Keratopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Aniridia-Associated Keratopathy
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal cornea morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000481" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000481</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aniridia-associated keratopathy, annotated with Abnormal cornea morphology (HP:0000481), qualified as course progressive. HP:0000481 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34101622" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34101622" target="_blank">PMID:34101622</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cataracts were diagnosed in 70.3%, glaucoma in 20.6%, and ARK in 68.6% of eyes."</div>
-
-
-                <div class="evidence-explanation">68.6% of eyes affected by aniridia-related keratopathy, placing it in the FREQUENT band (30-79%). The phenotype is bound to the broad corneal term because the 68.6% figure was measured for keratopathy as a whole; binding it to a narrower feature such as corneal neovascularization would apply a frequency to something this source did not measure.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-nerve-hypoplasia" data-dismech-node="Optic Nerve Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Optic Nerve Hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000609</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40892309" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40892309" target="_blank">PMID:40892309</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other ocular comorbidities are associated with the disease, such as cataract, keratopathy and optic nerve hypoplasia."</div>
-
-
-                <div class="evidence-explanation">Lists optic nerve hypoplasia among the recognized ocular comorbidities of congenital aniridia.
 </div>
 
 
@@ -6684,7 +7208,7 @@ This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a ph
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-pax6" data-dismech-node="PAX6" data-dismech-type="genetic">
@@ -6705,10 +7229,10 @@ This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a ph
                         Gene: PAX6
 
 
-    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:8620</a>
+    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:8620</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6718,6 +7242,9 @@ This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6736,6 +7263,7 @@ This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6761,6 +7289,340 @@ This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the H
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-pax6-downstream-regulatory-region" data-dismech-node="PAX6 downstream regulatory region" data-dismech-type="genetic">
+                <div class="item-name">
+                    PAX6 downstream regulatory region
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Deletion of cis-regulatory DNA with an intact PAX6 transcription unit)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>PAX6 downstream regulatory region (DRR)</strong>
+            <span class="tag tag-classification">11p13</span>
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">ELP4 <a href="https://bioregistry.io/hgnc:1171" target="_blank" class="curie-chip" title="Open hgnc:1171">hgnc:1171</a></span>
+</div>
+
+
+
+        <div class="item-desc">PAX6-specific control elements within ELP4 introns, downstream of their target gene.</div>
+    </div>
+
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11087823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11087823" target="_blank">PMID:11087823</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report two submicroscopic de novo deletions of 11p13 that cause aniridia but are located &gt;11 kb from the 3&#39; end of PAX6."</div>
+
+
+                <div class="evidence-explanation">Supports aniridia caused by downstream deletions rather than PAX6 coding loss.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17014839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17014839" target="_blank">PMID:17014839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Analysis of the region beyond this breakpoint using YAC transgenic mice, DNaseI hypersensitivity mapping and reporter transgenic assays revealed the presence of several putative cis-regulatory elements, including ones driving expression in lens and retina (Kleinjan et al., 2001). These elements..."</div>
+
+
+                <div class="evidence-explanation">Background description of transgenic-mouse enhancer mapping and the human locus places the named DRR elements within ELP4 introns, without making ELP4 the regulatory target.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-lauderdale-et-al-pax6-downstream-deletions-cases-1-and-2" data-dismech-node="Lauderdale et al. PAX6 downstream deletions (cases 1 and 2)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Lauderdale et al. PAX6 downstream deletions (cases 1 and 2)
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: ELP4
+
+
+    <a href="https://bioregistry.io/hgnc:1171" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:1171</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in ELP4 (hgnc:1171). hgnc:1171 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: PAX6
+
+
+    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:8620</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on PAX6 (hgnc:8620). hgnc:8620 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">deletion</span>
+
+
+
+    </div>
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">intron</span>
+
+    </div>
+
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>PAX6 downstream regulatory region (DRR)</strong>
+            <span class="tag tag-classification">11p13</span>
+            <span class="tag tag-classification">enhancer</span>
+        </div>
+
+
+        <div class="item-meta"><span>Within gene:</span>
+
+<span class="tag tag-gene">ELP4 <a href="https://bioregistry.io/hgnc:1171" target="_blank" class="curie-chip" title="Open hgnc:1171">hgnc:1171</a></span>
+</div>
+
+
+
+        <div class="item-desc">The affected enhancer cluster is one component of the larger downstream deletions.</div>
+    </div>
+
+</div>
+
+
+
+    <div class="item-desc">Two de novo submicroscopic deletions in the sporadic aniridia cases reported by Lauderdale et al. retain PAX6 and lie more than 11 kb beyond its 3&#39; end. Their expression defect was assayed in human-mouse somatic-cell hybrids. These are two distinct alleles, not one recurrent deletion; the regional annotation does not assign common nucleotide breakpoints.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">PAX6 cis-regulatory control</span>
+
+
+
+
+                <span class="tag" style="background: #fce7f3; color: #9d174d;">ENHANCER</span>
+
+            </div>
+
+
+            <div class="item-desc">PAX6 transcription was absent from the deletion-bearing chromosome in somatic-cell hybrids. This assay does not establish all-tissue loss of expression in the patients or isolate the contribution of every individual enhancer within the deleted region.</div>
+
+
+            <div class="item-desc"><strong>Mechanism:</strong> Deletion of downstream positive regulatory elements</div>
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11087823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11087823" target="_blank">PMID:11087823</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report two submicroscopic de novo deletions of 11p13 that cause aniridia but are located &gt;11 kb from the 3&#39; end of PAX6."</div>
+
+
+                <div class="evidence-explanation">The two sporadic patient deletions preserve the PAX6 transcription unit.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11087823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11087823" target="_blank">PMID:11087823</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PAX6 is transcribed only from the normal allele but not from the deleted chromosome 11 homolog."</div>
+
+
+                <div class="evidence-explanation">Allele-specific transcription was tested in human-mouse retinoblastoma somatic-cell hybrids.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17014839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17014839" target="_blank">PMID:17014839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Analysis of the region beyond this breakpoint using YAC transgenic mice, DNaseI hypersensitivity mapping and reporter transgenic assays revealed the presence of several putative cis-regulatory elements, including ones driving expression in lens and retina (Kleinjan et al., 2001). These elements..."</div>
+
+
+                <div class="evidence-explanation">Summarizes earlier transgenic-mouse enhancer mapping and the human locus annotation supporting ELP4 as the DRR host, separate from PAX6 as the regulatory target. It does not resolve these patients&#39; deletion breakpoints.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
+            </div>
+
             <div class="item-box genetic-box anchor-target" id="genetic-wt1" data-dismech-node="WT1" data-dismech-type="genetic">
                 <div class="item-name">
                     WT1
@@ -6779,10 +7641,10 @@ This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the H
                         Gene: WT1
 
 
-    <a href="https://bioregistry.io/hgnc:12796" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:12796</a>
+    <a href="https://bioregistry.io/hgnc:12796" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:12796</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6792,6 +7654,9 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6810,6 +7675,7 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6861,7 +7727,7 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6902,11 +7768,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6384" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:6384</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6384" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:6384</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses prostaglandin analogue (e.g. latanoprost), annotated with latanoprost (CHEBI:6384). CHEBI:6384 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6919,16 +7785,19 @@ This treatment uses prostaglandin analogue (e.g. latanoprost), annotated with la
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_39465" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:39465</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_39465" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:39465</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses topical beta-blocker (e.g. timolol), annotated with timolol (CHEBI:39465). CHEBI:39465 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6945,6 +7814,9 @@ This treatment uses topical beta-blocker (e.g. timolol), annotated with timolol 
 
 
     </div>
+
+
+
 
 
 
@@ -6995,6 +7867,7 @@ This treatment uses topical beta-blocker (e.g. timolol), annotated with timolol 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7024,7 +7897,7 @@ This treatment uses topical beta-blocker (e.g. timolol), annotated with timolol 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Ophthalmologic Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Ophthalmologic Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7059,6 +7932,9 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7069,6 +7945,9 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
     </div>
+
+
+
 
 
 
@@ -7119,6 +7998,7 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7148,7 +8028,7 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Ophthalmologic Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Ophthalmologic Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7183,6 +8063,9 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7193,6 +8076,9 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
     </div>
+
+
+
 
 
 
@@ -7231,6 +8117,7 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7278,6 +8165,7 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7307,7 +8195,7 @@ This treatment is Ophthalmologic Surgical Procedure (NCIT:C15331). NCIT:C15331 i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7342,6 +8230,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7352,6 +8243,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7380,6 +8274,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7412,7 +8307,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7447,6 +8342,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7457,6 +8355,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7485,6 +8386,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7638,6 +8540,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7796,6 +8699,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7836,6 +8740,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8003,18 +8908,158 @@ has_subtypes:
       from the isolated form and locates the tumour risk in WT1 rather than in
       PAX6.
 pathophysiology:
+- name: Deletion of the PAX6 Downstream Regulatory Region
+  biological_scale: MOLECULAR
+  role: trigger
+  genetic_context:
+    variant_type: deletion
+    genomic_contexts:
+    - intron
+    affected_regions:
+    - name: PAX6 downstream regulatory region (DRR)
+      chromosomal_region: 11p13
+      regulatory_element_type: ENHANCER
+      within_gene:
+        preferred_term: ELP4
+        term:
+          id: hgnc:1171
+          label: ELP4
+      description: &gt;-
+        Cluster of PAX6-specific long-range control elements in ELP4 introns,
+        downstream of PAX6. The named region identifies regulatory sequence
+        within the larger patient deletions; it is not the entire deletion
+        interval or a claim that ELP4 protein loss causes aniridia.
+    zygosity: HETEROZYGOUS
+    variant_origin: GERMLINE
+    allele_type: de novo downstream deletions retaining the PAX6 transcription unit
+  description: &gt;-
+    The two patients reported by Lauderdale et al. carry submicroscopic de novo
+    deletions at 11p13 that start more than 11 kb beyond the PAX6 3&#39; end and
+    retain its transcription unit. These lesions affect the downstream
+    regulatory landscape containing the ELP4-intronic DRR. Patient deletion
+    boundaries differ; the enhancer-region annotation does not define one
+    shared complete deletion or exclude contributions from other deleted genes.
+  evidence:
+  - reference: PMID:11087823
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We report two submicroscopic de novo deletions of 11p13 that cause aniridia
+      but are located &gt;11 kb from the 3&#39; end of PAX6.
+    explanation: Defines the gene-intact downstream human deletion class.
+  - reference: PMID:17014839
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      Analysis of the region beyond this breakpoint using YAC transgenic mice,
+      DNaseI hypersensitivity mapping and reporter transgenic assays revealed
+      the presence of several putative cis-regulatory elements, including ones
+      driving expression in lens and retina (Kleinjan et al., 2001). These
+      elements reside within introns of the adjacent, ubiquitously expressed
+      ELP4 gene, but are nevertheless thought to be PAX6-specific long-range
+      control elements (Kleinjan et al., 2002).
+    explanation: &gt;-
+      Summarizes earlier transgenic-mouse enhancer mapping and the human
+      locus annotation placing the DRR within ELP4. This is background
+      support for the enhancer host and target, not a new patient deletion
+      measurement.
+  downstream:
+  - target: Reduced PAX6 Expression after Downstream Regulatory Deletion
+    causal_link_type: DIRECT
+    description: Loss of downstream cis-regulatory DNA prevents normal expression from the intact PAX6 allele.
+    evidence:
+    - reference: PMID:11087823
+      reference_title: &#34;3&#39; deletions cause aniridia by preventing PAX6 gene expression.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      directness: INDIRECT
+      snippet: &gt;-
+        Using human x mouse retinoblastoma somatic cell hybrids, we show that
+        PAX6 is transcribed only from the normal allele but not from the deleted
+        chromosome 11 homolog.
+      explanation: &gt;-
+        The deletion-to-expression relationship is demonstrated for patient
+        chromosomes in somatic-cell hybrids. Its transfer to developing
+        human ocular tissues is indirect.
+- name: Reduced PAX6 Expression after Downstream Regulatory Deletion
+  biological_scale: MOLECULAR
+  description: &gt;-
+    Human-mouse retinoblastoma somatic-cell hybrids carrying the patient
+    chromosomes express PAX6 from the normal homolog but not the deletion
+    homolog. Separately, deletion of the DRR from a human PAX6 reporter YAC in
+    transgenic mice removes retinal expression while lens expression remains
+    at embryonic day E10.5.
+    Together these experiments support loss of regulatory input to intact
+    PAX6. They do not establish uniform loss across all tissues in the patients,
+    so no all-tissue expression-loss category is assigned to these deletions.
+  genes:
+  - preferred_term: PAX6
+    term:
+      id: hgnc:8620
+      label: PAX6
+  biological_processes:
+  - preferred_term: PAX6 gene expression
+    term:
+      id: GO:0010467
+      label: gene expression
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:11087823
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Using human x mouse retinoblastoma somatic cell hybrids, we show that
+      PAX6 is transcribed only from the normal allele but not from the deleted
+      chromosome 11 homolog.
+    explanation: Direct allele-specific expression evidence comes from somatic-cell hybrids, not patient embryonic eyes.
+  - reference: PMID:17014839
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    directness: INDIRECT
+    snippet: &gt;-
+      Similarly at E10.5, when Y001 has strong expression in both lens and
+      retina, Y001ΔDRR maintains lens expression but expression in the retina
+      is completely lost
+    explanation: &gt;-
+      The engineered human-locus reporter establishes different requirements
+      for the DRR in retina and lens at E10.5; it does not imply preservation
+      of lens expression at later developmental stages.
+  downstream:
+  - target: PAX6 Haploinsufficiency
+    causal_link_type: DIRECT
+    description: &gt;-
+      Reduced expression from the deletion-bearing chromosome is inferred to
+      lower functional PAX6 dosage in affected ocular tissues.
+    evidence:
+    - reference: PMID:11087823
+      reference_title: &#34;3&#39; deletions cause aniridia by preventing PAX6 gene expression.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      directness: INDIRECT
+      snippet: &gt;-
+        The clinical manifestations are indistinguishable from cases with
+        chain-terminating mutations in the coding region.
+      explanation: &gt;-
+        The similarity to coding-null aniridia supports convergence on PAX6
+        insufficiency. Together with the somatic-cell-hybrid transcription
+        assay, it supports the dosage mechanism without measuring protein
+        abundance in the patients&#39; developing eyes.
 - name: PAX6 Haploinsufficiency
   description: &gt;
-    A heterozygous loss-of-function variant, whole-gene deletion, or disruption
-    of the distal cis-regulatory enhancer leaves a single functional PAX6 allele.
-    PAX6 is a paired-box and homeodomain transcription factor whose dose is read
-    quantitatively across every tissue that builds the eye - surface ectoderm,
-    lens placode, optic cup, and the neural-crest-derived periocular mesenchyme -
-    so a 50% reduction is not silent anywhere. Because the gene acts as a
-    developmental regulator rather than a structural protein, the consequences
-    are set in embryogenesis and cannot be corrected postnatally.
-  role: trigger
+    Heterozygous coding loss-of-function variants, whole-gene deletions, and
+    downstream regulatory deletions converge on insufficient PAX6 activity
+    in ocular tissues. Regulatory deletions can reduce expression while
+    retaining the PAX6 transcription unit; their effects need not be uniform
+    across tissues. PAX6 is a paired-box and homeodomain transcription factor
+    required for ocular development and maintenance.
+  role: convergence
   biological_scale: MOLECULAR
+  genes:
+  - preferred_term: PAX6
+    term:
+      id: hgnc:8620
+      label: PAX6
   molecular_functions:
   - preferred_term: DNA-binding transcription factor activity
     term:
@@ -8580,6 +9625,119 @@ genetic:
     explanation: &gt;
       Supports the allelic-series claim that residual PAX6 function produces
       milder, sometimes differently named phenotypes.
+- name: PAX6 downstream regulatory region
+  association: Deletion of cis-regulatory DNA with an intact PAX6 transcription unit
+  relationship_type: CAUSATIVE
+  affected_regions:
+  - name: PAX6 downstream regulatory region (DRR)
+    chromosomal_region: 11p13
+    regulatory_element_type: ENHANCER
+    within_gene:
+      preferred_term: ELP4
+      term:
+        id: hgnc:1171
+        label: ELP4
+    description: PAX6-specific control elements within ELP4 introns, downstream of their target gene.
+  notes: &gt;-
+    This regional association complements the PAX6 gene association. ELP4 is
+    the intronic host of the DRR, not a substitute causal-gene annotation.
+    The human deletions can extend beyond the named regulatory region.
+  variants:
+  - name: Lauderdale et al. PAX6 downstream deletions (cases 1 and 2)
+    variant_type: deletion
+    genomic_contexts:
+    - intron
+    gene:
+      preferred_term: ELP4
+      term:
+        id: hgnc:1171
+        label: ELP4
+    regulatory_target_gene:
+      preferred_term: PAX6
+      term:
+        id: hgnc:8620
+        label: PAX6
+    affected_regions:
+    - name: PAX6 downstream regulatory region (DRR)
+      chromosomal_region: 11p13
+      regulatory_element_type: ENHANCER
+      within_gene:
+        preferred_term: ELP4
+        term:
+          id: hgnc:1171
+          label: ELP4
+      description: The affected enhancer cluster is one component of the larger downstream deletions.
+    description: &gt;-
+      Two de novo submicroscopic deletions in the sporadic aniridia cases
+      reported by Lauderdale et al. retain PAX6 and lie more than 11 kb beyond
+      its 3&#39; end. Their expression defect was assayed in human-mouse somatic-cell
+      hybrids. These are two distinct alleles, not one recurrent deletion;
+      the regional annotation does not assign common nucleotide breakpoints.
+    functional_effects:
+    - function: PAX6 cis-regulatory control
+      regulatory_element_type: ENHANCER
+      regulatory_mechanism: Deletion of downstream positive regulatory elements
+      description: &gt;-
+        PAX6 transcription was absent from the deletion-bearing chromosome in
+        somatic-cell hybrids. This assay does not establish all-tissue loss
+        of expression in the patients or isolate the contribution of every
+        individual enhancer within the deleted region.
+    evidence:
+    - reference: PMID:11087823
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        We report two submicroscopic de novo deletions of 11p13 that cause
+        aniridia but are located &gt;11 kb from the 3&#39; end of PAX6.
+      explanation: The two sporadic patient deletions preserve the PAX6 transcription unit.
+    - reference: PMID:11087823
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        PAX6 is transcribed only from the normal allele but not from the deleted
+        chromosome 11 homolog.
+      explanation: Allele-specific transcription was tested in human-mouse retinoblastoma somatic-cell hybrids.
+    - reference: PMID:17014839
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      quote_role: BACKGROUND
+      snippet: &gt;-
+        Analysis of the region beyond this breakpoint using YAC transgenic mice,
+        DNaseI hypersensitivity mapping and reporter transgenic assays revealed
+        the presence of several putative cis-regulatory elements, including ones
+        driving expression in lens and retina (Kleinjan et al., 2001). These
+        elements reside within introns of the adjacent, ubiquitously expressed
+        ELP4 gene, but are nevertheless thought to be PAX6-specific long-range
+        control elements (Kleinjan et al., 2002).
+      explanation: &gt;-
+        Summarizes earlier transgenic-mouse enhancer mapping and the human
+        locus annotation supporting ELP4 as the DRR host, separate from PAX6
+        as the regulatory target. It does not resolve these patients&#39;
+        deletion breakpoints.
+  evidence:
+  - reference: PMID:11087823
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We report two submicroscopic de novo deletions of 11p13 that cause aniridia
+      but are located &gt;11 kb from the 3&#39; end of PAX6.
+    explanation: Supports aniridia caused by downstream deletions rather than PAX6 coding loss.
+  - reference: PMID:17014839
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      Analysis of the region beyond this breakpoint using YAC transgenic mice,
+      DNaseI hypersensitivity mapping and reporter transgenic assays revealed
+      the presence of several putative cis-regulatory elements, including ones
+      driving expression in lens and retina (Kleinjan et al., 2001). These
+      elements reside within introns of the adjacent, ubiquitously expressed
+      ELP4 gene, but are nevertheless thought to be PAX6-specific long-range
+      control elements (Kleinjan et al., 2002).
+    explanation: &gt;-
+      Background description of transgenic-mouse enhancer mapping and the
+      human locus places the named DRR elements within ELP4 introns, without
+      making ELP4 the regulatory target.
 - name: WT1
   association: Heterozygous loss within a contiguous 11p13 deletion
   notes: &gt;
@@ -8968,7 +10126,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aniridia", "mondoId": "MONDO:0019172", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aniridia", "yamlRevision": "c961dae337b0"};
+        const OS_CONFIG = {"diseaseName": "Aniridia", "mondoId": "MONDO:0019172", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aniridia", "yamlRevision": "6713f2ef9d55"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

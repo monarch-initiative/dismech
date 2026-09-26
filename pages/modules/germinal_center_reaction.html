@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1604,13 +1641,13 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">germinal_center_reaction</span>
-                <span class="badge badge-count">6 disorders</span>
+                <span class="badge badge-count">9 disorders</span>
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
             </div>
             
-            <div class="header-description">The adaptive humoral arm of immunity: the T-cell-dependent germinal center reaction that converts a naive, low-affinity, IgM-restricted B cell repertoire into affinity-matured, class-switched plasma cells and memory B cells. Antigen filtered by secondary lymphoid tissue and displayed on macrophages and follicular dendritic cells activates naive B cells, which acquire cognate help from Bcl6-dependent T follicular helper cells; that help nucleates a germinal center, where AID-dependent somatic hypermutation and class switch recombination operate under iterative affinity-based selection. The surviving high-affinity clones exit as long-lived bone-marrow plasma cells and memory B cells, which together sustain durable protective humoral immunity and are the substrate of the antibody correlates of protection that vaccines are measured by. The module models the reaction itself, not its failure: conforming nodes set direction with modifiers, so an immunodeficiency conforms with DECREASED processes (Common_Variable_Immunodeficiency, Activated_PI3K-delta_Syndrome, Kabuki_Syndrome, Specific_Antibody_Deficiency, Autosomal_Agammaglobulinemia) while a germinal-center-derived malignancy conforms in the dysregulated or excess direction (Follicular_Lymphoma). Key conformance target: &#34;Germinal Center Reaction&#34;, the rate-limiting, disorder-agnostic AID-dependent step every conformer funnels through. This module is complementary to, and does not overlap with, the innate and cellular immunity modules (phagocyte_oxidative_burst_failure, complement_dysregulation, innate_antiviral_interferon_response, cdc1_tolerogenic_maturation), which carry no B-cell maturation chain, and to molecular_mimicry_autoimmunity, whose subject is antigen specificity rather than the reaction that matures the response. There is no drug-target pattern here: the therapies that act on this machinery (B-cell-depleting antibodies, immunoglobulin replacement) either deplete the reaction wholesale or bypass it, and belong to the separate iatrogenic B-cell depletion mechanism listed as out of scope in notes.</div>
+            <div class="header-description">The adaptive humoral arm of immunity: the T-cell-dependent germinal center reaction that converts a naive, low-affinity, IgM-restricted B cell repertoire into affinity-matured, class-switched plasma cells and memory B cells. Antigen filtered by secondary lymphoid tissue and displayed on macrophages and follicular dendritic cells activates naive B cells, which acquire cognate help from Bcl6-dependent T follicular helper cells; that help nucleates a germinal center, where AID-dependent somatic hypermutation and class switch recombination operate under iterative affinity-based selection. The surviving high-affinity clones exit as long-lived bone-marrow plasma cells and memory B cells, which together sustain durable protective humoral immunity and are the substrate of the antibody correlates of protection that vaccines are measured by. The chain then runs one step further, to whether infection actually occurs: how much durable humoral immunity a person has sets how much infection they get, in a graded relationship that immunoglobulin replacement moves. That terminal outcome node is what conformers whose defining clinical problem is recurrent infection attach their own infection nodes to. The module models the reaction itself, not its failure: conforming nodes set direction with modifiers, so an immunodeficiency conforms with DECREASED or ABSENT processes (Common_Variable_Immunodeficiency, Activated_PI3K-delta_Syndrome, Kabuki_Syndrome, Specific_Antibody_Deficiency, Autosomal_Agammaglobulinemia, Hyper-IgM_Syndrome_Type_2, X-linked_Agammaglobulinemia) while a germinal-center-derived malignancy conforms in the dysregulated or excess direction (Follicular_Lymphoma). Key conformance target: &#34;Germinal Center Reaction&#34;, the rate-limiting, disorder-agnostic AID-dependent step every conformer funnels through. This module is complementary to, and does not overlap with, the innate and cellular immunity modules (phagocyte_oxidative_burst_failure, complement_dysregulation, innate_antiviral_interferon_response, cdc1_tolerogenic_maturation), which carry no B-cell maturation chain, and to molecular_mimicry_autoimmunity, whose subject is antigen specificity rather than the reaction that matures the response. There is no drug-target pattern here: the therapies that act on this machinery (B-cell-depleting antibodies, immunoglobulin replacement) either deplete the reaction wholesale or bypass it, and belong to the separate iatrogenic B-cell depletion mechanism listed as out of scope in notes.</div>
             
         </header>
 
@@ -1619,10 +1656,10 @@
                 <div class="card-header">
                     <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                     <h2 class="card-title">Pathophysiology Nodes</h2>
-                    <span class="card-count">5</span>
+                    <span class="card-count">6</span>
                 </div>
                 <div class="empty-state">
-                    5 shared nodes are defined in this module.
+                    6 shared nodes are defined in this module.
                 </div>
             </div>
 
@@ -2129,7 +2166,7 @@ This mechanism module involves Humoral Immune Response Mediated by Circulating I
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
                 <h2 class="card-title">Notes</h2>
             </div>
-            <div class="item-desc">This is a mechanism module, not a specific disease; do NOT create a &#34;Germinal Center Reaction&#34; Disease entry. Unlike most modules in kb/modules/, the process modelled here is normal physiology rather than a lesion, so the description does not open by calling itself a pathophysiology module; it follows innate_antiviral_interferon_response and host_directed_antiviral_dependency in naming the pathway directly. Disorder entries reference individual nodes via conforms_to (e.g. &#34;germinal_center_reaction#Germinal Center Reaction&#34;). The module defines the expected pathophysiology structure; conforming nodes should carry the corresponding cell types, biological processes, and causal edges, specialized to their disease context and directed with modifiers. Disorder-specific substitutions: an antibody-deficiency conformer substitutes its own molecular lesion for the generic step and reads the chain in the DECREASED direction (CVID at class switch recombination, APDS at B-cell maturation, Kabuki syndrome at somatic hypermutation, Specific Antibody Deficiency at the switched memory compartment, autosomal agammaglobulinemia at the humoral-immunity consequence, where the reaction never starts because no naive B cell reaches the follicle); a germinal-center-derived lymphoma substitutes the transformed clone and reads it in the dysregulated direction (Follicular_Lymphoma at the reaction node and at Tfh help). Explicitly out of scope, each to be argued as its own module: immunosenescence (upstream and age-driven, and the natural home for the poor-vaccine-response line inflammaging currently carries only as a model limitation); iatrogenic B-cell depletion (rituximab, transplant immunosuppression); asplenia and polysaccharide non-response, which run through T-independent antigens this chain does not cover; and waning immunity, which is plasma-cell survival kinetics rather than response failure. Vaccine effectiveness is deliberately not modelled as a module: it is the outcome of an intervention, and its failure modes do not share a causal chain — this module is the conserved process underneath the largest of them, and vaccine non-response is one readout of it rather than its definition (issue #10924). Mouse knockout data are used for the AID requirement and are graded MODEL_ORGANISM; the human requirement rests on the HIGM2 patient series. Immunoglobulin isotypes, AID chemistry, and BCL2 translocation are described in prose only; modules bind GO, CL, and UBERON terms and do not use gene (HGNC) or chemical (CHEBI) term bindings.</div>
+            <div class="item-desc">This is a mechanism module, not a specific disease; do NOT create a &#34;Germinal Center Reaction&#34; Disease entry. Unlike most modules in kb/modules/, the process modelled here is normal physiology rather than a lesion, so the description does not open by calling itself a pathophysiology module; it follows innate_antiviral_interferon_response and host_directed_antiviral_dependency in naming the pathway directly. Disorder entries reference individual nodes via conforms_to (e.g. &#34;germinal_center_reaction#Germinal Center Reaction&#34;). The module defines the expected pathophysiology structure; conforming nodes should carry the corresponding cell types, biological processes, and causal edges, specialized to their disease context and directed with modifiers. Disorder-specific substitutions: an antibody-deficiency conformer substitutes its own molecular lesion for the generic step and reads the chain in the DECREASED or ABSENT direction (CVID at class switch recombination, APDS at B-cell maturation, Kabuki syndrome at somatic hypermutation, Specific Antibody Deficiency at the switched memory compartment, autosomal agammaglobulinemia at the humoral-immunity consequence, where the reaction never starts because no naive B cell reaches the follicle, Hyper-IgM syndrome type 2 at the reaction node itself, both processes read ABSENT because biallelic AICDA loss abolishes class switch recombination and somatic hypermutation together while germinal centers persist and enlarge, and X-linked agammaglobulinemia at the humoral-immunity consequence, the same shape as autosomal agammaglobulinemia since BTK loss arrests B-cell development at the pre-B stage before any cell reaches the follicle); a germinal-center-derived lymphoma substitutes the transformed clone and reads it in the dysregulated direction (Follicular_Lymphoma at the reaction node and at Tfh help). Selective IgA deficiency was assessed as a candidate conformer (issue #11897) and excluded: its defect is isotype-restricted (normal IgG and IgM by the disease&#39;s own case definition, where every declared conformer fails the reaction broadly) and its immunoglobulin heavy-chain alpha loci are structurally intact, so there is no lesion in this chain for it to substitute; the exclusion rationale is recorded on the entry itself. The terminal node, Clinical Susceptibility to Infection, was added later (issue #11907), and four modelling calls behind it are worth recording because none of them is forced. Its name is generic while the pathogen spectrum sits in its description: naming the spectrum, as the sibling phagocyte_oxidative_burst_failure node does, would have read the encapsulated-organism picture as the boundary of the node rather than its characteristic core, and X-linked_Agammaglobulinemia&#39;s disseminated enteroviral infection would then have had nowhere to conform. Its name is in the susceptibility direction although this module otherwise names nodes in the physiological direction, because the node carries no ontology-bound processes for a conformer&#39;s modifier to act on, and the protective statement is already made by Durable Protective Humoral Immunity immediately above it; the quantity that varies across conformers here is infection burden. No intermediate step was inserted between the two, because the evidence for the edge measures antibody level against infection incidence with nothing in between, and an intervening node would be unevidenced. It carries no GO, CL or UBERON binding, matching the sibling module&#39;s terminal node: the honest reading is that this is a clinical outcome rather than a host process, and it also keeps conformance cheap, since there is no expected process for a conformer to substitute. Four conformers declare against it — Hyper-IgM_Syndrome_Type_2, Autosomal_Agammaglobulinemia, Specific_Antibody_Deficiency and X-linked_Agammaglobulinemia — being the four that already carried an organism-level infection pathophysiology node. The rest (Common_Variable_Immunodeficiency, Activated_PI3K-delta_Syndrome, Kabuki_Syndrome, Immunodeficiency_102) run straight from a mechanism node to infection phenotypes with no pathophysiology node in between, so wiring them would mean creating a node rather than labelling one, and is left as per-entry curation. Explicitly out of scope, each to be argued as its own module: immunosenescence (upstream and age-driven, and the natural home for the poor-vaccine-response line inflammaging currently carries only as a model limitation); iatrogenic B-cell depletion (rituximab, transplant immunosuppression); asplenia and polysaccharide non-response, which run through T-independent antigens this chain does not cover; and waning immunity, which is plasma-cell survival kinetics rather than response failure. Vaccine effectiveness is deliberately not modelled as a module: it is the outcome of an intervention, and its failure modes do not share a causal chain — this module is the conserved process underneath the largest of them, and vaccine non-response is one readout of it rather than its definition (issue #10924). Mouse knockout data are used for the AID requirement and are graded MODEL_ORGANISM; the human requirement rests on the HIGM2 patient series. Immunoglobulin isotypes, AID chemistry, and BCL2 translocation are described in prose only; modules bind GO, CL, and UBERON terms and do not use gene (HGNC) or chemical (CHEBI) term bindings.</div>
         </div>
         
 
@@ -2147,7 +2184,7 @@ This mechanism module involves Humoral Immune Response Mediated by Circulating I
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">9</span>
             </div>
             
             <div class="crosslink-list">
@@ -2175,7 +2212,7 @@ This mechanism module involves Humoral Immune Response Mediated by Circulating I
                         
                         
                         
-                        Panhypogammaglobulinemia and Loss of Humoral Immunity → Durable Protective Humoral Immunity
+                        Deficient Antibody-Mediated Host Defense → Clinical Susceptibility to Infection
                         
                         
                     </span>
@@ -2218,6 +2255,41 @@ This mechanism module involves Humoral Immune Response Mediated by Circulating I
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Hyper-IgM_Syndrome_Type_2.html">Hyper-IgM Syndrome Type 2</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        AID Enzymatic Loss of Function → Germinal Center Reaction
+                        
+                        
+                        , 
+                        
+                        Recurrent Bacterial Sinopulmonary and Mucosal Infection → Clinical Susceptibility to Infection
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Immunodeficiency_102.html">Immunodeficiency 102</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Impaired Germinal Center Reaction and Loss of Class-Switched Memory B Cells → Germinal Center Reaction
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Kabuki_Syndrome.html">Kabuki Syndrome</a>
                     
                     <span class="crosslink-desc">
@@ -2241,6 +2313,31 @@ This mechanism module involves Humoral Immune Response Mediated by Circulating I
                         
                         
                         Reduced Switched Memory B Cell Compartment → Affinity-Matured Class-Switched B Cell Output
+                        
+                        
+                        , 
+                        
+                        Recurrent Encapsulated-Organism Sinopulmonary Infection → Clinical Susceptibility to Infection
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/X-linked_Agammaglobulinemia.html">X-linked Agammaglobulinemia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Panhypogammaglobulinemia from Absent Plasma Cells → Durable Protective Humoral Immunity
+                        
+                        
+                        , 
+                        
+                        Susceptibility to Disseminated Enteroviral Infection → Clinical Susceptibility to Infection
                         
                         
                     </span>
@@ -2269,7 +2366,7 @@ This mechanism module involves Humoral Immune Response Mediated by Circulating I
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Affinity-Matured Class-Switched B Cell Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selected germinal center B cells exit as two durable populations: long-lived plasma cells that home to the bone marrow and secrete affinity-matured, class-switched antibody continuously, and memory B cells that persist without secreting and mount an accelerated response on re-encounter with antigen. These are functionally distinct outputs of the same reaction \\u2014 one maintains a standing serum antibody titre, the other supplies recall capacity \\u2014 and a conformer may lose either selectively, which is why the module keeps them in one node rather than collapsing them into the consequence below.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"plasma cell\", \"memory B cell\"], \"biological_processes\": [\"Plasma Cell Differentiation\", \"Memory B Cell Differentiation\", \"Immunoglobulin Production\"], \"role\": \"effector\"}}, {\"id\": \"Antigen Capture and Naive B Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antigen draining into a secondary lymphoid organ is filtered and retained rather than passively diffusing through it: subcapsular sinus macrophages and follicular dendritic cells display intact, unprocessed antigen to B cells following defined migration paths through the follicle. A naive B cell whose receptor binds that antigen is activated, internalizes and processes it, and presents peptide on MHC class II, becoming competent to solicit T cell help. This is the entry point of the reaction; conformers whose B cells never reach the follicle (developmental arrest in bone marrow B lymphopoiesis) fail here by never starting.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"naive B cell\", \"follicular dendritic cell\"], \"biological_processes\": [\"Antigen Processing and Presentation\", \"B Cell Activation\"], \"role\": \"trigger\", \"locations\": [\"lymph node\"]}}, {\"id\": \"Cognate T Follicular Helper Cell Help\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An antigen-engaged B cell forms a cognate synapse with a CD4+ T cell that has differentiated along the Bcl6-dependent T follicular helper (Tfh) program. Tfh cells are the specialized CD4+ subset licensed to deliver follicular help, and their help is required both to nucleate a germinal center and to sustain the affinity-based selection that runs inside it. This node is the amplifier: a numerically small T cell population converts a single antigen-binding event into a self-sustaining, iteratively selected B cell reaction. Conformers substitute the specific lesion in T-B collaboration (costimulation, cytokine, or transcriptional) or, in germinal-center-derived lymphoma, a Tfh-containing supportive microenvironment that props up the transformed clone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T follicular helper cell\"], \"biological_processes\": [\"T Follicular Helper Cell Differentiation\", \"Germinal Center Formation\"], \"role\": \"amplifier\"}}, {\"id\": \"Durable Protective Humoral Immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The standing serum and mucosal antibody maintained by long-lived plasma cells, together with the recall capacity held by memory B cells, constitutes durable protection against reinfection. This is the clinical consequence of the chain and the level at which it is measured: antibody titre and immune memory are the correlates of protection by which vaccines are judged, so vaccine non-response is one readout of this node rather than a mechanism of its own. Conformers read this node in the direction their disease takes it \\u2014 absent in antibody deficiency, misdirected in autoantibody-mediated disease.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Immunoglobulin Mediated Immune Response\", \"Humoral Immune Response Mediated by Circulating Immunoglobulin\"], \"role\": \"consequence\"}}, {\"id\": \"Germinal Center Reaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Helped B cells seed a germinal center, a transient compartment within the follicle in which clonal expansion, AID-dependent somatic hypermutation of the immunoglobulin variable region, and class switch recombination proceed under iterative affinity-based selection. Mutation diversifies the receptor repertoire, selection retains the clones whose receptors bind antigen best, and switching changes the effector class of the antibody without changing its specificity. This is the rate-limiting, disorder-agnostic step every conformer funnels through and the module\u0027s key conformance target. Loss of AID abolishes both switching and hypermutation while leaving the germinal center itself enlarged, which is the cleanest demonstration that this node is a distinct mechanistic step rather than a synonym for germinal center formation. That AID argument licenses bundling somatic hypermutation with class switch recombination specifically; affinity-based selection is Tfh-driven light-zone biology and is mechanistically separable from AID-dependent mutation (CD40L and ICOS defects impair selection without touching AID). It is bundled here anyway because one rate-limiting conformance target is worth more to conformers than atomicity would be.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"germinal center B cell\"], \"biological_processes\": [\"Germinal Center B Cell Differentiation\", \"Somatic Hypermutation of Immunoglobulin Genes\", \"Class Switch Recombination\"], \"role\": \"central_effector\", \"locations\": [\"germinal center\"]}}], \"edges\": [{\"source\": \"Antigen Capture and Naive B Cell Activation\", \"target\": \"Cognate T Follicular Helper Cell Help\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cognate T Follicular Helper Cell Help\", \"target\": \"Germinal Center Reaction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Germinal Center Reaction\", \"target\": \"Affinity-Matured Class-Switched B Cell Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Affinity-Matured Class-Switched B Cell Output\", \"target\": \"Durable Protective Humoral Immunity\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Affinity-Matured Class-Switched B Cell Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selected germinal center B cells exit as two durable populations: long-lived plasma cells that home to the bone marrow and secrete affinity-matured, class-switched antibody continuously, and memory B cells that persist without secreting and mount an accelerated response on re-encounter with antigen. These are functionally distinct outputs of the same reaction \\u2014 one maintains a standing serum antibody titre, the other supplies recall capacity \\u2014 and a conformer may lose either selectively, which is why the module keeps them in one node rather than collapsing them into the consequence below.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"plasma cell\", \"memory B cell\"], \"biological_processes\": [\"Plasma Cell Differentiation\", \"Memory B Cell Differentiation\", \"Immunoglobulin Production\"], \"role\": \"effector\"}}, {\"id\": \"Antigen Capture and Naive B Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antigen draining into a secondary lymphoid organ is filtered and retained rather than passively diffusing through it: subcapsular sinus macrophages and follicular dendritic cells display intact, unprocessed antigen to B cells following defined migration paths through the follicle. A naive B cell whose receptor binds that antigen is activated, internalizes and processes it, and presents peptide on MHC class II, becoming competent to solicit T cell help. This is the entry point of the reaction; conformers whose B cells never reach the follicle (developmental arrest in bone marrow B lymphopoiesis) fail here by never starting.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"naive B cell\", \"follicular dendritic cell\"], \"biological_processes\": [\"Antigen Processing and Presentation\", \"B Cell Activation\"], \"role\": \"trigger\", \"locations\": [\"lymph node\"]}}, {\"id\": \"Clinical Susceptibility to Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whether infection actually occurs, at the level of the whole organism. The node above is the immune state and is measured as antibody titre and recall capacity; this node is the clinical outcome and is measured as infection incidence, which is what the graded relationship between the two is established on. The characteristic spectrum of antibody-dependent susceptibility is recurrent sinopulmonary infection with encapsulated bacteria, and that spectrum is diagnostic enough to point at this arm of host defence rather than another. It is stated in this description rather than in the node name deliberately: it is the characteristic core and not the boundary, and conformers whose humoral failure is profound enough to add organisms outside it \\u2014 disseminated enteroviral infection in agammaglobulinemia \\u2014 conform here too. The specific organisms and organ distribution are disorder- and cohort-specific and should be evidenced locally rather than inherited from this node.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Cognate T Follicular Helper Cell Help\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An antigen-engaged B cell forms a cognate synapse with a CD4+ T cell that has differentiated along the Bcl6-dependent T follicular helper (Tfh) program. Tfh cells are the specialized CD4+ subset licensed to deliver follicular help, and their help is required both to nucleate a germinal center and to sustain the affinity-based selection that runs inside it. This node is the amplifier: a numerically small T cell population converts a single antigen-binding event into a self-sustaining, iteratively selected B cell reaction. Conformers substitute the specific lesion in T-B collaboration (costimulation, cytokine, or transcriptional) or, in germinal-center-derived lymphoma, a Tfh-containing supportive microenvironment that props up the transformed clone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T follicular helper cell\"], \"biological_processes\": [\"T Follicular Helper Cell Differentiation\", \"Germinal Center Formation\"], \"role\": \"amplifier\"}}, {\"id\": \"Durable Protective Humoral Immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The standing serum and mucosal antibody maintained by long-lived plasma cells, together with the recall capacity held by memory B cells, constitutes durable protection against reinfection. This is the clinical consequence of the chain and the level at which it is measured: antibody titre and immune memory are the correlates of protection by which vaccines are judged, so vaccine non-response is one readout of this node rather than a mechanism of its own. Conformers read this node in the direction their disease takes it \\u2014 absent in antibody deficiency, misdirected in autoantibody-mediated disease.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Immunoglobulin Mediated Immune Response\", \"Humoral Immune Response Mediated by Circulating Immunoglobulin\"], \"role\": \"consequence\"}}, {\"id\": \"Germinal Center Reaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Helped B cells seed a germinal center, a transient compartment within the follicle in which clonal expansion, AID-dependent somatic hypermutation of the immunoglobulin variable region, and class switch recombination proceed under iterative affinity-based selection. Mutation diversifies the receptor repertoire, selection retains the clones whose receptors bind antigen best, and switching changes the effector class of the antibody without changing its specificity. This is the rate-limiting, disorder-agnostic step every conformer funnels through and the module\u0027s key conformance target. Loss of AID abolishes both switching and hypermutation while leaving the germinal center itself enlarged, which is the cleanest demonstration that this node is a distinct mechanistic step rather than a synonym for germinal center formation. That AID argument licenses bundling somatic hypermutation with class switch recombination specifically; affinity-based selection is Tfh-driven light-zone biology and is mechanistically separable from AID-dependent mutation (CD40L and ICOS defects impair selection without touching AID). It is bundled here anyway because one rate-limiting conformance target is worth more to conformers than atomicity would be.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"germinal center B cell\"], \"biological_processes\": [\"Germinal Center B Cell Differentiation\", \"Somatic Hypermutation of Immunoglobulin Genes\", \"Class Switch Recombination\"], \"role\": \"central_effector\", \"locations\": [\"germinal center\"]}}], \"edges\": [{\"source\": \"Antigen Capture and Naive B Cell Activation\", \"target\": \"Cognate T Follicular Helper Cell Help\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cognate T Follicular Helper Cell Help\", \"target\": \"Germinal Center Reaction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Germinal Center Reaction\", \"target\": \"Affinity-Matured Class-Switched B Cell Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Affinity-Matured Class-Switched B Cell Output\", \"target\": \"Durable Protective Humoral Immunity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Durable Protective Humoral Immunity\", \"target\": \"Clinical Susceptibility to Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"How much durable humoral immunity a person has sets how much infection they get. The relationship is graded rather than all-or-none, and moving the antibody level moves the infection rate, which is why this is a causal edge and not a restatement of the node above it.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -2281,16 +2378,18 @@ This mechanism module involves Humoral Immune Response Mediated by Circulating I
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
             
             <div class="item-box anchor-target" id="module-pathophysiology-antigen-capture-and-naive-b-cell-activation" data-dismech-node="Antigen Capture and Naive B Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Antigen Capture and Naive B Cell Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Antigen draining into a secondary lymphoid organ is filtered and retained rather than passively diffusing through it: subcapsular sinus macrophages and follicular dendritic cells display intact, unprocessed antigen to B cells following defined migration paths through the follicle. A naive B cell whose receptor binds that antigen is activated, internalizes and processes it, and presents peptide on MHC class II, becoming competent to solicit T cell help. This is the entry point of the reaction; conformers whose B cells never reach the follicle (developmental arrest in bone marrow B lymphopoiesis) fail here by never starting.</div>
                 
@@ -2434,11 +2533,13 @@ This pathophysiological event involves increased B Cell Activation (GO:0042113).
             
             <div class="item-box anchor-target" id="module-pathophysiology-cognate-t-follicular-helper-cell-help" data-dismech-node="Cognate T Follicular Helper Cell Help" data-dismech-type="pathophysiology">
                 <div class="item-name">Cognate T Follicular Helper Cell Help</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">An antigen-engaged B cell forms a cognate synapse with a CD4+ T cell that has differentiated along the Bcl6-dependent T follicular helper (Tfh) program. Tfh cells are the specialized CD4+ subset licensed to deliver follicular help, and their help is required both to nucleate a germinal center and to sustain the affinity-based selection that runs inside it. This node is the amplifier: a numerically small T cell population converts a single antigen-binding event into a self-sustaining, iteratively selected B cell reaction. Conformers substitute the specific lesion in T-B collaboration (costimulation, cytokine, or transcriptional) or, in germinal-center-derived lymphoma, a Tfh-containing supportive microenvironment that props up the transformed clone.</div>
                 
@@ -2568,11 +2669,13 @@ This pathophysiological event involves Germinal Center Formation (GO:0002467). G
             
             <div class="item-box anchor-target" id="module-pathophysiology-germinal-center-reaction" data-dismech-node="Germinal Center Reaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Germinal Center Reaction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Helped B cells seed a germinal center, a transient compartment within the follicle in which clonal expansion, AID-dependent somatic hypermutation of the immunoglobulin variable region, and class switch recombination proceed under iterative affinity-based selection. Mutation diversifies the receptor repertoire, selection retains the clones whose receptors bind antigen best, and switching changes the effector class of the antibody without changing its specificity. This is the rate-limiting, disorder-agnostic step every conformer funnels through and the module&#39;s key conformance target. Loss of AID abolishes both switching and hypermutation while leaving the germinal center itself enlarged, which is the cleanest demonstration that this node is a distinct mechanistic step rather than a synonym for germinal center formation. That AID argument licenses bundling somatic hypermutation with class switch recombination specifically; affinity-based selection is Tfh-driven light-zone biology and is mechanistically separable from AID-dependent mutation (CD40L and ICOS defects impair selection without touching AID). It is bundled here anyway because one rate-limiting conformance target is worth more to conformers than atomicity would be.</div>
                 
@@ -2722,6 +2825,20 @@ This pathophysiological event involves Class Switch Recombination, annotated wit
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Hyper-IgM_Syndrome_Type_2.html">Hyper-IgM Syndrome Type 2</a>
+                            
+                            <span class="crosslink-desc">as AID Enzymatic Loss of Function</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Immunodeficiency_102.html">Immunodeficiency 102</a>
+                            
+                            <span class="crosslink-desc">as Impaired Germinal Center Reaction and Loss of Class-Switched Memory B Cells</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Kabuki_Syndrome.html">Kabuki Syndrome</a>
                             
                             <span class="crosslink-desc">as B-cell terminal differentiation defect</span>
@@ -2749,11 +2866,13 @@ This pathophysiological event involves Class Switch Recombination, annotated wit
             
             <div class="item-box anchor-target" id="module-pathophysiology-affinity-matured-class-switched-b-cell-output" data-dismech-node="Affinity-Matured Class-Switched B Cell Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Affinity-Matured Class-Switched B Cell Output</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Selected germinal center B cells exit as two durable populations: long-lived plasma cells that home to the bone marrow and secrete affinity-matured, class-switched antibody continuously, and memory B cells that persist without secreting and mount an accelerated response on re-encounter with antigen. These are functionally distinct outputs of the same reaction — one maintains a standing serum antibody titre, the other supplies recall capacity — and a conformer may lose either selectively, which is why the module keeps them in one node rather than collapsing them into the consequence below.</div>
                 
@@ -2935,11 +3054,13 @@ This pathophysiological event involves Immunoglobulin Production (GO:0002377). G
             
             <div class="item-box anchor-target" id="module-pathophysiology-durable-protective-humoral-immunity" data-dismech-node="Durable Protective Humoral Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Durable Protective Humoral Immunity</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The standing serum and mucosal antibody maintained by long-lived plasma cells, together with the recall capacity held by memory B cells, constitutes durable protection against reinfection. This is the clinical consequence of the chain and the level at which it is measured: antibody titre and immune memory are the correlates of protection by which vaccines are judged, so vaccine non-response is one readout of this node rather than a mechanism of its own. Conformers read this node in the direction their disease takes it — absent in antibody deficiency, misdirected in autoantibody-mediated disease.</div>
                 
@@ -3012,9 +3133,82 @@ This pathophysiological event involves Humoral Immune Response Mediated by Circu
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/X-linked_Agammaglobulinemia.html">X-linked Agammaglobulinemia</a>
+                            
+                            <span class="crosslink-desc">as Panhypogammaglobulinemia from Absent Plasma Cells</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Downstream</div>
+                    <ul class="flow-list">
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Clinical Susceptibility to Infection</span>
+                            
+                            <span class="crosslink-desc">How much durable humoral immunity a person has sets how much infection they get. The relationship is graded rather than all-or-none, and moving the antibody level moves the infection rate, which is why this is a causal edge and not a restatement of the node above it.</span>
+                            
+                        </li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-clinical-susceptibility-to-infection" data-dismech-node="Clinical Susceptibility to Infection" data-dismech-type="pathophysiology">
+                <div class="item-name">Clinical Susceptibility to Infection</div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">outcome</span>
+                    
+                </div>
+                
+                
+                <div class="item-desc">Whether infection actually occurs, at the level of the whole organism. The node above is the immune state and is measured as antibody titre and recall capacity; this node is the clinical outcome and is measured as infection incidence, which is what the graded relationship between the two is established on. The characteristic spectrum of antibody-dependent susceptibility is recurrent sinopulmonary infection with encapsulated bacteria, and that spectrum is diagnostic enough to point at this arm of host defence rather than another. It is stated in this description rather than in the node name deliberately: it is the characteristic core and not the boundary, and conformers whose humoral failure is profound enough to add organisms outside it — disseminated enteroviral infection in agammaglobulinemia — conform here too. The specific organisms and organ distribution are disorder- and cohort-specific and should be evidenced locally rather than inherited from this node.</div>
+                
+
+                
+
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Autosomal_Agammaglobulinemia.html">Autosomal Agammaglobulinemia</a>
                             
-                            <span class="crosslink-desc">as Panhypogammaglobulinemia and Loss of Humoral Immunity</span>
+                            <span class="crosslink-desc">as Deficient Antibody-Mediated Host Defense</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hyper-IgM_Syndrome_Type_2.html">Hyper-IgM Syndrome Type 2</a>
+                            
+                            <span class="crosslink-desc">as Recurrent Bacterial Sinopulmonary and Mucosal Infection</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Specific_Antibody_Deficiency.html">Specific Antibody Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Recurrent Encapsulated-Organism Sinopulmonary Infection</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/X-linked_Agammaglobulinemia.html">X-linked Agammaglobulinemia</a>
+                            
+                            <span class="crosslink-desc">as Susceptibility to Disseminated Enteroviral Infection</span>
                             
                         </div>
                         

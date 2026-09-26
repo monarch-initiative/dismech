@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4235,6 +4303,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4288,14 +4357,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3201/eid3008.231671" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:39043387" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3201/eid3008.231671" target="_blank">DOI:10.3201/eid3008.231671</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39043387" target="_blank">PMID:39043387</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4365,6 +4435,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4426,6 +4497,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4493,6 +4565,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4514,6 +4587,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4615,6 +4689,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4636,6 +4711,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4711,6 +4787,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4745,6 +4822,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysogenic-conversion-by-a-tox-bearing-corynebacteriophage" data-dismech-node="Lysogenic Conversion by a tox-Bearing Corynebacteriophage" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysogenic Conversion by a tox-Bearing Corynebacteriophage</div>
+
 
                 <div class="item-desc">The structural gene for diphtheria toxin is not chromosomal in origin. It is carried by a beta-corynephage that integrates into the bacterial genome, so that toxigenic and non-toxigenic strains of the same species coexist and a non-toxigenic isolate can be converted by phage infection. This was the first virulence factor shown to be phage-encoded, and it is why toxigenicity, not species identity, determines whether a patient develops toxin-mediated disease.</div>
 
@@ -4798,6 +4876,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4820,6 +4899,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-iron-regulated-diphtheria-toxin-expression" data-dismech-node="Iron-Regulated Diphtheria Toxin Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Iron-Regulated Diphtheria Toxin Expression</div>
+
 
                 <div class="item-desc">Transcription of tox is repressed by DtxR, an iron-dependent DNA-binding protein that occupies the tox operator when loaded with ferrous iron. In the iron-restricted environment of host mucosa the repressor is unloaded and derepresses tox along with a wider iron-acquisition regulon, so the bacterium makes most toxin precisely where it is establishing infection.</div>
 
@@ -4907,6 +4987,7 @@ This pathophysiological event involves cellular response to iron ion starvation 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4928,6 +5009,7 @@ This pathophysiological event involves cellular response to iron ion starvation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4953,6 +5035,7 @@ This pathophysiological event involves cellular response to iron ion starvation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucosal-colonization-and-adherence" data-dismech-node="Mucosal Colonization and Adherence" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucosal Colonization and Adherence</div>
+
 
                 <div class="item-desc">Before any toxin is made the organism must attach to and colonize the pharyngeal or cutaneous epithelium. Adherence is multifactorial: C. diphtheriae carries three sortase-assembled pilus gene clusters, and pilus type determines which epithelial cell lines a strain attaches to. Adherence is independent of the tox gene, which is why non-toxigenic strains colonize and transmit just as effectively.</div>
 
@@ -5099,6 +5182,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5120,6 +5204,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5145,6 +5230,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diphtheria-toxin-binding-to-the-prohb-egf-receptor" data-dismech-node="Diphtheria Toxin Binding to the proHB-EGF Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Diphtheria Toxin Binding to the proHB-EGF Receptor</div>
+
 
                 <div class="item-desc">The receptor-binding (R) domain of diphtheria toxin binds the membrane-anchored precursor of heparin-binding EGF-like growth factor. proHB-EGF was identified by expression cloning as the diphtheria toxin sensitivity determinant, and it associates with the tetraspanin CD9 (DRAP27), which increases the number of functional receptors and raises toxin sensitivity by more than an order of magnitude. Species differences in this receptor explain why mice and rats are naturally resistant to the toxin.</div>
 
@@ -5252,6 +5338,7 @@ This pathophysiological event involves receptor-mediated endocytosis (GO:0006898
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5273,6 +5360,7 @@ This pathophysiological event involves receptor-mediated endocytosis (GO:0006898
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5300,6 +5388,7 @@ This pathophysiological event involves receptor-mediated endocytosis (GO:0006898
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5322,6 +5411,7 @@ This pathophysiological event involves receptor-mediated endocytosis (GO:0006898
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocytosis-and-catalytic-domain-translocation" data-dismech-node="Endocytosis and Catalytic Domain Translocation" data-dismech-type="pathophysiology">
                 <div class="item-name">Endocytosis and Catalytic Domain Translocation</div>
+
 
                 <div class="item-desc">Receptor-bound toxin is internalized into an endosome. Acidification triggers a conformational change in the translocation (T) domain, which inserts into the endosomal membrane and chaperones the catalytic (C) domain across it into the cytosol. A single translocated catalytic domain is sufficient to kill a cell, and the estimated human lethal dose is on the order of 100 ng/kg.</div>
 
@@ -5413,6 +5503,7 @@ This pathophysiological event involves increased receptor-mediated endocytosis (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5434,6 +5525,7 @@ This pathophysiological event involves increased receptor-mediated endocytosis (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5459,6 +5551,7 @@ This pathophysiological event involves increased receptor-mediated endocytosis (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eef2-diphthamide-adp-ribosylation" data-dismech-node="eEF2 Diphthamide ADP-Ribosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">eEF2 Diphthamide ADP-Ribosylation</div>
+
 
                 <div class="item-desc">The catalytic domain is a NAD+-dependent ADP-ribosyltransferase that transfers ADP-ribose onto diphthamide, a modified histidine unique to eukaryotic elongation factor 2. Diphthamide normally supports reading-frame fidelity; once ADP-ribosylated, eEF2 can no longer catalyse translocation of the peptidyl-tRNA-mRNA complex from the ribosomal A site to the P site. The reaction is catalytic rather than stoichiometric, which is why a single translocated catalytic domain is enough to kill the cell.</div>
 
@@ -5550,6 +5643,7 @@ This pathophysiological event involves increased NAD+-diphthamide ADP-ribosyltra
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5571,6 +5665,7 @@ This pathophysiological event involves increased NAD+-diphthamide ADP-ribosyltra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5598,6 +5693,7 @@ This pathophysiological event involves increased NAD+-diphthamide ADP-ribosyltra
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5622,6 +5718,7 @@ This pathophysiological event involves increased NAD+-diphthamide ADP-ribosyltra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-translational-arrest-and-host-cell-death" data-dismech-node="Translational Arrest and Host Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Translational Arrest and Host Cell Death</div>
+
 
                 <div class="item-desc">Elongation stalls, total protein synthesis falls, and the affected cell dies by apoptosis. This single lesion accounts for every toxin-attributable feature of the disease: epithelial necrosis under the membrane locally, and cardiomyocyte and Schwann cell injury at distant sites. Nothing about the mechanism is tissue-specific, so which organs are damaged is set by toxin delivery and by which cell types are least able to tolerate a translational block.</div>
 
@@ -5809,6 +5906,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5830,6 +5928,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5855,6 +5954,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pseudomembrane-formation" data-dismech-node="Pseudomembrane Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pseudomembrane Formation</div>
+
 
                 <div class="item-desc">Necrotic epithelium, fibrin, leukocytes, erythrocytes and bacteria coalesce into a tough grey-white membrane that adheres to the underlying mucosa and bleeds if stripped. On the tonsils and pharynx it is the diagnostic sign of respiratory diphtheria, and it is found in roughly three quarters of clinically diagnosed cases in outbreak settings.</div>
 
@@ -5973,14 +6073,15 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3201/eid3008.231671" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:39043387" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3201/eid3008.231671" target="_blank">DOI:10.3201/eid3008.231671</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39043387" target="_blank">PMID:39043387</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6008,6 +6109,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6030,6 +6132,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-airway-obstruction" data-dismech-node="Upper Airway Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper Airway Obstruction</div>
+
 
                 <div class="item-desc">Progressive narrowing of the larynx and trachea by membrane and oedema. It is the most immediately lethal local complication and, unlike the toxin-mediated injuries, it is mechanical: it is relieved by bypassing the obstruction rather than by neutralizing toxin. In outbreak cohorts it occurred in 22.6% of children and carried roughly thirteenfold higher odds of death.</div>
 
@@ -6089,6 +6192,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6110,6 +6214,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6135,6 +6240,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-toxin-dissemination" data-dismech-node="Systemic Toxin Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Toxin Dissemination</div>
+
 
                 <div class="item-desc">Toxin absorbed from the membrane-covered mucosa enters the bloodstream and reaches the heart, peripheral nerves and kidney. The distinction between local spread and haematogenous dissemination is clinically load-bearing: early palatal weakness reflects direct local toxin action, whereas the generalized demyelinating neuropathy that follows weeks later reflects blood-borne delivery. Only free toxin is neutralizable, so antitoxin given after dissemination and cellular uptake cannot reverse established injury.</div>
 
@@ -6196,6 +6302,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6217,6 +6324,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6242,6 +6350,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diphtheritic-myocarditis" data-dismech-node="Diphtheritic Myocarditis" data-dismech-type="pathophysiology">
                 <div class="item-name">Diphtheritic Myocarditis</div>
+
 
                 <div class="item-desc">Toxin taken up by cardiomyocytes produces patchy myocyte necrosis with mononuclear infiltration, interstitial oedema and fibrosis, typically appearing about two weeks after the pharyngeal illness. Ultrastructurally the mitochondria are swollen with disorganized cristae and glycogen is depleted, consistent with a cell whose protein synthesis has been arrested. Cardiac involvement is the leading cause of death in diphtheria, and it is potentially reversible if the patient survives the acute phase.</div>
 
@@ -6422,6 +6531,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6443,6 +6553,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6470,6 +6581,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6494,6 +6606,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-conduction-system-injury" data-dismech-node="Cardiac Conduction System Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Conduction System Injury</div>
+
 
                 <div class="item-desc">Extension of the myocarditic process into the conduction system produces a spectrum of electrocardiographic abnormalities; about half of patients with diphtheritic myocarditis develop severe conduction disturbance, of which complete heart block is the most dangerous. Left bundle branch block and T-wave inversion have been reported to predict poor long-term survival.</div>
 
@@ -6553,6 +6666,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6574,6 +6688,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6599,6 +6714,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxin-mediated-schwann-cell-injury-and-demyelination" data-dismech-node="Toxin-Mediated Schwann Cell Injury and Demyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Toxin-Mediated Schwann Cell Injury and Demyelination</div>
+
 
                 <div class="item-desc">Diphtheria toxin enters Schwann cells and blocks synthesis of myelin proteolipid protein and myelin basic protein, producing segmental demyelination without primary axonal loss. Because myelin maintenance depends on ongoing protein synthesis, the Schwann cell is among the cell types least able to tolerate a translational block. The clinical consequence is a descending neuropathy beginning with palatal and other bulbar weakness, later oculomotor and ciliary paralysis, and in severe cases limb weakness, with recovery in most survivors because axons are preserved.</div>
 
@@ -6730,6 +6846,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6751,6 +6868,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6778,6 +6896,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6800,6 +6919,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-or-waning-antitoxin-immunity" data-dismech-node="Absent or Waning Antitoxin Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent or Waning Antitoxin Immunity</div>
+
 
                 <div class="item-desc">Toxoid-induced neutralizing antibody is the only established host protection. It does not prevent colonization, but it neutralizes toxin before it reaches its receptor, so unimmunized and partially immunized hosts develop the toxin-mediated syndrome that immunized hosts largely escape. Outbreak cohorts are dominated by unvaccinated young children, and in C. ulcerans disease vaccination status separates those who develop a classical pseudomembrane from those who do not.</div>
 
@@ -6891,6 +7011,7 @@ This pathophysiological event involves decreased adaptive immune response (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6912,6 +7033,7 @@ This pathophysiological event involves decreased adaptive immune response (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6937,6 +7059,7 @@ This pathophysiological event involves decreased adaptive immune response (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-mrna-translation-by-the-ribosome-macrolide-target" data-dismech-node="Bacterial mRNA Translation by the Ribosome (Macrolide Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial mRNA Translation by the Ribosome (Macrolide Target)</div>
+
 
                 <div class="item-desc">Corynebacterium diphtheriae depends on 70S-ribosome translation. Macrolides (azithromycin, erythromycin, clarithromycin) bind the 50S subunit and arrest bacterial protein synthesis. WHO&#39;s 2024 clinical management guideline places macrolides ahead of penicillin as first-line therapy. Because diphtheria toxin is itself a translated secreted product, this target has an anti-toxin rationale in addition to bacterial clearance, but antibiotics do not neutralize toxin already released, so they never substitute for antitoxin.</div>
 
@@ -7024,6 +7147,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7045,6 +7169,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7070,6 +7195,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-peptidoglycan-cross-linking-beta-lactam-target" data-dismech-node="Bacterial Peptidoglycan Cross-Linking (Beta-Lactam Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial Peptidoglycan Cross-Linking (Beta-Lactam Target)</div>
+
 
                 <div class="item-desc">Penicillins acylate the penicillin-binding protein transpeptidases and halt peptidoglycan cross-linking. Benzylpenicillin remains a standard alternative or partner agent, and in the only randomized comparison in diphtheria it cleared fever faster than erythromycin with equivalent membrane and bacteriological clearance. UK guidance combines intravenous benzylpenicillin with a macrolide for severe disease.</div>
 
@@ -7157,6 +7283,7 @@ This pathophysiological event involves cell wall organization (GO:0071555). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7178,6 +7305,7 @@ This pathophysiological event involves cell wall organization (GO:0071555). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7251,21 +7379,23 @@ This pathophysiological event involves cell wall organization (GO:0071555). GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Respiratory<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Voice<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Respiratory<span class="pill-count">(5)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Voice<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7308,6 +7438,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7322,6 +7455,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7346,6 +7480,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7409,6 +7544,9 @@ This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7423,6 +7561,7 @@ This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7479,6 +7618,9 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7493,6 +7635,7 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7517,6 +7660,7 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7571,6 +7715,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7585,6 +7732,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7609,6 +7757,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7663,6 +7812,9 @@ This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7677,6 +7829,7 @@ This clinical feature is Atrioventricular block (HP:0001678). HP:0001678 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7740,6 +7893,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7754,6 +7910,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7785,6 +7942,89 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-visual-accommodation" data-dismech-node="Impaired Visual Accommodation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Impaired Visual Accommodation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Reduced visual accommodation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030801" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030801</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced visual accommodation (HP:0030801). HP:0030801 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26962337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26962337" target="_blank">PMID:26962337</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Oculomotor nerve involvement in the form of accommodation paralysis was seen in 3 children."</div>
+
+
+                <div class="evidence-explanation">Directly reports accommodation paralysis in the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
@@ -7805,15 +8045,18 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001919</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001919</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7833,6 +8076,7 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7861,7 +8105,7 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -7884,15 +8128,18 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000176" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:6000176</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000176" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:6000176</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anterior neck swelling (HP:6000176). HP:6000176 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7912,6 +8159,7 @@ This clinical feature is Anterior neck swelling (HP:6000176). HP:6000176 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7936,6 +8184,7 @@ This clinical feature is Anterior neck swelling (HP:6000176). HP:6000176 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7964,7 +8213,7 @@ This clinical feature is Anterior neck swelling (HP:6000176). HP:6000176 is a ph
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -7987,15 +8236,18 @@ This clinical feature is Anterior neck swelling (HP:6000176). HP:6000176 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0200042</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0200042</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The frequency band applies within cutaneous diphtheria, not across all diphtheria presentations.</div>
@@ -8017,6 +8269,7 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8045,7 +8298,7 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -8066,15 +8319,18 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8094,6 +8350,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8123,6 +8380,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8148,11 +8406,96 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-palatal-palsy" data-dismech-node="Palatal Palsy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Palatal Palsy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bulbar palsy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001283</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palatal palsy, annotated with Bulbar palsy (HP:0001283). HP:0001283 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">HPO has no term for palatal palsy specifically. HP:0001283 (Bulbar palsy) is the most specific accurate term available and is what the cited series reports; the narrower localization is carried by preferred_term. HP:0000220 (Velopharyngeal insufficiency) was considered and rejected: it names a speech-time functional deficit rather than a paralysis, and its manifestation is already recorded separately as Hypernasal speech.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26962337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26962337" target="_blank">PMID:26962337</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All the children presented with bulbar palsy and had h/o membranous tonsillitis. Isolated palatal palsy was seen in 7 children (53%). 6 (46.1%) children developed quadriparesis."</div>
+
+
+                <div class="evidence-explanation">Direct measurement of isolated palatal palsy frequency in a diphtheritic polyneuropathy cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-demyelination" data-dismech-node="Peripheral Demyelination" data-dismech-type="phenotype">
@@ -8169,15 +8512,18 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011096" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0011096</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011096" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011096</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral demyelination (HP:0011096). HP:0011096 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8197,6 +8543,7 @@ This clinical feature is Peripheral demyelination (HP:0011096). HP:0011096 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8224,6 +8571,7 @@ This clinical feature is Peripheral demyelination (HP:0011096). HP:0011096 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8247,14 +8595,261 @@ This clinical feature is Peripheral demyelination (HP:0011096). HP:0011096 is a 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyneuropathy" data-dismech-node="Polyneuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Polyneuropathy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001271" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001271</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyneuropathy (HP:0001271). HP:0001271 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26962337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26962337" target="_blank">PMID:26962337</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"DP is seen in 20% and 75% of patients with mild and severe infection, respectively."</div>
+
+
+                <div class="evidence-explanation">Provides the severity-stratified frequency of diphtheritic polyneuropathy recorded in this description.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24365424" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24365424" target="_blank">PMID:24365424</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diphtheritic polyneuropathy can be a serious complication in patients who have a severe infection."</div>
+
+
+                <div class="evidence-explanation">Independent confirmation that polyneuropathy is a recognized serious complication of severe disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tetraparesis" data-dismech-node="Tetraparesis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tetraparesis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002273</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tetraparesis (HP:0002273). HP:0002273 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26962337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26962337" target="_blank">PMID:26962337</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All the children presented with bulbar palsy and had h/o membranous tonsillitis. Isolated palatal palsy was seen in 7 children (53%). 6 (46.1%) children developed quadriparesis."</div>
+
+
+                <div class="evidence-explanation">Direct measurement of quadriparesis frequency in the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pharyngeal-pseudomembrane" data-dismech-node="Pharyngeal Pseudomembrane" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pharyngeal Pseudomembrane
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal pharynx morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0033151</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pharyngeal pseudomembrane, annotated with Abnormal pharynx morphology (HP:0033151). HP:0033151 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">HPO has no term for a diphtheritic pseudomembrane. HP:0033151 (Abnormal pharynx morphology) is the most specific accurate ancestor available; the specific lesion is carried by preferred_term.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36633113" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36633113" target="_blank">PMID:36633113</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pseudomembrane was present in 245 (77%) cases."</div>
+
+
+                <div class="evidence-explanation">Direct frequency measurement in a 318-child outbreak cohort, supporting the FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pharyngitis" data-dismech-node="Pharyngitis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -8270,15 +8865,18 @@ This clinical feature is Peripheral demyelination (HP:0011096). HP:0011096 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025439" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0025439</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025439" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0025439</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8298,6 +8896,7 @@ This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8338,15 +8937,18 @@ This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0010307</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0010307</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8369,6 +8971,7 @@ This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from th
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8410,15 +9013,18 @@ This clinical feature is Stridor (HP:0010307). HP:0010307 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002781</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002781</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8438,6 +9044,7 @@ This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8462,6 +9069,7 @@ This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8504,15 +9112,18 @@ This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0031417</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0031417</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rhinorrhea (HP:0031417). HP:0031417 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8524,10 +9135,10 @@ This clinical feature is Rhinorrhea (HP:0031417). HP:0031417 is a phenotype from
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3201/eid3008.231671" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:39043387" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3201/eid3008.231671" target="_blank">DOI:10.3201/eid3008.231671</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39043387" target="_blank">PMID:39043387</a>
                     </span>
 
 
@@ -8535,6 +9146,7 @@ This clinical feature is Rhinorrhea (HP:0031417). HP:0031417 is a phenotype from
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8562,11 +9174,11 @@ This clinical feature is Rhinorrhea (HP:0031417). HP:0031417 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-10">
+            <details class="phenotype-category-group" id="pheno-cat-12">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Voice
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hoarse-voice" data-dismech-node="Hoarse Voice" data-dismech-type="phenotype">
@@ -8583,10 +9195,10 @@ This clinical feature is Rhinorrhea (HP:0031417). HP:0031417 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001609</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001609</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8597,16 +9209,19 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3201/eid3008.231671" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:39043387" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3201/eid3008.231671" target="_blank">DOI:10.3201/eid3008.231671</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39043387" target="_blank">PMID:39043387</a>
                     </span>
 
 
@@ -8614,6 +9229,7 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8624,161 +9240,6 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
                 <div class="evidence-explanation">Establishes laryngeal involvement as part of the disease. Graded INDIRECT because hoarseness is inferred from laryngeal membrane rather than reported as such.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pharyngeal-pseudomembrane" data-dismech-node="Pharyngeal Pseudomembrane" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pharyngeal Pseudomembrane
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal pharynx morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0033151</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pharyngeal pseudomembrane, annotated with Abnormal pharynx morphology (HP:0033151). HP:0033151 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">HPO has no term for a diphtheritic pseudomembrane. HP:0033151 (Abnormal pharynx morphology) is the most specific accurate ancestor available; the specific lesion is carried by preferred_term.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36633113" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36633113" target="_blank">PMID:36633113</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pseudomembrane was present in 245 (77%) cases."</div>
-
-
-                <div class="evidence-explanation">Direct frequency measurement in a 318-child outbreak cohort, supporting the FREQUENT band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-palatal-palsy" data-dismech-node="Palatal Palsy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Palatal Palsy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Bulbar palsy</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001283</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Palatal palsy, annotated with Bulbar palsy (HP:0001283). HP:0001283 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">HPO has no term for palatal palsy specifically. HP:0001283 (Bulbar palsy) is the most specific accurate term available and is what the cited series reports; the narrower localization is carried by preferred_term. HP:0000220 (Velopharyngeal insufficiency) was considered and rejected: it names a speech-time functional deficit rather than a paralysis, and its manifestation is already recorded separately as Hypernasal speech.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26962337" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26962337" target="_blank">PMID:26962337</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All the children presented with bulbar palsy and had h/o membranous tonsillitis. Isolated palatal palsy was seen in 7 children (53%). 6 (46.1%) children developed quadriparesis."</div>
-
-
-                <div class="evidence-explanation">Direct measurement of isolated palatal palsy frequency in a diphtheritic polyneuropathy cohort.</div>
 
 
 
@@ -8808,15 +9269,18 @@ This clinical feature is Palatal palsy, annotated with Bulbar palsy (HP:0001283)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001611" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001611</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001611" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001611</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypernasal speech (HP:0001611). HP:0001611 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8839,6 +9303,7 @@ This clinical feature is Hypernasal speech (HP:0001611). HP:0001611 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8847,236 +9312,6 @@ This clinical feature is Hypernasal speech (HP:0001611). HP:0001611 is a phenoty
 
 
                 <div class="evidence-explanation">Documents the hypernasal voice quality in a patient whose diphtheria was recognized from it.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-visual-accommodation" data-dismech-node="Impaired Visual Accommodation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired Visual Accommodation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Reduced visual accommodation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030801" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0030801</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced visual accommodation (HP:0030801). HP:0030801 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26962337" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26962337" target="_blank">PMID:26962337</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Oculomotor nerve involvement in the form of accommodation paralysis was seen in 3 children."</div>
-
-
-                <div class="evidence-explanation">Directly reports accommodation paralysis in the cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-polyneuropathy" data-dismech-node="Polyneuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Polyneuropathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001271" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001271</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Polyneuropathy (HP:0001271). HP:0001271 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26962337" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26962337" target="_blank">PMID:26962337</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"DP is seen in 20% and 75% of patients with mild and severe infection, respectively."</div>
-
-
-                <div class="evidence-explanation">Provides the severity-stratified frequency of diphtheritic polyneuropathy recorded in this description.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24365424" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24365424" target="_blank">PMID:24365424</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Diphtheritic polyneuropathy can be a serious complication in patients who have a severe infection."</div>
-
-
-                <div class="evidence-explanation">Independent confirmation that polyneuropathy is a recognized serious complication of severe disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tetraparesis" data-dismech-node="Tetraparesis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tetraparesis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002273</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tetraparesis (HP:0002273). HP:0002273 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26962337" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26962337" target="_blank">PMID:26962337</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All the children presented with bulbar palsy and had h/o membranous tonsillitis. Isolated palatal palsy was seen in 7 children (53%). 6 (46.1%) children developed quadriparesis."</div>
-
-
-                <div class="evidence-explanation">Direct measurement of quadriparesis frequency in the cohort.</div>
 
 
 
@@ -9184,6 +9419,9 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9194,6 +9432,9 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -9230,6 +9471,7 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9276,6 +9518,7 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9300,6 +9543,7 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9321,6 +9565,7 @@ This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9443,6 +9688,9 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9453,6 +9701,9 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9489,6 +9740,7 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9535,6 +9787,7 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9559,6 +9812,7 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9646,6 +9900,9 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9656,6 +9913,9 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -9695,6 +9955,7 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9740,6 +10001,7 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9761,6 +10023,7 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9850,6 +10113,9 @@ This treatment uses diphtheria and tetanus toxoids vaccine, annotated with Dipht
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9860,6 +10126,9 @@ This treatment uses diphtheria and tetanus toxoids vaccine, annotated with Dipht
 
 
     </div>
+
+
+
 
 
 
@@ -9896,6 +10165,7 @@ This treatment uses diphtheria and tetanus toxoids vaccine, annotated with Dipht
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9942,6 +10212,7 @@ This treatment uses diphtheria and tetanus toxoids vaccine, annotated with Dipht
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9968,6 +10239,7 @@ This treatment uses diphtheria and tetanus toxoids vaccine, annotated with Dipht
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9989,6 +10261,7 @@ This treatment uses diphtheria and tetanus toxoids vaccine, annotated with Dipht
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10056,6 +10329,9 @@ This treatment is tracheotomy (NCIT:C15341). NCIT:C15341 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10066,6 +10342,9 @@ This treatment is tracheotomy (NCIT:C15341). NCIT:C15341 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -10102,6 +10381,7 @@ This treatment is tracheotomy (NCIT:C15341). NCIT:C15341 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10145,6 +10425,7 @@ This treatment is tracheotomy (NCIT:C15341). NCIT:C15341 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10235,6 +10516,7 @@ This environmental factor is exposure to toxigenic Corynebacterium diphtheriae v
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10256,6 +10538,7 @@ This environmental factor is exposure to toxigenic Corynebacterium diphtheriae v
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10307,6 +10590,7 @@ This environmental factor is exposure to toxigenic Corynebacterium diphtheriae v
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10389,6 +10673,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10437,6 +10722,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10565,6 +10851,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10606,6 +10893,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10627,6 +10915,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10681,6 +10970,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10702,6 +10992,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10771,6 +11062,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10795,6 +11087,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10808,14 +11101,15 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3201/eid3008.231671" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:39043387" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.3201/eid3008.231671" target="_blank">DOI:10.3201/eid3008.231671</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39043387" target="_blank">PMID:39043387</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10886,6 +11180,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10935,6 +11230,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10990,6 +11286,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11039,6 +11336,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11110,6 +11408,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11165,6 +11464,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11215,6 +11515,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11315,6 +11616,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11397,6 +11699,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11421,6 +11724,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11442,6 +11746,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11505,6 +11810,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11526,6 +11832,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11596,6 +11903,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11738,6 +12046,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11799,6 +12108,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11838,6 +12148,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11919,6 +12230,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11958,6 +12270,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12002,6 +12315,7 @@ This environmental factor is exposure to toxigenic Corynebacterium ulcerans via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12124,8 +12438,8 @@ has_subtypes:
       id: MONDO:0020863
       label: laryngeal diphtheria
   evidence:
-  - reference: DOI:10.3201/eid3008.231671
-    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021&#34;
+  - reference: PMID:39043387
+    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -12788,8 +13102,8 @@ pathophysiology:
     description: &gt;-
       Extension of the membrane into the larynx and trachea narrows the airway lumen.
     evidence:
-    - reference: DOI:10.3201/eid3008.231671
-      reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021&#34;
+    - reference: PMID:39043387
+      reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
@@ -12800,8 +13114,8 @@ pathophysiology:
         Links the membrane directly to fatal airway obstruction, the transition this edge
         encodes.
   evidence:
-  - reference: DOI:10.3201/eid3008.231671
-    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021&#34;
+  - reference: PMID:39043387
+    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -12845,7 +13159,7 @@ pathophysiology:
     explanation: &gt;-
       Quantifies airway compromise in a 318-child outbreak cohort.
   - reference: DOI:10.52225/narra.v4i2.776
-    reference_title: &#34;Determinants of mortality in relationship between clinical and laboratory characteristics with the outcomes of children with diphtheria&#34;
+    reference_title: &#34;Determinants of mortality in relationship between clinical and laboratory characteristics with the outcomes of children with diphtheria: A cross-sectional study at a national hospital of Sumatra region in 2020–2023&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -13436,8 +13750,8 @@ phenotypes:
       id: HP:0001609
       label: Hoarse voice
   evidence:
-  - reference: DOI:10.3201/eid3008.231671
-    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021&#34;
+  - reference: PMID:39043387
+    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     directness: INDIRECT
@@ -13473,7 +13787,7 @@ phenotypes:
     explanation: &gt;-
       Direct frequency measurement of airway compromise supporting the OCCASIONAL band.
   - reference: DOI:10.52225/narra.v4i2.776
-    reference_title: &#34;Determinants of mortality in relationship between clinical and laboratory characteristics with the outcomes of children with diphtheria&#34;
+    reference_title: &#34;Determinants of mortality in relationship between clinical and laboratory characteristics with the outcomes of children with diphtheria: A cross-sectional study at a national hospital of Sumatra region in 2020–2023&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -13493,8 +13807,8 @@ phenotypes:
       id: HP:0031417
       label: Rhinorrhea
   evidence:
-  - reference: DOI:10.3201/eid3008.231671
-    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021&#34;
+  - reference: PMID:39043387
+    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     directness: INDIRECT
@@ -13879,7 +14193,7 @@ phenotypes:
     explanation: &gt;-
       Direct frequency measurement of thrombocytopenia supporting the OCCASIONAL band.
   - reference: DOI:10.52225/narra.v4i2.776
-    reference_title: &#34;Determinants of mortality in relationship between clinical and laboratory characteristics with the outcomes of children with diphtheria&#34;
+    reference_title: &#34;Determinants of mortality in relationship between clinical and laboratory characteristics with the outcomes of children with diphtheria: A cross-sectional study at a national hospital of Sumatra region in 2020–2023&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -14203,8 +14517,8 @@ diagnosis:
       detection tests.
     explanation: &gt;-
       Describes the culture-then-toxin-detection sequence this diagnostic entry represents.
-  - reference: DOI:10.3201/eid3008.231671
-    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021&#34;
+  - reference: PMID:39043387
+    reference_title: &#34;Retrospective Study of Infections with Corynebacterium diphtheriae Species Complex, French Guiana, 2016-2021.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -14763,7 +15077,7 @@ notes: &gt;-
 
 
   No prevalence record is curated for the French Guiana incidence series
-  (DOI:10.3201/eid3008.231671), although the paper is cited elsewhere in this entry. Its
+  (PMID:39043387), although the paper is cited elsewhere in this entry. Its
   rise from 0.7 to 7.7 cases per 100,000 per year is an occurrence rate for
   Corynebacterium diphtheriae species complex *infection*: 95% of those cases were
   cutaneous and every isolate was negative by Elek test, so none of them was toxin-mediated
@@ -14840,6 +15154,25 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Edit: Diphtheria - bind environmental exposures to ECTO, add West Africa outbreak prevalence, wire the beta-lactam node</strong> · 2026-08-30T21:56:40Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Diphtheria/2026-08-30T215640Z-claude-code-380c78.yaml">View source</a></p>
+                        <p class="research-review-text">Review round addressing three items. First and blocking: both environmental exposures were left unbound on a note claiming ECTO&#39;s nearest terms cover only chemical and supplement exposures. That note was wrong. ECTO:3000000 exposure to organism exists, is already in cache/ecto/terms.csv and the exposureterm enum cache, and is already used by 19 KB entries including the Brucellosis livestock exposure, which is the same situation. The earlier search missed it because the label contains no bacterial vocabulary. Both exposures are now bound to ECTO:3000000 with the organism and route carried in preferred_term, the same general-but-accurate-ancestor pattern this entry already uses for the pseudomembrane phenotype, and both notes are corrected. just environmental-term-audit no longer lists this entry as linked-and-unbound. Second, a West and Southern Africa 2023-2024 outbreak prevalence record was added from DOI:10.1186/s12982-024-00352-1, whose cache was empty on the first fetch attempt and populated on a retry. It is recorded as CASES_IN_LITERATURE rather than a rate because the source aggregates suspected cases across five national denominators it does not give. Third, the beta-lactam target node gained a downstream edge to Iron-Regulated Diphtheria Toxin Expression, so it reaches the graph the way its macrolide sibling does; the edge description states the mechanistic difference between the two routes, since a beta-lactam reduces toxin output only by reducing the number of producers while a ribosome inhibitor suppresses synthesis in living cells. One reference_title was again written from the deep-research report&#39;s paraphrase and was caught by scripts/check_reference_titles.py before pushing; it now carries the cached title. All 142 evidence snippets re-verified as exact substrings.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Diphtheria (MONDO:0005504)</strong> · 2026-08-28T22:39:34Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Diphtheria/2026-08-28T223934Z-claude-code-d2fdbb.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of diphtheria as a single Disease entry with anatomical has_subtypes (faucial, laryngeal, anterior nasal, nasopharyngeal, cutaneous), following the CURATE_ROOT_WITH_SUBTYPES guidance in issue 9042. Concept decision is recorded in the entry notes: all presentations share one conserved pathograph (phage-encoded tox, DtxR-derepressed expression, proHB-EGF binding, endocytosis and catalytic-domain translocation, eEF2 diphthamide ADP-ribosylation, translational arrest and apoptosis) and differ only in colonization site and toxin absorption, so myocarditis, demyelinating neuropathy and acute kidney injury are modelled as downstream pathophysiology and phenotypes rather than as subtypes. Two antibiotic target nodes conform to bacterial_protein_synthesis_inhibition and bacterial_cell_wall_synthesis_inhibition; antitoxin, toxoid vaccination and tracheotomy reach the pathograph via target_mechanisms. Deep research used the falcon (Edison) provider: 760 seconds, 37 citations, reference validation reported 11 of 11 references resolved with no confabulations. preflight-dr returned SKIP because MONDO records no causal gene for an infectious disease, so the manual synonym preflight was used instead. All 105 evidence snippets were independently re-verified as exact substrings of their cached references, and three were corrected to restore exact Unicode and spacing from the source.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -15805,7 +16138,7 @@ Resolving is not the same as being relevant, though - see the references listed 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Diphtheria", "mondoId": "MONDO:0005504", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diphtheria", "yamlRevision": "cf48917a2e3a"};
+        const OS_CONFIG = {"diseaseName": "Diphtheria", "mondoId": "MONDO:0005504", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diphtheria", "yamlRevision": "9f3aa3802962"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

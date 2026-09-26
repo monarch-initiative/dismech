@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 30</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cornelia%20de%20Lange%20Syndrome%205"
@@ -3987,7 +4055,7 @@ Two clinical consequences follow from the gene being on the X chromosome. Affect
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">29</div>
+                <div class="stat-value">30</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4221,6 +4289,7 @@ Two clinical consequences follow from the gene being on the X chromosome. Affect
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4245,6 +4314,7 @@ Two clinical consequences follow from the gene being on the X chromosome. Affect
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4266,6 +4336,7 @@ Two clinical consequences follow from the gene being on the X chromosome. Affect
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4409,6 +4480,7 @@ Two clinical consequences follow from the gene being on the X chromosome. Affect
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4478,6 +4550,7 @@ Two clinical consequences follow from the gene being on the X chromosome. Affect
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4567,6 +4640,7 @@ Two clinical consequences follow from the gene being on the X chromosome. Affect
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4601,6 +4675,7 @@ Two clinical consequences follow from the gene being on the X chromosome. Affect
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hdac8-loss-of-deacetylase-function" data-dismech-node="HDAC8 Loss of Deacetylase Function" data-dismech-type="pathophysiology">
                 <div class="item-name">HDAC8 Loss of Deacetylase Function</div>
+
 
                 <div class="item-desc">HDAC8 is the vertebrate deacetylase for the cohesin subunit SMC3, a zinc-dependent hydrolase acting on the acetyl-lysine mark placed during S phase. The disease alleles remove that activity, either by disrupting substrate binding and catalysis directly or by destabilising the fold.</div>
 
@@ -4653,6 +4728,8 @@ This genetic context concerns HDAC8 (hgnc:13315). hgnc:13315 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4666,6 +4743,9 @@ This genetic context concerns HDAC8 (hgnc:13315). hgnc:13315 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Mostly de novo missense alleles, hemizygous in males and heterozygous in females. Recorded as LOSS_OF_FUNCTION because every missense allele tested lost enzymatic activity; the mechanism is loss of catalysis or of protein stability rather than an altered or acquired activity.</div>
 
@@ -4753,6 +4833,7 @@ This pathophysiological event involves SMC3 lysine deacetylase activity, annotat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4774,6 +4855,7 @@ This pathophysiological event involves SMC3 lysine deacetylase activity, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4799,6 +4881,7 @@ This pathophysiological event involves SMC3 lysine deacetylase activity, annotat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-smc3-acetylation" data-dismech-node="Persistent SMC3 Acetylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent SMC3 Acetylation</div>
+
 
                 <div class="item-desc">SMC3 acetylation is a cell-cycle switch, not a constitutive state: it is written in S phase to make chromatin-loaded cohesin cohesive, and erased after the ring is released so the subunits can be reused. Losing the eraser converts a switch into a one-way mark.</div>
 
@@ -4890,6 +4973,7 @@ This pathophysiological event involves decreased SMC3 deacetylation, annotated w
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4912,6 +4996,7 @@ This pathophysiological event involves decreased SMC3 deacetylation, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cohesin-recycling" data-dismech-node="Failure of Cohesin Recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Cohesin Recycling</div>
+
 
                 <div class="item-desc">The &#39;used&#39; cohesin complex released from chromatin at prophase and anaphase is not dissolved efficiently, and SMC3 that still carries its acetyl mark is nonetheless reloaded onto chromatin. The defect is in the reuse cycle rather than in cohesion itself.</div>
 
@@ -5020,6 +5105,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5042,6 +5128,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-cohesin-occupancy-and-transcriptional-dysregulation" data-dismech-node="Altered Cohesin Occupancy and Transcriptional Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Cohesin Occupancy and Transcriptional Dysregulation</div>
+
 
                 <div class="item-desc">Cohesin occupancy at its normal genomic binding sites falls, and the resulting transcriptional pattern is shared with NIPBL-mutant CdLS cell lines. This shared endpoint is the reason a release-arm lesion and a loading-arm lesion produce overlapping diseases, and it is the point at which this entry&#39;s mechanism rejoins the rest of the cohesinopathy spectrum.</div>
 
@@ -5175,6 +5262,7 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5197,6 +5285,7 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepression-of-cranial-neural-crest-patterning-genes" data-dismech-node="Derepression of Cranial Neural Crest Patterning Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepression of Cranial Neural Crest Patterning Genes</div>
+
 
                 <div class="item-desc">Model-derived, and the only part of the transcription-to-phenotype step that has been resolved. In mouse, HDAC8 represses homeobox transcription factors including Otx2 and Lhx1 in cranial neural crest cells; deleting Hdac8 derepresses them and the skull fails to pattern correctly. Deleting it only in cranial neural crest phenocopies the global knockout, which is what localises the lesion to that cell population rather than to the skeleton itself. No equivalent human experiment exists, so this node describes a mouse mechanism proposed for the human craniofacial phenotype.
 On the cell-type binding: CL:0000008 (migratory cranial neural crest cell) was considered and not used. The mouse work deletes Hdac8 in the cranial neural crest lineage and reads out skull patterning; it does not establish that the affected population is specifically the migratory one, so that term would assert a developmental stage the source does not.</div>
@@ -5414,6 +5503,7 @@ This pathophysiological event involves dysregulated neural crest cell differenti
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5436,6 +5526,7 @@ This pathophysiological event involves dysregulated neural crest cell differenti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-embryonic-growth-and-patterning" data-dismech-node="Disrupted Embryonic Growth and Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Embryonic Growth and Patterning</div>
+
 
                 <div class="item-desc">The developmental endpoint, expressed as prenatal-onset growth failure, a distinctive craniofacial configuration, limb involvement and intellectual disability. In the HDAC8 form the craniofacial pattern is recognisably CdLS but shifted, which is why the diagnosis is often reached by sequencing rather than by examination.</div>
 
@@ -5675,6 +5766,7 @@ This pathophysiological event involves dysregulated embryo development (GO:00097
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5696,6 +5788,7 @@ This pathophysiological event involves dysregulated embryo development (GO:00097
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5744,7 +5837,7 @@ This pathophysiological event involves dysregulated embryo development (GO:00097
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of the dentition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies, the fifth of the discriminating features. Curated at the general dentition term because the cohort paper names the category rather than a specific anomaly.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Altered Cohesin Occupancy and Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cohesin occupancy at its normal genomic binding sites falls, and the resulting transcriptional pattern is shared with NIPBL-mutant CdLS cell lines. This shared endpoint is the reason a release-arm lesion and a loading-arm lesion produce overlapping diseases, and it is the point at which this entry\u0027s mechanism rejoins the rest of the cohesinopathy spectrum.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\", \"chromatin organization\"]}}, {\"id\": \"Anteverted nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the shared short-nose configuration. Note that the HDAC8 form tends toward a broader nose than classic CdLS, so this feature is shared while its shape is shifted.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic behaviours co-occur with self-injury across the CdLS spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Congenital heart disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart disease is among the frequent spectrum findings, and it is the one with management consequences: GeneReviews asks for preoperative cardiac evaluation before any surgery.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cranial neural crest conditional Hdac8 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Deleting Hdac8 only in cranial neural crest phenocopies the global knockout\u0027s skull defect. This is the experiment that localises the pathogenesis to that cell population rather than to the developing bone.\"}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes, one of the frequent findings in affected males.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed anterior fontanelle closure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A large or late-closing anterior fontanelle. Like hypertelorism, this is a discriminating feature rather than a shared CdLS one, and it is the other feature named in the cohort paper\u0027s title.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001476\"}}, {\"id\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Model-derived, and the only part of the transcription-to-phenotype step that has been resolved. In mouse, HDAC8 represses homeobox transcription factors including Otx2 and Lhx1 in cranial neural crest cells; deleting Hdac8 derepresses them and the skull fails to pattern correctly. Deleting it only in cranial neural crest phenocopies the global knockout, which is what localises the lesion to that cell population rather than to the skeleton itself. No equivalent human experiment exists, so this node describes a mouse mechanism proposed for the human craniofacial phenotype.\\nOn the cell-type binding: CL:0000008 (migratory cranial neural crest cell) was considered and not used. The mouse work deletes Hdac8 in the cranial neural crest lineage and reads out skull patterning; it does not establish that the affected population is specifically the migratory one, so that term would assert a developmental stage the source does not.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cranial neural crest cell\"], \"biological_processes\": [\"negative regulation of DNA-templated transcription\", \"neural crest cell differentiation\"], \"animal_models\": [{\"name\": \"Hdac8-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Hdac8 global knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is where this node comes from: loss of Hdac8 derepresses Otx2 and Lhx1 in cranial neural crest.\"}, {\"name\": \"Cranial neural crest conditional Hdac8 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cranial neural crest-specific conditional Hdac8 deletion\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"A cell-type-restricted perturbation used to assign the skull phenotype to cranial neural crest.\"}]}}, {\"id\": \"Disrupted Embryonic Growth and Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The developmental endpoint, expressed as prenatal-onset growth failure, a distinctive craniofacial configuration, limb involvement and intellectual disability. In the HDAC8 form the craniofacial pattern is recognisably CdLS but shifted, which is why the diagnosis is often reached by sequencing rather than by examination.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"embryo development\"], \"animal_models\": [{\"name\": \"Hdac8-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Hdac8 global knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces the craniofacial arm of the phenotype and nothing else.\"}]}}, {\"id\": \"Failure of Cohesin Recycling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The \u0027used\u0027 cohesin complex released from chromatin at prophase and anaphase is not dissolved efficiently, and SMC3 that still carries its acetyl mark is nonetheless reloaded onto chromatin. The defect is in the reuse cycle rather than in cohesion itself.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sister chromatid cohesion\"]}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal dysfunction is a frequent finding and GERD is the specific problem that drives management, up to fundoplication when severe.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Generalized dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in a single individual with a de novo p.Gly210Arg allele and described by the authors as a novel phenotype for CdLS5. Recorded here without a frequency because it rests on one case.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001332\"}}, {\"id\": \"HDAC8 Loss of Deacetylase Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HDAC8 is the vertebrate deacetylase for the cohesin subunit SMC3, a zinc-dependent hydrolase acting on the acetyl-lysine mark placed during S phase. The disease alleles remove that activity, either by disrupting substrate binding and catalysis directly or by destabilising the fold.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"SMC3 lysine deacetylase activity\"], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Mostly de novo missense alleles, hemizygous in males and heterozygous in females. Recorded as LOSS_OF_FUNCTION because every missense allele tested lost enzymatic activity; the mechanism is loss of catalysis or of protein stability rather than an altered or acquired activity.\", \"gene_terms\": [{\"label\": \"HDAC8\", \"id\": \"hgnc:13315\"}]}}}, {\"id\": \"Hdac8-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Global deletion of Hdac8 in mouse is perinatally lethal from skull instability. The model established HDAC8 as a repressor of cranial neural crest patterning genes and is the source of the only mechanistic account of how the transcriptional defect reaches a specific tissue.\"}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A frequent finding, and the reason GeneReviews recommends annual audiology through childhood and adolescence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hooded eyelid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hooding of the eyelids, one of the discriminating craniofacial features of the HDAC8 form. Distinct from ptosis, which is a levator problem rather than a fold of the upper lid.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030820\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular hypertelorism is one of the features that discriminates the HDAC8 form from classic CdLS, and it is named in the title of the defining cohort paper.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypertrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excess body hair, one of the defining features of the CdLS spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000998\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present across the spectrum, with a wide range. GeneReviews reports IQ from below 30 to 102 with a mean of 53 across CdLS as a whole; no HDAC8-specific distribution has been published.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The prenatal half of the growth phenotype. The source describes growth failure as often of prenatal onset, so this is curated separately from the postnatal deficit rather than folded into a single term that would exclude the onset the claim asserts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Long eyelashes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the shared CdLS craniofacial features.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000527\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the frequent findings across the CdLS spectrum. Curated here for consistency with the other phenotypes taken from the same GeneReviews sentence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Nutritional Support and Growth Monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is supportive; there is no treatment directed at the molecular lesion. CdLS-specific growth charts are used, with supplementary formula or gastrostomy feeding when intake is inadequate.\"}, {\"id\": \"Persistent SMC3 Acetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMC3 acetylation is a cell-cycle switch, not a constitutive state: it is written in S phase to make chromatin-loaded cohesin cohesive, and erased after the ring is released so the subunits can be reused. Losing the eraser converts a switch into a one-way mark.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"SMC3 deacetylation\"]}}, {\"id\": \"Postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The postnatal half: height and weight below the fifth centile throughout life. This is the persistent deficit, as distinct from the prenatal onset curated above.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008897\"}}, {\"id\": \"Self-injurious behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-injury and autistic behaviours are frequent across the spectrum, and GeneReviews surveillance is built around monitoring for them.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Synophrys\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meeting of the eyebrows across the midline, one of the classic CdLS craniofacial features that the HDAC8 form shares.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000664\"}}, {\"id\": \"Wide nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broader nose than in classic CdLS. One of the five discriminating features named in the HDAC8 cohort, and the one that pulls in the opposite direction from the shared short-nose configuration curated above.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000445\"}}], \"edges\": [{\"source\": \"HDAC8 Loss of Deacetylase Function\", \"target\": \"Persistent SMC3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With the deacetylase gone, the S-phase acetyl mark on SMC3 is not removed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent SMC3 Acetylation\", \"target\": \"Failure of Cohesin Recycling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reversal of the acetyl mark is the step that licenses a released cohesin ring for reloading, so its failure blocks recycling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Cohesin Recycling\", \"target\": \"Altered Cohesin Occupancy and Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reloading acetylated SMC3 changes where cohesin sits on the genome, and the changed occupancy is read out as changed transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Cohesin Occupancy and Transcriptional Dysregulation\", \"target\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The one developmental programme that has been traced. In mouse, HDAC8 represses a subset of homeobox transcription factors in cranial neural crest cells, and its loss derepresses them. This edge is drawn from mouse data; the corresponding human neural crest experiment has not been done.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Cohesin Occupancy and Transcriptional Dysregulation\", \"target\": \"Disrupted Embryonic Growth and Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"For everything other than the craniofacial skeleton, the step from a genome-wide transcriptional shift to a specific anomaly is not resolved. No study identifies the developmental programmes behind the growth, limb, cardiac or neurobehavioural features, so those intermediates are recorded as unknown rather than asserted.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull and midface patterning, which is the specific arm the mouse neural crest work accounts for. Recorded as INDIRECT_KNOWN_INTERMEDIATES because the intermediate, derepression of the homeobox programme, is identified but only in mouse.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"target\": \"Delayed anterior fontanelle closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull and midface patterning, which is the specific arm the mouse neural crest work accounts for. Recorded as INDIRECT_KNOWN_INTERMEDIATES because the intermediate, derepression of the homeobox programme, is identified but only in mouse.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"target\": \"Wide nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull and midface patterning, which is the specific arm the mouse neural crest work accounts for. Recorded as INDIRECT_KNOWN_INTERMEDIATES because the intermediate, derepression of the homeobox programme, is identified but only in mouse.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"target\": \"Disrupted Embryonic Growth and Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In mouse this produces skull instability severe enough to be perinatally lethal. The inference to the human craniofacial phenotype is the translational step, and it is recorded as a HUMAN_MODEL_MISMATCH discussion rather than asserted.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Hooded eyelid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Synophrys\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Long eyelashes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Anteverted nares\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Abnormality of the dentition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Hypertrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Self-injurious behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Congenital heart disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Generalized dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Nutritional Support and Growth Monitoring\", \"target\": \"Disrupted Embryonic Growth and Patterning\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hdac8-null mouse\", \"target\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model is where this node comes from: loss of Hdac8 derepresses Otx2 and Lhx1 in cranial neural crest.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A constitutive null, whereas most human alleles are missense with residual protein, and it carries no X-inactivation mosaicism, which is the dominant determinant of severity in the heterozygous females who make up most human cases.\"}, {\"source\": \"Hdac8-null mouse\", \"target\": \"Disrupted Embryonic Growth and Patterning\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the craniofacial arm of the phenotype and nothing else.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Perinatal lethality from skull instability is not the human phenotype, which is a dysmorphic but viable skull. The growth, limb, gastrointestinal, behavioural and cognitive features of human CdLS5 cannot be assessed in an animal that does not survive, so the model speaks to one of several affected systems.\"}, {\"source\": \"Cranial neural crest conditional Hdac8 knockout mouse\", \"target\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"A cell-type-restricted perturbation used to assign the skull phenotype to cranial neural crest.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"A conditional null in one lineage answers where, not how much: it says nothing about the graded, partial loss of function produced by human missense alleles, and nothing about the other affected organ systems.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of the dentition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies, the fifth of the discriminating features. Curated at the general dentition term because the cohort paper names the category rather than a specific anomaly.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000164\"}}, {\"id\": \"Altered Cohesin Occupancy and Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cohesin occupancy at its normal genomic binding sites falls, and the resulting transcriptional pattern is shared with NIPBL-mutant CdLS cell lines. This shared endpoint is the reason a release-arm lesion and a loading-arm lesion produce overlapping diseases, and it is the point at which this entry\u0027s mechanism rejoins the rest of the cohesinopathy spectrum.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\", \"chromatin organization\"]}}, {\"id\": \"Anteverted nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the shared short-nose configuration. Note that the HDAC8 form tends toward a broader nose than classic CdLS, so this feature is shared while its shape is shifted.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic behaviours co-occur with self-injury across the CdLS spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Congenital heart disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart disease is among the frequent spectrum findings, and it is the one with management consequences: GeneReviews asks for preoperative cardiac evaluation before any surgery.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cranial neural crest conditional Hdac8 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Deleting Hdac8 only in cranial neural crest phenocopies the global knockout\u0027s skull defect. This is the experiment that localises the pathogenesis to that cell population rather than to the developing bone.\"}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes, one of the frequent findings in affected males.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed anterior fontanelle closure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A large or late-closing anterior fontanelle. Like hypertelorism, this is a discriminating feature rather than a shared CdLS one, and it is the other feature named in the cohort paper\u0027s title.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001476\"}}, {\"id\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Model-derived, and the only part of the transcription-to-phenotype step that has been resolved. In mouse, HDAC8 represses homeobox transcription factors including Otx2 and Lhx1 in cranial neural crest cells; deleting Hdac8 derepresses them and the skull fails to pattern correctly. Deleting it only in cranial neural crest phenocopies the global knockout, which is what localises the lesion to that cell population rather than to the skeleton itself. No equivalent human experiment exists, so this node describes a mouse mechanism proposed for the human craniofacial phenotype.\\nOn the cell-type binding: CL:0000008 (migratory cranial neural crest cell) was considered and not used. The mouse work deletes Hdac8 in the cranial neural crest lineage and reads out skull patterning; it does not establish that the affected population is specifically the migratory one, so that term would assert a developmental stage the source does not.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cranial neural crest cell\"], \"biological_processes\": [\"negative regulation of DNA-templated transcription\", \"neural crest cell differentiation\"], \"animal_models\": [{\"name\": \"Hdac8-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Hdac8 global knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The model is where this node comes from: loss of Hdac8 derepresses Otx2 and Lhx1 in cranial neural crest.\"}, {\"name\": \"Cranial neural crest conditional Hdac8 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cranial neural crest-specific conditional Hdac8 deletion\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"A cell-type-restricted perturbation used to assign the skull phenotype to cranial neural crest.\"}]}}, {\"id\": \"Disrupted Embryonic Growth and Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The developmental endpoint, expressed as prenatal-onset growth failure, a distinctive craniofacial configuration, limb involvement and intellectual disability. In the HDAC8 form the craniofacial pattern is recognisably CdLS but shifted, which is why the diagnosis is often reached by sequencing rather than by examination.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"embryo development\"], \"animal_models\": [{\"name\": \"Hdac8-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Hdac8 global knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces the craniofacial arm of the phenotype and nothing else.\"}]}}, {\"id\": \"Failure of Cohesin Recycling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The \u0027used\u0027 cohesin complex released from chromatin at prophase and anaphase is not dissolved efficiently, and SMC3 that still carries its acetyl mark is nonetheless reloaded onto chromatin. The defect is in the reuse cycle rather than in cohesion itself.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sister chromatid cohesion\"]}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal dysfunction is a frequent finding and GERD is the specific problem that drives management, up to fundoplication when severe.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Generalized dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in a single individual with a de novo p.Gly210Arg allele and described by the authors as a novel phenotype for CdLS5. Recorded here without a frequency because it rests on one case.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001332\"}}, {\"id\": \"HDAC8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HDAC8\"], \"gene_terms\": [{\"label\": \"HDAC8\", \"id\": \"hgnc:13315\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HDAC8 Loss of Deacetylase Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HDAC8 is the vertebrate deacetylase for the cohesin subunit SMC3, a zinc-dependent hydrolase acting on the acetyl-lysine mark placed during S phase. The disease alleles remove that activity, either by disrupting substrate binding and catalysis directly or by destabilising the fold.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"SMC3 lysine deacetylase activity\"], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Mostly de novo missense alleles, hemizygous in males and heterozygous in females. Recorded as LOSS_OF_FUNCTION because every missense allele tested lost enzymatic activity; the mechanism is loss of catalysis or of protein stability rather than an altered or acquired activity.\", \"gene_terms\": [{\"label\": \"HDAC8\", \"id\": \"hgnc:13315\"}]}}}, {\"id\": \"Hdac8-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Global deletion of Hdac8 in mouse is perinatally lethal from skull instability. The model established HDAC8 as a repressor of cranial neural crest patterning genes and is the source of the only mechanistic account of how the transcriptional defect reaches a specific tissue.\"}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A frequent finding, and the reason GeneReviews recommends annual audiology through childhood and adolescence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hooded eyelid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hooding of the eyelids, one of the discriminating craniofacial features of the HDAC8 form. Distinct from ptosis, which is a levator problem rather than a fold of the upper lid.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030820\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular hypertelorism is one of the features that discriminates the HDAC8 form from classic CdLS, and it is named in the title of the defining cohort paper.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypertrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excess body hair, one of the defining features of the CdLS spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000998\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present across the spectrum, with a wide range. GeneReviews reports IQ from below 30 to 102 with a mean of 53 across CdLS as a whole; no HDAC8-specific distribution has been published.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The prenatal half of the growth phenotype. The source describes growth failure as often of prenatal onset, so this is curated separately from the postnatal deficit rather than folded into a single term that would exclude the onset the claim asserts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001511\"}}, {\"id\": \"Long eyelashes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the shared CdLS craniofacial features.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000527\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the frequent findings across the CdLS spectrum. Curated here for consistency with the other phenotypes taken from the same GeneReviews sentence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Nutritional Support and Growth Monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is supportive; there is no treatment directed at the molecular lesion. CdLS-specific growth charts are used, with supplementary formula or gastrostomy feeding when intake is inadequate.\"}, {\"id\": \"Persistent SMC3 Acetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMC3 acetylation is a cell-cycle switch, not a constitutive state: it is written in S phase to make chromatin-loaded cohesin cohesive, and erased after the ring is released so the subunits can be reused. Losing the eraser converts a switch into a one-way mark.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"SMC3 deacetylation\"]}}, {\"id\": \"Postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The postnatal half: height and weight below the fifth centile throughout life. This is the persistent deficit, as distinct from the prenatal onset curated above.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008897\"}}, {\"id\": \"Self-injurious behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-injury and autistic behaviours are frequent across the spectrum, and GeneReviews surveillance is built around monitoring for them.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Synophrys\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meeting of the eyebrows across the midline, one of the classic CdLS craniofacial features that the HDAC8 form shares.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000664\"}}, {\"id\": \"Wide nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broader nose than in classic CdLS. One of the five discriminating features named in the HDAC8 cohort, and the one that pulls in the opposite direction from the shared short-nose configuration curated above.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000445\"}}], \"edges\": [{\"source\": \"HDAC8 Loss of Deacetylase Function\", \"target\": \"Persistent SMC3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With the deacetylase gone, the S-phase acetyl mark on SMC3 is not removed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent SMC3 Acetylation\", \"target\": \"Failure of Cohesin Recycling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reversal of the acetyl mark is the step that licenses a released cohesin ring for reloading, so its failure blocks recycling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Cohesin Recycling\", \"target\": \"Altered Cohesin Occupancy and Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reloading acetylated SMC3 changes where cohesin sits on the genome, and the changed occupancy is read out as changed transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Cohesin Occupancy and Transcriptional Dysregulation\", \"target\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The one developmental programme that has been traced. In mouse, HDAC8 represses a subset of homeobox transcription factors in cranial neural crest cells, and its loss derepresses them. This edge is drawn from mouse data; the corresponding human neural crest experiment has not been done.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Cohesin Occupancy and Transcriptional Dysregulation\", \"target\": \"Disrupted Embryonic Growth and Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"For everything other than the craniofacial skeleton, the step from a genome-wide transcriptional shift to a specific anomaly is not resolved. No study identifies the developmental programmes behind the growth, limb, cardiac or neurobehavioural features, so those intermediates are recorded as unknown rather than asserted.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull and midface patterning, which is the specific arm the mouse neural crest work accounts for. Recorded as INDIRECT_KNOWN_INTERMEDIATES because the intermediate, derepression of the homeobox programme, is identified but only in mouse.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"target\": \"Delayed anterior fontanelle closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull and midface patterning, which is the specific arm the mouse neural crest work accounts for. Recorded as INDIRECT_KNOWN_INTERMEDIATES because the intermediate, derepression of the homeobox programme, is identified but only in mouse.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"target\": \"Wide nose\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull and midface patterning, which is the specific arm the mouse neural crest work accounts for. Recorded as INDIRECT_KNOWN_INTERMEDIATES because the intermediate, derepression of the homeobox programme, is identified but only in mouse.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"target\": \"Disrupted Embryonic Growth and Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In mouse this produces skull instability severe enough to be perinatally lethal. The inference to the human craniofacial phenotype is the translational step, and it is recorded as a HUMAN_MODEL_MISMATCH discussion rather than asserted.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Hooded eyelid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Synophrys\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Long eyelashes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Anteverted nares\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Abnormality of the dentition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Hypertrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Self-injurious behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Congenital heart disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Embryonic Growth and Patterning\", \"target\": \"Generalized dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Part of the multisystem developmental phenotype. The intermediates between the transcriptional defect and this specific feature are not identified in any source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Nutritional Support and Growth Monitoring\", \"target\": \"Disrupted Embryonic Growth and Patterning\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hdac8-null mouse\", \"target\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model is where this node comes from: loss of Hdac8 derepresses Otx2 and Lhx1 in cranial neural crest.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A constitutive null, whereas most human alleles are missense with residual protein, and it carries no X-inactivation mosaicism, which is the dominant determinant of severity in the heterozygous females who make up most human cases.\"}, {\"source\": \"Hdac8-null mouse\", \"target\": \"Disrupted Embryonic Growth and Patterning\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the craniofacial arm of the phenotype and nothing else.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Perinatal lethality from skull instability is not the human phenotype, which is a dysmorphic but viable skull. The growth, limb, gastrointestinal, behavioural and cognitive features of human CdLS5 cannot be assessed in an animal that does not survive, so the model speaks to one of several affected systems.\"}, {\"source\": \"Cranial neural crest conditional Hdac8 knockout mouse\", \"target\": \"Derepression of Cranial Neural Crest Patterning Genes\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"A cell-type-restricted perturbation used to assign the skull phenotype to cranial neural crest.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"A conditional null in one lineage answers where, not how much: it says nothing about the graded, partial loss of function produced by human missense alleles, and nothing about the other affected organ systems.\"}, {\"source\": \"HDAC8\", \"target\": \"HDAC8 Loss of Deacetylase Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5773,15 +5866,13 @@ This pathophysiological event involves dysregulated embryo development (GO:00097
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Integument<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5826,6 +5917,9 @@ This clinical feature is Congenital heart disease, annotated with Abnormal heart
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5840,6 +5934,7 @@ This clinical feature is Congenital heart disease, annotated with Abnormal heart
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5905,6 +6000,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5919,6 +6017,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5984,6 +6083,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5998,6 +6100,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6063,6 +6166,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6077,6 +6183,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6133,6 +6240,9 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6147,6 +6257,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6212,6 +6323,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6226,6 +6340,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6258,12 +6373,88 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anteverted-nares" data-dismech-node="Anteverted nares" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-anterior-fontanelle-closure" data-dismech-node="Delayed anterior fontanelle closure" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Anteverted nares
+                        Delayed anterior fontanelle closure
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Delayed closure of the anterior fontanelle</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001476" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001476</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed anterior fontanelle closure, annotated with Delayed closure of the anterior fontanelle (HP:0001476). HP:0001476 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24403048" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24403048" target="_blank">PMID:24403048</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The craniofacial appearance caused by HDAC8 mutations overlaps that of typical CdLS but often displays delayed anterior fontanelle closure, ocular hypertelorism, hooding of the eyelids, a broader nose and dental anomalies, which may be useful discriminating features."</div>
+
+
+                <div class="evidence-explanation">Names delayed anterior fontanelle closure as a discriminating feature of the HDAC8 form.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hooded-eyelid" data-dismech-node="Hooded eyelid" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hooded eyelid
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -6277,15 +6468,92 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030820" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030820</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hooding of the eyelids, annotated with Hooded eyelid (HP:0030820). HP:0030820 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24403048" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24403048" target="_blank">PMID:24403048</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The craniofacial appearance caused by HDAC8 mutations overlaps that of typical CdLS but often displays delayed anterior fontanelle closure, ocular hypertelorism, hooding of the eyelids, a broader nose and dental anomalies, which may be useful discriminating features."</div>
+
+
+                <div class="evidence-explanation">Names eyelid hooding among the discriminating craniofacial features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-synophrys" data-dismech-node="Synophrys" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Synophrys
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000664</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -6308,6 +6576,155 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Craniofacial features include synophrys, highly arched and/or thick eyebrows, long eyelashes, short nose with depressed nasal bridge and anteverted nares, small, widely spaced teeth, and microbrachycephaly."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews craniofacial list for the CdLS spectrum, of which the HDAC8 form is part. Frequency is set from the spectrum description rather than from an HDAC8-specific count.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-long-eyelashes" data-dismech-node="Long eyelashes" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Long eyelashes
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000527</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long eyelashes (HP:0000527). HP:0000527 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301283" target="_blank">PMID:20301283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Craniofacial features include synophrys, highly arched and/or thick eyebrows, long eyelashes, short nose with depressed nasal bridge and anteverted nares, small, widely spaced teeth, and microbrachycephaly."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews craniofacial list, which includes long eyelashes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anteverted-nares" data-dismech-node="Anteverted nares" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anteverted nares
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000463</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301283" target="_blank">PMID:20301283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6316,6 +6733,80 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
                 <div class="evidence-explanation">The GeneReviews craniofacial list, which includes anteverted nares.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nose" data-dismech-node="Wide nose" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Wide nose
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000445</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broader nose, annotated with Wide nose (HP:0000445). HP:0000445 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24403048" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24403048" target="_blank">PMID:24403048</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The craniofacial appearance caused by HDAC8 mutations overlaps that of typical CdLS but often displays delayed anterior fontanelle closure, ocular hypertelorism, hooding of the eyelids, a broader nose and dental anomalies, which may be useful discriminating features."</div>
+
+
+                <div class="evidence-explanation">Names a broader nose among the discriminating features of the HDAC8 form.</div>
 
 
 
@@ -6347,15 +6838,18 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000164</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000164</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dental anomalies, annotated with Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6375,6 +6869,7 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6426,15 +6921,18 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000998</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000998</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6454,6 +6952,7 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6505,15 +7004,18 @@ This clinical feature is Hypertrichosis (HP:0000998). HP:0000998 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6533,6 +7035,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6575,15 +7078,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0100716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6603,6 +7109,7 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6645,15 +7152,18 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6673,6 +7183,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6713,15 +7224,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized dystonia, annotated with Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6741,6 +7255,7 @@ This clinical feature is Generalized dystonia, annotated with Dystonia (HP:00013
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6765,6 +7280,7 @@ This clinical feature is Generalized dystonia, annotated with Dystonia (HP:00013
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6816,15 +7332,18 @@ This clinical feature is Generalized dystonia, annotated with Dystonia (HP:00013
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001511</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001511</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Prenatal-onset growth failure, annotated with Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6844,6 +7363,7 @@ This clinical feature is Prenatal-onset growth failure, annotated with Intrauter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6886,15 +7406,18 @@ This clinical feature is Prenatal-onset growth failure, annotated with Intrauter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0008897</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0008897</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6914,6 +7437,7 @@ This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6925,367 +7449,6 @@ This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 i
 
 
                 <div class="evidence-explanation">Gives the centile and its persistence through life, which is the postnatal claim.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-anterior-fontanelle-closure" data-dismech-node="Delayed anterior fontanelle closure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed anterior fontanelle closure
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Delayed closure of the anterior fontanelle</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001476" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001476</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed anterior fontanelle closure, annotated with Delayed closure of the anterior fontanelle (HP:0001476). HP:0001476 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24403048" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24403048" target="_blank">PMID:24403048</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The craniofacial appearance caused by HDAC8 mutations overlaps that of typical CdLS but often displays delayed anterior fontanelle closure, ocular hypertelorism, hooding of the eyelids, a broader nose and dental anomalies, which may be useful discriminating features."</div>
-
-
-                <div class="evidence-explanation">Names delayed anterior fontanelle closure as a discriminating feature of the HDAC8 form.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hooded-eyelid" data-dismech-node="Hooded eyelid" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hooded eyelid
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030820" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0030820</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hooding of the eyelids, annotated with Hooded eyelid (HP:0030820). HP:0030820 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24403048" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24403048" target="_blank">PMID:24403048</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The craniofacial appearance caused by HDAC8 mutations overlaps that of typical CdLS but often displays delayed anterior fontanelle closure, ocular hypertelorism, hooding of the eyelids, a broader nose and dental anomalies, which may be useful discriminating features."</div>
-
-
-                <div class="evidence-explanation">Names eyelid hooding among the discriminating craniofacial features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-synophrys" data-dismech-node="Synophrys" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Synophrys
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000664</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301283" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301283" target="_blank">PMID:20301283</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Craniofacial features include synophrys, highly arched and/or thick eyebrows, long eyelashes, short nose with depressed nasal bridge and anteverted nares, small, widely spaced teeth, and microbrachycephaly."</div>
-
-
-                <div class="evidence-explanation">The GeneReviews craniofacial list for the CdLS spectrum, of which the HDAC8 form is part. Frequency is set from the spectrum description rather than from an HDAC8-specific count.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-long-eyelashes" data-dismech-node="Long eyelashes" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Long eyelashes
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000527</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Long eyelashes (HP:0000527). HP:0000527 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301283" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301283" target="_blank">PMID:20301283</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Craniofacial features include synophrys, highly arched and/or thick eyebrows, long eyelashes, short nose with depressed nasal bridge and anteverted nares, small, widely spaced teeth, and microbrachycephaly."</div>
-
-
-                <div class="evidence-explanation">The GeneReviews craniofacial list, which includes long eyelashes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nose" data-dismech-node="Wide nose" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Wide nose
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000445</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Broader nose, annotated with Wide nose (HP:0000445). HP:0000445 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24403048" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24403048" target="_blank">PMID:24403048</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The craniofacial appearance caused by HDAC8 mutations overlaps that of typical CdLS but often displays delayed anterior fontanelle closure, ocular hypertelorism, hooding of the eyelids, a broader nose and dental anomalies, which may be useful discriminating features."</div>
-
-
-                <div class="evidence-explanation">Names a broader nose among the discriminating features of the HDAC8 form.</div>
 
 
 
@@ -7375,6 +7538,9 @@ This disease-associated gene is HDAC8 (hgnc:13315). hgnc:13315 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7389,6 +7555,7 @@ This disease-associated gene is HDAC8 (hgnc:13315). hgnc:13315 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7416,6 +7583,7 @@ This disease-associated gene is HDAC8 (hgnc:13315). hgnc:13315 is a gene from th
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7437,6 +7605,7 @@ This disease-associated gene is HDAC8 (hgnc:13315). hgnc:13315 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7523,6 +7692,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7533,6 +7705,9 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
     </div>
+
+
+
 
 
 
@@ -7569,6 +7744,7 @@ This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7645,6 +7821,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7655,6 +7834,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -7682,6 +7864,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7749,6 +7932,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7759,6 +7945,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7786,6 +7975,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7853,6 +8043,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7863,6 +8056,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7893,6 +8089,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7917,6 +8114,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7938,6 +8136,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8015,6 +8214,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8036,6 +8236,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8092,6 +8293,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8166,6 +8368,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8251,6 +8454,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8303,6 +8507,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8430,6 +8635,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8481,6 +8687,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8593,6 +8800,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10059,6 +10267,53 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">This entry follows the series precedent already in the repository: Cornelia_de_Lange_Syndrome_1.yaml (NIPBL) and Cornelia_de_Lange_Syndrome_4.yaml (RAD21) are standalone entries, and the parent Cornelia_de_Lange_Syndrome.yaml carries no has_subtypes block at all, naming HDAC8 only in its genetic section. MONDO:0010471 was unbound anywhere in kb/ before this entry.
+Phenotype baseline. GeneReviews has a CdLS chapter (PMID:20301283) but not an HDAC8-specific one, so the shared craniofacial, growth, behavioural and systemic phenotypes here are taken from the spectrum chapter and the HDAC8-discriminating features from the 38-individual cohort (PMID:24403048). Frequencies for the shared features are therefore spectrum-level, not HDAC8-specific, and the descriptions say so rather than implying a count that nobody has published.
+No limb phenotypes are curated despite limb abnormality being a defining CdLS feature. This was re-examined during review. The deep-research report states that limb reduction defects are &#34;typically ABSENT or mild in HDAC8-CdLS&#34;, citing PMID:24403048 and PMID:30158690. Both are now cached and neither says it: the first names distal limb anomalies as a general CdLS feature, and the second says only that HDAC8 and RAD21 phenotypes &#34;become more variable and sometimes present atypical CdLS features&#34;. So the report&#39;s reason is not supportable from the papers it cites, and this entry does not adopt it. The limb omission therefore stands on the weaker but checkable ground it stood on before: no cached source gives an HDAC8-specific limb frequency, and the spectrum sentence would assert one. Myopia and congenital heart disease, which come from the same GeneReviews sentence as three already-curated phenotypes, have now been added, so the spectrum-level policy is applied consistently within that sentence.
+Deep research. An openscientist report is committed alongside this entry, with 18 of 18 citations verified and no confabulated identifiers. It earned its keep twice: it surfaced the Hdac8 mouse work (PMID:19605684) that supplies the only resolved step between the transcriptional defect and a specific tissue, and it surfaced the HDAC8 cohort paper reporting maternal mosaicism (PMID:26671848), which changes what genetic counselling can say about recurrence. Its term validation flagged seven label mismatches; on inspection those were table-cell contents rather than proposed labels, but it also correctly flagged GO:0016575 as obsolete, and that term is not used here. Every snippet in this entry comes from the cached reference text rather than from the report.
+The report proposed a DNA-methylation episignature as a diagnostic adjunct (PMID:38751117). That is not curated here: the cited paper is about neurodevelopmental disorders in general and its cached abstract makes no CdLS5-specific claim, so citing it for a CdLS5 episignature would overstate it.
+No datasets block. HDAC8 expression datasets in public repositories are dominated by cancer studies, where HDAC8 is an inhibitor target; none concerns this disease. That is the gene-symbol Named Entity Confusion case the dataset-curation guidance warns about.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: three term rebindings, connect phenotypes, four added phenotypes</strong> · 2026-09-07T18:41:47Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cornelia_de_Lange_Syndrome_5/2026-09-07T184147Z-claude-code-399a36.yaml">View source</a></p>
+                        <p class="research-review-text">Addresses the ai4c-reviewer REQUEST_CHANGES on PR #11380. All seven blocking findings applied, plus a reasoned decline on one suggestion. Every proposed term was verified against OLS before rebinding.
+
+Finding 1: Delayed anterior fontanelle closure rebound from HP:0000270 (Delayed cranial suture closure) to HP:0001476 (Delayed closure of the anterior fontanelle). Sutures and fontanelles are different structures.
+
+Finding 2, the most serious: Hooding of the eyelids was bound to HP:0000508 (Ptosis) with a description asserting Ptosis was the closest available HPO concept. HP:0030820 (Hooded eyelid) exists. Rebound, and the false rationale removed rather than softened. Ptosis is levator dysfunction; eyelid hooding is a fold of the upper lid.
+
+Finding 3: Growth failure was bound to HP:0008897 (Postnatal growth retardation) while its description and snippet both asserted prenatal onset. Split into two phenotypes rather than rebound, since the quoted sentence supports both: Intrauterine growth retardation (HP:0001511) at FREQUENT, because the source says growth failure is often of prenatal onset rather than always, and Postnatal growth retardation at VERY_FREQUENT for the lifelong sub-fifth-centile deficit.
+
+Finding 4: all phenotypes were orphan nodes. Added downstream edges from the cranial neural crest node to the three skull and midface phenotypes it actually accounts for, as INDIRECT_KNOWN_INTERMEDIATES since the intermediate is identified but only in mouse, and from the organism-level node to the remaining seventeen as INDIRECT_UNKNOWN_INTERMEDIATES. Verified programmatically: 20 of 20 phenotypes connected, no dangling targets.
+
+Finding 5: added Wide nose (HP:0000445) and Abnormality of the dentition (HP:0000164), the two discriminating features named in a snippet already in the file.
+
+Finding 6, spectrum-level policy consistency: added Myopia (HP:0000545) and Congenital heart disease (HP:0001627) from the same GeneReviews sentence that already supplied three curated phenotypes. The reviewer suggested adopting the deep-research report&#39;s stronger reason for the limb omission, that limb defects are typically absent or mild in HDAC8-CdLS. That was checked and not adopted: PMID:30158690 was fetched for the purpose, and neither it nor PMID:24403048 states it. The second says only that HDAC8 and RAD21 phenotypes become more variable and sometimes atypical. The notes now record what was checked and what the papers actually say, and the limb omission stands on the checkable ground rather than the report&#39;s.
+
+Finding 7: node 1 rebound from GO:0004407 (histone deacetylase activity) to GO:0033558 (protein lysine deacetylase activity), since the entry&#39;s whole thesis is that the substrate is the non-histone cohesin subunit SMC3. The now-unused GO:0004407 cache rows, which this PR had introduced, were removed rather than left behind.
+
+Declined with a reason recorded in the node description: CL:0000008 (migratory cranial neural crest cell). The mouse work deletes Hdac8 in the cranial neural crest lineage and reads out skull patterning; it does not establish that the affected population is specifically the migratory one.
+
+Validated: just validate (60/60 snippets), just validate-disorders, check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence, check-term-cache-integrity, check-cache-order.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Cornelia de Lange Syndrome 5 (HDAC8-related)</strong> · 2026-09-07T17:55:47Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cornelia_de_Lange_Syndrome_5/2026-09-07T175547Z-claude-code-ba30f0.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MONDO:0010471 (Cornelia de Lange syndrome 5), the X-linked HDAC8 form of the cohesinopathy spectrum. Follows the series precedent already in the repository: CdLS1 (NIPBL) and CdLS4 (RAD21) are standalone entries and the parent CdLS entry has no has_subtypes block, so MONDO:0010471 was unbound anywhere in kb/ before this. Pathophysiology is a causal chain from loss of SMC3 deacetylase activity through persistent SMC3 acetylation, failed cohesin recycling and altered cohesin occupancy to the developmental phenotype, with the mouse-derived cranial neural crest branch curated separately and labelled as such. 55 evidence snippets, all exact-quote verified. GeneReviews baseline used: the CdLS chapter PMID:20301283, tagged; there is no HDAC8-specific chapter, so shared phenotype frequencies are spectrum-level and the entry says so. Deep research: one openscientist run, committed, 18/18 citations verified. It surfaced two references the manual search missed, the Hdac8 mouse skull/neural-crest work (PMID:19605684) and the HDAC8 cohort reporting maternal mosaicism (PMID:26671848). Its term validation correctly flagged GO:0016575 as obsolete; that term is not used. An episignature diagnostic the report proposed was deliberately not curated because the cited paper makes no CdLS5-specific claim. Validated with just validate, check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms and the four snippet gates, all passing.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

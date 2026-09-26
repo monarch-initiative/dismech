@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4329,6 +4397,7 @@ Two clinical poles have been described from a total of seven patients. The sever
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4433,6 +4502,7 @@ This entry quotes the 2023 series&#39; summary of the challenge rather than the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4457,6 +4527,7 @@ This entry quotes the 2023 series&#39; summary of the challenge rather than the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4478,6 +4549,7 @@ This entry quotes the 2023 series&#39; summary of the challenge rather than the 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4563,6 +4635,7 @@ What is missing is a graded series. Titrating PTCD3 in one cell background and m
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4584,6 +4657,7 @@ What is missing is a graded series. Titrating PTCD3 in one cell background and m
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4666,6 +4740,7 @@ The gap this leaves is a measurement gap. Basal respiration is being used as sup
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4752,6 +4827,7 @@ This is recorded as a gap rather than a controversy because no source argues the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4835,6 +4911,7 @@ What would resolve it is a hypomorphic mammalian allele - a knock-in of one of t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4856,6 +4933,7 @@ What would resolve it is a hypomorphic mammalian allele - a knock-in of one of t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4893,6 +4971,13 @@ What would resolve it is a hypomorphic mammalian allele - a knock-in of one of t
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ptcd3-variants-disrupting-mrna-processing" data-dismech-node="Biallelic PTCD3 Variants Disrupting mRNA Processing" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PTCD3 Variants Disrupting mRNA Processing</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Germline biallelic PTCD3 variants, most of which act on splicing. Canonical acceptor-site variants, an intronic +4 variant and two exonic variants that read as missense changes all produce exon-skipped transcripts; a frameshift and a nonsense allele complete the reported spectrum. The splice-acting alleles were proven to act that way by minigene assay in HAP1 cells, not inferred from prediction algorithms.</div>
 
@@ -4952,6 +5037,8 @@ This genetic context concerns PTCD3 (hgnc:24717). hgnc:24717 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4962,6 +5049,9 @@ This genetic context concerns PTCD3 (hgnc:24717). hgnc:24717 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Compound heterozygous in six of the seven reported patients, homozygous for the intronic c.538+4A&gt;G allele in the seventh.</div>
 
@@ -5032,6 +5122,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5053,6 +5144,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5078,6 +5170,13 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-ptcd3-protein" data-dismech-node="Depletion of PTCD3 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of PTCD3 Protein</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PTCD3 protein is reduced but, in the patients with a leaky splice allele, not absent - 70% and 85% below control in the two 2023 patients tested. The index patient&#39;s two truncating alleles leave it nearly absent. This quantitative difference is the residual-function hypothesis the field currently uses to explain why some patients die in infancy and others reach their thirties.</div>
 
@@ -5167,6 +5266,7 @@ This pathophysiological event involves decreased mRNA binding (GO:0003729). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5189,6 +5289,13 @@ This pathophysiological event involves decreased mRNA binding (GO:0003729). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilization-of-the-mitochondrial-small-ribosomal-subunit" data-dismech-node="Destabilization of the Mitochondrial Small Ribosomal Subunit" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilization of the Mitochondrial Small Ribosomal Subunit</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Quantitative proteomics in the index patient&#39;s fibroblasts showed the small mitoribosomal subunit as a whole is depleted, not just PTCD3. PTCD3 sits at the mRNA entry channel, so its loss removes both a structural component and the site at which mitochondrial mRNA is engaged.</div>
 
@@ -5261,6 +5368,7 @@ This pathophysiological event involves decreased mitochondrial small ribosomal s
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5283,6 +5391,13 @@ This pathophysiological event involves decreased mitochondrial small ribosomal s
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-mrna-translation" data-dismech-node="Impaired Mitochondrial mRNA Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial mRNA Translation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Mitochondrial protein synthesis falls across the board. In patient fibroblasts this was measured directly as a generalized translation defect; the same effect was produced in control cells a decade earlier by knocking PTCD3 down, which establishes the direction of the relationship independently of any patient genotype.</div>
 
@@ -5428,6 +5543,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5450,6 +5566,13 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-synthesis-of-mtdna-encoded-oxphos-subunits" data-dismech-node="Reduced Synthesis of mtDNA-Encoded OXPHOS Subunits" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Synthesis of mtDNA-Encoded OXPHOS Subunits</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Steady-state levels of mtDNA-encoded and mtDNA-dependent respiratory-chain subunits fall. In the 2023 patients this was measured as reduced NDUFB8 (complex I) and MT-CO2 (complex IV) in both, with UQCRC2 (complex III) reduced in one of the two.</div>
 
@@ -5539,6 +5662,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5560,6 +5684,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5585,6 +5710,13 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-respiratory-chain-deficiency-with-complex-ii-spared" data-dismech-node="Combined Respiratory Chain Deficiency with Complex II Spared" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Respiratory Chain Deficiency with Complex II Spared</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The biochemical signature of the disorder, and the reason it is named a &#34;combined&#34; deficiency. Complex I and complex IV activities are reduced in fibroblasts across the reported patients; complex III is reduced in some. Complex V subunit levels were unchanged in the two patients in whom they were measured, and complex II - alone among the five complexes, built entirely from nuclear-encoded subunits - was not reduced and in fact ran slightly above the control range once normalised to citrate synthase.
 The spared complex II is not an incidental negative. It is the finding that points the differential at the translation apparatus rather than at an assembly factor or a structural subunit of one complex, and it is what a curator or clinician should look for in the enzymology report.</div>
@@ -5692,6 +5824,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5713,6 +5846,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5740,6 +5874,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5762,6 +5897,13 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mitochondrial-respiratory-capacity-and-atp-deficit" data-dismech-node="Reduced Mitochondrial Respiratory Capacity and ATP Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Mitochondrial Respiratory Capacity and ATP Deficit</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">High-resolution respirometry in patient fibroblasts shows a modest fall in basal respiration and a marked fall in maximal (uncoupled) respiratory capacity; the index patient also had reduced ATP biosynthesis. Functional complementation with wild-type PTCD3 restored both the subunit levels and the respiratory capacity, which is what makes this a consequence of the PTCD3 lesion rather than a correlate of it.</div>
 
@@ -5865,6 +6007,7 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5887,6 +6030,13 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lactate-and-pyruvate-accumulation" data-dismech-node="Lactate and Pyruvate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lactate and Pyruvate Accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Blocked oxidative disposal of pyruvate shifts it to lactate and to alanine by transamination. Two of the reported patients had high blood lactate, pyruvate, alanine, glycine and glutamine; a third had only mild elevation, and in two others blood lactate was normal - so the finding is characteristic but not obligate, and a normal lactate does not exclude the diagnosis.</div>
 
@@ -5938,6 +6088,7 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5959,6 +6110,7 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5984,6 +6136,13 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subacute-necrotizing-degeneration-of-basal-ganglia-and-thalamus" data-dismech-node="Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus" data-dismech-type="pathophysiology">
                 <div class="item-name">Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The neuropathological substrate of the Leigh and Leigh-like pole. Imaging shows bilateral symmetrical signal change and volume loss in the thalamus and globus pallidus, and in the index patient punctate brainstem lesions with thalamic, caudate and putaminal T2 hyperintensity. One 2024 patient&#39;s repeat MRI showed cystic change, gliosis and volume loss in the posterior putamina, which is the necrotizing character the syndrome is named for.</div>
 
@@ -6102,6 +6261,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6123,6 +6283,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6148,6 +6309,13 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-optic-nerve-degeneration" data-dismech-node="Optic Nerve Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Optic Nerve Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Optic-nerve atrophy is visible on MRI and on fundoscopy and is the single most consistent finding in the disorder, present with nystagmus in six of the seven reported patients and at both clinical poles. The adult siblings are legally blind with only light perception, and both had absent or poorly structured visual evoked potentials.</div>
 
@@ -6254,6 +6422,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6313,6 +6482,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6334,6 +6504,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6379,7 +6550,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic PTCD3 Variants Disrupting mRNA Processing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline biallelic PTCD3 variants, most of which act on splicing. Canonical acceptor-site variants, an intronic +4 variant and two exonic variants that read as missense changes all produce exon-skipped transcripts; a frameshift and a nonsense allele complete the reported spectrum. The splice-acting alleles were proven to act that way by minigene assay in HAP1 cells, not inferred from prediction algorithms.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Compound heterozygous in six of the seven reported patients, homozygous for the intronic c.538+4A\u003eG allele in the seventh.\", \"gene_terms\": [{\"label\": \"PTCD3\", \"id\": \"hgnc:24717\"}]}, \"role\": \"trigger\", \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Combined Respiratory Chain Deficiency with Complex II Spared\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biochemical signature of the disorder, and the reason it is named a \\\"combined\\\" deficiency. Complex I and complex IV activities are reduced in fibroblasts across the reported patients; complex III is reduced in some. Complex V subunit levels were unchanged in the two patients in whom they were measured, and complex II - alone among the five complexes, built entirely from nuclear-encoded subunits - was not reduced and in fact ran slightly above the control range once normalised to citrate synthase.\\nThe spared complex II is not an incidental negative. It is the finding that points the differential at the translation apparatus rather than at an assembly factor or a structural subunit of one complex, and it is what a curator or clinician should look for in the enzymology report.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"oxidative phosphorylation\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Patient-derived fibroblasts with wild-type PTCD3 lentiviral rescue\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Re-expression of wild-type PTCD3 restores the OXPHOS subunit levels and the maximal respiratory capacity that are reduced in the patients\u0027 own cells, with an empty-vector arm as the specificity control. This is what converts the biochemical phenotype from a correlate of the genotype into a consequence of it.\"}]}}, {\"id\": \"Depletion of PTCD3 Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTCD3 protein is reduced but, in the patients with a leaky splice allele, not absent - 70% and 85% below control in the two 2023 patients tested. The index patient\u0027s two truncating alleles leave it nearly absent. This quantitative difference is the residual-function hypothesis the field currently uses to explain why some patients die in infancy and others reach their thirties.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"mRNA binding\"]}}, {\"id\": \"Destabilization of the Mitochondrial Small Ribosomal Subunit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Quantitative proteomics in the index patient\u0027s fibroblasts showed the small mitoribosomal subunit as a whole is depleted, not just PTCD3. PTCD3 sits at the mRNA entry channel, so its loss removes both a structural component and the site at which mitochondrial mRNA is engaged.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of acquired milestones after a period of normal or near-normal early development. This is what makes the disease a Leigh rather than a static encephalopathy, and it is the axis the entry uses to separate the two clinical poles: in the severe pole regression follows a short normal interval and is punctuated by metabolic decompensations, while the adult siblings show only mild cognitive decline after normal early development. Documented in three of the seven published patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Drosophila melanogaster PTCD3 loss-of-function mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only published whole-organism model of PTCD3 loss. The mutant dies during the second larval instar with reduced expression of mitochondrial-function and ribosome-biogenesis genes and, unexpectedly, up-regulated neuronal-development genes. It establishes that the gene is essential for development in an intact animal, which no patient genotype can show, but it cannot model the human disease: every reported human genotype retains some function, and the fly has no basal-ganglia or optic-nerve counterpart to the human lesions.\"}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised dystonia, in the 2023 series present in all three patients and in two of them progressing to severe fixed postures with contractures. It is the movement disorder that follows the basal-ganglia lesion and, in these patients, the proximate cause of the scoliosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor delay from the first months of life in the severe pole, with no acquisition of gross or fine motor milestones in the most affected patients. The 2024 adult siblings are the exception: their early development was normal and they have only mild cognitive decline, which is the clearest separation between the two poles of the disorder.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Mitochondrial mRNA Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial protein synthesis falls across the board. In patient fibroblasts this was measured directly as a generalized translation defect; the same effect was produced in control cells a decade earlier by knocking PTCD3 down, which establishes the direction of the relationship independently of any patient genotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"mitochondrial translation\"], \"animal_models\": [{\"name\": \"Drosophila melanogaster PTCD3 loss-of-function mutant\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Loss-of-function mutant of CG4679, the Drosophila PTCD3 ortholog\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Transcriptional evidence of a coordinated loss of mitochondrial and ribosome-biogenesis gene expression on loss of the PTCD3 ortholog.\"}]}}, {\"id\": \"Lactate and Pyruvate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blocked oxidative disposal of pyruvate shifts it to lactate and to alanine by transamination. Two of the reported patients had high blood lactate, pyruvate, alanine, glycine and glutamine; a third had only mild elevation, and in two others blood lactate was normal - so the finding is characteristic but not obligate, and a normal lactate does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised blood lactate, with pyruvate, alanine, glycine and glutamine elevation, in the patients of the 2023 series; a mild elevation in the adult siblings; and repeatedly normal blood lactate in the youngest 2024 patient, who nonetheless had an MRS lactate peak in the brain. Characteristic but not obligate.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present at both clinical poles and, with nystagmus, the most consistent feature of the disorder. In the index patient it was one of the presenting features alongside low birth weight and psychomotor retardation; in the adult siblings it followed childhood-onset nystagmus and progressed to legal blindness with only light perception.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Optic Nerve Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Optic-nerve atrophy is visible on MRI and on fundoscopy and is the single most consistent finding in the disorder, present with nystagmus in six of the seven reported patients and at both clinical poles. The adult siblings are legally blind with only light perception, and both had absent or poorly structured visual evoked potentials.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"locations\": [\"optic nerve\"]}}, {\"id\": \"PTCD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PTCD3\"], \"gene_terms\": [{\"label\": \"PTCD3\", \"id\": \"hgnc:24717\"}], \"association\": \"PTCD3 (MRPS39, mS39) encodes a pentatricopeptide-repeat RNA-binding protein that forms the mRNA entry channel of the small mitoribosomal subunit. Its function was established a decade before any patient was reported: knockdown in human cells reduced mitochondrial protein synthesis, respiration, and complex III and IV activity without changing mitochondrial mRNA levels, which located it in translation rather than in RNA processing or stability.\\nThe striking feature of the reported allelic spectrum is how many of the pathogenic alleles act through splicing. Of the nine variants published across the three case reports, six alter mRNA processing - two canonical acceptor-site variants, one intronic +4 variant, and two exonic variants initially called variants of uncertain significance that turned out on minigene assay to cause exon skipping. That last pair matters practically: an exonic missense-looking change in PTCD3 cannot be assumed to act as a missense change.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"PTCD3 c.1182T\u003eA (p.Tyr394Ter)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele carried by the adult sibling pair, in trans with the p.His269Tyr missense allele. It removes the C-terminal half of the protein including much of the central fold, so the product cannot be incorporated into the mitoribosome; western blot showed it is not cleared by nonsense-mediated decay.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTCD3 c.1453-1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical acceptor-site variant abolishing the intron 18 splice site, causing exon 19 skipping and a transcript degraded by nonsense-mediated decay. On minigene assay it had the strongest effect of the four variants tested.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTCD3 c.415-2A\u003eG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice acceptor variant, in trans with a frameshift allele in the index patient. Together the two alleles leave the protein nearly absent, which is the genotype the 2023 series proposes as the explanation for that patient\u0027s exceptionally severe course.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTCD3 c.538+4A\u003eG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous intronic variant in a consanguineous family, absent from gnomAD, shown by RT-PCR to cause skipping of the 124 bp exon 7. The only homozygous genotype reported to date.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTCD3 c.902C\u003eT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Initially classified as a variant of uncertain significance because it sits inside exon 12 and reads as a missense change. Minigene assay showed it causes skipping of the exon it sits in, producing a truncating transcript alongside a leaky pool of correctly spliced mRNA.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Patient-derived fibroblasts with wild-type PTCD3 lentiviral rescue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Immortalised fibroblasts from two patients of the 2023 series, with lentiviral re-expression of GFP-tagged wild-type PTCD3 as the rescue arm and an empty vector as the control. Untransduced cells show reduced complex I, III and IV subunits and reduced respiratory capacity; the rescue arm restores both. The same design was used in the founding report on the index patient\u0027s cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:36450274\"}}, {\"id\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-resolution respirometry in patient fibroblasts shows a modest fall in basal respiration and a marked fall in maximal (uncoupled) respiratory capacity; the index patient also had reduced ATP biosynthesis. Functional complementation with wild-type PTCD3 restored both the subunit levels and the respiratory capacity, which is what makes this a consequence of the PTCD3 lesion rather than a correlate of it.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cellular respiration\"]}}, {\"id\": \"Reduced Synthesis of mtDNA-Encoded OXPHOS Subunits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Steady-state levels of mtDNA-encoded and mtDNA-dependent respiratory-chain subunits fall. In the 2023 patients this was measured as reduced NDUFB8 (complex I) and MT-CO2 (complex IV) in both, with UQCRC2 (complex III) reduced in one of the two.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\"]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe thoracolumbar scoliosis in the sibling pair of the 2023 series, appearing in adolescence. Attributed by the reporting authors to their severe dystonia together with their unusually long survival.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neuropathological substrate of the Leigh and Leigh-like pole. Imaging shows bilateral symmetrical signal change and volume loss in the thalamus and globus pallidus, and in the index patient punctate brainstem lesions with thalamic, caudate and putaminal T2 hyperintensity. One 2024 patient\u0027s repeat MRI showed cystic change, gliosis and volume loss in the posterior putamina, which is the necrotizing character the syndrome is named for.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglia\", \"thalamus\", \"brainstem\"]}}], \"edges\": [{\"source\": \"Biallelic PTCD3 Variants Disrupting mRNA Processing\", \"target\": \"Depletion of PTCD3 Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exon-skipped transcripts are either degraded by nonsense-mediated decay or translated into truncated protein that cannot be incorporated into the mitoribosome; either route lowers the amount of functional PTCD3.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of PTCD3 Protein\", \"target\": \"Destabilization of the Mitochondrial Small Ribosomal Subunit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilization of the Mitochondrial Small Ribosomal Subunit\", \"target\": \"Impaired Mitochondrial mRNA Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial mRNA Translation\", \"target\": \"Reduced Synthesis of mtDNA-Encoded OXPHOS Subunits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Only thirteen OXPHOS subunits are made on the mitoribosome; a generalized translation defect under-supplies all of them at once.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Synthesis of mtDNA-Encoded OXPHOS Subunits\", \"target\": \"Combined Respiratory Chain Deficiency with Complex II Spared\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Deficiency with Complex II Spared\", \"target\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"target\": \"Lactate and Pyruvate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"target\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The step from a cell-level bioenergetic deficit to selective necrosis of the basal ganglia and thalamus is the least explained link in the chain. It is the shared final pathway of more than 75 Leigh-syndrome genes, and no PTCD3-specific account of the regional selectivity has been published.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"target\": \"Optic Nerve Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lactate and Pyruvate Accumulation\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Optic Nerve Degeneration\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dystonia\", \"target\": \"Scoliosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The authors attribute the scoliosis in the sibling pair to the severity of the dystonia together with their longer survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Patient-derived fibroblasts with wild-type PTCD3 lentiviral rescue\", \"target\": \"Combined Respiratory Chain Deficiency with Complex II Spared\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Re-expression of wild-type PTCD3 restores the OXPHOS subunit levels and the maximal respiratory capacity that are reduced in the patients\u0027 own cells, with an empty-vector arm as the specificity control. This is what converts the biochemical phenotype from a correlate of the genotype into a consequence of it.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not the tissue in which this disease manifests. In one patient the complex IV deficit disappeared on normalisation to citrate synthase, so the cellular model understates the defect that the brain and optic nerve evidently sustain.\"}, {\"source\": \"Drosophila melanogaster PTCD3 loss-of-function mutant\", \"target\": \"Impaired Mitochondrial mRNA Translation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Transcriptional evidence of a coordinated loss of mitochondrial and ribosome-biogenesis gene expression on loss of the PTCD3 ortholog.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"A null allele in an invertebrate, lethal at the second instar, against a human disease in which every reported genotype retains residual protein. The readout is transcriptomic rather than a direct measurement of mitochondrial protein synthesis, and no respiratory-chain enzymology was reported, so the link to the human translation defect is inferential.\"}, {\"source\": \"PTCD3 c.415-2A\u003eG\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTCD3 c.1453-1G\u003eC\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTCD3 c.902C\u003eT\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTCD3 c.538+4A\u003eG\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTCD3 c.1182T\u003eA (p.Tyr394Ter)\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic PTCD3 Variants Disrupting mRNA Processing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline biallelic PTCD3 variants, most of which act on splicing. Canonical acceptor-site variants, an intronic +4 variant and two exonic variants that read as missense changes all produce exon-skipped transcripts; a frameshift and a nonsense allele complete the reported spectrum. The splice-acting alleles were proven to act that way by minigene assay in HAP1 cells, not inferred from prediction algorithms.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Compound heterozygous in six of the seven reported patients, homozygous for the intronic c.538+4A\u003eG allele in the seventh.\", \"gene_terms\": [{\"label\": \"PTCD3\", \"id\": \"hgnc:24717\"}]}, \"role\": \"trigger\", \"locations\": [\"mitochondrion\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Combined Respiratory Chain Deficiency with Complex II Spared\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The biochemical signature of the disorder, and the reason it is named a \\\"combined\\\" deficiency. Complex I and complex IV activities are reduced in fibroblasts across the reported patients; complex III is reduced in some. Complex V subunit levels were unchanged in the two patients in whom they were measured, and complex II - alone among the five complexes, built entirely from nuclear-encoded subunits - was not reduced and in fact ran slightly above the control range once normalised to citrate synthase.\\nThe spared complex II is not an incidental negative. It is the finding that points the differential at the translation apparatus rather than at an assembly factor or a structural subunit of one complex, and it is what a curator or clinician should look for in the enzymology report.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"oxidative phosphorylation\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Patient-derived fibroblasts with wild-type PTCD3 lentiviral rescue\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Re-expression of wild-type PTCD3 restores the OXPHOS subunit levels and the maximal respiratory capacity that are reduced in the patients\u0027 own cells, with an empty-vector arm as the specificity control. This is what converts the biochemical phenotype from a correlate of the genotype into a consequence of it.\"}]}}, {\"id\": \"Depletion of PTCD3 Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTCD3 protein is reduced but, in the patients with a leaky splice allele, not absent - 70% and 85% below control in the two 2023 patients tested. The index patient\u0027s two truncating alleles leave it nearly absent. This quantitative difference is the residual-function hypothesis the field currently uses to explain why some patients die in infancy and others reach their thirties.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"mRNA binding\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Destabilization of the Mitochondrial Small Ribosomal Subunit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Quantitative proteomics in the index patient\u0027s fibroblasts showed the small mitoribosomal subunit as a whole is depleted, not just PTCD3. PTCD3 sits at the mRNA entry channel, so its loss removes both a structural component and the site at which mitochondrial mRNA is engaged.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of acquired milestones after a period of normal or near-normal early development. This is what makes the disease a Leigh rather than a static encephalopathy, and it is the axis the entry uses to separate the two clinical poles: in the severe pole regression follows a short normal interval and is punctuated by metabolic decompensations, while the adult siblings show only mild cognitive decline after normal early development. Documented in three of the seven published patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Drosophila melanogaster PTCD3 loss-of-function mutant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only published whole-organism model of PTCD3 loss. The mutant dies during the second larval instar with reduced expression of mitochondrial-function and ribosome-biogenesis genes and, unexpectedly, up-regulated neuronal-development genes. It establishes that the gene is essential for development in an intact animal, which no patient genotype can show, but it cannot model the human disease: every reported human genotype retains some function, and the fly has no basal-ganglia or optic-nerve counterpart to the human lesions.\"}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised dystonia, in the 2023 series present in all three patients and in two of them progressing to severe fixed postures with contractures. It is the movement disorder that follows the basal-ganglia lesion and, in these patients, the proximate cause of the scoliosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor delay from the first months of life in the severe pole, with no acquisition of gross or fine motor milestones in the most affected patients. The 2024 adult siblings are the exception: their early development was normal and they have only mild cognitive decline, which is the clearest separation between the two poles of the disorder.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired Mitochondrial mRNA Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial protein synthesis falls across the board. In patient fibroblasts this was measured directly as a generalized translation defect; the same effect was produced in control cells a decade earlier by knocking PTCD3 down, which establishes the direction of the relationship independently of any patient genotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"mitochondrial translation\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Drosophila melanogaster PTCD3 loss-of-function mutant\", \"species\": \"Drosophila melanogaster\", \"genotype\": \"Loss-of-function mutant of CG4679, the Drosophila PTCD3 ortholog\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Transcriptional evidence of a coordinated loss of mitochondrial and ribosome-biogenesis gene expression on loss of the PTCD3 ortholog.\"}]}}, {\"id\": \"Lactate and Pyruvate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blocked oxidative disposal of pyruvate shifts it to lactate and to alanine by transamination. Two of the reported patients had high blood lactate, pyruvate, alanine, glycine and glutamine; a third had only mild elevation, and in two others blood lactate was normal - so the finding is characteristic but not obligate, and a normal lactate does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Lactic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised blood lactate, with pyruvate, alanine, glycine and glutamine elevation, in the patients of the 2023 series; a mild elevation in the adult siblings; and repeatedly normal blood lactate in the youngest 2024 patient, who nonetheless had an MRS lactate peak in the brain. Characteristic but not obligate.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Optic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present at both clinical poles and, with nystagmus, the most consistent feature of the disorder. In the index patient it was one of the presenting features alongside low birth weight and psychomotor retardation; in the adult siblings it followed childhood-onset nystagmus and progressed to legal blindness with only light perception.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"Optic Nerve Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Optic-nerve atrophy is visible on MRI and on fundoscopy and is the single most consistent finding in the disorder, present with nystagmus in six of the seven reported patients and at both clinical poles. The adult siblings are legally blind with only light perception, and both had absent or poorly structured visual evoked potentials.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"locations\": [\"optic nerve\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"PTCD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PTCD3\"], \"gene_terms\": [{\"label\": \"PTCD3\", \"id\": \"hgnc:24717\"}], \"association\": \"PTCD3 (MRPS39, mS39) encodes a pentatricopeptide-repeat RNA-binding protein that forms the mRNA entry channel of the small mitoribosomal subunit. Its function was established a decade before any patient was reported: knockdown in human cells reduced mitochondrial protein synthesis, respiration, and complex III and IV activity without changing mitochondrial mRNA levels, which located it in translation rather than in RNA processing or stability.\\nThe striking feature of the reported allelic spectrum is how many of the pathogenic alleles act through splicing. Of the nine variants published across the three case reports, six alter mRNA processing - two canonical acceptor-site variants, one intronic +4 variant, and two exonic variants initially called variants of uncertain significance that turned out on minigene assay to cause exon skipping. That last pair matters practically: an exonic missense-looking change in PTCD3 cannot be assumed to act as a missense change.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"PTCD3 c.1182T\u003eA (p.Tyr394Ter)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele carried by the adult sibling pair, in trans with the p.His269Tyr missense allele. It removes the C-terminal half of the protein including much of the central fold, so the product cannot be incorporated into the mitoribosome; western blot showed it is not cleared by nonsense-mediated decay.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTCD3 c.1453-1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical acceptor-site variant abolishing the intron 18 splice site, causing exon 19 skipping and a transcript degraded by nonsense-mediated decay. On minigene assay it had the strongest effect of the four variants tested.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTCD3 c.415-2A\u003eG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice acceptor variant, in trans with a frameshift allele in the index patient. Together the two alleles leave the protein nearly absent, which is the genotype the 2023 series proposes as the explanation for that patient\u0027s exceptionally severe course.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTCD3 c.538+4A\u003eG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous intronic variant in a consanguineous family, absent from gnomAD, shown by RT-PCR to cause skipping of the 124 bp exon 7. The only homozygous genotype reported to date.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTCD3 c.902C\u003eT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Initially classified as a variant of uncertain significance because it sits inside exon 12 and reads as a missense change. Minigene assay showed it causes skipping of the exon it sits in, producing a truncating transcript alongside a leaky pool of correctly spliced mRNA.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Patient-derived fibroblasts with wild-type PTCD3 lentiviral rescue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Immortalised fibroblasts from two patients of the 2023 series, with lentiviral re-expression of GFP-tagged wild-type PTCD3 as the rescue arm and an empty vector as the control. Untransduced cells show reduced complex I, III and IV subunits and reduced respiratory capacity; the rescue arm restores both. The same design was used in the founding report on the index patient\u0027s cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:36450274\"}}, {\"id\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-resolution respirometry in patient fibroblasts shows a modest fall in basal respiration and a marked fall in maximal (uncoupled) respiratory capacity; the index patient also had reduced ATP biosynthesis. Functional complementation with wild-type PTCD3 restored both the subunit levels and the respiratory capacity, which is what makes this a consequence of the PTCD3 lesion rather than a correlate of it.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cellular respiration\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Synthesis of mtDNA-Encoded OXPHOS Subunits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Steady-state levels of mtDNA-encoded and mtDNA-dependent respiratory-chain subunits fall. In the 2023 patients this was measured as reduced NDUFB8 (complex I) and MT-CO2 (complex IV) in both, with UQCRC2 (complex III) reduced in one of the two.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe thoracolumbar scoliosis in the sibling pair of the 2023 series, appearing in adolescence. Attributed by the reporting authors to their severe dystonia together with their unusually long survival.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neuropathological substrate of the Leigh and Leigh-like pole. Imaging shows bilateral symmetrical signal change and volume loss in the thalamus and globus pallidus, and in the index patient punctate brainstem lesions with thalamic, caudate and putaminal T2 hyperintensity. One 2024 patient\u0027s repeat MRI showed cystic change, gliosis and volume loss in the posterior putamina, which is the necrotizing character the syndrome is named for.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglia\", \"thalamus\", \"brainstem\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Biallelic PTCD3 Variants Disrupting mRNA Processing\", \"target\": \"Depletion of PTCD3 Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exon-skipped transcripts are either degraded by nonsense-mediated decay or translated into truncated protein that cannot be incorporated into the mitoribosome; either route lowers the amount of functional PTCD3.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of PTCD3 Protein\", \"target\": \"Destabilization of the Mitochondrial Small Ribosomal Subunit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilization of the Mitochondrial Small Ribosomal Subunit\", \"target\": \"Impaired Mitochondrial mRNA Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mitochondrial mRNA Translation\", \"target\": \"Reduced Synthesis of mtDNA-Encoded OXPHOS Subunits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Only thirteen OXPHOS subunits are made on the mitoribosome; a generalized translation defect under-supplies all of them at once.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Synthesis of mtDNA-Encoded OXPHOS Subunits\", \"target\": \"Combined Respiratory Chain Deficiency with Complex II Spared\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Respiratory Chain Deficiency with Complex II Spared\", \"target\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"target\": \"Lactate and Pyruvate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"target\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The step from a cell-level bioenergetic deficit to selective necrosis of the basal ganglia and thalamus is the least explained link in the chain. It is the shared final pathway of more than 75 Leigh-syndrome genes, and no PTCD3-specific account of the regional selectivity has been published.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Mitochondrial Respiratory Capacity and ATP Deficit\", \"target\": \"Optic Nerve Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lactate and Pyruvate Accumulation\", \"target\": \"Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Subacute Necrotizing Degeneration of Basal Ganglia and Thalamus\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Optic Nerve Degeneration\", \"target\": \"Optic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dystonia\", \"target\": \"Scoliosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"The authors attribute the scoliosis in the sibling pair to the severity of the dystonia together with their longer survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Patient-derived fibroblasts with wild-type PTCD3 lentiviral rescue\", \"target\": \"Combined Respiratory Chain Deficiency with Complex II Spared\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Re-expression of wild-type PTCD3 restores the OXPHOS subunit levels and the maximal respiratory capacity that are reduced in the patients\u0027 own cells, with an empty-vector arm as the specificity control. This is what converts the biochemical phenotype from a correlate of the genotype into a consequence of it.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not the tissue in which this disease manifests. In one patient the complex IV deficit disappeared on normalisation to citrate synthase, so the cellular model understates the defect that the brain and optic nerve evidently sustain.\"}, {\"source\": \"Drosophila melanogaster PTCD3 loss-of-function mutant\", \"target\": \"Impaired Mitochondrial mRNA Translation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Transcriptional evidence of a coordinated loss of mitochondrial and ribosome-biogenesis gene expression on loss of the PTCD3 ortholog.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"A null allele in an invertebrate, lethal at the second instar, against a human disease in which every reported genotype retains residual protein. The readout is transcriptomic rather than a direct measurement of mitochondrial protein synthesis, and no respiratory-chain enzymology was reported, so the link to the human translation defect is inferential.\"}, {\"source\": \"PTCD3\", \"target\": \"Biallelic PTCD3 Variants Disrupting mRNA Processing\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTCD3 c.415-2A\u003eG\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTCD3 c.1453-1G\u003eC\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTCD3 c.902C\u003eT\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTCD3 c.538+4A\u003eG\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTCD3 c.1182T\u003eA (p.Tyr394Ter)\", \"target\": \"PTCD3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6408,11 +6579,9 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6473,6 +6642,9 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6487,6 +6659,7 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as course 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6552,6 +6725,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6566,6 +6742,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6590,6 +6767,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6673,6 +6851,9 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6687,6 +6868,7 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6711,6 +6893,7 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6767,6 +6950,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6781,6 +6967,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6805,6 +6992,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6870,6 +7058,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6884,6 +7075,7 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6949,6 +7141,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6963,6 +7158,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7019,6 +7215,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7033,6 +7232,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7065,7 +7265,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="phenotype">
@@ -7116,6 +7316,9 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7130,6 +7333,7 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7154,6 +7358,7 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7210,6 +7415,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7224,6 +7432,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7248,6 +7457,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7320,6 +7530,9 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7343,6 +7556,7 @@ This clinical feature is Dystonia (HP:0001332), qualified as course progressive.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7399,6 +7613,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7413,6 +7630,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7469,6 +7687,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7486,6 +7707,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7494,6 +7716,98 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                 <div class="evidence-explanation">Hyperreflexia in the two adult patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-truncal-ataxia" data-dismech-node="Truncal Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Truncal Ataxia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002078" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002078</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Truncal ataxia (HP:0002078), qualified as course progressive. HP:0002078 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39544688" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39544688" target="_blank">PMID:39544688</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A 34-year-old male and his 33-year-old sister both have horizontal nystagmus, pronounced rough tremor, truncal ataxia, dysmetria, spasticity and hyperreflexia."</div>
+
+
+                <div class="evidence-explanation">The ataxic phenotype of the adult sibling pair.</div>
 
 
 
@@ -7525,15 +7839,18 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001337</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001337</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7556,6 +7873,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7564,6 +7882,107 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                 <div class="evidence-explanation">The tremor in the adult siblings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-polyneuropathy" data-dismech-node="Motor Polyneuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Motor Polyneuropathy
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Peripheral axonal neuropathy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003477</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39544688" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39544688" target="_blank">PMID:39544688</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EEG, echocardiography and hearing tests did not reveal any pathology, but EMG/NCV showed motor polyneuropathy"</div>
+
+
+                <div class="evidence-explanation">The electrophysiological finding in the adult siblings, quoted with the negative studies that accompanied it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36450274" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36450274" target="_blank">PMID:36450274</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At 4 years old, he had a diffuse sensory and motor axonal neuropathy"</div>
+
+
+                <div class="evidence-explanation">An axonal neuropathy in the severe pole as well, so this is not exclusive to the adult phenotype.</div>
 
 
 
@@ -7604,10 +8023,10 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory insufficiency (HP:0002093), qualified as course progressive. HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7636,6 +8055,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093), qualified as co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7650,6 +8072,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093), qualified as co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7677,6 +8100,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093), qualified as co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7685,199 +8109,6 @@ This clinical feature is Respiratory insufficiency (HP:0002093), qualified as co
 
 
                 <div class="evidence-explanation">Recurrence of respiratory insufficiency across the reported severe cases.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-truncal-ataxia" data-dismech-node="Truncal Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Truncal Ataxia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002078" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002078</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Truncal ataxia (HP:0002078), qualified as course progressive. HP:0002078 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39544688" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39544688" target="_blank">PMID:39544688</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A 34-year-old male and his 33-year-old sister both have horizontal nystagmus, pronounced rough tremor, truncal ataxia, dysmetria, spasticity and hyperreflexia."</div>
-
-
-                <div class="evidence-explanation">The ataxic phenotype of the adult sibling pair.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-polyneuropathy" data-dismech-node="Motor Polyneuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Motor Polyneuropathy
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Peripheral axonal neuropathy</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003477</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39544688" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39544688" target="_blank">PMID:39544688</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"EEG, echocardiography and hearing tests did not reveal any pathology, but EMG/NCV showed motor polyneuropathy"</div>
-
-
-                <div class="evidence-explanation">The electrophysiological finding in the adult siblings, quoted with the negative studies that accompanied it.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36450274" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36450274" target="_blank">PMID:36450274</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"At 4 years old, he had a diffuse sensory and motor axonal neuropathy"</div>
-
-
-                <div class="evidence-explanation">An axonal neuropathy in the severe pole as well, so this is not exclusive to the adult phenotype.</div>
 
 
 
@@ -7970,6 +8201,9 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7984,6 +8218,7 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8008,6 +8243,7 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8044,6 +8280,12 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Canonical splice acceptor variant, in trans with a frameshift allele in the index patient. Together the two alleles leave the protein nearly absent, which is the genotype the 2023 series proposes as the explanation for that patient&#39;s exceptionally severe course.</div>
 
 
@@ -8068,6 +8310,7 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8104,6 +8347,12 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Canonical acceptor-site variant abolishing the intron 18 splice site, causing exon 19 skipping and a transcript degraded by nonsense-mediated decay. On minigene assay it had the strongest effect of the four variants tested.</div>
 
 
@@ -8128,6 +8377,7 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8164,6 +8414,12 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Initially classified as a variant of uncertain significance because it sits inside exon 12 and reads as a missense change. Minigene assay showed it causes skipping of the exon it sits in, producing a truncating transcript alongside a leaky pool of correctly spliced mRNA.</div>
 
 
@@ -8188,6 +8444,7 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8224,6 +8481,12 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous intronic variant in a consanguineous family, absent from gnomAD, shown by RT-PCR to cause skipping of the 124 bp exon 7. The only homozygous genotype reported to date.</div>
 
 
@@ -8248,6 +8511,7 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8284,6 +8548,12 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Nonsense allele carried by the adult sibling pair, in trans with the p.His269Tyr missense allele. It removes the C-terminal half of the protein including much of the central fold, so the product cannot be incorporated into the mitoribosome; western blot showed it is not cleared by nonsense-mediated decay.</div>
 
 
@@ -8308,6 +8578,7 @@ This disease-associated gene is PTCD3 (hgnc:24717). hgnc:24717 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8398,6 +8669,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8408,6 +8682,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8435,6 +8712,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8591,6 +8869,9 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8601,6 +8882,9 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
     </div>
+
+
+
 
 
 
@@ -8631,6 +8915,7 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8652,6 +8937,7 @@ This treatment uses vitamin C, annotated with L-ascorbic acid (CHEBI:29073). CHE
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8740,6 +9026,9 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8750,6 +9039,9 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
     </div>
+
+
+
 
 
 
@@ -8777,6 +9069,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8843,6 +9136,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8853,6 +9149,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8880,6 +9179,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8947,6 +9247,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8968,6 +9269,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9020,6 +9322,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9069,6 +9372,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9115,6 +9419,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9169,6 +9474,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9217,6 +9523,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9287,6 +9594,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9308,6 +9616,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9365,6 +9674,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9419,11 +9729,12 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The expression of wild‐type PTCD3 cDNA using a lentiviral vector resulted in a complete recovery of the steady‐state levels of the altered OXPHOS subunits in both patients"</div>
+                <div class="evidence-snippet">"The expression of wild‐type PTCD3 cDNA using a lentiviral vector resulted in a complete recovery of the steady‐state levels of the altered OXPHOS subunits in both patients (Figure 7A,B). Furthermore, the mitochondrial respiratory capacity, which was significantly reduced in naïve patient&#39;s..."</div>
 
 
                 <div class="evidence-explanation">The rescue result that establishes causality.</div>
@@ -9486,6 +9797,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9533,6 +9845,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9586,6 +9899,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9610,6 +9924,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9680,6 +9995,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9701,6 +10017,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9799,6 +10116,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9867,6 +10185,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9891,6 +10210,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9958,6 +10278,7 @@ The practical rule: an exonic PTCD3 variant of uncertain significance in a compa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10135,6 +10456,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10194,6 +10516,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10233,6 +10556,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10280,6 +10604,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10420,6 +10745,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10459,6 +10785,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10503,6 +10830,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11812,7 +12140,13 @@ diagnosis:
     reference_title: &#34;Leigh syndrome is the main clinical characteristic of PTCD3 deficiency.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;The expression of wild‐type PTCD3 cDNA using a lentiviral vector resulted in a complete recovery of the steady‐state levels of the altered OXPHOS subunits in both patients&#34;
+    snippet: &gt;-
+      The expression of wild‐type PTCD3 cDNA using a lentiviral vector resulted in a complete
+      recovery of the steady‐state levels of the altered OXPHOS subunits in both patients
+      (Figure 7A,B). Furthermore, the mitochondrial respiratory capacity, which was
+      significantly reduced in naïve patient&#39;s cells, was recovered upon lentiviral
+      transduction with wild‐type PTCD3 but not when cells were transduced with an empty
+      plasmid (Figure 7C).
     explanation: The rescue result that establishes causality.
 treatments:
 - name: Supportive and Organ-Directed Care
@@ -12166,9 +12500,7 @@ progression:
     supports: SUPPORT
     directness: INDIRECT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Nearly 90% of deaths
-occurred by age 6. Mortality rate of patients with onset before 6 months of age
-was significantly higher than that of onset after 6 months.&#34;
+    snippet: &#34;Nearly 90% of deaths occurred by age 6. Mortality rate of patients with onset before 6 months of age was significantly higher than that of onset after 6 months.&#34;
     explanation: &gt;-
       Class-level prognostic data. This is a 166-patient Japanese Leigh syndrome cohort,
       not a PTCD3 series - no natural-history study of COXPD51 exists, and seven patients
@@ -12185,8 +12517,7 @@ differential_diagnoses:
     useful for guiding the clinical diagnosis.
   distinguishing_features:
   - Not separable clinically or radiologically; the distinction is molecular.
-  - A combined complex I and IV deficiency with spared complex II narrows the differential
-    to the mitochondrial gene-expression disorders but does not identify the gene.
+  - A combined complex I and IV deficiency with spared complex II narrows the differential to the mitochondrial gene-expression disorders but does not identify the gene.
   evidence:
   - reference: PMID:36450274
     reference_title: &#34;Leigh syndrome is the main clinical characteristic of PTCD3 deficiency.&#34;
@@ -12205,11 +12536,8 @@ differential_diagnoses:
     distinguishes it clinically, on the evidence available, is the near-constant optic
     atrophy and nystagmus rather than the multiorgan pattern.
   distinguishing_features:
-  - Shared biochemistry - lactic acidosis with combined OXPHOS deficiency - across the
-    whole class, so enzymology does not separate them.
-  - Cardiac, hepatic and renal involvement is common in the MRP class but has not been a
-    feature of the reported PTCD3 patients, one of whom had only slight left ventricular
-    hypertrophy.
+  - Shared biochemistry - lactic acidosis with combined OXPHOS deficiency - across the whole class, so enzymology does not separate them.
+  - Cardiac, hepatic and renal involvement is common in the MRP class but has not been a feature of the reported PTCD3 patients, one of whom had only slight left ventricular hypertrophy.
   evidence:
   - reference: PMID:36450274
     reference_title: &#34;Leigh syndrome is the main clinical characteristic of PTCD3 deficiency.&#34;
@@ -12237,10 +12565,8 @@ differential_diagnoses:
     PTCD3. This is the practical reason to keep PTCD3 in an adult ataxia-with-optic-atrophy
     differential.
   distinguishing_features:
-  - A standard ataxia gene panel and exome will miss it; the reported adult family was
-    diagnosed only on whole-genome sequencing.
-  - The combination of optic atrophy, nystagmus, ataxia and a motor polyneuropathy with
-    preserved cognition is the phenotype that should prompt mitochondrial testing.
+  - A standard ataxia gene panel and exome will miss it; the reported adult family was diagnosed only on whole-genome sequencing.
+  - The combination of optic atrophy, nystagmus, ataxia and a motor polyneuropathy with preserved cognition is the phenotype that should prompt mitochondrial testing.
   evidence:
   - reference: PMID:39544688
     reference_title: &#34;The phenotypic spectrum of PTCD3 deficiency.&#34;
@@ -12539,6 +12865,47 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Evidence base and its limits. Three primary clinical reports carry this entry, and together they describe seven patients: PMID:30607703 (2019, one patient, with proteomics and complementation), PMID:36450274 (2023, three patients from two unrelated Spanish and Brazilian families, with minigene assays, western blot, respirometry and complementation), and PMID:39544688 (2024, three patients - an adult sibling pair recruited through the Latvian population genome database and an unrelated Saudi child found through GeneMatcher - with Seahorse respirometry and in silico structural modelling). Two non-patient papers supply the gene&#39;s normal function (PMID:19427859, cell-line knockdown) and its only whole-organism model (PMID:38074476, Drosophila).
+Named-entity hazards handled here. PTCD3 has a substantial cancer literature - colorectal, prostate, pancreatic, and Myc-driven lymphoma expression and CRISPR studies - which is about the same gene but not about this disease; none of it is cited. The numbered COXPD disorders are sibling entities, not synonyms: where this entry uses a statement about mitochondrial translation defects or mitoribosomal protein disorders as a class, the evidence item says so in its explanation and the claim is kept at class level.
+What this entry does not assert. The task framing for a combined OXPHOS deficiency is usually &#34;complexes I, III, IV and V fail together&#34;. That is not what the PTCD3 patients show, and the entry follows the patients: complex I and complex IV are consistently affected, complex III variably (reduced in one of two patients tested by western blot), and complex V subunit levels were explicitly unaltered. No patient-level ATP synthase activity deficit is asserted, because none of the cited sources reports one.
+PMID:30706245, the Letter arguing for &#34;Leigh-like rather than Leigh&#34;, is discussed in the Leigh/Leigh-like controversy but is not cited as evidence: its cached record has no abstract or body text, so there is nothing in it that can be quoted exactly. The 2023 series&#39; own summary of the challenge is quoted instead, and the discussion says so.
+Two class-level references are cited with `directness: INDIRECT` because no PTCD3-specific source exists for what they say: PMID:31967322, a 166-patient Japanese Leigh syndrome mortality cohort, for the prognosis of the infantile-onset pole, and PMID:34008913, a COXPD9/MRPL3 case report, as a worked example of the mitoribosomal protein disorder differential. Neither describes a PTCD3 patient, and each evidence item&#39;s explanation says which gene and disorder it is actually about.
+Deep research. An openscientist report (research/Combined_Oxidative_Phosphorylation_Deficiency_51-deep-research-openscientist.md) was produced after falcon returned HTTP 402; the fallback is recorded in the report&#39;s own frontmatter. Its citations validated 10/10 with a confabulation rate of 0.0 and its terms 32/33, and `just preflight-dr` returned PASS against MONDO:0033631 with 35 PTCD3 mentions and a matching OMIM xref. Its synthesis agrees with the primary literature on the mechanism, and it contributed the two class-level references above. It did not, however, find PMID:39544688, the 2024 phenotypic-spectrum report, so its clinical picture is the infantile Leigh pole only and it describes COXPD51 as uniformly severe with early mortality. That is the DR report&#39;s most consequential omission, and the mild adult pole in this entry comes from the primary literature rather than from it.
+No `datasets:` block. Deliberate, not an oversight. Seven patients have been reported worldwide and none of the three clinical papers deposits a public omics dataset; the fibroblast proteomics of the founding report is referred to PRIDE only in its methods citation list. Searching a repository on the gene symbol instead is exactly the Named Entity Confusion trap CLAUDE.md warns about here - PTCD3 is well represented in colorectal, prostate and pancreatic cancer expression studies, and every one of those accessions would resolve perfectly while being about a different biology. A curator who finds a genuine COXPD51 or PTCD3-patient dataset should add it; a gene-symbol search result is not that.
+Uncited causal edges. Six `downstream` edges carry no evidence item of their own. Each is asserted by the cited literature at node level but not as a causal statement anyone published - the step from bioenergetic failure to regional necrosis in particular is unexplained for every Leigh syndrome gene, which is why it is also recorded as a knowledge gap. The edges are left uncited rather than propped up with a neighbouring node&#39;s citation.
+Not curated, for want of a citable source. The DR report attributes homozygous embryonic lethality and a heterozygous impaired pupillary reflex in Ptcd3 knockout mice to IMPC genotype-phenotype records, without an identifier that can be fetched and quoted. The mouse null phenotype is instead recorded in the model-mismatch discussion from the sentence in PMID:39544688 that states it, and the IMPC heterozygote phenotypes are not asserted here at all. A curator with the IMPC allele page or the underlying publication should add them.
+No GeneReviews chapter exists for COXPD51 or for PTCD3 deficiency; a PubMed search for a GeneReviews title returned nothing, so there is no expert-curated phenotype baseline to cross-reference. No Orphanet entry was found for the disorder either. Neither absence is a defect in this entry - it is the state of the secondary literature for a disorder with seven published patients.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Combined_Oxidative_Phosphorylation_Deficiency_51</strong> · 2026-09-07T18:08:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Combined_Oxidative_Phosphorylation_Deficiency_51/2026-09-07T180824Z-claude-code-1eaaeb.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for COXPD51 (MONDO:0033631, PTCD3/MRPS39/mS39). Lump/split: curated as entry_type DISEASE. The stub records one causal gene, the parent MONDO:0000732, and no MONDO descendants; the OLS record confirms an OMIM:619057 equivalence, COXPD51 as the only synonym, and no children. That is the leaf signature, and the literature agrees - all seven published patients are PTCD3-biallelic and no sub-entity has been proposed.
+
+Deep research: &#39;just dr_fallback=--fallback research-disorder falcon&#39; was used because falcon returns HTTP 402 (Edison account out of credits). The report was produced by OPENSCIENTIST, not falcon; the fallback is recorded in the report frontmatter (fell_back: true, requested_provider: falcon, provider_attempts). Report: research/Combined_Oxidative_Phosphorylation_Deficiency_51-deep-research-openscientist.md, with its .citations.md sidecar and an _artifacts/ directory holding OpenScientist&#39;s own HTML and PDF report. Validation as recorded in that report: references 10/10 resolved, 0 unresolved, confabulation_rate 0.0, 7/10 assessed on topic, 0 off topic; terms 32/33 resolved, 1 unverifiable, 0 mislabelled, 4/4 names correct. No needs_review key and no unresolved_references list, so nothing was excluded on that basis. &#39;just preflight-dr &lt;report&gt; MONDO:0033631&#39; returned PASS (PTCD3 mentioned 35 times, report OMIM 619057 == MONDO OMIM xref).
+
+How the DR report was used. Its mechanism synthesis agrees with the primary literature and added nothing that the primary papers do not state, so no claim in this entry rests on it alone. It did contribute two class-level references that are cited with directness: INDIRECT - PMID:31967322 (166-patient Japanese Leigh syndrome mortality cohort) for the prognosis of the infantile pole, and PMID:34008913 (COXPD9/MRPL3) as a worked example of the mitoribosomal-protein differential. Each of those evidence items names, in its explanation, which disease and gene the cited study is actually about.
+
+The report&#39;s most consequential limitation: it did not find PMID:39544688 (Lace et al. 2024, &#39;The phenotypic spectrum of PTCD3 deficiency&#39;), so it presents COXPD51 as uniformly severe infantile Leigh syndrome. The mild adult pole in this entry - the sibling pair in their thirties with optic atrophy, ataxia, tremor and motor polyneuropathy, worked up for years as hereditary ataxia - comes from primary-literature searching (PubMed esearch on PTCD3/MRPS39/COXPD51), not from the report. The Drosophila model (PMID:38074476) was likewise found independently.
+
+Named Entity Confusion handled. PTCD3 has a substantial cancer-expression and CRISPR-screen literature (colorectal PMID:40304977, prostate PMID:30132530, Myc-driven lymphoma PMID:27635472, sepsis/T2DM ferroptosis PMID:41194984). PMID:40304977 was among the DR report&#39;s own citations and is NOT cited here. The numbered COXPD disorders are sibling entities; class-level statements about mitochondrial translation defects or mitoribosomal protein disorders are kept at class level and labelled INDIRECT where they carry an inference to PTCD3.
+
+Claims deliberately not made. (a) The generic &#39;complexes I, III, IV and V fail together&#39; formulation is not asserted: the PTCD3 patients show consistent complex I and IV deficits, a complex III deficit in one of two patients tested, and explicitly unaltered complex V and complex II subunit levels. Spared complex II is curated as a REFUTE biochemical item with the source&#39;s own measurement. (b) PMID:30706245 (the Letter arguing &#39;Leigh-like rather than Leigh&#39;) is discussed but not cited as evidence - its cached record is content_type: unavailable with no abstract or body, so nothing in it can be quoted exactly; the 2023 series&#39; summary of the challenge is quoted instead. (c) The DR report&#39;s IMPC Ptcd3 knockout data (homozygous embryonic lethality, heterozygous impaired pupillary reflex) are NOT curated: the report gives no fetchable identifier for them. The mouse null phenotype is recorded only from the sentence in PMID:39544688 that states it. (d) No datasets: block - see the entry notes; a gene-symbol repository search would surface PTCD3 cancer datasets, which is the exact NEC trap. (e) Six downstream causal edges are left uncited rather than propped up with a neighbouring node&#39;s citation. (f) No GeneReviews chapter exists (PubMed title search returned nothing) and no Orphanet entry was found, so there is no expert-curated phenotype baseline.
+
+Module conformance: the &#39;Combined Respiratory Chain Deficiency with Complex II Spared&#39; node declares conforms_to mitochondrial_dysfunction#Bioenergetic Decline and Oxidative Stress, matching what sibling entries Combined_Oxidative_Phosphorylation_Defect_Type_13 and Combined_Oxidative_Phosphorylation_Deficiency_42 do. No primary mitochondrial-translation module exists in kb/modules/; Type_26 records the same finding.
+
+Validation run to completion on the final tree: just validate (schema OK, terms OK, 100/100 snippets verified); just validate-disorders (schema OK, terms OK, 100/100 snippets verified); check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-empty-snippets, check-snippet-boundaries all OK; whole-KB check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence, check-reference-titles all OK; check-source-defect-claims reports exactly one claim for this file, CONFIRMED (PMID:30706245 content_type: unavailable). normalize-cache made no changes; check-term-cache-integrity and check-cache-order OK. linkml-data-qc compliance 95.8% global / 96.1% weighted, the residual being datasets and the uncited causal edges described above. All 7 cited references are PMIDs, so no DOI-skip audit was needed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12974,7 +13341,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Combined Oxidative Phosphorylation Deficiency 51", "mondoId": "MONDO:0033631", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Combined_Oxidative_Phosphorylation_Deficiency_51", "yamlRevision": "76d8fddfda9c"};
+        const OS_CONFIG = {"diseaseName": "Combined Oxidative Phosphorylation Deficiency 51", "mondoId": "MONDO:0033631", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Combined_Oxidative_Phosphorylation_Deficiency_51", "yamlRevision": "df7e4a0fed5a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

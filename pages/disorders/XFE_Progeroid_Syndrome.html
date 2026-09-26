@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4115,6 +4183,7 @@ The entry should be read with its evidence base in view. The human disease is es
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4136,6 +4205,7 @@ The entry should be read with its evidence base in view. The human disease is es
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4431,6 +4501,13 @@ It does not cover the founding allele. R153P XPF is catalytically competent and 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-ercc4-variants" data-dismech-node="Biallelic Hypomorphic ERCC4 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic ERCC4 Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Two ERCC4 alleles that each retain some function. The founding and defining genotype is homozygous c.458G&gt;C, p.Arg153Pro, in a boy referred for severe chronic sunburn who turned out to have progeroid features. The variant is a severe one - it confers profound interstrand crosslink sensitivity - but it is not a null, and it could not be, because null genotypes at this locus do not reach live birth.</div>
 
 
@@ -4535,6 +4612,8 @@ This genetic context concerns ERCC4 (hgnc:3436). hgnc:3436 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">zygosity: HOMOZYGOUS</span>
 
 
@@ -4542,6 +4621,9 @@ This genetic context concerns ERCC4 (hgnc:3436). hgnc:3436 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">Recorded as PARTIAL rather than complete loss of function deliberately. It is not a hedge: complete loss is embryonic lethal, so partial function is a defining property of every genotype that produces this disease rather than a statement about the severity of a particular allele.</div>
@@ -4589,6 +4671,7 @@ This genetic context concerns ERCC4 (hgnc:3436). hgnc:3436 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4610,6 +4693,7 @@ This genetic context concerns ERCC4 (hgnc:3436). hgnc:3436 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4635,6 +4719,13 @@ This genetic context concerns ERCC4 (hgnc:3436). hgnc:3436 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ercc1-xpf-endonuclease-deficiency" data-dismech-node="ERCC1-XPF Endonuclease Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ERCC1-XPF Endonuclease Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">ERCC1-XPF is a heterodimeric structure-specific endonuclease that cuts DNA at junctions between double- and single-stranded regions. It is a core component of nucleotide excision repair and is also required for interstrand crosslink repair, for homologous recombination and end-joining routes to double-strand break repair, as a backup in base excision repair, and in telomere length regulation.
 Which disease an ERCC4 genotype produces turns on the balance of activities it leaves. Fanconi-causing alleles strongly disrupt crosslink repair while largely sparing excision repair; xeroderma-causing alleles impair excision repair; the progeroid genotype impairs both. This is a rare instance where a genotype-phenotype rule is stated mechanistically rather than statistically, and it is why this entry exists separately from Xeroderma Pigmentosum rather than as a subtype of it.
@@ -4832,6 +4923,7 @@ This pathophysiological event involves decreased endonuclease activity (GO:00045
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4853,6 +4945,7 @@ This pathophysiological event involves decreased endonuclease activity (GO:00045
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4880,6 +4973,7 @@ This pathophysiological event involves decreased endonuclease activity (GO:00045
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4904,6 +4998,13 @@ This pathophysiological event involves decreased endonuclease activity (GO:00045
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-endogenous-dna-damage" data-dismech-node="Accumulation of Endogenous DNA Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Endogenous DNA Damage</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">With the nuclease crippled, spontaneously arising lesions - including those from endogenous oxidative and metabolic sources rather than only from sunlight - persist instead of being excised. This is the node that makes the disease a model of ageing rather than only a repair disorder: the damage does not need an external genotoxin to accumulate.</div>
 
@@ -5007,6 +5108,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5029,6 +5131,13 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppression-of-the-growth-hormone-igf1-somatotroph-axis" data-dismech-node="Suppression of the Growth Hormone-IGF1 Somatotroph Axis" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of the Growth Hormone-IGF1 Somatotroph Axis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The node that makes this disease theoretically interesting rather than merely rare. Liver transcriptomes of XPF-ERCC1-deficient mice correlate highly with those of old wild-type mice, and show increased cell death and antioxidant defences together with reduced growth hormone/IGF-1 signalling. The same shift occurs in wild-type animals under chronic genotoxic stress, under caloric restriction, and with normal ageing.
 On this reading the growth failure, cachexia and lipoatrophy of the human disease are not the damage but the *response* to it - a survival programme that reallocates resources from growth to somatic preservation. That is a strong and unusual claim about a phenotype and it is curated as PROVISIONAL: the transcriptomic correlation and the conserved direction of the shift are solid, but the causal step from damage to axis suppression is inferred from expression data in mouse liver and has not been demonstrated in a patient.</div>
@@ -5119,6 +5228,7 @@ This pathophysiological event involves decreased insulin-like growth factor rece
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5140,6 +5250,7 @@ This pathophysiological event involves decreased insulin-like growth factor rece
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5167,6 +5278,7 @@ This pathophysiological event involves decreased insulin-like growth factor rece
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5189,6 +5301,13 @@ This pathophysiological event involves decreased insulin-like growth factor rece
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-cellular-senescence" data-dismech-node="Premature Cellular Senescence" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Cellular Senescence</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Tissues and primary cells from Ercc1-deficient mice senesce prematurely. Senescence is the cellular currency in which this disease&#39;s tissue phenotype is paid, and it is also what makes the models a testing platform for senolytic drugs.</div>
 
@@ -5298,6 +5417,7 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5320,6 +5440,13 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nf-kappab-driven-inflammation-and-oxidative-stress" data-dismech-node="NF-kappaB-Driven Inflammation and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">NF-kappaB-Driven Inflammation and Oxidative Stress</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">NF-kappaB is activated stochastically across cell types as both progeroid and wild-type mice age. What makes this more than a correlation is the intervention: removing one p65 allele, or inhibiting the activating kinase IKK pharmacologically, delays the age-related symptoms and pathologies of the progeroid mice, reduces oxidative DNA damage, and delays senescence.
 Note the feedback this implies - inhibiting NF-kappaB *reduced oxidative DNA damage*, so the inflammatory response is not only downstream of damage but also feeds back onto it. That makes this node a loop rather than a link in a chain, and it is the reason it is a plausible therapeutic target in a disease whose primary lesion is not druggable.</div>
@@ -5450,6 +5577,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5471,6 +5599,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5496,6 +5625,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-segmental-multi-organ-degeneration" data-dismech-node="Segmental Multi-Organ Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Segmental Multi-Organ Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint: accelerated degeneration across many organ systems at once but not uniformly - which is what &#34;segmental&#34; progeria means. In the human disease this is growth failure, cachexia, lipoatrophy, microcephaly, sensory loss, photosensitivity, learning difficulty and progressive multi-organ decline. In the hypomorphic mouse it is a markedly shortened lifespan with accelerated histopathological and immunological ageing across organs, and, specifically, peripheral neuropathy indistinguishable in kind from the age-related human disease.</div>
 
@@ -5567,6 +5703,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5588,6 +5725,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5636,7 +5774,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Endogenous DNA Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the nuclease crippled, spontaneously arising lesions - including those from endogenous oxidative and metabolic sources rather than only from sunlight - persist instead of being excised. This is the node that makes the disease a model of ageing rather than only a repair disorder: the damage does not need an external genotoxin to accumulate.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"Biallelic Hypomorphic ERCC4 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two ERCC4 alleles that each retain some function. The founding and defining genotype is homozygous c.458G\u003eC, p.Arg153Pro, in a boy referred for severe chronic sunburn who turned out to have progeroid features. The variant is a severe one - it confers profound interstrand crosslink sensitivity - but it is not a null, and it could not be, because null genotypes at this locus do not reach live birth.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC4\"], \"gene_terms\": [{\"label\": \"ERCC4\", \"id\": \"hgnc:3436\"}], \"genetic_context\": {\"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ERCC4\", \"id\": \"hgnc:3436\"}]}}}, {\"id\": \"Dietary Restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The single most effective intervention in the models, and mechanistically coherent rather than merely empirical: caloric restriction invokes the same shift from growth to preservation that the disease\u0027s own somatotroph suppression represents, so it is the intervention that most directly engages the mechanism this entry curates. In DNA repair-deficient progeroid mice it roughly doubles lifespan with systemic health benefits.\\nCurated as preclinical. It has never been tested in a human with this disease, the patients described are already cachectic, and restricting intake in a wasting child is not a straightforward translation - which is precisely why the finding is worth recording with its context rather than as a recommendation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ERCC1-XPF Endonuclease Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ERCC1-XPF is a heterodimeric structure-specific endonuclease that cuts DNA at junctions between double- and single-stranded regions. It is a core component of nucleotide excision repair and is also required for interstrand crosslink repair, for homologous recombination and end-joining routes to double-strand break repair, as a backup in base excision repair, and in telomere length regulation.\\nWhich disease an ERCC4 genotype produces turns on the balance of activities it leaves. Fanconi-causing alleles strongly disrupt crosslink repair while largely sparing excision repair; xeroderma-causing alleles impair excision repair; the progeroid genotype impairs both. This is a rare instance where a genotype-phenotype rule is stated mechanistically rather than statistically, and it is why this entry exists separately from Xeroderma Pigmentosum rather than as a subtype of it.\\nThe founding allele adds a twist worth curating: R153P protein retains catalytic activity in vitro, and the deficit is one of location - XPF-ERCC1 is abundant in the cytoplasm of the patient\u0027s cells rather than concentrated in the nucleus where the DNA is. Microinjecting the mutant complex into the nucleus of XPF-deficient cells restored repair. So this is not a dead enzyme; it is a functional enzyme in the wrong compartment.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"nucleotide-excision repair\", \"interstrand cross-link repair\", \"double-strand break repair via homologous recombination\"], \"molecular_functions\": [\"endonuclease activity\"]}}, {\"id\": \"ERCC4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC4\"], \"gene_terms\": [{\"label\": \"ERCC4\", \"id\": \"hgnc:3436\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Ercc1 hypomorphic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The workhorse model for this disease and, more broadly, one of the standard platforms in ageing research. Read the limitations carefully: the model perturbs ERCC1, the partner subunit, not ERCC4, the gene that causes the human disease.\"}, {\"id\": \"Ercc1 truncated-allele mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A second hypomorphic strain, characterised in life and post mortem specifically to establish the breadth of the progeroid phenotype rather than a single organ effect.\"}, {\"id\": \"High dietary protein intake\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Recorded because it is the mirror image of the dietary restriction entry in treatments and comes from the same experimental programme. Nearly doubling protein intake shortened lifespan in both sexes of the progeroid repair-deficient mouse, with increased markers of tissue injury, inflammation and gene-length-dependent transcriptional decline. Model evidence only, and the authors themselves frame the implication as one for nutritional guidelines in these syndromes rather than as an established human risk.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NF-kappaB / IKK Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical, and curated because the mechanism is a loop rather than a linear consequence: pharmacological IKK inhibition delayed age-related pathology in progeroid mice and also reduced oxidative DNA damage, meaning the intervention reaches back onto the primary lesion rather than only masking its consequences. No agent has been tested in a patient with this disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NF-kappaB is activated stochastically across cell types as both progeroid and wild-type mice age. What makes this more than a correlation is the intervention: removing one p65 allele, or inhibiting the activating kinase IKK pharmacologically, delays the age-related symptoms and pathologies of the progeroid mice, reduces oxidative DNA damage, and delays senescence.\\nNote the feedback this implies - inhibiting NF-kappaB *reduced oxidative DNA damage*, so the inflammatory response is not only downstream of damage but also feeds back onto it. That makes this node a loop rather than a link in a chain, and it is the reason it is a plausible therapeutic target in a disease whose primary lesion is not druggable.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"positive regulation of canonical NF-kappaB signal transduction\", \"inflammatory response\"]}}, {\"id\": \"Premature Cellular Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tissues and primary cells from Ercc1-deficient mice senesce prematurely. Senescence is the cellular currency in which this disease\u0027s tissue phenotype is paid, and it is also what makes the models a testing platform for senolytic drugs.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cellular senescence\"], \"animal_models\": [{\"name\": \"Ercc1 hypomorphic mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc1(-/delta) - one null allele and one truncated allele, expressing about 10 percent of normal ERCC1-XPF\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Tissues and primary cells senesce prematurely, which is what makes the strain a testing platform for senolytics.\"}]}}, {\"id\": \"Segmental Multi-Organ Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: accelerated degeneration across many organ systems at once but not uniformly - which is what \\\"segmental\\\" progeria means. In the human disease this is growth failure, cachexia, lipoatrophy, microcephaly, sensory loss, photosensitivity, learning difficulty and progressive multi-organ decline. In the hypomorphic mouse it is a markedly shortened lifespan with accelerated histopathological and immunological ageing across organs, and, specifically, peripheral neuropathy indistinguishable in kind from the age-related human disease.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Ercc1 hypomorphic mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc1(-/delta) - one null allele and one truncated allele, expressing about 10 percent of normal ERCC1-XPF\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces accelerated ageing across many organ systems on a compressed timetable, including a peripheral neuropathy whose onset can be timed between 8 and 20 weeks.\"}, {\"name\": \"Ercc1 truncated-allele mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc1(-/delta7) - hemizygous for a single Ercc1 allele encoding a protein lacking the last seven amino acids\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Median lifespan of 20 weeks against 118 for wild-type siblings, with accelerated decline in body and organ weights, histopathology and immune parameters.\"}]}}, {\"id\": \"Senolytic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical, and curated because the entry already asserts that the models are a senolytic testing platform - so the claim should either be evidenced or dropped. The Ercc1-deficient mouse was used as the screening system that identified HSP90 inhibitors as a senolytic class, and treating the hypomorph with one extended healthspan and reduced p16INK4a expression. Nothing has been tested in a patient with this disease, and note the circularity worth being explicit about: the model is both the discovery platform for the drug class and the system in which the class is validated.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Suppression of the Growth Hormone-IGF1 Somatotroph Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The node that makes this disease theoretically interesting rather than merely rare. Liver transcriptomes of XPF-ERCC1-deficient mice correlate highly with those of old wild-type mice, and show increased cell death and antioxidant defences together with reduced growth hormone/IGF-1 signalling. The same shift occurs in wild-type animals under chronic genotoxic stress, under caloric restriction, and with normal ageing.\\nOn this reading the growth failure, cachexia and lipoatrophy of the human disease are not the damage but the *response* to it - a survival programme that reallocates resources from growth to somatic preservation. That is a strong and unusual claim about a phenotype and it is curated as PROVISIONAL: the transcriptomic correlation and the conserved direction of the shift are solid, but the causal step from damage to axis suppression is inferred from expression data in mouse liver and has not been demonstrated in a patient.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\"]}}, {\"id\": \"Ultraviolet radiation exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"UV exposure adds helix-distorting lesions to a genome that cannot excise them. It does not cause the disease - the damage that drives the progeroid phenotype is endogenous - but it is the one exposure that is both clearly harmful and clearly avoidable, which is why sun avoidance is the entry\u0027s only preventive measure.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic Hypomorphic ERCC4 Variants\", \"target\": \"ERCC1-XPF Endonuclease Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ERCC1-XPF Endonuclease Deficiency\", \"target\": \"Accumulation of Endogenous DNA Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Endogenous DNA Damage\", \"target\": \"Suppression of the Growth Hormone-IGF1 Somatotroph Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The link is a transcriptional response programme rather than a direct biochemical step, and the intervening signalling has been characterised in outline rather than completely.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Accumulation of Endogenous DNA Damage\", \"target\": \"Premature Cellular Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Endogenous DNA Damage\", \"target\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Suppression of the Growth Hormone-IGF1 Somatotroph Axis\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature Cellular Senescence\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"target\": \"Premature Cellular Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ultraviolet radiation exposure\", \"target\": \"Accumulation of Endogenous DNA Damage\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"UV-induced photoproducts are substrates for the repair pathway that is disabled, so exposure adds to the unrepaired burden.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High dietary protein intake\", \"target\": \"Accumulation of Endogenous DNA Damage\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"The proposed intermediate is transcription stress: high protein intake increased gene-length-dependent transcriptional decline, which the authors read as reflecting DNA damage accumulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Dietary Restriction\", \"target\": \"Suppression of the Growth Hormone-IGF1 Somatotroph Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Senolytic Therapy\", \"target\": \"Premature Cellular Senescence\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"NF-kappaB / IKK Inhibition\", \"target\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ercc1 hypomorphic mouse\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces accelerated ageing across many organ systems on a compressed timetable, including a peripheral neuropathy whose onset can be timed between 8 and 20 weeks.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse is an Ercc1 mutant and the human disease is an ERCC4 one. The two proteins are obligate partners so the heterodimer is disabled either way, but the model cannot reproduce anything specific to the ERCC4 subunit - and the founding human allele\u0027s defect is precisely subunit-specific, being a mislocalisation of catalytically intact XPF rather than a loss of nuclease. Lifespan compression also means the mouse phenotype is read out over months against a human course of years.\"}, {\"source\": \"Ercc1 hypomorphic mouse\", \"target\": \"Premature Cellular Senescence\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tissues and primary cells senesce prematurely, which is what makes the strain a testing platform for senolytics.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Same subunit caveat. In addition, senescence has not been demonstrated in tissue from a patient with this disease, so the model establishes the mechanism\u0027s existence rather than its presence in the human disease.\"}, {\"source\": \"Ercc1 truncated-allele mouse\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Median lifespan of 20 weeks against 118 for wild-type siblings, with accelerated decline in body and organ weights, histopathology and immune parameters.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Again an Ercc1 rather than an ERCC4 model. The sixfold lifespan compression is also far more severe than the human course, so rates in this strain should not be read as a timetable for the human disease.\"}, {\"source\": \"ERCC4\", \"target\": \"Biallelic Hypomorphic ERCC4 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Endogenous DNA Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With the nuclease crippled, spontaneously arising lesions - including those from endogenous oxidative and metabolic sources rather than only from sunlight - persist instead of being excised. This is the node that makes the disease a model of ageing rather than only a repair disorder: the damage does not need an external genotoxin to accumulate.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Biallelic Hypomorphic ERCC4 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two ERCC4 alleles that each retain some function. The founding and defining genotype is homozygous c.458G\u003eC, p.Arg153Pro, in a boy referred for severe chronic sunburn who turned out to have progeroid features. The variant is a severe one - it confers profound interstrand crosslink sensitivity - but it is not a null, and it could not be, because null genotypes at this locus do not reach live birth.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC4\"], \"gene_terms\": [{\"label\": \"ERCC4\", \"id\": \"hgnc:3436\"}], \"genetic_context\": {\"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ERCC4\", \"id\": \"hgnc:3436\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dietary Restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The single most effective intervention in the models, and mechanistically coherent rather than merely empirical: caloric restriction invokes the same shift from growth to preservation that the disease\u0027s own somatotroph suppression represents, so it is the intervention that most directly engages the mechanism this entry curates. In DNA repair-deficient progeroid mice it roughly doubles lifespan with systemic health benefits.\\nCurated as preclinical. It has never been tested in a human with this disease, the patients described are already cachectic, and restricting intake in a wasting child is not a straightforward translation - which is precisely why the finding is worth recording with its context rather than as a recommendation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ERCC1-XPF Endonuclease Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ERCC1-XPF is a heterodimeric structure-specific endonuclease that cuts DNA at junctions between double- and single-stranded regions. It is a core component of nucleotide excision repair and is also required for interstrand crosslink repair, for homologous recombination and end-joining routes to double-strand break repair, as a backup in base excision repair, and in telomere length regulation.\\nWhich disease an ERCC4 genotype produces turns on the balance of activities it leaves. Fanconi-causing alleles strongly disrupt crosslink repair while largely sparing excision repair; xeroderma-causing alleles impair excision repair; the progeroid genotype impairs both. This is a rare instance where a genotype-phenotype rule is stated mechanistically rather than statistically, and it is why this entry exists separately from Xeroderma Pigmentosum rather than as a subtype of it.\\nThe founding allele adds a twist worth curating: R153P protein retains catalytic activity in vitro, and the deficit is one of location - XPF-ERCC1 is abundant in the cytoplasm of the patient\u0027s cells rather than concentrated in the nucleus where the DNA is. Microinjecting the mutant complex into the nucleus of XPF-deficient cells restored repair. So this is not a dead enzyme; it is a functional enzyme in the wrong compartment.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"nucleotide-excision repair\", \"interstrand cross-link repair\", \"double-strand break repair via homologous recombination\"], \"molecular_functions\": [\"endonuclease activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"ERCC4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ERCC4\"], \"gene_terms\": [{\"label\": \"ERCC4\", \"id\": \"hgnc:3436\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Ercc1 hypomorphic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The workhorse model for this disease and, more broadly, one of the standard platforms in ageing research. Read the limitations carefully: the model perturbs ERCC1, the partner subunit, not ERCC4, the gene that causes the human disease.\"}, {\"id\": \"Ercc1 truncated-allele mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A second hypomorphic strain, characterised in life and post mortem specifically to establish the breadth of the progeroid phenotype rather than a single organ effect.\"}, {\"id\": \"High dietary protein intake\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Recorded because it is the mirror image of the dietary restriction entry in treatments and comes from the same experimental programme. Nearly doubling protein intake shortened lifespan in both sexes of the progeroid repair-deficient mouse, with increased markers of tissue injury, inflammation and gene-length-dependent transcriptional decline. Model evidence only, and the authors themselves frame the implication as one for nutritional guidelines in these syndromes rather than as an established human risk.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NF-kappaB / IKK Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical, and curated because the mechanism is a loop rather than a linear consequence: pharmacological IKK inhibition delayed age-related pathology in progeroid mice and also reduced oxidative DNA damage, meaning the intervention reaches back onto the primary lesion rather than only masking its consequences. No agent has been tested in a patient with this disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NF-kappaB is activated stochastically across cell types as both progeroid and wild-type mice age. What makes this more than a correlation is the intervention: removing one p65 allele, or inhibiting the activating kinase IKK pharmacologically, delays the age-related symptoms and pathologies of the progeroid mice, reduces oxidative DNA damage, and delays senescence.\\nNote the feedback this implies - inhibiting NF-kappaB *reduced oxidative DNA damage*, so the inflammatory response is not only downstream of damage but also feeds back onto it. That makes this node a loop rather than a link in a chain, and it is the reason it is a plausible therapeutic target in a disease whose primary lesion is not druggable.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"positive regulation of canonical NF-kappaB signal transduction\", \"inflammatory response\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Premature Cellular Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tissues and primary cells from Ercc1-deficient mice senesce prematurely. Senescence is the cellular currency in which this disease\u0027s tissue phenotype is paid, and it is also what makes the models a testing platform for senolytic drugs.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cellular senescence\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ercc1 hypomorphic mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc1(-/delta) - one null allele and one truncated allele, expressing about 10 percent of normal ERCC1-XPF\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Tissues and primary cells senesce prematurely, which is what makes the strain a testing platform for senolytics.\"}]}}, {\"id\": \"Segmental Multi-Organ Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: accelerated degeneration across many organ systems at once but not uniformly - which is what \\\"segmental\\\" progeria means. In the human disease this is growth failure, cachexia, lipoatrophy, microcephaly, sensory loss, photosensitivity, learning difficulty and progressive multi-organ decline. In the hypomorphic mouse it is a markedly shortened lifespan with accelerated histopathological and immunological ageing across organs, and, specifically, peripheral neuropathy indistinguishable in kind from the age-related human disease.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ercc1 hypomorphic mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc1(-/delta) - one null allele and one truncated allele, expressing about 10 percent of normal ERCC1-XPF\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces accelerated ageing across many organ systems on a compressed timetable, including a peripheral neuropathy whose onset can be timed between 8 and 20 weeks.\"}, {\"name\": \"Ercc1 truncated-allele mouse\", \"species\": \"Mouse\", \"genotype\": \"Ercc1(-/delta7) - hemizygous for a single Ercc1 allele encoding a protein lacking the last seven amino acids\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Median lifespan of 20 weeks against 118 for wild-type siblings, with accelerated decline in body and organ weights, histopathology and immune parameters.\"}]}}, {\"id\": \"Senolytic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical, and curated because the entry already asserts that the models are a senolytic testing platform - so the claim should either be evidenced or dropped. The Ercc1-deficient mouse was used as the screening system that identified HSP90 inhibitors as a senolytic class, and treating the hypomorph with one extended healthspan and reduced p16INK4a expression. Nothing has been tested in a patient with this disease, and note the circularity worth being explicit about: the model is both the discovery platform for the drug class and the system in which the class is validated.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Suppression of the Growth Hormone-IGF1 Somatotroph Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The node that makes this disease theoretically interesting rather than merely rare. Liver transcriptomes of XPF-ERCC1-deficient mice correlate highly with those of old wild-type mice, and show increased cell death and antioxidant defences together with reduced growth hormone/IGF-1 signalling. The same shift occurs in wild-type animals under chronic genotoxic stress, under caloric restriction, and with normal ageing.\\nOn this reading the growth failure, cachexia and lipoatrophy of the human disease are not the damage but the *response* to it - a survival programme that reallocates resources from growth to somatic preservation. That is a strong and unusual claim about a phenotype and it is curated as PROVISIONAL: the transcriptomic correlation and the conserved direction of the shift are solid, but the causal step from damage to axis suppression is inferred from expression data in mouse liver and has not been demonstrated in a patient.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Ultraviolet radiation exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"UV exposure adds helix-distorting lesions to a genome that cannot excise them. It does not cause the disease - the damage that drives the progeroid phenotype is endogenous - but it is the one exposure that is both clearly harmful and clearly avoidable, which is why sun avoidance is the entry\u0027s only preventive measure.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic Hypomorphic ERCC4 Variants\", \"target\": \"ERCC1-XPF Endonuclease Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ERCC1-XPF Endonuclease Deficiency\", \"target\": \"Accumulation of Endogenous DNA Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Endogenous DNA Damage\", \"target\": \"Suppression of the Growth Hormone-IGF1 Somatotroph Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The link is a transcriptional response programme rather than a direct biochemical step, and the intervening signalling has been characterised in outline rather than completely.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Accumulation of Endogenous DNA Damage\", \"target\": \"Premature Cellular Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of Endogenous DNA Damage\", \"target\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Suppression of the Growth Hormone-IGF1 Somatotroph Axis\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature Cellular Senescence\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"target\": \"Premature Cellular Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ultraviolet radiation exposure\", \"target\": \"Accumulation of Endogenous DNA Damage\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"UV-induced photoproducts are substrates for the repair pathway that is disabled, so exposure adds to the unrepaired burden.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High dietary protein intake\", \"target\": \"Accumulation of Endogenous DNA Damage\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"The proposed intermediate is transcription stress: high protein intake increased gene-length-dependent transcriptional decline, which the authors read as reflecting DNA damage accumulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Dietary Restriction\", \"target\": \"Suppression of the Growth Hormone-IGF1 Somatotroph Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Senolytic Therapy\", \"target\": \"Premature Cellular Senescence\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"NF-kappaB / IKK Inhibition\", \"target\": \"NF-kappaB-Driven Inflammation and Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ercc1 hypomorphic mouse\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces accelerated ageing across many organ systems on a compressed timetable, including a peripheral neuropathy whose onset can be timed between 8 and 20 weeks.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse is an Ercc1 mutant and the human disease is an ERCC4 one. The two proteins are obligate partners so the heterodimer is disabled either way, but the model cannot reproduce anything specific to the ERCC4 subunit - and the founding human allele\u0027s defect is precisely subunit-specific, being a mislocalisation of catalytically intact XPF rather than a loss of nuclease. Lifespan compression also means the mouse phenotype is read out over months against a human course of years.\"}, {\"source\": \"Ercc1 hypomorphic mouse\", \"target\": \"Premature Cellular Senescence\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tissues and primary cells senesce prematurely, which is what makes the strain a testing platform for senolytics.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Same subunit caveat. In addition, senescence has not been demonstrated in tissue from a patient with this disease, so the model establishes the mechanism\u0027s existence rather than its presence in the human disease.\"}, {\"source\": \"Ercc1 truncated-allele mouse\", \"target\": \"Segmental Multi-Organ Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Median lifespan of 20 weeks against 118 for wild-type siblings, with accelerated decline in body and organ weights, histopathology and immune parameters.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Again an Ercc1 rather than an ERCC4 model. The sixfold lifespan compression is also far more severe than the human course, so rates in this strain should not be read as a timetable for the human disease.\"}, {\"source\": \"ERCC4\", \"target\": \"Biallelic Hypomorphic ERCC4 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5663,11 +5801,11 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5712,6 +5850,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5729,6 +5870,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5793,6 +5935,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5810,6 +5955,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5874,6 +6020,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5891,6 +6040,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5914,6 +6064,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5979,6 +6130,9 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5993,6 +6147,7 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6020,6 +6175,7 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6075,6 +6231,9 @@ This clinical feature is Progeroid facial appearance (HP:0005328). HP:0005328 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6092,6 +6251,7 @@ This clinical feature is Progeroid facial appearance (HP:0005328). HP:0005328 is
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6122,8 +6282,93 @@ This clinical feature is Progeroid facial appearance (HP:0005328). HP:0005328 is
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
+                    Musculoskeletal
                     <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lipoatrophy" data-dismech-node="Lipoatrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lipoatrophy
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100578" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100578</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26074087" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26074087" target="_blank">PMID:26074087</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient, XP51RO, exhibited symptoms resembling premature aging, profound crosslink sensitivity, and frequent sunburns. Many neurologic, hepatobiliary, musculoskeletal, and hematopoietic symptoms were present."</div>
+
+
+                <div class="evidence-explanation">Records the premature-aging presentation of the index patient. INDIRECT because the sentence does not name lipoatrophy separately from that presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-peripheral-neuropathy" data-dismech-node="Progressive Peripheral Neuropathy" data-dismech-type="phenotype">
@@ -6142,15 +6387,18 @@ This clinical feature is Progeroid facial appearance (HP:0005328). HP:0005328 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0009830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6170,6 +6418,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6194,6 +6443,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6223,6 +6473,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6238,286 +6489,6 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
             <div class="evidence-more">+ 1 more reference</div>
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-postnatal-growth-failure-and-short-stature" data-dismech-node="Postnatal Growth Failure and Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Postnatal Growth Failure and Short Stature
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Postnatal growth retardation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0008897</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17183314" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17183314" target="_blank">PMID:17183314</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Expression data from XPF-ERCC1-deficient mice indicate increased cell death and anti-oxidant defences, a shift towards anabolism and reduced growth hormone/insulin-like growth factor 1 (IGF1) signalling, a known regulator of lifespan."</div>
-
-
-                <div class="evidence-explanation">Cited as the mechanistic basis for the growth phenotype, graded MODEL_ORGANISM because the axis measurement is in mice. No longer the only support: the human item below carries the phenotype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26074087" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26074087" target="_blank">PMID:26074087</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient, XP51RO, exhibited symptoms resembling premature aging, profound crosslink sensitivity, and frequent sunburns. Many neurologic, hepatobiliary, musculoskeletal, and hematopoietic symptoms were present."</div>
-
-
-                <div class="evidence-explanation">Human evidence for the multisystem involvement in the index patient, including the musculoskeletal features the growth phenotype belongs to.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cachexia" data-dismech-node="Cachexia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cachexia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004326</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22953029" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22953029" target="_blank">PMID:22953029</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Multiple signs and symptoms of aging were found to occur at an accelerated rate in the Ercc1(-/Δ7) mice as compared to wild-type controls, including a decline in weight of both whole body and various organs, numerous histopathological lesions, and immune parameters."</div>
-
-
-                <div class="evidence-explanation">The wasting phenotype in the model. Retained alongside the human item below rather than as sole support, since MODEL_ORGANISM evidence alone is not sufficient for a human phenotype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26074087" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26074087" target="_blank">PMID:26074087</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient, XP51RO, exhibited symptoms resembling premature aging, profound crosslink sensitivity, and frequent sunburns. Many neurologic, hepatobiliary, musculoskeletal, and hematopoietic symptoms were present."</div>
-
-
-                <div class="evidence-explanation">Records the premature-aging presentation of the index patient, of which the wasting is part.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lipoatrophy" data-dismech-node="Lipoatrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lipoatrophy
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100578" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100578</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lipoatrophy (HP:0100578). HP:0100578 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26074087" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26074087" target="_blank">PMID:26074087</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient, XP51RO, exhibited symptoms resembling premature aging, profound crosslink sensitivity, and frequent sunburns. Many neurologic, hepatobiliary, musculoskeletal, and hematopoietic symptoms were present."</div>
-
-
-                <div class="evidence-explanation">Records the premature-aging presentation of the index patient. INDIRECT because the sentence does not name lipoatrophy separately from that presentation.</div>
-
-
-
-            </div>
-
 
         </div>
     </details>
@@ -6546,15 +6517,18 @@ This clinical feature is Lipoatrophy (HP:0100578). HP:0100578 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001328</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6579,6 +6553,7 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6587,6 +6562,215 @@ This clinical feature is Specific learning disability (HP:0001328). HP:0001328 i
 
 
                 <div class="evidence-explanation">Names progressive cognitive impairment among the neurologic manifestations of the spectrum. INDIRECT, and note the spectrum term is cognitive impairment rather than learning disability - the two are not the same claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-postnatal-growth-failure-and-short-stature" data-dismech-node="Postnatal Growth Failure and Short Stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Postnatal Growth Failure and Short Stature
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Postnatal growth retardation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0008897</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17183314" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17183314" target="_blank">PMID:17183314</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Expression data from XPF-ERCC1-deficient mice indicate increased cell death and anti-oxidant defences, a shift towards anabolism and reduced growth hormone/insulin-like growth factor 1 (IGF1) signalling, a known regulator of lifespan."</div>
+
+
+                <div class="evidence-explanation">Cited as the mechanistic basis for the growth phenotype, graded MODEL_ORGANISM because the axis measurement is in mice. No longer the only support: the human item below carries the phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26074087" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26074087" target="_blank">PMID:26074087</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient, XP51RO, exhibited symptoms resembling premature aging, profound crosslink sensitivity, and frequent sunburns. Many neurologic, hepatobiliary, musculoskeletal, and hematopoietic symptoms were present."</div>
+
+
+                <div class="evidence-explanation">Human evidence for the multisystem involvement in the index patient, including the musculoskeletal features the growth phenotype belongs to.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cachexia" data-dismech-node="Cachexia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cachexia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22953029" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22953029" target="_blank">PMID:22953029</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multiple signs and symptoms of aging were found to occur at an accelerated rate in the Ercc1(-/Δ7) mice as compared to wild-type controls, including a decline in weight of both whole body and various organs, numerous histopathological lesions, and immune parameters."</div>
+
+
+                <div class="evidence-explanation">The wasting phenotype in the model. Retained alongside the human item below rather than as sole support, since MODEL_ORGANISM evidence alone is not sufficient for a human phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26074087" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26074087" target="_blank">PMID:26074087</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient, XP51RO, exhibited symptoms resembling premature aging, profound crosslink sensitivity, and frequent sunburns. Many neurologic, hepatobiliary, musculoskeletal, and hematopoietic symptoms were present."</div>
+
+
+                <div class="evidence-explanation">Records the premature-aging presentation of the index patient, of which the wasting is part.</div>
 
 
 
@@ -6674,6 +6858,9 @@ This disease-associated gene is ERCC4 (hgnc:3436). hgnc:3436 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6688,6 +6875,7 @@ This disease-associated gene is ERCC4 (hgnc:3436). hgnc:3436 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6712,6 +6900,7 @@ This disease-associated gene is ERCC4 (hgnc:3436). hgnc:3436 is a gene from the 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6798,6 +6987,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6808,6 +7000,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6840,6 +7035,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6864,6 +7060,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6930,6 +7127,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6940,6 +7140,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -6977,6 +7180,7 @@ Curated as preclinical. It has never been tested in a human with this disease, t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7020,6 +7224,7 @@ Curated as preclinical. It has never been tested in a human with this disease, t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7086,6 +7291,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7096,6 +7304,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7132,6 +7343,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7178,6 +7390,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7243,6 +7456,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7253,6 +7469,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7289,6 +7508,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7332,6 +7552,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7399,6 +7620,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7409,6 +7633,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7439,6 +7666,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7528,6 +7756,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7579,6 +7808,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7635,6 +7865,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7683,6 +7914,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7792,6 +8024,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7876,6 +8109,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8052,6 +8286,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8091,6 +8326,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8145,6 +8381,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8282,6 +8519,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8321,6 +8559,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10100,6 +10339,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: XFE Progeroid Syndrome</strong> · 2026-08-29T17:04:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/XFE_Progeroid_Syndrome/2026-08-29T170446Z-claude-code-db0c6f.yaml">View source</a></p>
+                        <p class="research-review-text">Created the XFE progeroid syndrome entry, the ERCC4/XPF segmental progeria. Curated as its own entry rather than a subtype of Xeroderma Pigmentosum, which already carries XP-F on the same gene, because the literature states the discriminator mechanistically: ERCC4 genotypes are separated by the balance they leave between nucleotide excision repair and interstrand crosslink repair, and the progeroid genotype impairs both while the xeroderma genotypes impair excision repair alone. Deep research: openscientist, research/XFE_Progeroid_Syndrome-deep-research-openscientist.md. The report supplied the great majority of the mechanistic content: the somatotroph axis interpretation, the NER versus ICL balance rule, the carrier-frequency-versus-patient-count argument for prenatal lethality, the NF-kappaB intervention result, the dietary restriction result, the two Ercc1 mouse strains, and the peripheral neuropathy timing. Its reference validation was clean at 24 of 24 resolved. Its term labelling was not: 14 of 15 labelled terms were mislabelled, though most of those are an artefact of the report placing a category word in a table column that the validator read as a label. No ontology term was taken from the report without independent checking. The entry&#39;s central editorial decision is that almost every mechanistic claim rests on mouse models that mutate ERCC1, the partner subunit, rather than ERCC4, and that the founding human allele fails by mislocalisation of a catalytically intact protein rather than by loss of nuclease activity. That is recorded as an explicit HUMAN_MODEL_MISMATCH discussion with a proposed knock-in experiment rather than smoothed over. Two evidence items knowingly cite a review for its scope because no quotable sentence naming the finding exists in the cached abstract; both are flagged in the entry notes as the first places to improve. A structural gap is also recorded: the founding case report is a Nature letter whose abstract compresses the clinical description to one sentence, so the best human evidence for several phenotypes exists but is not quotable. Validated with just validate, 39 of 39 snippets verified, plus just validate-terms and just check-entity-refs.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4438,6 +4506,7 @@ This subtype is caused by variation in SLC4A3 (hgnc:11029). hgnc:11029 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ion-channel-gain-and-loss-of-function-variants" data-dismech-node="Ion-channel gain- and loss-of-function variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Ion-channel gain- and loss-of-function variants</div>
 
+
                 <div class="item-desc">The upstream trigger of SQTS is a pathogenic germline variant that alters a cardiac ion channel. Gain-of-function variants in the potassium channels KCNH2 (IKr), KCNQ1 (IKs), and KCNJ2 (IK1) increase repolarizing current, while loss-of-function variants in the L-type calcium channel subunits CACNA1C, CACNB2, and CACNA2D1 reduce inward calcium current. Either route shifts the net balance of currents toward accelerated repolarization in structurally normal myocardium.</div>
 
 
@@ -4821,6 +4890,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4842,6 +4912,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4867,6 +4938,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-myocardial-repolarization" data-dismech-node="Accelerated myocardial repolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated myocardial repolarization</div>
+
 
                 <div class="item-desc">The core electrophysiologic lesion in SQTS is accelerated repolarization, typically due to increased repolarizing potassium current in ventricular myocardium. This abbreviates action potential duration and refractory periods, producing the characteristic shortened QT interval and reducing the margin against re-entry.</div>
 
@@ -5089,6 +5161,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5110,6 +5183,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5137,6 +5211,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5159,6 +5234,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-re-entry-prone-arrhythmia-substrate" data-dismech-node="Re-entry-prone arrhythmia substrate" data-dismech-type="pathophysiology">
                 <div class="item-name">Re-entry-prone arrhythmia substrate</div>
+
 
                 <div class="item-desc">Abbreviated refractory periods and impaired rate adaptation create a myocardial substrate that is vulnerable to atrial and ventricular fibrillation. At the tissue level this is expressed as shortened excitation wavelength, enhanced inducibility of sustained spiral waves, and increased ventricular vulnerability to fibrillation.</div>
 
@@ -5318,6 +5394,7 @@ This pathophysiological event involves dysregulated cardiac conduction (GO:00613
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5339,6 +5416,7 @@ This pathophysiological event involves dysregulated cardiac conduction (GO:00613
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5364,6 +5442,7 @@ This pathophysiological event involves dysregulated cardiac conduction (GO:00613
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-and-ventricular-fibrillation-susceptibility" data-dismech-node="Atrial and ventricular fibrillation susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial and ventricular fibrillation susceptibility</div>
+
 
                 <div class="item-desc">SQTS clinically presents with malignant atrial and ventricular arrhythmias. Atrial fibrillation is common and may be the presenting feature, whereas ventricular fibrillation underlies aborted cardiac arrest and sudden cardiac death.</div>
 
@@ -5547,6 +5626,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5568,6 +5648,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5593,6 +5674,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syncope-and-sudden-cardiac-death" data-dismech-node="Syncope and Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Syncope and Sudden Cardiac Death</div>
+
 
                 <div class="item-desc">Loss of effective cardiac output from sustained ventricular fibrillation (or self-terminating tachyarrhythmia) causes transient cerebral hypoperfusion and syncope and, when the rhythm does not terminate, sudden cardiac death. These are the shared clinical endpoints of SQTS and are frequently the sentinel manifestation, occurring in infants, children, and young adults with structurally normal hearts.</div>
 
@@ -5654,6 +5736,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5675,6 +5758,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5740,28 +5824,13 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-shortened-qt-interval" data-dismech-node="Shortened QT Interval" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Shortened QT Interval
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-atrial-fibrillation" data-dismech-node="Atrial Fibrillation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Atrial Fibrillation
-
-
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
@@ -5770,365 +5839,18 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012232</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30571592" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30571592" target="_blank">PMID:30571592</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Five patients had syncope (29%) and 9 (53%) had atrial fibrillation or atrial flutter."</div>
-
-
-                <div class="evidence-explanation">Supports atrial fibrillation as a common clinical manifestation in SQTS families.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-fibrillation" data-dismech-node="Ventricular Fibrillation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ventricular Fibrillation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001663</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is ventricular fibrillation (HP:0001663). HP:0001663 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12925462" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12925462" target="_blank">PMID:12925462</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The short QT syndrome is characterized by familial sudden death, short refractory periods, and inducible ventricular fibrillation."</div>
-
-
-                <div class="evidence-explanation">Establishes ventricular fibrillation as a central malignant arrhythmia in SQTS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Syncope
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001279</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30571592" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30571592" target="_blank">PMID:30571592</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Five patients had syncope (29%) and 9 (53%) had atrial fibrillation or atrial flutter."</div>
-
-
-                <div class="evidence-explanation">Direct long-term cohort evidence that syncope is part of the SQTS phenotype spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-palpitations" data-dismech-node="Palpitations" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Palpitations
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001962</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12925462" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12925462" target="_blank">PMID:12925462</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Several members of 2 different families were referred for syncope, palpitations, and resuscitated cardiac arrest in the presence of a positive family history for sudden cardiac death."</div>
-
-
-                <div class="evidence-explanation">Shows palpitations among the presenting manifestations in the original SQTS family series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sudden Cardiac Death
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001645</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:14676148" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14676148" target="_blank">PMID:14676148</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We demonstrate a novel genetic and biophysical mechanism responsible for sudden death in infants, children, and young adults caused by mutations in KCNH2."</div>
-
-
-                <div class="evidence-explanation">Confirms sudden cardiac death as a defining high-severity clinical outcome of SQTS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-shortened-qt-interval" data-dismech-node="Shortened QT Interval" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Shortened QT Interval
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012232</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Shortened QT interval (HP:0012232). HP:0012232 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6148,6 +5870,7 @@ This clinical feature is Shortened QT interval (HP:0012232). HP:0012232 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6175,6 +5898,7 @@ This clinical feature is Shortened QT interval (HP:0012232). HP:0012232 is a phe
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6196,33 +5920,34 @@ This clinical feature is Shortened QT interval (HP:0012232). HP:0012232 is a phe
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-asymmetric-t-waves" data-dismech-node="Asymmetric T Waves" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Asymmetric T Waves
+            <div class="item-box phenotype-box anchor-target" id="phenotype-asymmetric-t-waves" data-dismech-node="Asymmetric T Waves" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Asymmetric T Waves
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Abnormal T-wave</span>
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0005135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0005135</a>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0005135</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tall, peaked, asymmetric T waves, annotated with Abnormal T-wave (HP:0005135). HP:0005135 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6242,6 +5967,7 @@ This clinical feature is Tall, peaked, asymmetric T waves, annotated with Abnorm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6266,34 +5992,368 @@ This clinical feature is Tall, peaked, asymmetric T waves, annotated with Abnorm
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-atrial-fibrillation" data-dismech-node="Atrial Fibrillation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Atrial Fibrillation
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0005110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30571592" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30571592" target="_blank">PMID:30571592</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Five patients had syncope (29%) and 9 (53%) had atrial fibrillation or atrial flutter."</div>
+
+
+                <div class="evidence-explanation">Supports atrial fibrillation as a common clinical manifestation in SQTS families.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-fibrillation" data-dismech-node="Ventricular Fibrillation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Ventricular Fibrillation
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001663</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is ventricular fibrillation (HP:0001663). HP:0001663 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12925462" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12925462" target="_blank">PMID:12925462</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The short QT syndrome is characterized by familial sudden death, short refractory periods, and inducible ventricular fibrillation."</div>
+
+
+                <div class="evidence-explanation">Establishes ventricular fibrillation as a central malignant arrhythmia in SQTS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Syncope
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30571592" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30571592" target="_blank">PMID:30571592</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Five patients had syncope (29%) and 9 (53%) had atrial fibrillation or atrial flutter."</div>
+
+
+                <div class="evidence-explanation">Direct long-term cohort evidence that syncope is part of the SQTS phenotype spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-palpitations" data-dismech-node="Palpitations" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Palpitations
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001962</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12925462" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12925462" target="_blank">PMID:12925462</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Several members of 2 different families were referred for syncope, palpitations, and resuscitated cardiac arrest in the presence of a positive family history for sudden cardiac death."</div>
+
+
+                <div class="evidence-explanation">Shows palpitations among the presenting manifestations in the original SQTS family series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Sudden Cardiac Death
+
+
+                    <span class="phenotype-category">Cardiovascular</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001645</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14676148" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14676148" target="_blank">PMID:14676148</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrate a novel genetic and biophysical mechanism responsible for sudden death in infants, children, and young adults caused by mutations in KCNH2."</div>
+
+
+                <div class="evidence-explanation">Confirms sudden cardiac death as a defining high-severity clinical outcome of SQTS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -6338,6 +6398,9 @@ This disease-associated gene is KCNH2 (hgnc:6251). hgnc:6251 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6363,6 +6426,7 @@ This disease-associated gene is KCNH2 (hgnc:6251). hgnc:6251 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6384,6 +6448,7 @@ This disease-associated gene is KCNH2 (hgnc:6251). hgnc:6251 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6439,6 +6504,9 @@ This disease-associated gene is KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6461,6 +6529,7 @@ This disease-associated gene is KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6488,6 +6557,7 @@ This disease-associated gene is KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6509,6 +6579,7 @@ This disease-associated gene is KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6564,6 +6635,9 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6586,6 +6660,7 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6613,6 +6688,7 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6634,6 +6710,7 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6689,6 +6766,9 @@ This disease-associated gene is CACNA1C (hgnc:1390). hgnc:1390 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6711,6 +6791,7 @@ This disease-associated gene is CACNA1C (hgnc:1390). hgnc:1390 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6766,6 +6847,9 @@ This disease-associated gene is CACNB2 (hgnc:1402). hgnc:1402 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6788,6 +6872,7 @@ This disease-associated gene is CACNB2 (hgnc:1402). hgnc:1402 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6843,6 +6928,9 @@ This disease-associated gene is CACNA2D1 (hgnc:1399). hgnc:1399 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6865,6 +6953,7 @@ This disease-associated gene is CACNA2D1 (hgnc:1399). hgnc:1399 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6922,6 +7011,9 @@ This disease-associated gene is SLC4A3 (hgnc:11029). hgnc:11029 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6936,6 +7028,7 @@ This disease-associated gene is SLC4A3 (hgnc:11029). hgnc:11029 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7048,6 +7141,12 @@ This treatment uses quinidine (CHEBI:28593). CHEBI:28593 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Hydroquinidine is the best-supported pharmacologic therapy for SQTS. It prolongs the QT interval and ventricular refractory period and can suppress inducible or recurrent ventricular arrhythmias.</div>
 
 
@@ -7072,6 +7171,7 @@ This treatment uses quinidine (CHEBI:28593). CHEBI:28593 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7093,6 +7193,7 @@ This treatment uses quinidine (CHEBI:28593). CHEBI:28593 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7160,6 +7261,9 @@ This treatment is implantable cardioverter-defibrillator placement, annotated wi
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7170,6 +7274,9 @@ This treatment is implantable cardioverter-defibrillator placement, annotated wi
 
 
     </div>
+
+
+
 
 
 
@@ -7197,6 +7304,7 @@ This treatment is implantable cardioverter-defibrillator placement, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7278,6 +7386,7 @@ This treatment is implantable cardioverter-defibrillator placement, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

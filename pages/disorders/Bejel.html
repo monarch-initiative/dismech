@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4048,6 +4116,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-treponemal-mucosal-inoculation" data-dismech-node="Treponemal Mucosal Inoculation" data-dismech-type="pathophysiology">
                 <div class="item-name">Treponemal Mucosal Inoculation</div>
 
+
                 <div class="item-desc">Treponema pallidum subsp. endemicum initiates bejel after mucosal or skin contact, producing primary mucosal lesions that may be subtle or clinically resemble primary syphilis in recent adult TEN infections.</div>
 
 
@@ -4159,6 +4228,7 @@ This pathophysiological event occurs in oral mucosa, annotated with mouth mucosa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4180,6 +4250,7 @@ This pathophysiological event occurs in oral mucosa, annotated with mouth mucosa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4207,6 +4278,7 @@ This pathophysiological event occurs in oral mucosa, annotated with mouth mucosa
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4229,6 +4301,7 @@ This pathophysiological event occurs in oral mucosa, annotated with mouth mucosa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disseminated-mucocutaneous-and-osteoperiosteal-inflammation" data-dismech-node="Disseminated Mucocutaneous and Osteoperiosteal Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disseminated Mucocutaneous and Osteoperiosteal Inflammation</div>
+
 
                 <div class="item-desc">Secondary bejel reflects disseminated treponemal infection with mucocutaneous lesions and skeletal involvement. Clinical features overlap primary- and secondary-stage T. pallidum subsp. pallidum infection, while endemic treponematoses can destroy tissue and bone.</div>
 
@@ -4383,6 +4456,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4404,6 +4478,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4429,6 +4504,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-mediated-treponemal-response" data-dismech-node="Macrophage-Mediated Treponemal Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage-Mediated Treponemal Response</div>
+
 
                 <div class="item-desc">Treponemal antigens and opsonized organisms activate macrophage-centered innate and adaptive immune responses. IFN-gamma and TLR2/JAK1/STAT1-linked pathways promote macrophage activation, phagocytosis, and inflammatory cytokine production.</div>
 
@@ -4554,6 +4630,7 @@ This pathophysiological event involves increased macrophage activation (GO:00421
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4575,6 +4652,7 @@ This pathophysiological event involves increased macrophage activation (GO:00421
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4600,6 +4678,7 @@ This pathophysiological event involves increased macrophage activation (GO:00421
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tertiary-destructive-gummatous-disease" data-dismech-node="Tertiary Destructive Gummatous Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Tertiary Destructive Gummatous Disease</div>
+
 
                 <div class="item-desc">Untreated persistent bejel can progress to late destructive lesions of the skin, mucosa, nose, palate, and bone, including gangosa-like nasopalatal destruction and skeletal deforming disease.</div>
 
@@ -4714,6 +4793,7 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4736,6 +4816,7 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-treponemal-peptidoglycan-cross-linking-beta-lactam-target" data-dismech-node="Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)</div>
+
 
                 <div class="item-desc">Treponema pallidum subsp. endemicum maintains its peptidoglycan cell wall by penicillin-binding protein (PBP) transpeptidase cross-linking. This essential, bacteria-specific reaction is the target of the penicillin used to treat bejel: beta-lactam acylation of the PBP active site halts cross-linking and is treponemicidal, which is why penicillin remains curative with no documented penicillin resistance in the endemic treponematoses.</div>
 
@@ -4808,6 +4889,7 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4874,15 +4956,13 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4923,6 +5003,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4937,6 +5020,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4969,7 +5053,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-uveitis" data-dismech-node="Uveitis" data-dismech-type="phenotype">
@@ -5002,6 +5086,9 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5016,6 +5103,7 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5070,6 +5158,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5084,6 +5175,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5108,13 +5200,83 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-scar" data-dismech-node="Chorioretinal Scar" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chorioretinal Scar
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007777" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007777</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorioretinal scar (HP:0007777). HP:0007777 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2771355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2771355" target="_blank">PMID:2771355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Results of clinical examination showed uveitis in nine patients, optic atrophy in six, and chorioretinitis scars in six."</div>
+
+
+                <div class="evidence-explanation">The abstract reports chorioretinitis scars among bejel patients on clinical examination.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-primary-mucosal-lesions" data-dismech-node="Primary Mucosal Lesions" data-dismech-type="phenotype">
@@ -5133,15 +5295,18 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Primary mucosal lesion, annotated with Abnormal oral mucosa morphology (HP:0011830). HP:0011830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5164,6 +5329,7 @@ This clinical feature is Primary mucosal lesion, annotated with Abnormal oral mu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5172,6 +5338,80 @@ This clinical feature is Primary mucosal lesion, annotated with Abnormal oral mu
 
 
                 <div class="evidence-explanation">Supports mucosal primary lesion formation in documented TEN infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tertiary-nasopalatal-destruction" data-dismech-node="Tertiary Nasopalatal Destruction" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tertiary Nasopalatal Destruction
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal nasal morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0005105</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tertiary nasopalatal destruction, annotated with Abnormal nasal morphology (HP:0005105). HP:0005105 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2682125" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2682125" target="_blank">PMID:2682125</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"More than 100 million additional children are at risk for these disabling and disfiguring infections which destroy tissue and bone."</div>
+
+
+                <div class="evidence-explanation">Supports disfiguring destructive tissue involvement in endemic treponematoses.</div>
 
 
 
@@ -5212,15 +5452,18 @@ This clinical feature is Primary mucosal lesion, annotated with Abnormal oral mu
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000988</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000988</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Secondary mucocutaneous eruption, annotated with Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5240,6 +5483,7 @@ This clinical feature is Secondary mucocutaneous eruption, annotated with Skin r
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5291,15 +5535,18 @@ This clinical feature is Secondary mucocutaneous eruption, annotated with Skin r
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000924</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000924</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoperiosteal bone disease, annotated with Abnormality of the skeletal system (HP:0000924). HP:0000924 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5319,6 +5566,7 @@ This clinical feature is Osteoperiosteal bone disease, annotated with Abnormalit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5330,151 +5578,6 @@ This clinical feature is Osteoperiosteal bone disease, annotated with Abnormalit
 
 
                 <div class="evidence-explanation">Supports bone-destructive endemic treponematosis manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tertiary-nasopalatal-destruction" data-dismech-node="Tertiary Nasopalatal Destruction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tertiary Nasopalatal Destruction
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal nasal morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0005105</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tertiary nasopalatal destruction, annotated with Abnormal nasal morphology (HP:0005105). HP:0005105 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:2682125" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2682125" target="_blank">PMID:2682125</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"More than 100 million additional children are at risk for these disabling and disfiguring infections which destroy tissue and bone."</div>
-
-
-                <div class="evidence-explanation">Supports disfiguring destructive tissue involvement in endemic treponematoses.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-scar" data-dismech-node="Chorioretinal Scar" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chorioretinal Scar
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007777" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0007777</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chorioretinal scar (HP:0007777). HP:0007777 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:2771355" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2771355" target="_blank">PMID:2771355</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"Results of clinical examination showed uveitis in nine patients, optic atrophy in six, and chorioretinitis scars in six."</div>
-
-
-                <div class="evidence-explanation">The abstract reports chorioretinitis scars among bejel patients on clinical examination.</div>
 
 
 
@@ -5603,6 +5706,9 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5613,6 +5719,9 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -5658,6 +5767,7 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5749,6 +5859,12 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oral azithromycin has been adopted for mass treatment strategies in yaws and endemic treponematoses, but bejel use should be guided by resistance context because adult TEN isolates with macrolide-resistance mutations have been reported.</div>
 
 
@@ -5773,6 +5889,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5794,6 +5911,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5912,6 +6030,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6760,6 +6879,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6831,6 +6951,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6899,6 +7020,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7158,6 +7280,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7263,6 +7386,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7759,6 +7883,18 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Bejel-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

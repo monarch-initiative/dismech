@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4230,6 +4298,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4251,6 +4320,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4334,6 +4404,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4423,6 +4494,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4599,6 +4671,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4757,6 +4830,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4921,6 +4995,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5079,6 +5154,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5243,6 +5319,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5264,6 +5341,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5301,6 +5379,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pus7-loss-of-function-variants" data-dismech-node="Biallelic PUS7 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PUS7 Loss-of-Function Variants</div>
+
 
                 <div class="item-desc">The disorder is initiated by inheritance of two damaging PUS7 alleles. The reported allelic spectrum includes frameshift alleles, nonsense alleles, a deletion of the penultimate exon that escapes nonsense-mediated decay but removes the C-terminal catalytic region, and missense alleles. Missense alleles appear to behave as hypomorphs, producing a milder phenotype without microcephaly or short stature.</div>
 
@@ -5397,6 +5476,7 @@ This pathophysiological event involves PUS7 (hgnc:26033). hgnc:26033 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5418,6 +5498,7 @@ This pathophysiological event involves PUS7 (hgnc:26033). hgnc:26033 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5443,6 +5524,7 @@ This pathophysiological event involves PUS7 (hgnc:26033). hgnc:26033 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-pseudouridine-synthase-7-catalytic-activity" data-dismech-node="Loss of Pseudouridine Synthase 7 Catalytic Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Pseudouridine Synthase 7 Catalytic Activity</div>
+
 
                 <div class="item-desc">PUS7 is an RNA-independent (stand-alone) pseudouridine synthase of the TruD family that isomerises uridine to 5-ribosyluracil without a guide snoRNA. Loss of its activity removes pseudouridine from every class of PUS7 substrate at once: cytosolic tRNAs, a defined set of mRNAs, and tRNA-derived small fragments.</div>
 
@@ -5652,6 +5734,7 @@ This pathophysiological event involves decreased tRNA pseudouridine synthase act
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5673,6 +5756,7 @@ This pathophysiological event involves decreased tRNA pseudouridine synthase act
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5698,6 +5782,7 @@ This pathophysiological event involves decreased tRNA pseudouridine synthase act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-7sk-snrna-pseudouridylation-and-enhanced-pol-ii-elongation" data-dismech-node="Loss of 7SK snRNA Pseudouridylation and Enhanced Pol II Elongation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of 7SK snRNA Pseudouridylation and Enhanced Pol II Elongation</div>
+
 
                 <div class="item-desc">Loss of PUS7 leaves 7SK snRNA hypo-pseudouridylated, which releases the positive transcription elongation factor b complex from 7SK, raises serine-2 phosphorylation of the RNA polymerase II C-terminal domain, and enhances transcription elongation. This is a transcription-level rather than a translation-level consequence of the same enzymatic deficit. It is included because it is mechanistically established for PUS7 loss, but its relevance to the neurodevelopmental phenotype is entirely untested: the work was done in colorectal cancer cells, and no patient tissue has been examined.</div>
 
@@ -5774,6 +5859,7 @@ This pathophysiological event involves increased regulation of transcription elo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5796,6 +5882,7 @@ This pathophysiological event involves increased regulation of transcription elo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-trna-pseudouridine-at-position-13" data-dismech-node="Depletion of tRNA Pseudouridine at Position 13" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of tRNA Pseudouridine at Position 13</div>
+
 
                 <div class="item-desc">Patient cells lose pseudouridine specifically at position 13 of at least ten different cytosolic tRNAs, with other pseudouridine positions in the same tRNAs preserved. The defect is therefore a clean, position-specific ablation of one modification rather than a general collapse of tRNA maturation.</div>
 
@@ -5929,6 +6016,7 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5950,6 +6038,7 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5975,6 +6064,7 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-codon-specific-translational-control" data-dismech-node="Loss of Codon-Specific Translational Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Codon-Specific Translational Control</div>
+
 
                 <div class="item-desc">PUS7-dependent tRNA pseudouridylation biases translation toward or away from particular codons, so its loss changes which transcripts are efficiently decoded. This is the most satisfying available answer to the central puzzle of the disorder: how the loss of a broadly expressed housekeeping RNA writer produces a selective, largely neurological phenotype rather than uniform cellular failure. The mapping was performed in glioblastoma stem cells, and the equivalent codon-level analysis has never been done in neurons or neural progenitors.</div>
 
@@ -6066,6 +6156,7 @@ This pathophysiological event involves decreased regulation of translation (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6088,6 +6179,7 @@ This pathophysiological event involves decreased regulation of translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-pus7-dependent-mrna-pseudouridylation" data-dismech-node="Loss of PUS7-Dependent mRNA Pseudouridylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of PUS7-Dependent mRNA Pseudouridylation</div>
+
 
                 <div class="item-desc">PUS7 recognises a UNPsiAR-type sequence motif and pseudouridylates a defined set of mRNAs. Patient cells show reduced mRNA pseudouridylation, although the functional consequence of this arm has not been established as disease-relevant.</div>
 
@@ -6179,6 +6271,7 @@ This pathophysiological event involves decreased mRNA modification (GO:0016556).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6201,6 +6294,7 @@ This pathophysiological event involves decreased mRNA modification (GO:0016556).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-pseudouridylation-and-activation-of-trna-derived-fragments" data-dismech-node="Loss of Pseudouridylation and Activation of tRNA-Derived Fragments" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Pseudouridylation and Activation of tRNA-Derived Fragments</div>
+
 
                 <div class="item-desc">PUS7 pseudouridylates a network of tRNA-derived small fragments (tRFs). The modification is what activates them; unmodified tRFs cannot engage the translation initiation complex.</div>
 
@@ -6254,6 +6348,7 @@ This pathophysiological event involves decreased mRNA modification (GO:0016556).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6276,6 +6371,7 @@ This pathophysiological event involves decreased mRNA modification (GO:0016556).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-trf-mediated-restraint-of-translation-initiation" data-dismech-node="Failure of tRF-Mediated Restraint of Translation Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of tRF-Mediated Restraint of Translation Initiation</div>
+
 
                 <div class="item-desc">PUS7-modified tRFs act as brakes on the translation initiation complex. The best-resolved arm is the mini-tRF carrying a 5-prime terminal oligoguanine (mTOG): its pseudouridine engages the RNA-recognition-motif domains of PABPC1, which blocks recruitment of the translational co-activator PAIP1 and represses translation of transcripts carrying pyrimidine-enriched and 5-prime terminal oligopyrimidine sequences, many of which encode components of the protein-synthesis machinery itself. Removing the brake therefore releases initiation from its normal ceiling, and does so in a feed-forward way because the derepressed transcripts build more translational machinery.</div>
 
@@ -6401,6 +6497,7 @@ This pathophysiological event involves decreased negative regulation of translat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6422,6 +6519,7 @@ This pathophysiological event involves decreased negative regulation of translat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6449,6 +6547,7 @@ This pathophysiological event involves decreased negative regulation of translat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6471,6 +6570,7 @@ This pathophysiological event involves decreased negative regulation of translat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-global-protein-synthesis" data-dismech-node="Deregulated Global Protein Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Global Protein Synthesis</div>
+
 
                 <div class="item-desc">The convergent cellular consequence of losing PUS7 across all three substrate classes is loss of translational homeostasis. Fibroblasts from PUS7-deficient patients show upregulated protein synthesis with elevated MYC protein, and notably this occurs without a corresponding increase in proliferation rate, which distinguishes the neurodevelopmental consequence from the proliferative consequence of upregulated translation in cancer.</div>
 
@@ -6646,6 +6746,7 @@ This pathophysiological event involves increased positive regulation of translat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6667,6 +6768,7 @@ This pathophysiological event involves increased positive regulation of translat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6692,6 +6794,7 @@ This pathophysiological event involves increased positive regulation of translat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-reduction-of-hprt1-protein" data-dismech-node="Secondary Reduction of HPRT1 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Reduction of HPRT1 Protein</div>
+
 
                 <div class="item-desc">A translation-level, sequence-independent reduction in hypoxanthine-guanine phosphoribosyltransferase protein. This is a proposed explanation for the Lesch-Nyhan-like hyperuricaemia and self-injurious behaviour observed in one sibling pair, and it has not been replicated in other PUS7 cohorts.</div>
 
@@ -6745,6 +6848,7 @@ This pathophysiological event involves increased positive regulation of translat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6767,6 +6871,7 @@ This pathophysiological event involves increased positive regulation of translat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purine-metabolic-derangement-and-lesch-nyhan-like-features" data-dismech-node="Purine Metabolic Derangement and Lesch-Nyhan-Like Features" data-dismech-type="pathophysiology">
                 <div class="item-name">Purine Metabolic Derangement and Lesch-Nyhan-Like Features</div>
+
 
                 <div class="item-desc">Hyperuricaemia with self-injurious behaviour resembling Lesch-Nyhan syndrome, observed in PUS7-deficient siblings with a normal HPRT1 gene. This branch of the graph is reported in a single family and should not be treated as a core feature of the disorder.</div>
 
@@ -6805,6 +6910,7 @@ This pathophysiological event involves increased positive regulation of translat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6827,6 +6933,7 @@ This pathophysiological event involves increased positive regulation of translat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-development-and-function" data-dismech-node="Impaired Neuronal Development and Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Development and Function</div>
+
 
                 <div class="item-desc">The convergent neural consequence. Human evidence is the invariant cognitive and behavioural phenotype; experimental support comes from pus7 knockout in Drosophila, which reproduces increased activity, disorientation and aggressiveness, and from mouse infralimbic prefrontal cortex knockdown, which selectively impairs an activity-dependent synaptic plasticity behaviour.</div>
 
@@ -6968,6 +7075,7 @@ This pathophysiological event involves abnormal neuron development (GO:0048666).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6989,6 +7097,7 @@ This pathophysiological event involves abnormal neuron development (GO:0048666).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7016,6 +7125,7 @@ This pathophysiological event involves abnormal neuron development (GO:0048666).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7038,6 +7148,7 @@ This pathophysiological event involves abnormal neuron development (GO:0048666).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-activity-dependent-synaptic-remodelling" data-dismech-node="Impaired Activity-Dependent Synaptic Remodelling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Activity-Dependent Synaptic Remodelling</div>
+
 
                 <div class="item-desc">A distinct, more disease-proximal neuronal mechanism than the developmental one. In mouse infralimbic prefrontal cortex, learning drives pseudouridine deposition on exons of synaptic regulatory genes and upregulation of synaptogenic transcripts, and PUS7 is required for this. Knocking PUS7 down in that region selectively blocks extinction learning while leaving baseline behaviour intact, which shows the requirement is for plasticity rather than for maintenance. This provides a candidate substrate for the cognitive and behavioural phenotype that is separable from the growth phenotype. It is mouse knockdown in adult cortex, not a germline model of the human disorder, so it is a mechanistic analogy and not a demonstration.</div>
 
@@ -7197,6 +7308,7 @@ This pathophysiological event involves decreased learning (GO:0007612). GO:00076
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7219,6 +7331,7 @@ This pathophysiological event involves decreased learning (GO:0007612). GO:00076
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-postnatal-brain-growth" data-dismech-node="Impaired Postnatal Brain Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Postnatal Brain Growth</div>
+
 
                 <div class="item-desc">Head circumference is typically normal or near-normal at birth and falls progressively across childhood, which is why the microcephaly is described as progressive or acquired rather than congenital. Brain MRI architecture is normal in most reported patients.</div>
 
@@ -7295,6 +7408,7 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7317,6 +7431,7 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-somatic-growth" data-dismech-node="Impaired Somatic Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Somatic Growth</div>
+
 
                 <div class="item-desc">Poor overall growth with short stature and low weight, described as marked growth retardation in the larger cohorts. Growth failure is a feature of the truncating-allele families and was absent in the one reported missense (hypomorphic) family.</div>
 
@@ -7355,6 +7470,7 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7377,6 +7493,7 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cognitive-and-behavioural-dysfunction" data-dismech-node="Cognitive and Behavioural Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cognitive and Behavioural Dysfunction</div>
+
 
                 <div class="item-desc">Moderate to severe intellectual disability with delayed or absent speech, plus a behavioural signature dominated by aggression of unusually early onset, and in a minority autistic traits, self-injury, stereotypies and sleep disturbance. The 2026 review argues that the core features are non-specific but that the very early onset of aggressiveness is the discriminating clue.</div>
 
@@ -7412,6 +7529,7 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7481,17 +7599,15 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(11)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(12)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7531,6 +7647,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </div>
 
 
+
+
+
                     <div class="item-desc">Derivation: reported in 2 of the 3 patients in PMID:30778726 and in both brothers in PMID:33100873, i.e. 4 individuals in total. Against the roughly 17 cases enumerated in the PMID:42226002 review that is approximately 24 percent, which lies in the OCCASIONAL band (5-29 percent). This agrees with that review&#39;s own classification of sensorineural hearing loss as one of the &#34;less common&#34; findings, which the curation SOP maps to OCCASIONAL. Note that PMID:30778726 warns that de Brouwer&#39;s cohort did not specifically comment on hearing, so the true rate may be higher than the published counts suggest.</div>
 
 
@@ -7550,6 +7669,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7574,6 +7694,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7606,8 +7727,127 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive Microcephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive Microcephaly
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000253</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive microcephaly (HP:0000253), qualified as course progressive. HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Derivation: 6/6 in PMID:30526862, 3/3 in PMID:30778726, 0/2 in PMID:31583274 (the missense family explicitly lacks microcephaly), 1/2 in PMID:33100873 (microcephaly documented for patient IV-1 only) and 1/1 in PMID:37067188 = 11/14, i.e. 79 percent, which falls in the FREQUENT band (30-79 percent). The band is deliberately not raised to VERY_FREQUENT because the hypomorphic missense genotype spares head growth.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30778726" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30778726" target="_blank">PMID:30778726</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We describe two families in which two different homozygous PUS7 mutations (missense and frameshift deletion) segregate with a phenotype comprising intellectual disability and progressive microcephaly."</div>
+
+
+                <div class="evidence-explanation">Establishes the progressive character of the microcephaly in three individuals from two families.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31583274" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31583274" target="_blank">PMID:31583274</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a novel PUS7 homozygous mutation resulting in p.Gly128Arg amino-acid translation in a consanguineous Afghani family presenting with similar but milder clinical features without microcephaly and short stature"</div>
+
+
+                <div class="evidence-explanation">Recorded as PARTIAL because it documents the exception: a PUS7 family with no microcephaly at all. This is the observation that keeps the band at FREQUENT rather than VERY_FREQUENT.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-facial-shape" data-dismech-node="Abnormal Facial Shape" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7623,10 +7863,10 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999), qualified as severity mild. HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7652,6 +7892,9 @@ This clinical feature is Abnormal facial shape (HP:0001999), qualified as severi
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted. The PMID:42226002 review lists mild facial dysmorphisms among the most frequent features across 17 cases but gives no count, and the individual features vary between families.</div>
 
 
@@ -7671,6 +7914,7 @@ This clinical feature is Abnormal facial shape (HP:0001999), qualified as severi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7698,6 +7942,7 @@ This clinical feature is Abnormal facial shape (HP:0001999), qualified as severi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7706,6 +7951,154 @@ This clinical feature is Abnormal facial shape (HP:0001999), qualified as severi
 
 
                 <div class="evidence-explanation">Confirms that facial dysmorphism is common but mild across the published series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-smooth-philtrum" data-dismech-node="Smooth Philtrum" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Smooth Philtrum
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000319</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Smooth philtrum (HP:0000319). HP:0000319 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No frequency band is asserted; the feature is described qualitatively as one of several variable dysmorphic findings without a denominator.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33100873" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33100873" target="_blank">PMID:33100873</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"variable dysmorphic features, including smooth philtrum, epicanthal folds, down slanting palpebral fissures"</div>
+
+
+                <div class="evidence-explanation">Names smooth philtrum among the recurrent dysmorphic features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-everted-lower-lip-vermilion" data-dismech-node="Everted Lower Lip Vermilion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Everted Lower Lip Vermilion
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000232</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Everted lower lip vermilion (HP:0000232). HP:0000232 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No frequency band is asserted; the feature is described qualitatively without a denominator.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33100873" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33100873" target="_blank">PMID:33100873</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"full lips, everted lower lip, hypodontia, and misaligned or conical shaped teeth"</div>
+
+
+                <div class="evidence-explanation">Names the everted lower lip among the recurrent oro-facial features.</div>
 
 
 
@@ -7744,15 +8137,18 @@ This clinical feature is Abnormal facial shape (HP:0001999), qualified as severi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002149" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002149</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002149" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002149</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted. Hyperuricaemia has been reported in exactly one family (two siblings) out of the roughly 30 published patients, and no other cohort reports urate measurements at all, so there is no denominator for a population estimate and the observation may be family-specific.</div>
@@ -7774,6 +8170,7 @@ This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7823,15 +8220,18 @@ This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Attribution caveat, not a frequency claim. Both brothers in PMID:33100873 also carry a splice-acceptor variant in AASS, and that same paper states that hyperlysinaemia type I (the AASS phenotype) itself presents with &#34;nonspecific seizure, hypotonia, mildly delayed psychomotor development&#34;. The hypotonia in those two boys therefore cannot be attributed to PUS7 alone, which is why the evidence is curated as PARTIAL and no frequency band is given. See the hyperlysinaemia entry in differential_diagnoses.</div>
@@ -7853,6 +8253,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7885,7 +8286,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">11</span>
+                    <span class="cat-count">12</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
@@ -7904,15 +8305,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 6/6 in PMID:30526862, 3/3 in PMID:30778726, 2/2 in PMID:31583274, 2/2 in PMID:33100873 and 1/1 in PMID:37067188, i.e. 14/14 individuals in the cohorts that report individual-level data (100 percent, VERY_FREQUENT band 80-100 percent). The PMID:42226002 review independently lists moderate/severe intellectual disability first among the most frequent features across 17 cases.</div>
@@ -7937,6 +8341,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7958,6 +8363,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8000,15 +8406,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 6/6 in PMID:30526862 (speech delay named in the title and in the all-individuals sentence), plus both siblings in PMID:31583274 and both brothers in PMID:33100873, i.e. at least 10/10 of the individuals for whom the feature is reported. The PMID:42226002 review lists delayed/absent speech second among the most frequent features across 17 cases.</div>
@@ -8033,6 +8442,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8054,6 +8464,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8094,15 +8505,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted. The distinction between severely delayed and truly absent speech is not separately counted in any cohort abstract; the PMID:42226002 review groups the two together as &#34;delayed/absent speech&#34;, and PMID:33100873 reports two brothers who cannot speak. That is not a usable denominator for absent speech alone.</div>
@@ -8124,6 +8538,7 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8166,15 +8581,18 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 6/6 in PMID:30526862, 2/3 in PMID:30778726 (index 3 was described as an obedient child and explicitly did not show aggressiveness like his brother), 2/2 in PMID:31583274 and 1/1 in PMID:37067188 = 11/12, i.e. 92 percent, in the VERY_FREQUENT band (80-100 percent).</div>
@@ -8196,6 +8614,7 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8223,6 +8642,7 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8244,6 +8664,7 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8284,15 +8705,18 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted. The PMID:42226002 review lists motor delay among the most frequent features across 17 cases but gives no count, and the individual cohorts describe motor development inconsistently (some children walked at a normal age, others at 20 to 24 months). Rather than convert a qualitative list position into a band, the band is omitted.</div>
@@ -8314,6 +8738,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8354,15 +8779,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted, for the same reason as global developmental delay: the PMID:42226002 review names motor delay among the most frequent features across 17 cases but publishes no per-feature count, and no cohort abstract supplies a usable denominator.</div>
@@ -8387,6 +8815,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8408,6 +8837,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8450,15 +8880,18 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0100716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 1/1 in PMID:37067188 and 2/2 in PMID:35144859, i.e. 3 individuals against the roughly 17 enumerated in the PMID:42226002 review, approximately 18 percent, in the OCCASIONAL band (5-29 percent). That review independently classifies self-injurious behaviour as one of the &#34;less common&#34; findings.</div>
@@ -8483,6 +8916,7 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8504,6 +8938,7 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8546,15 +8981,18 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: autistic features in both siblings of PMID:31583274 and a formal autism spectrum disorder diagnosis in the proband of PMID:35144859, i.e. 3 individuals against roughly 17 enumerated in the PMID:42226002 review, approximately 18 percent, in the OCCASIONAL band (5-29 percent). That review independently classifies autistic traits as one of the &#34;less common&#34; findings.</div>
@@ -8576,6 +9014,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8603,6 +9042,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8611,6 +9051,107 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                 <div class="evidence-explanation">Formal autism spectrum disorder diagnosis in an independent PUS7-deficient proband.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-stereotypy" data-dismech-node="Motor Stereotypy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Motor Stereotypy
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000733</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Derivation: motor stereotypies in 1/1 in PMID:37067188 and inappropriate stereotypic movements with head nodding in 1 of the 3 patients in PMID:30778726, i.e. 2 individuals against roughly 17 enumerated in the PMID:42226002 review, approximately 12 percent, in the OCCASIONAL band (5-29 percent). That review independently classifies motor stereotypies as one of the &#34;less common&#34; findings.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30778726" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30778726" target="_blank">PMID:30778726</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He also had behavioral problems including inappropriate stereotypic movements, head nodding, bruxism and sometimes tantrums."</div>
+
+
+                <div class="evidence-explanation">Individual-level documentation of stereotyped movements in an affected proband.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42226002" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42226002" target="_blank">PMID:42226002</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Less common but more peculiar findings included sensorineural hearing loss, autistic traits, self-injurious behavior, and motor stereotypies."</div>
+
+
+                <div class="evidence-explanation">Places motor stereotypies among the less common but diagnostically suggestive findings.</div>
 
 
 
@@ -8640,15 +9181,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted. Sleep disturbance is documented in the single patient of PMID:37067188 and is not enumerated in any cohort with a denominator; a single case is below the 1 percent threshold at which the curation SOP directs the band to be omitted entirely.</div>
@@ -8670,6 +9214,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8710,15 +9255,18 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000752</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000752</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted; no cohort reports a count for hyperactivity against a stated denominator.</div>
@@ -8743,6 +9291,7 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8764,6 +9313,7 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8804,15 +9354,18 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately curated with a REFUTE item alongside the report. The IDDABS description in PMID:33100873 lists seizure, but the only individual-level seizure in that paper is in a proband with a second pathogenic locus (AASS), and PMID:30778726 states positively that its three patients lacked epilepsy. No frequency band is asserted, and clinicians should not expect epilepsy in this disorder.</div>
@@ -8837,6 +9390,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8858,6 +9412,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8909,15 +9464,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Derivation: 6/6 in PMID:30526862, 2/3 in PMID:30778726 (index 1 had normal height at the 33rd centile; the two Egyptian siblings had heights of minus 4 and minus 6.6 standard deviations) and 0/2 in PMID:31583274 = 8/11, i.e. 73 percent, in the FREQUENT band (30-79 percent). PMID:33100873, PMID:35144859 and PMID:37067188 do not give per-individual stature data in their abstracts and are excluded from the denominator.</div>
@@ -8939,6 +9497,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8966,6 +9525,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8974,365 +9534,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Recorded as PARTIAL because it documents the variability that keeps the band below VERY_FREQUENT.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive Microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Microcephaly
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000253</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive microcephaly (HP:0000253), qualified as course progressive. HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-                    <div class="item-desc">Derivation: 6/6 in PMID:30526862, 3/3 in PMID:30778726, 0/2 in PMID:31583274 (the missense family explicitly lacks microcephaly), 1/2 in PMID:33100873 (microcephaly documented for patient IV-1 only) and 1/1 in PMID:37067188 = 11/14, i.e. 79 percent, which falls in the FREQUENT band (30-79 percent). The band is deliberately not raised to VERY_FREQUENT because the hypomorphic missense genotype spares head growth.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30778726" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30778726" target="_blank">PMID:30778726</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We describe two families in which two different homozygous PUS7 mutations (missense and frameshift deletion) segregate with a phenotype comprising intellectual disability and progressive microcephaly."</div>
-
-
-                <div class="evidence-explanation">Establishes the progressive character of the microcephaly in three individuals from two families.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31583274" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31583274" target="_blank">PMID:31583274</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report a novel PUS7 homozygous mutation resulting in p.Gly128Arg amino-acid translation in a consanguineous Afghani family presenting with similar but milder clinical features without microcephaly and short stature"</div>
-
-
-                <div class="evidence-explanation">Recorded as PARTIAL because it documents the exception: a PUS7 family with no microcephaly at all. This is the observation that keeps the band at FREQUENT rather than VERY_FREQUENT.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-stereotypy" data-dismech-node="Motor Stereotypy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Motor Stereotypy
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000733</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Motor stereotypy (HP:0000733). HP:0000733 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Derivation: motor stereotypies in 1/1 in PMID:37067188 and inappropriate stereotypic movements with head nodding in 1 of the 3 patients in PMID:30778726, i.e. 2 individuals against roughly 17 enumerated in the PMID:42226002 review, approximately 12 percent, in the OCCASIONAL band (5-29 percent). That review independently classifies motor stereotypies as one of the &#34;less common&#34; findings.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30778726" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30778726" target="_blank">PMID:30778726</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He also had behavioral problems including inappropriate stereotypic movements, head nodding, bruxism and sometimes tantrums."</div>
-
-
-                <div class="evidence-explanation">Individual-level documentation of stereotyped movements in an affected proband.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42226002" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42226002" target="_blank">PMID:42226002</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Less common but more peculiar findings included sensorineural hearing loss, autistic traits, self-injurious behavior, and motor stereotypies."</div>
-
-
-                <div class="evidence-explanation">Places motor stereotypies among the less common but diagnostically suggestive findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-smooth-philtrum" data-dismech-node="Smooth Philtrum" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Smooth Philtrum
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000319</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Smooth philtrum (HP:0000319). HP:0000319 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No frequency band is asserted; the feature is described qualitatively as one of several variable dysmorphic findings without a denominator.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33100873" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33100873" target="_blank">PMID:33100873</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"variable dysmorphic features, including smooth philtrum, epicanthal folds, down slanting palpebral fissures"</div>
-
-
-                <div class="evidence-explanation">Names smooth philtrum among the recurrent dysmorphic features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-everted-lower-lip-vermilion" data-dismech-node="Everted Lower Lip Vermilion" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Everted Lower Lip Vermilion
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000232</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Everted lower lip vermilion (HP:0000232). HP:0000232 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No frequency band is asserted; the feature is described qualitatively without a denominator.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33100873" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33100873" target="_blank">PMID:33100873</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"full lips, everted lower lip, hypodontia, and misaligned or conical shaped teeth"</div>
-
-
-                <div class="evidence-explanation">Names the everted lower lip among the recurrent oro-facial features.</div>
 
 
 
@@ -9422,6 +9623,9 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9436,6 +9640,7 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9460,6 +9665,7 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9495,7 +9701,9 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">FRAMESHIFT</span>
@@ -9503,6 +9711,11 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous frameshift in one of the three founding families; triggers nonsense-mediated decay.</div>
@@ -9529,6 +9742,7 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9564,7 +9778,9 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
@@ -9572,6 +9788,11 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous nonsense allele in a founding family; triggers nonsense-mediated decay.</div>
@@ -9598,6 +9819,7 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9633,7 +9855,9 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">DELETION</span>
@@ -9641,6 +9865,11 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous deletion of the penultimate exon that escapes nonsense-mediated decay and produces a protein lacking the C-terminal TruD catalytic domain.</div>
@@ -9667,6 +9896,7 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9702,7 +9932,9 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
@@ -9710,6 +9942,11 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous missense allele within the TRUD catalytic domain. Its yeast equivalent (pus7-D478Y) fails to complement a pus7 growth defect, showing it is a complete loss of function rather than a partial one.</div>
@@ -9736,6 +9973,7 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9771,7 +10009,9 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">FRAMESHIFT</span>
@@ -9779,6 +10019,11 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent homozygous frameshift reported independently in a Saudi girl and in an Italian male infant with self-injurious behaviour, sleep disturbance and motor stereotypies.</div>
@@ -9805,6 +10050,7 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9840,7 +10086,9 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">FRAMESHIFT</span>
@@ -9848,6 +10096,11 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous frameshift identified in two Saudi brothers who also carry an AASS splice-acceptor variant.</div>
@@ -9874,6 +10127,7 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9909,7 +10163,9 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
@@ -9917,6 +10173,11 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous missense allele in a consanguineous Afghani family with a milder presentation lacking microcephaly and short stature; proposed to be hypomorphic.</div>
@@ -9943,6 +10204,7 @@ This disease-associated gene is PUS7 (hgnc:26033). hgnc:26033 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10034,6 +10296,9 @@ This treatment is special education, annotated with Supportive Care (NCIT:C15747
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10044,6 +10309,9 @@ This treatment is special education, annotated with Supportive Care (NCIT:C15747
 
 
     </div>
+
+
+
 
 
 
@@ -10093,6 +10361,7 @@ This treatment targets Intellectual disability (HP:0001249). HP:0001249 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10159,6 +10428,9 @@ This treatment is Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clin
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10169,6 +10441,9 @@ This treatment is Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clin
 
 
     </div>
+
+
+
 
 
 
@@ -10218,6 +10493,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10306,6 +10582,9 @@ This treatment uses risperidone (CHEBI:8871). CHEBI:8871 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10316,6 +10595,9 @@ This treatment uses risperidone (CHEBI:8871). CHEBI:8871 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -10365,6 +10647,7 @@ This treatment targets Aggressive behavior (HP:0000718). HP:0000718 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10432,6 +10715,9 @@ This treatment is hearing aid provision, annotated with Supportive Care (NCIT:C1
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10442,6 +10728,9 @@ This treatment is hearing aid provision, annotated with Supportive Care (NCIT:C1
 
 
     </div>
+
+
+
 
 
 
@@ -10491,6 +10780,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10579,6 +10869,9 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10589,6 +10882,9 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -10638,6 +10934,7 @@ This treatment targets Hyperuricemia (HP:0002149). HP:0002149 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10704,6 +11001,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10714,6 +11014,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10741,6 +11044,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10849,6 +11153,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10870,6 +11175,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10960,6 +11266,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10981,6 +11288,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11071,6 +11379,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11158,6 +11467,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11232,6 +11542,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11253,6 +11564,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11359,6 +11671,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11380,6 +11693,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11460,6 +11774,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11481,6 +11796,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11552,6 +11868,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11573,6 +11890,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11652,6 +11970,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11673,6 +11992,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11748,6 +12068,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11829,6 +12150,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11850,6 +12172,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11930,6 +12253,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11951,6 +12275,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15321,6 +15646,37 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Named-entity-confusion guardrail. This entry is anchored strictly on MONDO:0032687 / OMIM:618342 / PUS7 (HGNC:26033); the anchor was confirmed by running `runoak -i sqlite:obo:mondo info MONDO:0032687 -O obo` and reading the `relationship: RO:0004003 HGNC:26033 ! PUS7` line before any curation began. The pseudouridine synthase family is a high-risk named-entity-confusion class because several of its members cause independent Mendelian diseases and the literature routinely uses the shared phrase &#34;impaired pseudouridylation&#34; for all of them. Three sibling entities are deliberately kept separate here and are recorded in `differential_diagnoses`: PUS1 (hgnc:15508) causes myopathy, lactic acidosis and sideroblastic anaemia 1 (MONDO:0024553), a mitochondrial muscle/marrow disease with no intellectual disability; PUS3 (hgnc:25461) causes MONDO:0014886, a distinct autosomal recessive intellectual disability and microcephaly syndrome acting at tRNA positions 38 and 39 rather than position 13; and PUS7L (hgnc:25276) is a separate paralogous gene. Every citation used in this entry was checked to name PUS7 specifically, and the several dozen PUS7 PubMed hits that are cancer-biology or epitranscriptomic-methodology papers were excluded from all clinical claims.
+Blended-phenotype and attribution discipline. Two of the reported cohorts carry a confounding second locus or a second diagnosis. (1) In PMID:33100873 the two affected Saudi brothers carry, in addition to the homozygous PUS7 frameshift, a splice-acceptor variant in AASS, the hyperlysinaemia type I gene; that paper itself states that hyperlysinaemia type I patients have &#34;nonspecific seizure, hypotonia, mildly delayed psychomotor development&#34;. The seizure and hypotonia observed in those brothers are therefore curated with `supports: PARTIAL` and are explicitly flagged as unattributable to PUS7 alone, and hyperlysinaemia is listed as a differential. (2) In PMID:35144859 the two NIH Undiagnosed Diseases Program siblings have Lesch-Nyhan-like hyperuricaemia and self-injurious behaviour but no HPRT1 variant; the authors propose a secondary, translation-mediated reduction in HPRT1 protein as the explanation, which is curated as a mechanism node and as a Lesch-Nyhan differential.
+Frequency discipline. Bands are derived only from published individual-level denominators and the arithmetic is recorded in each phenotype&#39;s `notes:`. The usable cohorts are PMID:30526862 (6 individuals), PMID:30778726 (3 individuals), PMID:31583274 (2 siblings), PMID:33100873 (2 brothers), PMID:35144859 (2 siblings) and PMID:37067188 (1 individual). Where only a qualitative statement exists (for example the PMID:42226002 review&#39;s list of &#34;the most frequent features&#34; across 17 cases, with no per-feature counts) the band is omitted rather than guessed; the sole exception is the group of features that review explicitly calls &#34;less common&#34;, which is mapped to OCCASIONAL and is stated as such in the relevant notes. The 13-patient cohort in PMID:42249560 reports no per-feature counts in its abstract, so it contributes to the case-count prevalence estimate but not to any frequency band.
+GeneReviews. No GeneReviews chapter exists for this disorder. Two PubMed E-utilities searches were run and both returned zero results: `PUS7 GeneReviews[All Fields]` and `pseudouridine synthase GeneReviews[TI]`. A `grep -rl &#34;PUS7&#34; references_cache/` at curation time returned only the primary papers cited below plus PMID:39091849 (a tRNA-acetylation paper that cites PMID:30526862 in its bibliography), confirming no cached GeneReviews text was overlooked.
+Structured-source citations unavailable, and in this case largely unavailable upstream too. Two things were checked rather than assumed. (1) Orphanet: an EBI OLS4 search of ORDO for `PUS7` returns 0 hits, and the deep-research run independently reported that no PUS7-specific ORPHA entity exists. There is therefore no ORPHA code to cite, not merely an uncachable one. (2) ClinGen: the deep-research run reports zero gene-disease validity, dosage, and actionability assertions for PUS7, so there is no `CGGV:` or `CGDS:` assertion to cite either. Independently of that, `data/orphadata/`, `data/clingen/` and `data/clingen-dosage/` in this working tree contain only MANIFEST.yaml stubs with no bulk data, and those pins are stale and un-refreshable pending #7622, so no structured-source record could have been generated regardless. The gene-disease relationship is supported here entirely by primary literature. Gene2Phenotype does carry PUS7 on the DD panel (G2P02633, biallelic, loss of function, confidence Strong) but dismech has no G2P reference prefix.
+Deep research provenance. `just research-disorder claude_code PUS7-Related_Neurodevelopmental_Disorder` was run on 2026-08-01 (17.5 minutes, 12 web searches, 95 turns, 47 citations, models claude-haiku-4-5 and claude-opus-5[1m]); the report is at research/PUS7-Related_Neurodevelopmental_Disorder-deep-research-claude_code.md. Its NEC preflight independently reached the same conclusion recorded above. Every PMID it suggested that is cited here was fetched with `just fetch-reference` and every snippet was taken from the resulting cache file, not from the report.
+Oncology-literature guardrail. Roughly half of the PUS7 PubMed record set is cancer biology in which PUS7 is OVEREXPRESSED and its INHIBITION is the proposed therapy - the mechanistic opposite of this recessive loss-of-function disorder. The PUS7 inhibitors developed for glioblastoma (C4 and C17/NSC107512, PMID:35121864) are therefore conceptually contraindicated here and are deliberately not curated as treatments. PMID:35121864 and PMID:35292784 are cited in this entry only for the substrate-level mechanisms they establish (codon-specific translational control via tRNA pseudouridine, and the mTOG-PABPC1 translational brake), never for their prognostic or therapeutic claims.
+Full-text versus abstract snippets. PMID:30778726 and PMID:27055666 are cached as PubMed Central full text, so several snippets in this entry are taken from their bodies rather than their abstracts (the individual patient descriptions, the PUS1/PUS3/PUS7L paragraph, and the treatment sentences). All other snippets are from abstracts.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Retract an unsourced ORPHA code; add the diagnosis section</strong> · 2026-08-01T15:06:56Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/PUS7-Related_Neurodevelopmental_Disorder/2026-08-01T150656Z-claude-code-1521d0.yaml">View source</a></p>
+                        <p class="research-review-text">Retracted ORPHA:544510 from prevalence notes. The identifier was unsourced - absent from the deep-research report and its citations sidecar - and contradicted the entry-level notes, which correctly record that no Orphanet entity exists. Confirmed independently: MONDO:0032687 carries no ORPHA xref, only DOID:0081265, GARD:0018516, MEDGEN:1675423, OMIM:618342 and UMLS:C5193039. Because the claim sat in prose rather than a snippet, the reference validator could not catch it. Added a diagnosis section with three entries - exome/genome sequencing, the tRNA pseudouridine-13 functional assay for variant interpretation, and neuroimaging plus EEG as exclusionary investigations - all quoted byte-exact from the already-cached PMID:30778726 full text. Refiled the misplaced Molecular Diagnosis by Exome Sequencing treatment as Genetic Counselling and Carrier Testing, with the diagnostic half moved to diagnosis. 122/122 snippets verify.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: PUS7-Related_Neurodevelopmental_Disorder</strong> · 2026-08-01T14:44:50Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/PUS7-Related_Neurodevelopmental_Disorder/2026-08-01T144450Z-claude-code-56cfa8.yaml">View source</a></p>
+                        <p class="research-review-text">Created the PUS7-related neurodevelopmental disorder (IDDABS) entry anchored on MONDO:0032687 / OMIM:618342 / PUS7 (hgnc:26033), confirmed by the MONDO RO:0004003 gene-association relation before any curation began. Deep research provider: claude_code (just research-disorder claude_code PUS7-Related_Neurodevelopmental_Disorder; 17.5 min, 12 web searches, 95 turns, 47 citations); report committed under research/. No GeneReviews chapter exists (two PubMed E-utilities searches returned zero); absence documented in the entry notes together with a references_cache grep. Curated 16 connected pathophysiology nodes forming one DAG with a single root (biallelic PUS7 loss of function to loss of pseudouridine synthase activity to the tRNA-13, mRNA, tRNA-derived-fragment and 7SK substrate arms to deregulated global protein synthesis to impaired neuronal development, brain growth, somatic growth, synaptic remodelling, and the secondary HPRT1 or Lesch-Nyhan-like branch), 20 phenotypes with HPO bindings, an autosomal recessive inheritance record, a genetic section with 7 curated variants, 6 supportive treatments, 7 differential diagnoses of which 6 carry bound MONDO terms (PUS3, PUS1/MLASA1, Lesch-Nyhan, hyperlysinaemia, ADAT3 class, Smith-Magenis) and PUS7L deliberately unbound because MONDO has no PUS7L disease class, 2 mechanistic hypotheses and 5 discussions (2 HUMAN_MODEL_MISMATCH, 2 KNOWLEDGE_GAP, 1 CONTROVERSY). Frequency bands derived only from published individual-level denominators with arithmetic recorded per phenotype; bands omitted where sources are qualitative. Validation: just validate clean (schema, terms, references), scripts/check_snippets_verbatim.py 119/119 verified 0 failures, scripts/check_folded_hyphens.py clean, compliance 92.8 percent. Structured sources not cited: OLS4 ORDO search for PUS7 returns 0 hits and ClinGen has no PUS7 curation, and the local ORPHA/ClinGen manifests are stale per #7622.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

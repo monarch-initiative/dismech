@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4004,7 +4072,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -4203,6 +4271,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4636,6 +4705,7 @@ This readout is measured by synaptic vesicle recycling assay.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4657,6 +4727,7 @@ This readout is measured by synaptic vesicle recycling assay.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5152,6 +5223,7 @@ This readout is measured by synaptic vesicle recycling assay.</span>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5594,6 +5666,7 @@ This readout is measured by behavioral neurodevelopmental battery.</span>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5615,6 +5688,7 @@ This readout is measured by behavioral neurodevelopmental battery.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5652,6 +5726,7 @@ This readout is measured by behavioral neurodevelopmental battery.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-dynamin-1-dysfunction" data-dismech-node="Dominant-Negative Dynamin-1 Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Dynamin-1 Dysfunction</div>
+
 
                 <div class="item-desc">De novo missense variants in DNM1 cluster in the GTPase and middle domains of dynamin-1 and act by a dominant-negative mechanism: mutant subunits incorporate into the dynamin oligomer that assembles around the neck of an endocytosing vesicle and poison its GTP-dependent fission activity. The recurrent p.Arg237Trp variant accounts for about one-third of cases.</div>
 
@@ -5796,6 +5871,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5817,6 +5893,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5842,6 +5919,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synaptic-vesicle-endocytosis-and-recycling" data-dismech-node="Impaired Synaptic Vesicle Endocytosis and Recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synaptic Vesicle Endocytosis and Recycling</div>
+
 
                 <div class="item-desc">Dynamin-1 is the fission GTPase that pinches off endocytosing synaptic vesicles from the presynaptic plasma membrane to regenerate the recycling vesicle pool. Dominant-negative impairment of dynamin-1 slows vesicle fission and retrieval, depleting release-ready vesicles during sustained neuronal firing and causing activity-dependent synaptic transmission failure — the &#34;vesicle fission&#34; disease.</div>
 
@@ -5965,6 +6043,7 @@ This pathophysiological event involves decreased synaptic vesicle endocytosis (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5986,6 +6065,7 @@ This pathophysiological event involves decreased synaptic vesicle endocytosis (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6011,6 +6091,7 @@ This pathophysiological event involves decreased synaptic vesicle endocytosis (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-neurotransmission-and-cortical-hyperexcitability" data-dismech-node="Reduced Neurotransmission and Cortical Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Neurotransmission and Cortical Hyperexcitability</div>
+
 
                 <div class="item-desc">Activity-dependent failure of vesicle recycling disturbs the balance of cortical synaptic transmission, producing neuronal hyperexcitability and a severe early-onset epilepsy that characteristically begins with infantile spasms and often evolves into Lennox-Gastaut syndrome, alongside impaired activity-dependent neurodevelopment.</div>
 
@@ -6161,6 +6242,7 @@ This pathophysiological event occurs in neocortex (UBERON:0001950). UBERON:00019
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6227,9 +6309,7 @@ This pathophysiological event occurs in neocortex (UBERON:0001950). UBERON:00019
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6270,6 +6350,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6284,6 +6367,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6316,84 +6400,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global Developmental Delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28667181" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28667181" target="_blank">PMID:28667181</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Two patients had profound global developmental delay without seizures."</div>
-
-
-                <div class="evidence-explanation">Documents profound global developmental delay, including a seizure-free minority.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-epilepsy" data-dismech-node="Epilepsy" data-dismech-type="phenotype">
@@ -6412,15 +6419,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012469</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012469</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6440,6 +6450,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6480,15 +6491,18 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002187" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002187</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002187" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002187</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Profound intellectual disability (HP:0002187). HP:0002187 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6511,6 +6525,7 @@ This clinical feature is Profound intellectual disability (HP:0002187). HP:00021
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6519,6 +6534,78 @@ This clinical feature is Profound intellectual disability (HP:0002187). HP:00021
 
 
                 <div class="evidence-explanation">Documents universal severe-to-profound intellectual disability.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global Developmental Delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28667181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28667181" target="_blank">PMID:28667181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two patients had profound global developmental delay without seizures."</div>
+
+
+                <div class="evidence-explanation">Documents profound global developmental delay, including a seizure-free minority.</div>
 
 
 
@@ -6606,6 +6693,9 @@ This disease-associated gene is DNM1 (hgnc:2972). hgnc:2972 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant (De Novo)</span>
@@ -6631,6 +6721,7 @@ This disease-associated gene is DNM1 (hgnc:2972). hgnc:2972 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6652,6 +6743,7 @@ This disease-associated gene is DNM1 (hgnc:2972). hgnc:2972 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6691,7 +6783,7 @@ This disease-associated gene is DNM1 (hgnc:2972). hgnc:2972 is a gene from the H
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-antiseizure-medication" data-dismech-node="Antiseizure Medication" data-dismech-type="treatment">
@@ -6738,21 +6830,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="tag tag-treatment">
-                        vigabatrin
+                        clobazam
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63638" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:63638</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31413" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:31413</a>
 
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
-This treatment uses vigabatrin (CHEBI:63638). CHEBI:63638 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        clonazepam
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3756" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:3756</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6775,12 +6887,238 @@ This treatment uses vigabatrin (CHEBI:63638). CHEBI:63638 is a therapeutic agent
 
 
 
-                <div class="item-desc">Seizures, including infantile spasms and Lennox-Gastaut syndrome, are managed with antiseizure medications and spasm-directed therapies; response is often incomplete. No agent corrects the underlying dynamin-1 fission defect.</div>
+
+
+
+                <div class="item-desc">Seizures, including infantile spasms and Lennox-Gastaut syndrome, are managed with antiseizure medications and spasm-directed therapies; response is often incomplete. About 83% of patients remain refractory. Benzodiazepines (clobazam, clonazepam) are the agents most often reported to improve seizure control without producing seizure freedom, followed by steroids or ACTH and by topiramate or zonisamide. Levetiracetam and cannabidiol have each been reported to worsen seizures in individual patients, though levetiracetam combined with lamotrigine also produced sustained seizure freedom in another, so the effect is patient-specific rather than a property of the drug. No agent corrects the underlying dynamin-1 fission defect.</div>
 
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28667181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28667181" target="_blank">PMID:28667181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seizure outcome was assessed in 18 patients: 15 of 18 patients (83%) had refractory seizures. Three patients (17%) became seizure-free on treatment."</div>
+
+
+                <div class="evidence-explanation">Quantifies the incomplete response to antiseizure medication in the largest phenotyped DNM1 cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28667181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28667181" target="_blank">PMID:28667181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Improvement in seizure control, but not seizure freedom, was observed with clobazam or clonazepam in 5 of 20 patients (25%), steroids or adrenocorticotropic hormone in 4 of 20 patients (20%), topiramate or zonisamide in 3 of 20 patients (15%), and the KD in 5 of 20 patients (25%)."</div>
+
+
+                <div class="evidence-explanation">Ranks the agents by reported benefit; the two benzodiazepines named first are the ones bound as therapeutic_agent here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28667181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28667181" target="_blank">PMID:28667181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Worsening of seizures was reported in individual patients with levetiracetam, the KD, and cannabidiol."</div>
+
+
+                <div class="evidence-explanation">Records the agents reported to aggravate seizures in individual patients. The same cohort reports sustained seizure freedom on levetiracetam with lamotrigine in another patient, so the effect is patient-specific rather than a property of the drug.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-ketogenic-diet-therapy" data-dismech-node="Ketogenic Diet Therapy" data-dismech-type="treatment">
+                <div class="item-name">
+                    Ketogenic Diet Therapy
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">ketogenic diet therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ketogenic diet therapy, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Ketogenic Diet</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C173168" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C173168">NCIT:C173168</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Ketogenic diet therapy is one of the few interventions reported to produce seizure freedom in DNM1 encephalopathy, and improved seizure control in about a quarter of patients. It is not uniformly beneficial - worsening has also been reported.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28667181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28667181" target="_blank">PMID:28667181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient 19 became seizure-free on the ketogenic diet (KD) at the age of 3.5 years; patient 21 had a dramatic reduction of myoclonic seizures in the second year of life while on the KD and continues to have frequent nonepileptic myoclonic jerks."</div>
+
+
+                <div class="evidence-explanation">Records the two ketogenic-diet responders: one of the cohort&#39;s three seizure-free patients, and one with a dramatic reduction in myoclonic seizures rather than seizure freedom.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28667181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28667181" target="_blank">PMID:28667181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"While the KD and treatment with benzodiazepines provided benefit in some patients, most patients had intractable epilepsy that continued into adulthood."</div>
+
+
+                <div class="evidence-explanation">States the limit of the benefit directly: helpful in some patients, but the epilepsy stays intractable for the majority.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -6793,7 +7131,7 @@ This treatment uses vigabatrin (CHEBI:63638). CHEBI:63638 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6833,12 +7171,55 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary supportive care, including developmental therapies and management of hypotonia and feeding, is the mainstay.</div>
 
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28667181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28667181" target="_blank">PMID:28667181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A common phenotype emerged that included severe to profound intellectual disability and muscular hypotonia in all patients"</div>
+
+
+                <div class="evidence-explanation">Establishes that the two impairments this supportive care targets - profound developmental impairment and hypotonia - are present in every patient, so the need is universal rather than occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -6851,7 +7232,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6892,12 +7273,53 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses the de novo dominant mechanism, generally low recurrence risk, and the rare possibility of parental mosaicism.</div>
 
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28667181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28667181" target="_blank">PMID:28667181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All mutations were confirmed to be de novo, except for the affected sibling pair whose father was shown to have 5.5% mosaicism on leucocyte DNA."</div>
+
+
+                <div class="evidence-explanation">Documents both halves of the counseling message: variants are almost always de novo, and the one exception was low-level parental mosaicism with sibling recurrence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -6942,11 +7364,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6986,6 +7408,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7031,11 +7454,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         electroencephalography
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38054" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C38054</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38054" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C38054</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7106,6 +7529,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7235,6 +7659,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7730,7 +8155,14 @@ treatments:
   description: &gt;-
     Seizures, including infantile spasms and Lennox-Gastaut syndrome, are managed
     with antiseizure medications and spasm-directed therapies; response is often
-    incomplete. No agent corrects the underlying dynamin-1 fission defect.
+    incomplete. About 83% of patients remain refractory. Benzodiazepines
+    (clobazam, clonazepam) are the agents most often reported to improve seizure
+    control without producing seizure freedom, followed by steroids or ACTH and
+    by topiramate or zonisamide. Levetiracetam and cannabidiol have each been
+    reported to worsen seizures in individual patients, though levetiracetam
+    combined with lamotrigine also produced sustained seizure freedom in
+    another, so the effect is patient-specific rather than a property of the
+    drug. No agent corrects the underlying dynamin-1 fission defect.
   therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: Pharmacotherapy
@@ -7738,10 +8170,80 @@ treatments:
       id: NCIT:C15986
       label: Pharmacotherapy
     therapeutic_agent:
-    - preferred_term: vigabatrin
+    - preferred_term: clobazam
       term:
-        id: CHEBI:63638
-        label: vigabatrin
+        id: CHEBI:31413
+        label: clobazam
+    - preferred_term: clonazepam
+      term:
+        id: CHEBI:3756
+        label: clonazepam
+  evidence:
+  - reference: PMID:28667181
+    reference_title: &#34;DNM1 encephalopathy: A new disease of vesicle fission.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Seizure outcome was assessed in 18 patients: 15 of 18 patients (83%) had refractory seizures. Three patients (17%) became seizure-free on treatment.&#34;
+    explanation: &gt;-
+      Quantifies the incomplete response to antiseizure medication in the
+      largest phenotyped DNM1 cohort.
+  - reference: PMID:28667181
+    reference_title: &#34;DNM1 encephalopathy: A new disease of vesicle fission.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Improvement in seizure control, but not seizure freedom, was observed with clobazam or clonazepam in 5 of 20 patients (25%), steroids or adrenocorticotropic hormone in 4 of 20 patients (20%), topiramate or zonisamide in 3 of 20 patients (15%), and the KD in 5 of 20 patients (25%).&#34;
+    explanation: &gt;-
+      Ranks the agents by reported benefit; the two benzodiazepines named first
+      are the ones bound as therapeutic_agent here.
+  - reference: PMID:28667181
+    reference_title: &#34;DNM1 encephalopathy: A new disease of vesicle fission.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Worsening of seizures was reported in individual patients with levetiracetam, the KD, and cannabidiol.&#34;
+    explanation: &gt;-
+      Records the agents reported to aggravate seizures in individual patients.
+      The same cohort reports sustained seizure freedom on levetiracetam with
+      lamotrigine in another patient, so the effect is patient-specific rather
+      than a property of the drug.
+  - reference: PMID:28667181
+    reference_title: &#34;DNM1 encephalopathy: A new disease of vesicle fission.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Seizures in patient 1 were refractory until the age of 6 years, when she became seizure-free on levetiracetam and lamotrigine.&#34;
+    explanation: &gt;-
+      The cohort&#39;s second durable seizure-free outcome, on levetiracetam with
+      lamotrigine - the counterpart to the same drug worsening seizures in
+      other patients.
+- name: Ketogenic Diet Therapy
+  description: &gt;-
+    Ketogenic diet therapy is one of the few interventions reported to produce
+    seizure freedom in DNM1 encephalopathy, and improved seizure control in
+    about a quarter of patients. It is not uniformly beneficial - worsening has
+    also been reported.
+  therapeutic_modality: BEHAVIORAL
+  treatment_term:
+    preferred_term: ketogenic diet therapy
+    term:
+      id: NCIT:C173168
+      label: Ketogenic Diet
+  evidence:
+  - reference: PMID:28667181
+    reference_title: &#34;DNM1 encephalopathy: A new disease of vesicle fission.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Patient 19 became seizure-free on the ketogenic diet (KD) at the age of 3.5 years; patient 21 had a dramatic reduction of myoclonic seizures in the second year of life while on the KD and continues to have frequent nonepileptic myoclonic jerks.&#34;
+    explanation: &gt;-
+      Records the two ketogenic-diet responders: one of the cohort&#39;s three
+      seizure-free patients, and one with a dramatic reduction in myoclonic
+      seizures rather than seizure freedom.
+  - reference: PMID:28667181
+    reference_title: &#34;DNM1 encephalopathy: A new disease of vesicle fission.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;While the KD and treatment with benzodiazepines provided benefit in some patients, most patients had intractable epilepsy that continued into adulthood.&#34;
+    explanation: &gt;-
+      States the limit of the benefit directly: helpful in some patients, but
+      the epilepsy stays intractable for the majority.
 - name: Supportive and Developmental Care
   description: &gt;-
     Multidisciplinary supportive care, including developmental therapies and
@@ -7751,10 +8253,31 @@ treatments:
     term:
       id: NCIT:C15747
       label: Supportive Care
+  evidence:
+  - reference: PMID:28667181
+    reference_title: &#34;DNM1 encephalopathy: A new disease of vesicle fission.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: INDIRECT
+    snippet: &#34;A common phenotype emerged that included severe to profound intellectual disability and muscular hypotonia in all patients&#34;
+    explanation: &gt;-
+      Establishes that the two impairments this supportive care targets -
+      profound developmental impairment and hypotonia - are present in every
+      patient, so the need is universal rather than occasional.
 - name: Genetic Counseling
   description: &gt;-
     Genetic counseling addresses the de novo dominant mechanism, generally low
     recurrence risk, and the rare possibility of parental mosaicism.
+  evidence:
+  - reference: PMID:28667181
+    reference_title: &#34;DNM1 encephalopathy: A new disease of vesicle fission.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All mutations were confirmed to be de novo, except for the affected sibling pair whose father was shown to have 5.5% mosaicism on leucocyte DNA.&#34;
+    explanation: &gt;-
+      Documents both halves of the counseling message: variants are almost
+      always de novo, and the one exception was low-level parental mosaicism
+      with sibling recurrence.
   treatment_term:
     preferred_term: genetic counseling
     term:
@@ -8161,7 +8684,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "DNM1 Encephalopathy", "mondoId": "MONDO:0014598", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "DNM1_Encephalopathy", "yamlRevision": "602aabe6996d"};
+        const OS_CONFIG = {"diseaseName": "DNM1 Encephalopathy", "mondoId": "MONDO:0014598", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "DNM1_Encephalopathy", "yamlRevision": "9150587cfacf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

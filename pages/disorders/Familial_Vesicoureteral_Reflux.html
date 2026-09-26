@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4209,6 +4277,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4234,6 +4303,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4256,6 +4326,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4331,6 +4402,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4403,6 +4475,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4425,6 +4498,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4549,6 +4623,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4571,6 +4646,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4665,6 +4741,7 @@ This subtype is caused by variation in ROBO2 (hgnc:10250). hgnc:10250 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4750,6 +4827,7 @@ This subtype is caused by variation in SOX17 (hgnc:18122). hgnc:18122 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4813,6 +4891,7 @@ This subtype is caused by variation in SOX17 (hgnc:18122). hgnc:18122 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4882,6 +4961,7 @@ This subtype is caused by variation in SOX17 (hgnc:18122). hgnc:18122 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4945,6 +5025,7 @@ This subtype is caused by variation in SOX17 (hgnc:18122). hgnc:18122 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5015,6 +5096,7 @@ This subtype is caused by variation in SOX17 (hgnc:18122). hgnc:18122 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5109,6 +5191,7 @@ This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5131,6 +5214,7 @@ This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5204,6 +5288,7 @@ This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5226,6 +5311,7 @@ This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene f
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5414,6 +5500,7 @@ This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5587,6 +5674,7 @@ This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5608,6 +5696,7 @@ This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5777,6 +5866,7 @@ This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene f
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5812,6 +5902,7 @@ This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slit2-robo2-signaling-loss" data-dismech-node="SLIT2-ROBO2 Signaling Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">SLIT2-ROBO2 Signaling Loss</div>
+
 
                 <div class="item-desc">Loss or dominant-negative disruption of the ROBO2 receptor abolishes repulsive SLIT2-ROBO2 signalling at the caudal nephric duct. In the intact system this signal restricts the field in which GDNF can induce a bud, so its loss permits ectopic and supernumerary ureteric bud outgrowth. This is the proximal molecular lesion of VUR2.
 </div>
@@ -6022,6 +6113,7 @@ This pathophysiological event involves decreased transmembrane signaling recepto
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6045,6 +6137,7 @@ This pathophysiological event involves decreased transmembrane signaling recepto
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sox17-gain-of-wnt-antagonism" data-dismech-node="SOX17 Gain of Wnt Antagonism" data-dismech-type="pathophysiology">
                 <div class="item-name">SOX17 Gain of Wnt Antagonism</div>
+
 
                 <div class="item-desc">The recurrent SOX17 p.Y259N allele is not a null: the mutant protein accumulates several-fold above wild type and, being a Wnt/beta-catenin antagonist, delivers a correspondingly excessive brake on canonical Wnt signalling during kidney and urinary tract development. This is the proximal molecular lesion of VUR3.
 </div>
@@ -6216,6 +6309,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6239,6 +6333,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tenascin-x-focal-adhesion-defect" data-dismech-node="Tenascin-X Focal Adhesion Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Tenascin-X Focal Adhesion Defect</div>
+
 
                 <div class="item-desc">Missense variants in the fibronectin type III region of tenascin XB impair the cell-matrix coupling that TNXB normally supports. Patient fibroblasts show reduced motility and reduced focal adhesion kinase phosphorylation, consistent with defective disassembly of focal adhesions. This is the proximal molecular lesion of VUR8 and acts on the ureterovesical junction directly rather than through bud positioning.
 </div>
@@ -6410,6 +6505,7 @@ This pathophysiological event involves abnormal extracellular matrix structural 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6433,6 +6529,7 @@ This pathophysiological event involves abnormal extracellular matrix structural 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-ureteric-bud-outgrowth-position" data-dismech-node="Abnormal Ureteric Bud Outgrowth Position" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Ureteric Bud Outgrowth Position</div>
+
 
                 <div class="item-desc">Primary VUR originates during the fifth week of human development, when the ureteric bud sprouts from the caudal nephric (Wolffian) duct. Genetic perturbation of the signals that fix the budding site — SLIT2-ROBO2 repulsive guidance, GDNF/RET, and Wnt/beta-catenin (antagonised by SOX17) — shifts the bud cranially or laterally, or produces ectopic/duplicated buds. Because the bud stalk becomes the ureter and its insertion becomes the ureteric orifice, a misplaced bud lands laterally on the developing trigone with a short intramural course. The same misplacement means the bud contacts an inappropriate region of metanephric mesenchyme, so intrinsic renal hypodysplasia is generated at the same time as the refluxing ureter — the unified &#34;budding position&#34; explanation for why VUR and congenital renal malformation co-segregate.
 </div>
@@ -6807,6 +6904,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6829,6 +6927,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6857,6 +6956,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6882,6 +6982,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ureterovesical-junction-incompetence" data-dismech-node="Ureterovesical Junction Incompetence" data-dismech-type="pathophysiology">
                 <div class="item-name">Ureterovesical Junction Incompetence</div>
+
 
                 <div class="item-desc">The ureterovesical junction normally acts as a passive flap valve: the distal ureter runs obliquely for 1-2 cm within the bladder wall between the mucosa and the detrusor, so rising intravesical pressure compresses the tunnel shut. In primary VUR the intramural tunnel is too short relative to ureteric diameter and the orifice is laterally displaced, so the valve fails and urine refluxes during filling and, above all, during voiding. Extracellular-matrix competence of the junction also matters: TNXB, mutated in VUR8, is expressed in the uroepithelium of the ureterovesical junction at the time it forms and is proposed to generate the tensile forces that close it, with patient fibroblasts showing defective focal-adhesion turnover.
 </div>
@@ -7151,6 +7252,7 @@ This pathophysiological event occurs in trigone of urinary bladder (UBERON:00012
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7173,6 +7275,7 @@ This pathophysiological event occurs in trigone of urinary bladder (UBERON:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7201,6 +7304,7 @@ This pathophysiological event occurs in trigone of urinary bladder (UBERON:00012
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7226,6 +7330,7 @@ This pathophysiological event occurs in trigone of urinary bladder (UBERON:00012
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-renal-hypodysplasia" data-dismech-node="Congenital Renal Hypodysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Renal Hypodysplasia</div>
+
 
                 <div class="item-desc">A component of the renal lesion in familial VUR is present at birth and is independent of infection: because the misplaced ureteric bud induces an inappropriate region of metanephric mesenchyme, the kidney it induces is hypoplastic and/or dysplastic. This &#34;congenital reflux nephropathy&#34; is not preventable by antibiotic prophylaxis or anti-reflux surgery, and accounts for a substantial share of the chronic kidney disease attributed to VUR.
 </div>
@@ -7337,6 +7442,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7359,6 +7465,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7385,6 +7492,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retrograde-urine-flow-and-intrarenal-reflux" data-dismech-node="Retrograde Urine Flow and Intrarenal Reflux" data-dismech-type="pathophysiology">
                 <div class="item-name">Retrograde Urine Flow and Intrarenal Reflux</div>
+
 
                 <div class="item-desc">Once the flap valve fails, urine flows retrogradely up the ureter during voiding. In higher grades the refluxed bolus reaches the renal pelvis and then enters the collecting ducts (intrarenal reflux) through gaping duct orifices on compound papillae, which are concentrated at the upper and lower renal poles. Intrarenal reflux is the step that converts a ureteric problem into a parenchymal one, and it defines the polar distribution of the scars that follow. Grade (I-V, International Reflux Study) tracks the extent of retrograde filling and dilation and is the main determinant of both spontaneous resolution and scarring risk.
 </div>
@@ -7481,6 +7589,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7503,6 +7612,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7529,6 +7639,7 @@ This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ascending-infection-and-acute-pyelonephritis" data-dismech-node="Ascending Infection and Acute Pyelonephritis" data-dismech-type="pathophysiology">
                 <div class="item-name">Ascending Infection and Acute Pyelonephritis</div>
+
 
                 <div class="item-desc">Reflux carries bladder urine — and any bacteria in it — into the renal pelvis and, via intrarenal reflux, into the parenchyma, converting cystitis into acute pyelonephritis. Segmental scars form only in segments that both receive intrarenal reflux and are exposed to bacterial infection, making infection the essential second hit for the acquired component of reflux nephropathy. Bladder and bowel dysfunction (detrusor overactivity, voiding postponement, constipation) markedly increases infection risk on top of the reflux itself. This node is the kidney-specific instance of the fibrotic module&#39;s dysregulated wound-healing trigger.
 </div>
@@ -7708,6 +7819,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7730,6 +7842,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7758,6 +7871,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7781,6 +7895,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-inflammatory-cell-recruitment" data-dismech-node="Renal Inflammatory Cell Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Inflammatory Cell Recruitment</div>
+
 
                 <div class="item-desc">Bacterial burden in the refluxing renal segment recruits neutrophils and monocyte-derived macrophages in proportion to that burden. Neutrophils control bacterial ascent, but the macrophage-dominated inflammatory response is strong and ineffective, and it is the extent of this inflammation — not the infection itself — that best predicts subsequent fibrosis. Experimental tipping of the neutrophil-macrophage balance towards macrophages worsens scarring, identifying this recruitment step as the amplifier that converts a treatable infection into permanent renal damage.
 </div>
@@ -7990,6 +8105,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8012,6 +8128,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8038,6 +8155,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interstitial-myofibroblast-activation" data-dismech-node="Interstitial Myofibroblast Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Interstitial Myofibroblast Activation</div>
+
 
                 <div class="item-desc">Macrophage-derived pro-fibrotic cytokines, principally TGF-beta, drive resident interstitial fibroblasts to transdifferentiate into alpha-smooth-muscle-actin-positive myofibroblasts, the effector cell of renal interstitial fibrosis. Human genetic data support a causal role for this axis specifically in post-UTI renal scarring: an activating TGF-beta1 promoter allele predicts scar formation after childhood pyelonephritis independently of whether reflux is present.
 </div>
@@ -8213,6 +8331,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8235,6 +8354,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8261,6 +8381,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-cortical-scarring" data-dismech-node="Renal Cortical Scarring" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Cortical Scarring</div>
+
 
                 <div class="item-desc">Activated interstitial myofibroblasts deposit excess collagen while matrix degradation lags, producing a wedge-shaped, polar cortical scar with tubulointerstitial fibrosis and overlying calyceal clubbing. Scar contraction can itself convert closed collecting-duct orifices into gaping ones, enlarging the area at risk and creating a self-amplifying loop; new scars continue to appear beyond 5 years of age.
 </div>
@@ -8510,6 +8631,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8532,6 +8654,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8560,6 +8683,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8585,6 +8709,7 @@ This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reflux-nephropathy-and-progressive-nephron-loss" data-dismech-node="Reflux Nephropathy and Progressive Nephron Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Reflux Nephropathy and Progressive Nephron Loss</div>
+
 
                 <div class="item-desc">The combined congenital (hypodysplastic) and acquired (post-pyelonephritic scarring) lesions reduce functioning nephron mass. Reflux nephropathy is a leading cause of childhood hypertension and contributes roughly 10-15% of kidney failure requiring dialysis or transplantation in children and young adults.
 </div>
@@ -8645,6 +8770,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8670,6 +8796,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8692,6 +8819,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8762,11 +8890,9 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(14)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(11)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8807,6 +8933,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8821,6 +8950,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8853,350 +8983,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reflux-nephropathy" data-dismech-node="Reflux Nephropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reflux Nephropathy
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000112" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000112</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nephropathy (HP:0000112). HP:0000112 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21441121" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21441121" target="_blank">PMID:21441121</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"RN was radiologically proven in 223 patients."</div>
-
-
-                <div class="evidence-explanation">Radiologically proven reflux nephropathy in 223 of the 407 patients (55%) in a UK familial-VUR sibling-pair cohort, supporting the FREQUENT band. Note that this cohort was ascertained through tertiary paediatric nephrology centres and is therefore enriched for nephropathy.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-kidney-disease" data-dismech-node="Chronic Kidney Disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic Kidney Disease
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0012622</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic kidney disease (HP:0012622), qualified as course progressive. HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34059960" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Eighty-eight patient (23.2%) exhibited impaired renal function at their last visit, and 18 of them (20.5%) developed ESRD at the median age of 7.0 (IQR 0.9-11.4) years."</div>
-
-
-                <div class="evidence-explanation">Registry data: 23.2% of 379 children with primary VUR had impaired renal function at last visit.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-stage-5-chronic-kidney-disease" data-dismech-node="Stage 5 Chronic Kidney Disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Stage 5 Chronic Kidney Disease
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0003774</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33085409" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"End-stage renal failure in children due to reflux nephropathy accounts for about 5% of all pediatric renal transplants."</div>
-
-
-                <div class="evidence-explanation">Establishes the population-level contribution of reflux nephropathy to paediatric kidney failure. This is a population-attributable fraction over a transplant denominator and does not by itself give a per-patient risk; the frequency band is set from the cohort denominator in the next evidence item.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34059960" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Eighty-eight patient (23.2%) exhibited impaired renal function at their last visit, and 18 of them (20.5%) developed ESRD at the median age of 7.0 (IQR 0.9-11.4) years."</div>
-
-
-                <div class="evidence-explanation">Derived-count basis for the VERY_RARE band: 18 of the 379 recruited children with primary VUR reached ESRD, i.e. 4.7% of the whole cohort.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-hypermobility" data-dismech-node="Joint Hypermobility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Joint Hypermobility
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001382</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26408188" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26408188" target="_blank">PMID:26408188</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"all the individuals with the TNXB variants who had joint mobility examination done have significant joint hypermobility as assessed by Beighton score"</div>
-
-
-                <div class="evidence-explanation">Documents joint hypermobility in TNXB-variant carriers with primary VUR.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">11</span>
+                    <span class="cat-count">14</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-primary-vesicoureteral-reflux" data-dismech-node="Primary Vesicoureteral Reflux" data-dismech-type="phenotype">
@@ -9215,15 +9002,18 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0033738</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0033738</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Primary vesicoureteral reflux (HP:0033738). HP:0033738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9243,6 +9033,7 @@ This clinical feature is Primary vesicoureteral reflux (HP:0033738). HP:0033738 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9285,15 +9076,18 @@ This clinical feature is Primary vesicoureteral reflux (HP:0033738). HP:0033738 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0033734</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0033734</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is High-grade vesicoureteral reflux (HP:0033734). HP:0033734 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9313,6 +9107,7 @@ This clinical feature is High-grade vesicoureteral reflux (HP:0033734). HP:00337
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9354,15 +9149,18 @@ This clinical feature is High-grade vesicoureteral reflux (HP:0033734). HP:00337
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033742" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0033742</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033742" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0033742</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intrarenal reflux (HP:0033742). HP:0033742 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9382,6 +9180,7 @@ This clinical feature is Intrarenal reflux (HP:0033742). HP:0033742 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9424,15 +9223,18 @@ This clinical feature is Intrarenal reflux (HP:0033742). HP:0033742 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0000010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000010</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9452,6 +9254,7 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9495,10 +9298,10 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0012787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0012787</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent acute pyelonephritis, annotated with Recurrent pyelonephritis (HP:0012787), qualified as temporality recurrent. HP:0012787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9527,6 +9330,9 @@ This clinical feature is Recurrent acute pyelonephritis, annotated with Recurren
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9541,6 +9347,7 @@ This clinical feature is Recurrent acute pyelonephritis, annotated with Recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9586,15 +9393,18 @@ This clinical feature is Recurrent acute pyelonephritis, annotated with Recurren
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0002048</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal cortical atrophy (HP:0002048). HP:0002048 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9617,6 +9427,7 @@ This clinical feature is Renal cortical atrophy (HP:0002048). HP:0002048 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9625,6 +9436,81 @@ This clinical feature is Renal cortical atrophy (HP:0002048). HP:0002048 is a ph
 
 
                 <div class="evidence-explanation">In the RIVUR randomised trial, renal scarring occurred in roughly 10-12% of children with VUR over 2 years, supporting the OCCASIONAL band.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reflux-nephropathy" data-dismech-node="Reflux Nephropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reflux Nephropathy
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000112" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0000112</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephropathy (HP:0000112). HP:0000112 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21441121" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21441121" target="_blank">PMID:21441121</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RN was radiologically proven in 223 patients."</div>
+
+
+                <div class="evidence-explanation">Radiologically proven reflux nephropathy in 223 of the 407 patients (55%) in a UK familial-VUR sibling-pair cohort, supporting the FREQUENT band. Note that this cohort was ascertained through tertiary paediatric nephrology centres and is therefore enriched for nephropathy.
 </div>
 
 
@@ -9657,15 +9543,18 @@ This clinical feature is Renal cortical atrophy (HP:0002048). HP:0002048 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0008678</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0008678</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal hypoplasia/aplasia (HP:0008678). HP:0008678 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9685,6 +9574,7 @@ This clinical feature is Renal hypoplasia/aplasia (HP:0008678). HP:0008678 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9725,15 +9615,18 @@ This clinical feature is Renal hypoplasia/aplasia (HP:0008678). HP:0008678 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0000110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0000110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9756,6 +9649,7 @@ This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9764,6 +9658,200 @@ This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype
 
 
                 <div class="evidence-explanation">Supports a congenital maldevelopment (dysplastic) component of the renal lesion in VUR, as opposed to purely acquired scarring.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-kidney-disease" data-dismech-node="Chronic Kidney Disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic Kidney Disease
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0012622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic kidney disease (HP:0012622), qualified as course progressive. HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34059960" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eighty-eight patient (23.2%) exhibited impaired renal function at their last visit, and 18 of them (20.5%) developed ESRD at the median age of 7.0 (IQR 0.9-11.4) years."</div>
+
+
+                <div class="evidence-explanation">Registry data: 23.2% of 379 children with primary VUR had impaired renal function at last visit.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stage-5-chronic-kidney-disease" data-dismech-node="Stage 5 Chronic Kidney Disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Stage 5 Chronic Kidney Disease
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0003774</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33085409" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"End-stage renal failure in children due to reflux nephropathy accounts for about 5% of all pediatric renal transplants."</div>
+
+
+                <div class="evidence-explanation">Establishes the population-level contribution of reflux nephropathy to paediatric kidney failure. This is a population-attributable fraction over a transplant denominator and does not by itself give a per-patient risk; the frequency band is set from the cohort denominator in the next evidence item.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34059960" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eighty-eight patient (23.2%) exhibited impaired renal function at their last visit, and 18 of them (20.5%) developed ESRD at the median age of 7.0 (IQR 0.9-11.4) years."</div>
+
+
+                <div class="evidence-explanation">Derived-count basis for the VERY_RARE band: 18 of the 379 recruited children with primary VUR reached ESRD, i.e. 4.7% of the whole cohort.
 </div>
 
 
@@ -9794,15 +9882,18 @@ This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0000126</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0000126</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9822,6 +9913,7 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9862,15 +9954,18 @@ This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0000081</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0000081</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Duplicated collecting system (HP:0000081). HP:0000081 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9890,6 +9985,7 @@ This clinical feature is Duplicated collecting system (HP:0000081). HP:0000081 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9933,15 +10029,18 @@ This clinical feature is Duplicated collecting system (HP:0000081). HP:0000081 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0000009</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0000009</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Functional abnormality of the bladder (HP:0000009). HP:0000009 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9964,6 +10063,7 @@ This clinical feature is Functional abnormality of the bladder (HP:0000009). HP:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9972,6 +10072,88 @@ This clinical feature is Functional abnormality of the bladder (HP:0000009). HP:
 
 
                 <div class="evidence-explanation">Quantifies the modifying effect of bladder-bowel dysfunction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-hypermobility" data-dismech-node="Joint Hypermobility" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Joint Hypermobility
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0001382</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26408188" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26408188" target="_blank">PMID:26408188</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"all the individuals with the TNXB variants who had joint mobility examination done have significant joint hypermobility as assessed by Beighton score"</div>
+
+
+                <div class="evidence-explanation">Documents joint hypermobility in TNXB-variant carriers with primary VUR.
+</div>
 
 
 
@@ -10059,6 +10241,9 @@ This disease-associated gene is ROBO2 (hgnc:10250). hgnc:10250 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10073,6 +10258,7 @@ This disease-associated gene is ROBO2 (hgnc:10250). hgnc:10250 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10100,6 +10286,7 @@ This disease-associated gene is ROBO2 (hgnc:10250). hgnc:10250 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10122,6 +10309,7 @@ This disease-associated gene is ROBO2 (hgnc:10250). hgnc:10250 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10180,6 +10368,9 @@ This disease-associated gene is SOX17 (hgnc:18122). hgnc:18122 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10194,6 +10385,7 @@ This disease-associated gene is SOX17 (hgnc:18122). hgnc:18122 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10218,6 +10410,7 @@ This disease-associated gene is SOX17 (hgnc:18122). hgnc:18122 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10276,6 +10469,9 @@ This disease-associated gene is TNXB (hgnc:11976). hgnc:11976 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10290,6 +10486,7 @@ This disease-associated gene is TNXB (hgnc:11976). hgnc:11976 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10314,6 +10511,7 @@ This disease-associated gene is TNXB (hgnc:11976). hgnc:11976 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10372,6 +10570,9 @@ This disease-associated gene is SLIT2 (hgnc:11086). hgnc:11086 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10386,6 +10587,7 @@ This disease-associated gene is SLIT2 (hgnc:11086). hgnc:11086 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10428,6 +10630,9 @@ This disease-associated gene is SLIT2 (hgnc:11086). hgnc:11086 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10442,6 +10647,7 @@ This disease-associated gene is SLIT2 (hgnc:11086). hgnc:11086 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10466,6 +10672,7 @@ This disease-associated gene is SLIT2 (hgnc:11086). hgnc:11086 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10594,6 +10801,9 @@ This treatment uses nitrofurantoin (NCIT:C29293). NCIT:C29293 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10604,6 +10814,9 @@ This treatment uses nitrofurantoin (NCIT:C29293). NCIT:C29293 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -10673,6 +10886,7 @@ This treatment targets Recurrent urinary tract infections (HP:0000010). HP:00000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10698,6 +10912,7 @@ This treatment targets Recurrent urinary tract infections (HP:0000010). HP:00000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10720,6 +10935,7 @@ This treatment targets Recurrent urinary tract infections (HP:0000010). HP:00000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10790,6 +11006,9 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10800,6 +11019,9 @@ This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -10850,6 +11072,7 @@ This treatment targets Functional abnormality of the bladder (HP:0000009). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10920,6 +11143,9 @@ This treatment is ureteral reimplantation, annotated with Reimplantation (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10930,6 +11156,9 @@ This treatment is ureteral reimplantation, annotated with Reimplantation (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -10974,6 +11203,7 @@ This treatment is ureteral reimplantation, annotated with Reimplantation (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11066,6 +11296,9 @@ This treatment uses dextranomer/hyaluronic acid copolymer bulking agent, annotat
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11076,6 +11309,9 @@ This treatment uses dextranomer/hyaluronic acid copolymer bulking agent, annotat
 
 
     </div>
+
+
+
 
 
 
@@ -11104,6 +11340,7 @@ This treatment uses dextranomer/hyaluronic acid copolymer bulking agent, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11179,6 +11416,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Because most primary VUR resolves spontaneously, the default approach in infants is close monitoring for UTI, renal growth and kidney damage, with escalation only for recurrent infection, progressive damage or inadequate renal growth.
 </div>
 
@@ -11201,6 +11444,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11275,6 +11519,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counselling should convey the high familial recurrence (roughly one third of siblings, up to two thirds of offspring of an affected mother), the marked locus heterogeneity that limits molecular diagnosis, and the resulting role of imaging-based rather than gene-based family evaluation.
 </div>
 
@@ -11297,6 +11547,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11406,6 +11657,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11491,6 +11743,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11583,6 +11836,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11605,6 +11859,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11677,6 +11932,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11730,6 +11986,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11778,6 +12035,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11855,6 +12113,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11876,6 +12135,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11939,6 +12199,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11960,6 +12221,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12023,6 +12285,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12045,6 +12308,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12132,6 +12396,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12185,6 +12450,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12297,6 +12563,7 @@ This clinical trial targets Renal cortical atrophy (HP:0002048). HP:0002048 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12318,6 +12585,7 @@ This clinical trial targets Renal cortical atrophy (HP:0002048). HP:0002048 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12472,6 +12740,7 @@ This experimental model concerns ROBO2 (hgnc:10250). hgnc:10250 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12607,6 +12876,7 @@ This experimental model concerns ROBO2 (hgnc:10250). hgnc:10250 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12694,6 +12964,7 @@ This experimental model concerns ROBO2 (hgnc:10250). hgnc:10250 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12716,6 +12987,7 @@ This experimental model concerns ROBO2 (hgnc:10250). hgnc:10250 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15121,6 +15393,25 @@ mappings:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope: this entry models PRIMARY, non-syndromic, familial VUR. Secondary VUR arising from bladder outlet obstruction (posterior urethral valves), neurogenic bladder, or as one feature of a defined multisystem syndrome (renal coloboma/PAX2, branchio-oto-renal, Ochoa/urofacial, prune belly, exstrophy-epispadias, 22q11.2 deletion) is out of scope and is curated on the respective syndrome entries. Bladder and bowel dysfunction is modelled here as a modifying co-factor rather than as a cause, since in primary VUR it worsens infection risk and lowers spontaneous-resolution rates but is not the originating lesion. No GeneReviews chapter exists for familial vesicoureteral reflux (a PubMed search for &#34;vesicoureteral reflux&#34;[TI] AND GeneReviews returned no results on 2026-08-01), so the phenotype baseline here is drawn from the primary literature plus a current clinical reference review. A claude_code deep-research run was performed (research/Familial_Vesicoureteral_Reflux-deep-research-claude_code.md) but returned only a short ontology-verification addendum rather than a full narrative; every claim in this entry was therefore anchored directly on primary literature fetched and snippet-verified against cached abstracts.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Familial Vesicoureteral Reflux (MONDO:0017329)</strong> · 2026-08-01T07:01:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Familial_Vesicoureteral_Reflux/2026-08-01T070101Z-claude-code-686407.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of familial vesicoureteral reflux (MONDO:0017329) as a CURATE_ROOT_WITH_SUBTYPES target. Modelled nine subtypes: the OMIM PS193000 series VUR1-VUR8 (VUR1 1p13; VUR2 ROBO2; VUR3 SOX17; VUR4 chr5; VUR5 chr13; VUR6 chr18; VUR7 12p11-q13 recessive; VUR8 TNXB) plus the X-linked form VURX, each bound to its own MONDO subtype term. Pathophysiology is a seven-node chain from abnormal ureteric bud outgrowth position (SLIT2-ROBO2, SOX17/Wnt) through ureterovesical junction incompetence and intrarenal reflux to pyelonephritic cortical scarring and reflux nephropathy, with a parallel congenital renal hypodysplasia arm. Three nodes declare conforms_to against the fibrotic_response module (Tissue Injury, Excessive ECM Deposition, Architectural Distortion and Organ Dysfunction) to capture the reflux-nephropathy/CKD trajectory. Three discussions record open items: unidentified genes at six mapped loci (KNOWLEDGE_GAP), the congenital-vs-acquired renal lesion and the RIVUR null scarring result (KNOWLEDGE_GAP), and the Robo2/Gen1 mouse MEK-inhibition rescue (HUMAN_MODEL_MISMATCH). Deep research: a claude_code run was executed (research/Familial_Vesicoureteral_Reflux-deep-research-claude_code.md) but returned only a short ontology-verification addendum rather than a narrative report; all claims were therefore anchored on primary literature fetched directly with just fetch-reference and snippet-verified. Validation: schema, term and reference validation all pass, 92 of 92 snippets verified against cached abstracts, compliance 91.3 percent. No GeneReviews chapter exists for this disease (PubMed search returned no results). A pre-PR red-team self-review was then run and its findings applied: the fibrotic conformance chain was split so that the module Inflammatory Recruitment and Mesenchymal Cell Activation nodes are instantiated rather than skipped (new Renal Inflammatory Cell Recruitment and Interstitial Myofibroblast Activation nodes, with VUR-specific evidence from PMID:27760770, PMID:33148615 and the human TGF-beta1 promoter study PMID:19861314); three MOLECULAR-scale proximal nodes were added for the ROBO2, SOX17 and TNXB lesions; an animal_models section was added for the Robo2 dosage, Robo2/Gen1 digenic and C3H/HeOuJ refluxing-infection models; the incomplete-penetrance qualifier was given a citation (PMID:1623385); the offspring prevalence was changed from a point estimate of 66 percent to a 50 percent central estimate with 66 percent as the upper bound; unreplicated-linkage and negative-association counter-evidence from PMID:19959718 was added to VUR1 and to the ROBO2 gene record; frequency-band explanations were rewritten to state both denominators; and a scar-to-reflux feedback causal edge was added. Final state: 113 of 113 snippets verified, compliance 91.4 percent, all schema, term and reference validation green, targeted pytest selection green.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

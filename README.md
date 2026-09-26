@@ -20,6 +20,11 @@ Each disorder page includes:
 - Treatment options with NCIT term links
 - All claims backed by PubMed evidence
 
+Related browsers:
+
+- [Curation history dashboard](https://monarch-initiative.github.io/dismech-history/) — explore curation, review, and audit activity by date, agent tool, model, and section.
+- [Monarch NAMs browser](https://monarch-initiative.github.io/monarch-nams/) — explore New Approach Methodologies (NAMs) and research datasets represented in DisMech.
+
 ## How It Works
 
 ### Project Overview Slides
@@ -271,6 +276,13 @@ Regardless of which route you use, the agent follows the same workflow:
 4. **Submit** — commits changes and opens a pull request for human review
 
 For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Evidence recuration reports
+
+Run `just jev-audit` to assess disease assertion/snippet pairs with Jev and produce
+CSV reports for recuration. Corpus assessment history and the weekly workflow live in
+[dismech-evals](https://github.com/monarch-initiative/dismech-evals). See [the audit guide](docs/jev-evidence-audit.md) for
+inventory, cached reruns, report columns and the weekly GitHub Action.
 
 ## Schema Documentation
 

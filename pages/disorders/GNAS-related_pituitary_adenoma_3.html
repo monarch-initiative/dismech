@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4298,6 +4366,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4322,6 +4391,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4343,6 +4413,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4427,6 +4498,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4461,6 +4533,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-activating-gnas-mutation" data-dismech-node="Somatic activating GNAS mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic activating GNAS mutation</div>
+
 
                 <div class="item-desc">A somatic GNAS missense mutation inhibits intrinsic GTPase activity of Gs-alpha, stabilizing the protein in its active conformation.</div>
 
@@ -4593,6 +4666,8 @@ This genetic context concerns GNAS (hgnc:4392). hgnc:4392 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4607,6 +4682,9 @@ This genetic context concerns GNAS (hgnc:4392). hgnc:4392 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Somatic GNAS substitutions at residues such as Arg-201 or Gln-227 inhibit GTP hydrolysis and keep Gs-alpha active.</div>
 
@@ -4715,6 +4793,7 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4737,6 +4816,7 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-gs-alpha-adenylate-cyclase-activation" data-dismech-node="Constitutive Gs-alpha adenylate cyclase activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Gs-alpha adenylate cyclase activation</div>
+
 
                 <div class="item-desc">Active Gs-alpha increases adenylyl cyclase activity and intracellular cAMP levels in GH-secreting pituitary tumor cells.</div>
 
@@ -4945,6 +5025,7 @@ This pathophysiological event involves increased adenylate cyclase activator act
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4967,6 +5048,7 @@ This pathophysiological event involves increased adenylate cyclase activator act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-camp-pka-signaling-in-somatotrophs" data-dismech-node="Increased cAMP/PKA signaling in somatotrophs" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased cAMP/PKA signaling in somatotrophs</div>
+
 
                 <div class="item-desc">GNAS-mutant somatotroph tumors converge on the same cAMP/PKA signaling cassette reached by GPR101 activation and by AIP loss through reduced cAMP-degrading restraint.</div>
 
@@ -5100,6 +5182,7 @@ This pathophysiological event involves increased cAMP/PKA signal transduction (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5122,6 +5205,7 @@ This pathophysiological event involves increased cAMP/PKA signal transduction (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-growth-hormone-secretion" data-dismech-node="Increased growth hormone secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased growth hormone secretion</div>
+
 
                 <div class="item-desc">GNAS-mutant GH-secreting pituitary tumors show elevated growth hormone secretion downstream of cAMP pathway activation.</div>
 
@@ -5232,6 +5316,7 @@ This pathophysiological event involves increased growth hormone secretion (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5254,6 +5339,7 @@ This pathophysiological event involves increased growth hormone secretion (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatotroph-adenoma-growth" data-dismech-node="Somatotroph adenoma growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatotroph adenoma growth</div>
+
 
                 <div class="item-desc">Activating GNAS turns Gs-alpha into an oncogenic driver in somatotroph cells that proliferate in response to cAMP.</div>
 
@@ -5385,6 +5471,7 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5447,16 +5534,36 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-growth-hormone-excess" data-dismech-node="Growth hormone excess" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Growth hormone excess
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Growth<span class="pill-count">(1)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
+
+
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Endocrine
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-hormone-excess" data-dismech-node="Growth hormone excess" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Growth hormone excess
+
 
 
 
 
 
                     <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating growth hormone concentration</span>
+
 
 
 
@@ -5468,7 +5575,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5488,6 +5598,7 @@ This clinical feature is Elevated circulating growth hormone concentration (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5512,17 +5623,19 @@ This clinical feature is Elevated circulating growth hormone concentration (HP:0
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-pituitary-adenoma" data-dismech-node="Pituitary adenoma" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Pituitary adenoma
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pituitary-adenoma" data-dismech-node="Pituitary adenoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pituitary adenoma
+
 
 
 
 
 
                     <span class="phenotype-id">
+
 
 
 
@@ -5534,7 +5647,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Pituitary adenoma (HP:0002893). HP:0002893 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5554,6 +5670,7 @@ This clinical feature is Pituitary adenoma (HP:0002893). HP:0002893 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5578,17 +5695,28 @@ This clinical feature is Pituitary adenoma (HP:0002893). HP:0002893 is a phenoty
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-acral-overgrowth" data-dismech-node="Acral overgrowth" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Acral overgrowth
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acral-overgrowth" data-dismech-node="Acral overgrowth" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acral overgrowth
+
 
 
 
 
 
                     <span class="phenotype-id">
+
 
 
 
@@ -5600,7 +5728,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Acral overgrowth (HP:0033794). HP:0033794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5620,6 +5751,7 @@ This clinical feature is Acral overgrowth (HP:0033794). HP:0033794 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5644,8 +5776,34 @@ This clinical feature is Acral overgrowth (HP:0033794). HP:0033794 is a phenotyp
 
 
 
-            </div>
+                </div>
 
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -5696,6 +5854,9 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5710,6 +5871,7 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5801,6 +5963,12 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">GNAS-mutant acromegaly is managed within standard acromegaly algorithms using biochemical monitoring and combinations of surgery, medical therapy, and radiotherapy as clinically indicated.</div>
 
 
@@ -5831,6 +5999,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5899,6 +6068,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5923,6 +6093,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5944,6 +6115,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6017,6 +6189,12 @@ This treatment is Somatostatin Analog Therapy (NCIT:C15449). NCIT:C15449 is a cl
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">First-generation somatostatin receptor ligands are used to control GH/IGF-1 excess in acromegaly, but gsp/GNAS mutation status should not be modeled as a reliable predictor of long-term response.</div>
 
 
@@ -6047,6 +6225,7 @@ This treatment is Somatostatin Analog Therapy (NCIT:C15449). NCIT:C15449 is a cl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6115,6 +6294,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6136,6 +6316,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6246,6 +6427,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6270,6 +6452,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6291,6 +6474,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6383,6 +6567,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6404,6 +6589,7 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7198,8 +7384,8 @@ treatments:
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
-        Biochemical control with fg-SRL treatment was similar in gsp+ and gsp-
-        patients (37% vs. 25%, p = 0.219).
+        Biochemical control with fg-SRL treatment was similar in gsp+ and
+        gsp- patients (37% vs. 25%, p = 0.219).
       explanation: &gt;-
         Evidence for the mechanism link, and deliberately partial. Biochemical
         control is achieved on fg-SRL, so the drug does act on the GH-secretion
@@ -7213,8 +7399,8 @@ treatments:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Biochemical control with fg-SRL treatment was similar in gsp+ and gsp-
-      patients (37% vs. 25%, p = 0.219).
+      Biochemical control with fg-SRL treatment was similar in gsp+ and
+      gsp- patients (37% vs. 25%, p = 0.219).
     explanation: &gt;-
       This supports adding SRL therapy while explicitly avoiding an overstrong
       GNAS-positive response claim.
@@ -7393,6 +7579,7 @@ notes: &gt;-
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7462,6 +7649,7 @@ notes: &gt;-
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7528,6 +7716,7 @@ notes: &gt;-
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7602,6 +7791,7 @@ notes: &gt;-
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7670,6 +7860,7 @@ notes: &gt;-
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7742,6 +7933,7 @@ notes: &gt;-
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7776,6 +7968,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8089,7 +8283,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "GNAS-related pituitary adenoma 3", "mondoId": "MONDO:0054665", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GNAS-related_pituitary_adenoma_3", "yamlRevision": "365097355e40"};
+        const OS_CONFIG = {"diseaseName": "GNAS-related pituitary adenoma 3", "mondoId": "MONDO:0054665", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GNAS-related_pituitary_adenoma_3", "yamlRevision": "a2fc67a90e5b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

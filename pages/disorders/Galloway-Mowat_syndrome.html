@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4088,6 +4156,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4155,6 +4224,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4304,6 +4374,7 @@ This subtype is caused by variation in WDR73 (hgnc:25928). hgnc:25928 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4384,6 +4455,7 @@ This subtype is caused by variation in LAGE3 (hgnc:26058). hgnc:26058 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4470,6 +4542,7 @@ This subtype is caused by variation in OSGEP (hgnc:18028). hgnc:18028 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4550,6 +4623,7 @@ This subtype is caused by variation in TP53RK (hgnc:16197). hgnc:16197 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4636,6 +4710,7 @@ This subtype is caused by variation in TPRKB (hgnc:24259). hgnc:24259 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4716,6 +4791,7 @@ This subtype is caused by variation in WDR4 (hgnc:12756). hgnc:12756 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4802,6 +4878,7 @@ This subtype is caused by variation in NUP107 (hgnc:29914). hgnc:29914 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4882,6 +4959,7 @@ This subtype is caused by variation in NUP133 (hgnc:18016). hgnc:18016 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4968,6 +5046,7 @@ This subtype is caused by variation in GON7 (hgnc:20356). hgnc:20356 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5048,6 +5127,7 @@ This subtype is caused by variation in YRDC (hgnc:28905). hgnc:28905 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5132,6 +5212,7 @@ This subtype is caused by variation in PRDM15 (hgnc:13999). hgnc:13999 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5176,6 +5257,7 @@ This subtype is caused by variation in PRDM15 (hgnc:13999). hgnc:13999 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keops-and-t6a-biogenesis-deficiency" data-dismech-node="KEOPS and t6A Biogenesis Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">KEOPS and t6A Biogenesis Deficiency</div>
+
 
                 <div class="item-desc">GAMOS2-GAMOS5 and GAMOS9-GAMOS10 are caused by defects in KEOPS complex components or the upstream YRDC enzyme. These lesions reduce t6A tRNA modification, impair protein synthesis and cell survival, and converge on early podocyte injury and impaired brain growth.</div>
 
@@ -5247,6 +5329,244 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        LAGE3
+
+
+    <a href="https://bioregistry.io/hgnc:26058" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:26058</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LAGE3 (hgnc:26058). hgnc:26058 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        OSGEP
+
+
+    <a href="https://bioregistry.io/hgnc:18028" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:18028</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OSGEP (hgnc:18028). hgnc:18028 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TP53RK
+
+
+    <a href="https://bioregistry.io/hgnc:16197" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:16197</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53RK (hgnc:16197). hgnc:16197 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TPRKB
+
+
+    <a href="https://bioregistry.io/hgnc:24259" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:24259</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TPRKB (hgnc:24259). hgnc:24259 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GON7
+
+
+    <a href="https://bioregistry.io/hgnc:20356" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:20356</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GON7 (hgnc:20356). hgnc:20356 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        YRDC
+
+
+    <a href="https://bioregistry.io/hgnc:28905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:28905</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YRDC (hgnc:28905). hgnc:28905 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5262,11 +5582,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006400" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006400</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006400" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006400</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased tRNA modification (GO:0006400). GO:0006400 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5341,6 +5661,7 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5362,6 +5683,7 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5388,6 +5710,7 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wdr73-dependent-cytoskeletal-and-rna-processing-dysfunction" data-dismech-node="WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction</div>
 
+
                 <div class="item-desc">GAMOS1 is caused by WDR73-linked perturbation of cell architecture, cell survival, focal adhesion biology, Integrator-associated RNA processing, and cell-cycle regulation in podocytes and neurons.</div>
 
 
@@ -5402,11 +5725,11 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000653</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5432,11 +5755,11 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5458,6 +5781,49 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        WDR73
+
+
+    <a href="https://bioregistry.io/hgnc:25928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:25928</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves WDR73 (hgnc:25928). hgnc:25928 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5473,11 +5839,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0048041</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0048041</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased focal adhesion assembly (GO:0048041). GO:0048041 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5507,11 +5873,11 @@ This pathophysiological event involves decreased focal adhesion assembly (GO:004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006396</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006396</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated RNA processing (GO:0006396). GO:0006396 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5541,11 +5907,11 @@ This pathophysiological event involves dysregulated RNA processing (GO:0006396).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0044843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0044843</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5614,6 +5980,7 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5635,6 +6002,7 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5662,6 +6030,7 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5685,6 +6054,7 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nuclear-pore-dysfunction" data-dismech-node="Nuclear Pore Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Nuclear Pore Dysfunction</div>
 
+
                 <div class="item-desc">GAMOS7-GAMOS8 are NUP107- and NUP133-related forms that disrupt nucleoporin function and spindle biology, converging on abnormal brain growth, glomerular underdevelopment, and podocyte foot process injury.</div>
 
 
@@ -5699,11 +6069,11 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000653</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5729,11 +6099,11 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5755,6 +6125,88 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NUP107
+
+
+    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:29914</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NUP107 (hgnc:29914). hgnc:29914 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NUP133
+
+
+    <a href="https://bioregistry.io/hgnc:18016" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:18016</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NUP133 (hgnc:18016). hgnc:18016 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5770,11 +6222,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051225" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0051225</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051225" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0051225</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal spindle assembly (GO:0051225). GO:0051225 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5810,11 +6262,11 @@ This pathophysiological event involves abnormal spindle assembly (GO:0051225). G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005643" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0005643</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005643" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0005643</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
 Relation: this pathophysiological event involves this cellular component
 This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is a cellular component from the Gene Ontology.</span>
                     </span>
@@ -5864,6 +6316,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5885,6 +6338,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5912,6 +6366,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5935,6 +6390,7 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wdr4-cul4-cerebellar-developmental-dysfunction" data-dismech-node="WDR4-CUL4 Cerebellar Developmental Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">WDR4-CUL4 Cerebellar Developmental Dysfunction</div>
 
+
                 <div class="item-desc">GAMOS6 is WDR4-related disease linking CUL4 E3-ligase adaptor dysfunction to impaired cerebellar development, granule-neuron progenitor cell-cycle maintenance, gait phenotypes, and the broader GAMOS neurodevelopmental spectrum.</div>
 
 
@@ -5957,11 +6413,11 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
         WDR4
 
 
-    <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:12756</a>
+    <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:12756</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves WDR4 (hgnc:12756). hgnc:12756 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5999,11 +6455,11 @@ This pathophysiological event involves WDR4 (hgnc:12756). hgnc:12756 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0044843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0044843</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6066,6 +6522,7 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6087,6 +6544,7 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6113,6 +6571,7 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-podocyte-structural-failure" data-dismech-node="Podocyte Structural Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Podocyte Structural Failure</div>
 
+
                 <div class="item-desc">Despite upstream gene heterogeneity, the cross-subtype renal effector phenotype converges on podocyte dysfunction with proteinuria, foot process injury, and steroid-resistant nephrotic syndrome. Histopathology spans minimal change disease, focal segmental glomerulosclerosis, collapsing lesions, and diffuse mesangial sclerosis.</div>
 
 
@@ -6127,11 +6586,11 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-35">CL:0000653</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6168,11 +6627,11 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0048041</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0048041</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased focal adhesion assembly (GO:0048041). GO:0048041 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6209,11 +6668,11 @@ This pathophysiological event involves decreased focal adhesion assembly (GO:004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-37">UBERON:0002113</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6274,6 +6733,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6295,6 +6755,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6321,6 +6782,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-growth-and-neurodevelopment" data-dismech-node="Impaired Brain Growth and Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Growth and Neurodevelopment</div>
 
+
                 <div class="item-desc">Brain growth failure is the shared cross-subtype neurologic effector phenotype across the syndrome and includes microcephaly, brain atrophy, gyral abnormalities, cerebellar involvement, hypotonia, developmental delay, and seizures.</div>
 
 
@@ -6335,11 +6797,11 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6376,11 +6838,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0044843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0044843</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6417,11 +6879,11 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-31">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-40">UBERON:0000955</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6530,6 +6992,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6554,6 +7017,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6575,6 +7039,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6623,7 +7088,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized or axial hypotonia is frequent in severe infantile forms and accompanies developmental impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Brain atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral or cerebellar atrophy is common in severe cases and contributes to the progressive neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012444\"}}, {\"id\": \"CNS hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypomyelination is a recurrent MRI feature in severe OSGEP-related GAMOS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS3\"], \"term_id\": \"HP:0003429\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is especially prominent in WDR73-related GAMOS and is also linked to WDR4-related cerebellar development defects.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"GAMOS1\", \"GAMOS6\"], \"term_id\": \"HP:0001272\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features or dysmorphic facies are recurrent in some GAMOS subtypes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\", \"GAMOS3\"], \"term_id\": \"HP:0000280\"}}, {\"id\": \"Diffuse mesangial sclerosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse mesangial sclerosis is another reported GAMOS renal-biopsy pattern.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0001967\"}}, {\"id\": \"Focal segmental glomerulosclerosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"FSGS, including collapsing FSGS, is a reported renal-biopsy pattern in GAMOS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0000097\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is common across reported gene-defined subtypes and reflects the shared neurodevelopmental burden of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hiatus hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hiatal hernia is part of the classic syndrome description, but reported WDR73-linked cases lacked this feature and should not be assumed to have it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002036\"}}, {\"id\": \"Hypoplasia of the brainstem\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brainstem hypoplasia is frequent in WDR73-related GAMOS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0002365\"}}, {\"id\": \"Impaired Brain Growth and Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain growth failure is the shared cross-subtype neurologic effector phenotype across the syndrome and includes microcephaly, brain atrophy, gyral abnormalities, cerebellar involvement, hypotonia, developmental delay, and seizures.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cell cycle G1/S phase transition\"], \"locations\": [\"brain\"]}}, {\"id\": \"KEOPS and t6A Biogenesis Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS2-GAMOS5 and GAMOS9-GAMOS10 are caused by defects in KEOPS complex components or the upstream YRDC enzyme. These lesions reduce t6A tRNA modification, impair protein synthesis and cell survival, and converge on early podocyte injury and impaired brain growth.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"tRNA modification\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a defining feature of the syndrome and may be primary, postnatal progressive, or accompanied by structural brain malformations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Neurodevelopmental rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early physical, occupational, and speech/communication supports should be matched to hypotonia, motor impairment, developmental delay, and severe intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nuclear Pore Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS7-GAMOS8 are NUP107- and NUP133-related forms that disrupt nucleoporin function and spindle biology, converging on abnormal brain growth, glomerular underdevelopment, and podocyte foot process injury.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"spindle assembly\"]}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy and other ocular malformations are reported in GAMOS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0000648\"}}, {\"id\": \"Pachygyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gyral simplification or pachygyria is a recurrent imaging abnormality in severe GAMOS subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001302\"}}, {\"id\": \"Podocyte Structural Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite upstream gene heterogeneity, the cross-subtype renal effector phenotype converges on podocyte dysfunction with proteinuria, foot process injury, and steroid-resistant nephrotic syndrome. Histopathology spans minimal change disease, focal segmental glomerulosclerosis, collapsing lesions, and diffuse mesangial sclerosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\"], \"biological_processes\": [\"focal adhesion assembly\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria can be present even when nephrotic syndrome timing and severity vary by subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Proteinuria and kidney-function surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular urine protein and kidney-function monitoring is important across the GAMOS spectrum because renal onset and severity vary by gene and subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal failure management and dialysis bridge\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children who progress to end-stage renal disease require nephrology-led renal replacement planning, which may include dialysis as a bridge or alternative to transplant depending on neurologic severity and subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizure-directed pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures should be managed symptomatically by neurology with antiseizure medication individualized to seizure type and comorbid renal status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of severe subtypes and accompany the structural and developmental brain phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Steroid-resistant nephrotic syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset proteinuric kidney disease is the renal hallmark of GAMOS and is commonly steroid-resistant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012588\"}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin corpus callosum is a recurrent WDR73-related brain MRI feature.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0033725\"}}, {\"id\": \"WDR4-CUL4 Cerebellar Developmental Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS6 is WDR4-related disease linking CUL4 E3-ligase adaptor dysfunction to impaired cerebellar development, granule-neuron progenitor cell-cycle maintenance, gait phenotypes, and the broader GAMOS neurodevelopmental spectrum.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell cycle G1/S phase transition\"], \"genes\": [\"WDR4\"], \"gene_terms\": [{\"label\": \"WDR4\", \"id\": \"hgnc:12756\"}]}}, {\"id\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS1 is caused by WDR73-linked perturbation of cell architecture, cell survival, focal adhesion biology, Integrator-associated RNA processing, and cell-cycle regulation in podocytes and neurons.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"focal adhesion assembly\", \"RNA processing\", \"cell cycle G1/S phase transition\"]}}], \"edges\": [{\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Hiatus hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Pore Dysfunction\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Pore Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR4-CUL4 Cerebellar Developmental Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Podocyte Structural Failure\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Podocyte Structural Failure\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Podocyte Structural Failure\", \"target\": \"Focal segmental glomerulosclerosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Podocyte Structural Failure\", \"target\": \"Diffuse mesangial sclerosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Axial hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Pachygyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Brain atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Hypoplasia of the brainstem\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"CNS hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proteinuria and kidney-function surveillance\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Proteinuria and kidney-function surveillance\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal failure management and dialysis bridge\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Seizure-directed pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental rehabilitation\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental rehabilitation\", \"target\": \"Axial hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axial hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized or axial hypotonia is frequent in severe infantile forms and accompanies developmental impairment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008936\"}}, {\"id\": \"Brain atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral or cerebellar atrophy is common in severe cases and contributes to the progressive neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012444\"}}, {\"id\": \"CNS hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypomyelination is a recurrent MRI feature in severe OSGEP-related GAMOS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS3\"], \"term_id\": \"HP:0003429\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar atrophy is especially prominent in WDR73-related GAMOS and is also linked to WDR4-related cerebellar development defects.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"GAMOS1\", \"GAMOS6\"], \"term_id\": \"HP:0001272\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features or dysmorphic facies are recurrent in some GAMOS subtypes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\", \"GAMOS3\"], \"term_id\": \"HP:0000280\"}}, {\"id\": \"Diffuse mesangial sclerosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse mesangial sclerosis is another reported GAMOS renal-biopsy pattern.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0001967\"}}, {\"id\": \"Focal segmental glomerulosclerosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"FSGS, including collapsing FSGS, is a reported renal-biopsy pattern in GAMOS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0000097\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is common across reported gene-defined subtypes and reflects the shared neurodevelopmental burden of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hiatus hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hiatal hernia is part of the classic syndrome description, but reported WDR73-linked cases lacked this feature and should not be assumed to have it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002036\"}}, {\"id\": \"Hypoplasia of the brainstem\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brainstem hypoplasia is frequent in WDR73-related GAMOS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0002365\"}}, {\"id\": \"Impaired Brain Growth and Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain growth failure is the shared cross-subtype neurologic effector phenotype across the syndrome and includes microcephaly, brain atrophy, gyral abnormalities, cerebellar involvement, hypotonia, developmental delay, and seizures.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cell cycle G1/S phase transition\"], \"locations\": [\"brain\"]}}, {\"id\": \"KEOPS and t6A Biogenesis Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS2-GAMOS5 and GAMOS9-GAMOS10 are caused by defects in KEOPS complex components or the upstream YRDC enzyme. These lesions reduce t6A tRNA modification, impair protein synthesis and cell survival, and converge on early podocyte injury and impaired brain growth.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"tRNA modification\"], \"genes\": [\"LAGE3\", \"OSGEP\", \"TP53RK\", \"TPRKB\", \"GON7\", \"YRDC\"], \"gene_terms\": [{\"label\": \"LAGE3\", \"id\": \"hgnc:26058\"}, {\"label\": \"OSGEP\", \"id\": \"hgnc:18028\"}, {\"label\": \"TP53RK\", \"id\": \"hgnc:16197\"}, {\"label\": \"TPRKB\", \"id\": \"hgnc:24259\"}, {\"label\": \"GON7\", \"id\": \"hgnc:20356\"}, {\"label\": \"YRDC\", \"id\": \"hgnc:28905\"}]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is a defining feature of the syndrome and may be primary, postnatal progressive, or accompanied by structural brain malformations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Neurodevelopmental rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early physical, occupational, and speech/communication supports should be matched to hypotonia, motor impairment, developmental delay, and severe intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nuclear Pore Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS7-GAMOS8 are NUP107- and NUP133-related forms that disrupt nucleoporin function and spindle biology, converging on abnormal brain growth, glomerular underdevelopment, and podocyte foot process injury.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"spindle assembly\"], \"genes\": [\"NUP107\", \"NUP133\"], \"gene_terms\": [{\"label\": \"NUP107\", \"id\": \"hgnc:29914\"}, {\"label\": \"NUP133\", \"id\": \"hgnc:18016\"}]}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy and other ocular malformations are reported in GAMOS.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0000648\"}}, {\"id\": \"Pachygyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gyral simplification or pachygyria is a recurrent imaging abnormality in severe GAMOS subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001302\"}}, {\"id\": \"Podocyte Structural Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite upstream gene heterogeneity, the cross-subtype renal effector phenotype converges on podocyte dysfunction with proteinuria, foot process injury, and steroid-resistant nephrotic syndrome. Histopathology spans minimal change disease, focal segmental glomerulosclerosis, collapsing lesions, and diffuse mesangial sclerosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"podocyte\"], \"biological_processes\": [\"focal adhesion assembly\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proteinuria can be present even when nephrotic syndrome timing and severity vary by subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Proteinuria and kidney-function surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular urine protein and kidney-function monitoring is important across the GAMOS spectrum because renal onset and severity vary by gene and subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal failure management and dialysis bridge\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children who progress to end-stage renal disease require nephrology-led renal replacement planning, which may include dialysis as a bridge or alternative to transplant depending on neurologic severity and subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizure-directed pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures should be managed symptomatically by neurology with antiseizure medication individualized to seizure type and comorbid renal status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of severe subtypes and accompany the structural and developmental brain phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Steroid-resistant nephrotic syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset proteinuric kidney disease is the renal hallmark of GAMOS and is commonly steroid-resistant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012588\"}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin corpus callosum is a recurrent WDR73-related brain MRI feature.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GAMOS1\"], \"term_id\": \"HP:0033725\"}}, {\"id\": \"WDR4-CUL4 Cerebellar Developmental Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS6 is WDR4-related disease linking CUL4 E3-ligase adaptor dysfunction to impaired cerebellar development, granule-neuron progenitor cell-cycle maintenance, gait phenotypes, and the broader GAMOS neurodevelopmental spectrum.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell cycle G1/S phase transition\"], \"genes\": [\"WDR4\"], \"gene_terms\": [{\"label\": \"WDR4\", \"id\": \"hgnc:12756\"}]}}, {\"id\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GAMOS1 is caused by WDR73-linked perturbation of cell architecture, cell survival, focal adhesion biology, Integrator-associated RNA processing, and cell-cycle regulation in podocytes and neurons.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"podocyte\", \"neuron\"], \"biological_processes\": [\"focal adhesion assembly\", \"RNA processing\", \"cell cycle G1/S phase transition\"], \"genes\": [\"WDR73\"], \"gene_terms\": [{\"label\": \"WDR73\", \"id\": \"hgnc:25928\"}]}}], \"edges\": [{\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"KEOPS and t6A Biogenesis Deficiency\", \"target\": \"Hiatus hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR73-Dependent Cytoskeletal and RNA-Processing Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Pore Dysfunction\", \"target\": \"Podocyte Structural Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nuclear Pore Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WDR4-CUL4 Cerebellar Developmental Dysfunction\", \"target\": \"Impaired Brain Growth and Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Podocyte Structural Failure\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Podocyte Structural Failure\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Podocyte Structural Failure\", \"target\": \"Focal segmental glomerulosclerosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Podocyte Structural Failure\", \"target\": \"Diffuse mesangial sclerosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Axial hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Pachygyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Brain atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Hypoplasia of the brainstem\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"CNS hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Growth and Neurodevelopment\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proteinuria and kidney-function surveillance\", \"target\": \"Proteinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Proteinuria and kidney-function surveillance\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal failure management and dialysis bridge\", \"target\": \"Steroid-resistant nephrotic syndrome\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Seizure-directed pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental rehabilitation\", \"target\": \"Global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurodevelopmental rehabilitation\", \"target\": \"Axial hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6642,21 +7107,104 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(10)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hiatus-hernia" data-dismech-node="Hiatus hernia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hiatus hernia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002036</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hiatus hernia (HP:0002036). HP:0002036 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Galloway–Mowat syndrome (GMS; OMIM 251300) was first described in 1968 in two siblings presenting with nephrotic syndrome, microcephaly, and hiatal hernia [Galloway and Mowat, 1968]."</div>
+
+
+                <div class="evidence-explanation">This supports hiatal hernia as a classic historical feature, not a universal finding across molecular subtypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
@@ -6677,15 +7225,18 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000648</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6705,6 +7256,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6733,470 +7285,11 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Proteinuria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000093</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36755238" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Due to the heterogeneity of the renal phenotype, regular proteinuria screening is recommended for all patients diagnosed with GAMOS."</div>
-
-
-                <div class="evidence-explanation">The recommendation for cross-subtype proteinuria screening supports proteinuria as an important variable renal manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Microcephaly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000252</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40533795" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The phenotype is heterogeneous, but it is now widely accepted that early-onset nephrotic syndrome (SRNS) and microcephaly with brain malformation are characteristic features of Galloway-Mowat syndrome."</div>
-
-
-                <div class="evidence-explanation">Recent review-level synthesis identifies microcephaly with brain malformation as a characteristic syndrome feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse facial features" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Coarse facial features
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000280</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Another interesting observation was the presence of coarse facial features in five patients from three families (2027, 2286, and 2889) in our cohort."</div>
-
-
-                <div class="evidence-explanation">WDR73-related cases support coarse facial features as a recurrent subtype manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global developmental delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neurological findings consisted of microcephaly, hypotonia, developmental delay, and seizures."</div>
-
-
-                <div class="evidence-explanation">Human case-series evidence supports developmental delay as a core neurologic manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neurological findings consisted of microcephaly, hypotonia, developmental delay, and seizures."</div>
-
-
-                <div class="evidence-explanation">Supports seizures as a recurring neurologic feature in severe OSGEP-linked disease and the broader GAMOS spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-atrophy" data-dismech-node="Cerebellar atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebellar atrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001272</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cerebellar atrophy seen in MR imaging is also consistent within our series, and correlated with symptoms of truncal ataxia, hypotonia, and dysmetria in some individuals."</div>
-
-
-                <div class="evidence-explanation">WDR73-positive cases support cerebellar atrophy as a subtype-distinguishing MRI feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36681682" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36681682" target="_blank">PMID:36681682</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients with mutations of WDR4, a substrate adaptor of the CUL4 E3 ligase complex, develop cerebellar atrophy and gait phenotypes."</div>
-
-
-                <div class="evidence-explanation">WDR4 literature supports cerebellar atrophy in the GAMOS6-related spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">10</span>
+                    Genitourinary
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-steroid-resistant-nephrotic-syndrome" data-dismech-node="Steroid-resistant nephrotic syndrome" data-dismech-type="phenotype">
@@ -7213,15 +7306,18 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012588</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012588</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is steroid-resistant nephrotic syndrome (HP:0012588). HP:0012588 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7241,6 +7337,7 @@ This clinical feature is steroid-resistant nephrotic syndrome (HP:0012588). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7267,9 +7364,9 @@ This clinical feature is steroid-resistant nephrotic syndrome (HP:0012588). HP:0
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial hypotonia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Axial hypotonia
+                        Proteinuria
 
 
 
@@ -7281,287 +7378,18 @@ This clinical feature is steroid-resistant nephrotic syndrome (HP:0012588). HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0008936</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30975089" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Both patients showed a similar clinical presentation, with early-onset nephrotic syndrome, microcephaly, brain atrophy, developmental delay, axial hypotonia, and early fatality."</div>
-
-
-                <div class="evidence-explanation">Supports axial hypotonia as part of the severe infantile neurologic presentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pachygyria" data-dismech-node="Pachygyria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pachygyria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001302</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Brain imaging studies all showed pachygyria and hypomyelination."</div>
-
-
-                <div class="evidence-explanation">Provides direct imaging evidence for pachygyria in a severe OSGEP-related cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-brain-atrophy" data-dismech-node="Brain atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Brain atrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0012444</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Brain atrophy (HP:0012444). HP:0012444 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30975089" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Both patients showed a similar clinical presentation, with early-onset nephrotic syndrome, microcephaly, brain atrophy, developmental delay, axial hypotonia, and early fatality."</div>
-
-
-                <div class="evidence-explanation">Supports brain atrophy as part of the severe neuroimaging phenotype in GAMOS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin corpus callosum" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thin corpus callosum
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0033725</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other common pathologies observed in cranial MRI were thinning of corpus callosum in half of the patients and brain stem hypoplasia in 80%."</div>
-
-
-                <div class="evidence-explanation">WDR73 case synthesis supports thin corpus callosum as a frequent subtype feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplasia-of-the-brainstem" data-dismech-node="Hypoplasia of the brainstem" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoplasia of the brainstem
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000093</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7573,10 +7401,10 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:36755238" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
 
 
@@ -7584,150 +7412,15 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
 
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other common pathologies observed in cranial MRI were thinning of corpus callosum in half of the patients and brain stem hypoplasia in 80%."</div>
-
-
-                <div class="evidence-explanation">WDR73 case synthesis supports brainstem hypoplasia as a frequent subtype feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-hypomyelination" data-dismech-node="CNS hypomyelination" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        CNS hypomyelination
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0003429</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Brain imaging studies all showed pachygyria and hypomyelination."</div>
+                <div class="evidence-snippet">"Due to the heterogeneity of the renal phenotype, regular proteinuria screening is recommended for all patients diagnosed with GAMOS."</div>
 
 
-                <div class="evidence-explanation">OSGEP-linked cases support CNS hypomyelination as part of the severe imaging phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hiatus-hernia" data-dismech-node="Hiatus hernia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hiatus hernia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002036</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hiatus hernia (HP:0002036). HP:0002036 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Galloway–Mowat syndrome (GMS; OMIM 251300) was first described in 1968 in two siblings presenting with nephrotic syndrome, microcephaly, and hiatal hernia [Galloway and Mowat, 1968]."</div>
-
-
-                <div class="evidence-explanation">This supports hiatal hernia as a classic historical feature, not a universal finding across molecular subtypes.</div>
+                <div class="evidence-explanation">The recommendation for cross-subtype proteinuria screening supports proteinuria as an important variable renal manifestation.</div>
 
 
 
@@ -7757,15 +7450,18 @@ This clinical feature is Hiatus hernia (HP:0002036). HP:0002036 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000097</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:0000097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7785,6 +7481,7 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7825,15 +7522,18 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001967</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001967</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diffuse mesangial sclerosis (HP:0001967). HP:0001967 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7856,6 +7556,7 @@ This clinical feature is Diffuse mesangial sclerosis (HP:0001967). HP:0001967 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7864,6 +7565,850 @@ This clinical feature is Diffuse mesangial sclerosis (HP:0001967). HP:0001967 is
 
 
                 <div class="evidence-explanation">WDR73-positive renal biopsies directly document diffuse mesangial sclerosis as a renal histopathology pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Microcephaly
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40533795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The phenotype is heterogeneous, but it is now widely accepted that early-onset nephrotic syndrome (SRNS) and microcephaly with brain malformation are characteristic features of Galloway-Mowat syndrome."</div>
+
+
+                <div class="evidence-explanation">Recent review-level synthesis identifies microcephaly with brain malformation as a characteristic syndrome feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse facial features" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Coarse facial features
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000280</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Another interesting observation was the presence of coarse facial features in five patients from three families (2027, 2286, and 2889) in our cohort."</div>
+
+
+                <div class="evidence-explanation">WDR73-related cases support coarse facial features as a recurrent subtype manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Axial hypotonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0008936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30975089" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both patients showed a similar clinical presentation, with early-onset nephrotic syndrome, microcephaly, brain atrophy, developmental delay, axial hypotonia, and early fatality."</div>
+
+
+                <div class="evidence-explanation">Supports axial hypotonia as part of the severe infantile neurologic presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">8</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global developmental delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neurological findings consisted of microcephaly, hypotonia, developmental delay, and seizures."</div>
+
+
+                <div class="evidence-explanation">Human case-series evidence supports developmental delay as a core neurologic manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neurological findings consisted of microcephaly, hypotonia, developmental delay, and seizures."</div>
+
+
+                <div class="evidence-explanation">Supports seizures as a recurring neurologic feature in severe OSGEP-linked disease and the broader GAMOS spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pachygyria" data-dismech-node="Pachygyria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pachygyria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001302</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain imaging studies all showed pachygyria and hypomyelination."</div>
+
+
+                <div class="evidence-explanation">Provides direct imaging evidence for pachygyria in a severe OSGEP-related cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-brain-atrophy" data-dismech-node="Brain atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Brain atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0012444</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brain atrophy (HP:0012444). HP:0012444 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30975089" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both patients showed a similar clinical presentation, with early-onset nephrotic syndrome, microcephaly, brain atrophy, developmental delay, axial hypotonia, and early fatality."</div>
+
+
+                <div class="evidence-explanation">Supports brain atrophy as part of the severe neuroimaging phenotype in GAMOS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-atrophy" data-dismech-node="Cerebellar atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebellar atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001272</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cerebellar atrophy seen in MR imaging is also consistent within our series, and correlated with symptoms of truncal ataxia, hypotonia, and dysmetria in some individuals."</div>
+
+
+                <div class="evidence-explanation">WDR73-positive cases support cerebellar atrophy as a subtype-distinguishing MRI feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36681682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36681682" target="_blank">PMID:36681682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with mutations of WDR4, a substrate adaptor of the CUL4 E3 ligase complex, develop cerebellar atrophy and gait phenotypes."</div>
+
+
+                <div class="evidence-explanation">WDR4 literature supports cerebellar atrophy in the GAMOS6-related spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin corpus callosum" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thin corpus callosum
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0033725</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other common pathologies observed in cranial MRI were thinning of corpus callosum in half of the patients and brain stem hypoplasia in 80%."</div>
+
+
+                <div class="evidence-explanation">WDR73 case synthesis supports thin corpus callosum as a frequent subtype feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplasia-of-the-brainstem" data-dismech-node="Hypoplasia of the brainstem" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypoplasia of the brainstem
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other common pathologies observed in cranial MRI were thinning of corpus callosum in half of the patients and brain stem hypoplasia in 80%."</div>
+
+
+                <div class="evidence-explanation">WDR73 case synthesis supports brainstem hypoplasia as a frequent subtype feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-hypomyelination" data-dismech-node="CNS hypomyelination" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        CNS hypomyelination
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0003429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain imaging studies all showed pachygyria and hypomyelination."</div>
+
+
+                <div class="evidence-explanation">OSGEP-linked cases support CNS hypomyelination as part of the severe imaging phenotype.</div>
 
 
 
@@ -7935,7 +8480,7 @@ This clinical feature is Diffuse mesangial sclerosis (HP:0001967). HP:0001967 is
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7975,6 +8520,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Early molecular diagnosis supports family counseling, recurrence-risk assessment, and prenatal testing or imaging in future pregnancies.</div>
 
 
@@ -7996,6 +8547,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8027,7 +8579,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">urine protein measurement<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">urine protein measurement<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is urine protein measurement (NCIT:C74760). NCIT:C74760 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8068,6 +8620,12 @@ This treatment is urine protein measurement (NCIT:C74760). NCIT:C74760 is a clin
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Regular urine protein and kidney-function monitoring is important across the GAMOS spectrum because renal onset and severity vary by gene and subtype.</div>
 
 
@@ -8083,11 +8641,11 @@ This treatment is urine protein measurement (NCIT:C74760). NCIT:C74760 is a clin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0000093</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8100,11 +8658,11 @@ This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0012588</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0012588</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:0012588 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8128,6 +8686,7 @@ This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8159,7 +8718,7 @@ This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:001
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">renal replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">renal replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8200,6 +8759,12 @@ This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a cl
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Children who progress to end-stage renal disease require nephrology-led renal replacement planning, which may include dialysis as a bridge or alternative to transplant depending on neurologic severity and subtype.</div>
 
 
@@ -8215,11 +8780,11 @@ This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a cl
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0012622</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8232,11 +8797,11 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0012588</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0012588</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:0012588 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8260,6 +8825,7 @@ This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8291,7 +8857,7 @@ This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:001
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Anticonvulsant Therapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Anticonvulsant Therapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8331,6 +8897,12 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Seizures should be managed symptomatically by neurology with antiseizure medication individualized to seizure type and comorbid renal status.</div>
 
 
@@ -8346,11 +8918,11 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0001250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8374,6 +8946,7 @@ This treatment targets Seizures, annotated with Seizure (HP:0001250). HP:0001250
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8405,7 +8978,7 @@ This treatment targets Seizures, annotated with Seizure (HP:0001250). HP:0001250
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">nutrition assessment<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">nutrition assessment<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8446,6 +9019,12 @@ This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Nutrition assessment and growth support are part of supportive care for infants and children with poor feeding, growth restriction, nephrotic syndrome, and severe neurodevelopmental disability.</div>
 
 
@@ -8470,6 +9049,7 @@ This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8491,6 +9071,7 @@ This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8522,7 +9103,7 @@ This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">occupational therapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">occupational therapy<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8558,6 +9139,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8568,6 +9152,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -8589,11 +9176,11 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0001263</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8606,11 +9193,11 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0008936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0008936</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8634,6 +9221,7 @@ This treatment targets Axial hypotonia (HP:0008936). HP:0008936 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8665,7 +9253,7 @@ This treatment targets Axial hypotonia (HP:0008936). HP:0008936 is a phenotype f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-71">kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is kidney transplantation, annotated with Organ Transplantation (NCIT:C15289), qualified as located in kidney. NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8704,7 +9292,7 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
 
 
-                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-63">kidney<span class="pill-tip" role="tooltip" id="pill-tip-63">Uberon multi-species anatomy ontology (UBERON)
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-72">kidney<span class="pill-tip" role="tooltip" id="pill-tip-72">Uberon multi-species anatomy ontology (UBERON)
 Relation: this treatment is delivered to this anatomical location
 This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8727,6 +9315,9 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8737,6 +9328,9 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
     </div>
+
+
+
 
 
 
@@ -8764,6 +9358,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8829,11 +9424,11 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
         neurodevelopmental assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C95403" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-64">NCIT:C95403</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C95403" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-73">NCIT:C95403</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8871,6 +9466,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8918,11 +9514,11 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
         gene panel testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-65">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-74">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8963,6 +9559,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8984,6 +9581,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9031,11 +9629,11 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
         MRI of the brain
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-66">NCIT:C16809</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-75">NCIT:C16809</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-75">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9076,6 +9674,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9097,6 +9696,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9144,11 +9744,11 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
         urine protein measurement
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C74760" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-67">NCIT:C74760</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C74760" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-76">NCIT:C74760</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9186,6 +9786,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9233,11 +9834,11 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
         biopsy of kidney
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C51699" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-68">NCIT:C51699</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51699" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-77">NCIT:C51699</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-77">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9278,6 +9879,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9299,6 +9901,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9346,11 +9949,11 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
         fetal MRI
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-69">NCIT:C16809</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-78">NCIT:C16809</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9388,6 +9991,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9460,6 +10064,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9510,6 +10115,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9531,6 +10137,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9585,6 +10192,7 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10119,6 +10727,31 @@ pathophysiology:
     components or the upstream YRDC enzyme. These lesions reduce t6A tRNA
     modification, impair protein synthesis and cell survival, and converge on
     early podocyte injury and impaired brain growth.
+  genes:
+  - preferred_term: LAGE3
+    term:
+      id: hgnc:26058
+      label: LAGE3
+  - preferred_term: OSGEP
+    term:
+      id: hgnc:18028
+      label: OSGEP
+  - preferred_term: TP53RK
+    term:
+      id: hgnc:16197
+      label: TP53RK
+  - preferred_term: TPRKB
+    term:
+      id: hgnc:24259
+      label: TPRKB
+  - preferred_term: GON7
+    term:
+      id: hgnc:20356
+      label: GON7
+  - preferred_term: YRDC
+    term:
+      id: hgnc:28905
+      label: YRDC
   cell_types:
   - preferred_term: podocyte
     term:
@@ -10168,6 +10801,11 @@ pathophysiology:
     GAMOS1 is caused by WDR73-linked perturbation of cell architecture, cell
     survival, focal adhesion biology, Integrator-associated RNA processing, and
     cell-cycle regulation in podocytes and neurons.
+  genes:
+  - preferred_term: WDR73
+    term:
+      id: hgnc:25928
+      label: WDR73
   cell_types:
   - preferred_term: podocyte
     term:
@@ -10232,6 +10870,15 @@ pathophysiology:
     GAMOS7-GAMOS8 are NUP107- and NUP133-related forms that disrupt nucleoporin
     function and spindle biology, converging on abnormal brain growth, glomerular
     underdevelopment, and podocyte foot process injury.
+  genes:
+  - preferred_term: NUP107
+    term:
+      id: hgnc:29914
+      label: NUP107
+  - preferred_term: NUP133
+    term:
+      id: hgnc:18016
+      label: NUP133
   cell_types:
   - preferred_term: podocyte
     term:
@@ -11194,6 +11841,65 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Galloway-Mowat syndrome (Changes required)</strong> · 2026-05-30T02:52:38Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Galloway-Mowat_Syndrome/2026-05-30T025238Z-github-review-3409.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3409
+Issue state: OPEN
+Issue created: 2026-05-30T02:52:38Z
+Issue updated: 2026-05-30T02:55:41Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **Galloway-Mowat syndrome**
+- Entry: `kb/disorders/Galloway-Mowat_Syndrome.yaml`
+- Selection basis: #22 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **Subtype structure exists but needs stronger gene-to-subtype/phenotype mapping.** The YAML has 11 GAMOS subtypes and AR/X-linked inheritance, but phenotypes, mechanisms, and treatments are not clearly subtype-specific. GAMOS is genetically heterogeneous, and KEOPS, WDR73, nuclear pore, and other forms can differ in nephrotic timing, brain malformation, and severity.
+2. **Neuro-renal management is incomplete.** Genetic counseling and kidney transplantation are listed, but the entry should include nephrotic syndrome/proteinuria monitoring, renal failure management, seizure management, nutrition/growth support, neurodevelopmental care, and transplant considerations by subtype.
+3. **Diagnosis is missing.** This disorder needs diagnosis content for microcephaly plus steroid-resistant nephrotic syndrome, renal biopsy/clinical nephrology evaluation where appropriate, brain MRI findings, and molecular testing panels/exome sequencing.
+4. **Phenotype coverage is too narrow for the syndrome.** The YAML includes microcephaly, steroid-resistant nephrotic syndrome, developmental delay, hypotonia, seizures, pachygyria, and brain atrophy. GAMOS literature also reports cerebellar/corpus-callosum abnormalities, optic atrophy, dysmorphism, hiatal hernia in classic descriptions, and variable onset of nephrotic syndrome.
+5. **Mechanism nodes need subtype provenance.** KEOPS/t6A biogenesis, WDR73 cytoskeleton/RNA processing, nuclear pore dysfunction, podocyte failure, and impaired brain growth are all plausible, but each should point to the correct GAMOS subtype/gene evidence.
+
+## Research-artifact cross-check
+
+Checked `research/Galloway-Mowat_Syndrome-deep-research-manual.md`. The YAML captures the major neuro-renal structure but under-consumes subtype-specific clinical and diagnostic distinctions.
+
+## Content-completeness summary
+
+- **Phenotypes:** core features present; expand subtype-relevant neurologic, ocular, GI, and renal timing features.
+- **Subtype/lumping:** subtypes present but not sufficiently connected to mechanisms/phenotypes.
+- **Pathophysiology:** good mechanism categories, but subtype provenance needed.
+- **Management/diagnosis:** major gap; add nephrology, neurology, MRI, molecular diagnosis, transplant/supportive care.
+- **References:** verify gene-subtype mappings with primary literature before updating YAML.
+
+## Suggested remediation
+
+Connect each subtype/gene to its mechanism and phenotype, add diagnosis, and expand neuro-renal management.
+
+## Sources used
+
+- WDR73/GAMOS primary literature: https://pmc.ncbi.nlm.nih.gov/articles/PMC4259970/
+- WDR73 mutation spectrum: https://pmc.ncbi.nlm.nih.gov/articles/PMC5011457/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11534,7 +12240,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Galloway-Mowat syndrome", "mondoId": "MONDO:0009627", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Galloway-Mowat_syndrome", "yamlRevision": "6542d0074ea0"};
+        const OS_CONFIG = {"diseaseName": "Galloway-Mowat syndrome", "mondoId": "MONDO:0009627", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Galloway-Mowat_syndrome", "yamlRevision": "f8f4f15538e8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

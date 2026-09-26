@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4198,6 +4266,7 @@ This is a germline predisposition syndrome, and under the granularity ladder in 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4307,6 +4376,7 @@ This is a germline predisposition syndrome, and under the granularity ladder in 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4331,6 +4401,7 @@ This is a germline predisposition syndrome, and under the granularity ladder in 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4434,6 +4505,7 @@ There is no animal model of the human lesion, and that is structural rather than
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4648,6 +4720,13 @@ But the question is better posed than the exclusion implies. Two things are true
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtap-retroviral-exon-splicing-mutation" data-dismech-node="MTAP Retroviral-Exon Splicing Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">MTAP Retroviral-Exon Splicing Mutation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Mutations fall in the most proximal of three previously uncharacterised terminal exons of MTAP. Two of these exons derive from independent retroviral integrations into the primate genome at least forty million years ago, and have since taken on a function. The gene had been thought to be encoded by eight exons alone, which is why the locus resisted identification for more than a decade after linkage.</div>
 
 
@@ -4741,6 +4820,8 @@ This genetic context concerns MTAP (hgnc:7413). hgnc:7413 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4753,6 +4834,9 @@ This genetic context concerns MTAP (hgnc:7413). hgnc:7413 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline mutation in a retroviral-derived terminal exon, acting dominantly through dysregulated splicing rather than by straightforward loss of enzyme activity. No source classifies the functional impact, and the category is left UNKNOWN rather than guessed.</div>
 
@@ -4810,6 +4894,7 @@ This genetic context concerns MTAP (hgnc:7413). hgnc:7413 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4836,6 +4921,7 @@ This genetic context concerns MTAP (hgnc:7413). hgnc:7413 is a gene from the HUG
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4857,6 +4943,7 @@ This genetic context concerns MTAP (hgnc:7413). hgnc:7413 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4882,6 +4969,13 @@ This genetic context concerns MTAP (hgnc:7413). hgnc:7413 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-alternative-splicing-of-mtap-isoforms" data-dismech-node="Dysregulated Alternative Splicing of MTAP Isoforms" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Alternative Splicing of MTAP Isoforms</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Six distinct retroviral-sequence-containing MTAP isoforms exist, and each can physically interact with the archetype enzyme. Exon skipping in the mutated isoform dysregulates alternative splicing across all of them, so the defect is combinatorial rather than confined to one product. Because the isoforms bind the canonical trimeric enzyme, the plausible route to disease is interference with archetype MTAP rather than its simple absence, though no source states this as demonstrated.</div>
 
@@ -4973,6 +5067,7 @@ This pathophysiological event involves dysregulated regulation of alternative mR
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4995,6 +5090,13 @@ This pathophysiological event involves dysregulated regulation of alternative mR
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-polyamine-and-methionine-salvage-metabolism" data-dismech-node="Impaired Polyamine and Methionine Salvage Metabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Polyamine and Methionine Salvage Metabolism</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">MTAP is a ubiquitously expressed homotrimeric enzyme central to polyamine metabolism and to the adenine and methionine salvage pathways, and the enzymatic step is demonstrably impaired in patients. Methylthioadenosine, the direct substrate of MTAP and a by-product of polyamine synthesis, is not normally present in human serum. In a blinded assay it was undetectable in all three unaffected individuals and accumulated in both affected individuals. Substrate accumulation in vivo is a direct demonstration that the enzyme step is compromised, not an inference from what the enzyme is known to do, and it is the reason MONDO&#39;s classification of this syndrome as a disorder of polyamine metabolism is more than nominal.
 Two limits on how far that goes. The measurement is five people, two of them affected, so it establishes that the step is perturbed rather than how much. And flux through the downstream salvage pathways has not been measured at all: what is shown is that the substrate backs up, not what happens to polyamine or methionine economy as a result.</div>
@@ -5187,6 +5289,7 @@ This pathophysiological event involves decreased S-methyl-5-thioadenosine phosph
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5208,6 +5311,7 @@ This pathophysiological event involves decreased S-methyl-5-thioadenosine phosph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5235,6 +5339,7 @@ This pathophysiological event involves decreased S-methyl-5-thioadenosine phosph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5257,6 +5362,13 @@ This pathophysiological event involves decreased S-methyl-5-thioadenosine phosph
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-loss-of-the-wild-type-mtap-allele" data-dismech-node="Somatic Loss of the Wild-Type MTAP Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Loss of the Wild-Type MTAP Allele</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The tumour-suppressive mechanism is characterised, and it is Knudson&#39;s two hits. In an osteosarcoma from an affected individual carrying c.885A&gt;G, the tumour DNA was homozygous for the mutation, and loss-of-heterozygosity analysis across the 2.9 Mb critical region showed complete loss of the wild-type allele from the unaffected chromosome. So the germline allele is the first hit and somatic loss of the remaining wild-type copy is the second.
 This is also what ties the syndrome to its sporadic counterpart: the same interval is lost in most informative sporadic bone malignant fibrous histiocytoma specimens, which is what motivated the search for a shared tumour suppressor in the first place.</div>
@@ -5335,6 +5447,7 @@ This is also what ties the syndrome to its sporadic counterpart: the same interv
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5357,6 +5470,13 @@ This is also what ties the syndrome to its sporadic counterpart: the same interv
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diaphyseal-cortical-dysplasia-and-medullary-stenosis" data-dismech-node="Diaphyseal Cortical Dysplasia and Medullary Stenosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Diaphyseal Cortical Dysplasia and Medullary Stenosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Abnormal cortical growth narrows the medullary canal of the long bones, with bone infarctions, pathological fractures and painful debilitation. This is the non-neoplastic half of the syndrome and it is what brings most patients to attention before any tumour appears.</div>
 
@@ -5416,6 +5536,7 @@ This pathophysiological event occurs in diaphysis (UBERON:0004769). UBERON:00047
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5438,6 +5559,13 @@ This pathophysiological event occurs in diaphysis (UBERON:0004769). UBERON:00047
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-sarcoma-predisposition" data-dismech-node="Bone Sarcoma Predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Sarcoma Predisposition</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">About 35 percent of affected individuals develop malignant fibrous histiocytoma of bone. That is the feature which makes this a cancer predisposition syndrome rather than a bone dysplasia, and it is why surveillance rather than symptomatic management is the reasonable posture.
 The tumour-suppressor route is established: tumour DNA is homozygous for the germline mutation with complete loss of the wild-type allele, so this is direct loss of MTAP function by Knudson&#39;s two hits. What remains unresolved is whether the abnormal bone environment created by the dysplasia additionally contributes, and what the biallelic metabolic state does to permit transformation.</div>
@@ -5497,6 +5625,7 @@ The tumour-suppressor route is established: tumour DNA is homozygous for the ger
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5518,6 +5647,7 @@ The tumour-suppressor route is established: tumour DNA is homozygous for the ger
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5566,7 +5696,7 @@ The tumour-suppressor route is established: tumour DNA is homozygous for the ger
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bone Sarcoma Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"About 35 percent of affected individuals develop malignant fibrous histiocytoma of bone. That is the feature which makes this a cancer predisposition syndrome rather than a bone dysplasia, and it is why surveillance rather than symptomatic management is the reasonable posture.\\nThe tumour-suppressor route is established: tumour DNA is homozygous for the germline mutation with complete loss of the wild-type allele, so this is direct loss of MTAP function by Knudson\u0027s two hits. What remains unresolved is whether the abnormal bone environment created by the dysplasia additionally contributes, and what the biallelic metabolic state does to permit transformation.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Mtap(lacZ) heterozygous knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Mtap/Mtap(lacZ) heterozygote\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse confirms the principle and misses the disease. Losing one Mtap allele does predispose to malignancy, which supports the tumour-suppressor mechanism curated here. But the tumour is T-cell lymphoma, not bone sarcoma, and the animals have no bone dysplasia at all.\"}]}}, {\"id\": \"Diaphyseal Cortical Dysplasia and Medullary Stenosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal cortical growth narrows the medullary canal of the long bones, with bone infarctions, pathological fractures and painful debilitation. This is the non-neoplastic half of the syndrome and it is what brings most patients to attention before any tumour appears.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"diaphysis\"]}}, {\"id\": \"Dysregulated Alternative Splicing of MTAP Isoforms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Six distinct retroviral-sequence-containing MTAP isoforms exist, and each can physically interact with the archetype enzyme. Exon skipping in the mutated isoform dysregulates alternative splicing across all of them, so the defect is combinatorial rather than confined to one product. Because the isoforms bind the canonical trimeric enzyme, the plausible route to disease is interference with archetype MTAP rather than its simple absence, though no source states this as demonstrated.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of alternative mRNA splicing, via spliceosome\"]}}, {\"id\": \"Impaired Polyamine and Methionine Salvage Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MTAP is a ubiquitously expressed homotrimeric enzyme central to polyamine metabolism and to the adenine and methionine salvage pathways, and the enzymatic step is demonstrably impaired in patients. Methylthioadenosine, the direct substrate of MTAP and a by-product of polyamine synthesis, is not normally present in human serum. In a blinded assay it was undetectable in all three unaffected individuals and accumulated in both affected individuals. Substrate accumulation in vivo is a direct demonstration that the enzyme step is compromised, not an inference from what the enzyme is known to do, and it is the reason MONDO\u0027s classification of this syndrome as a disorder of polyamine metabolism is more than nominal.\\nTwo limits on how far that goes. The measurement is five people, two of them affected, so it establishes that the step is perturbed rather than how much. And flux through the downstream salvage pathways has not been measured at all: what is shown is that the substrate backs up, not what happens to polyamine or methionine economy as a result.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"polyamine metabolic process\", \"L-methionine salvage\", \"purine ribonucleoside salvage\"], \"molecular_functions\": [\"S-methyl-5-thioadenosine phosphorylase activity\"]}}, {\"id\": \"MTAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"MTAP\"], \"gene_terms\": [{\"label\": \"MTAP\", \"id\": \"hgnc:7413\"}], \"association\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MTAP Retroviral-Exon Splicing Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations fall in the most proximal of three previously uncharacterised terminal exons of MTAP. Two of these exons derive from independent retroviral integrations into the primate genome at least forty million years ago, and have since taken on a function. The gene had been thought to be encoded by eight exons alone, which is why the locus resisted identification for more than a decade after linkage.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"MTAP\"], \"gene_terms\": [{\"label\": \"MTAP\", \"id\": \"hgnc:7413\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Heterozygous germline mutation in a retroviral-derived terminal exon, acting dominantly through dysregulated splicing rather than by straightforward loss of enzyme activity. No source classifies the functional impact, and the category is left UNKNOWN rather than guessed.\", \"gene_terms\": [{\"label\": \"MTAP\", \"id\": \"hgnc:7413\"}]}}}, {\"id\": \"Mtap(lacZ) heterozygous knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conventional MTAP knockout, made to ask whether MTAP loss drives tumorigenesis independently of the CDKN2A and ARF genes it is usually co-deleted with. Homozygous nulls die around day 8 postconception. Heterozygotes look normal for a year and then die early, median survival 585 days, with enlarged spleens, altered thymic histology and hepatic lymphocytic infiltration; the lymphomas are primarily T-cell.\"}, {\"id\": \"Somatic Loss of the Wild-Type MTAP Allele\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tumour-suppressive mechanism is characterised, and it is Knudson\u0027s two hits. In an osteosarcoma from an affected individual carrying c.885A\u003eG, the tumour DNA was homozygous for the mutation, and loss-of-heterozygosity analysis across the 2.9 Mb critical region showed complete loss of the wild-type allele from the unaffected chromosome. So the germline allele is the first hit and somatic loss of the remaining wild-type copy is the second.\\nThis is also what ties the syndrome to its sporadic counterpart: the same interval is lost in most informative sporadic bone malignant fibrous histiocytoma specimens, which is what motivated the search for a shared tumour suppressor in the first place.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"MTAP Retroviral-Exon Splicing Mutation\", \"target\": \"Dysregulated Alternative Splicing of MTAP Isoforms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutation causes skipping of the affected exon, which propagates to the splicing of the whole isoform family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MTAP Retroviral-Exon Splicing Mutation\", \"target\": \"Somatic Loss of the Wild-Type MTAP Allele\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The germline allele is the first hit. It does not cause the second one: loss of the remaining wild-type copy is a stochastic somatic event, and what the inherited allele supplies is the vulnerability that makes that loss consequential. No mechanism linking the germline lesion to the occurrence of the somatic event has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Alternative Splicing of MTAP Isoforms\", \"target\": \"Impaired Polyamine and Methionine Salvage Metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered isoform splicing is presumed to compromise the enzyme\u0027s metabolic role. The quantitative effect on flux through the salvage pathways has not been reported in patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Polyamine and Methionine Salvage Metabolism\", \"target\": \"Diaphyseal Cortical Dysplasia and Medullary Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from the metabolic lesion to the bone phenotype is unknown. No cell type, signalling pathway or bone-remodelling mechanism has been implicated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic Loss of the Wild-Type MTAP Allele\", \"target\": \"Bone Sarcoma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic loss of MTAP function in the tumour precedes sarcoma, but what the resulting metabolic state does to the cell to permit transformation is not established.\", \"hypothesis_groups\": [\"dmsmfh_prmt5_synthetic_lethality_untested\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mtap(lacZ) heterozygous knockout mouse\", \"target\": \"Bone Sarcoma Predisposition\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse confirms the principle and misses the disease. Losing one Mtap allele does predispose to malignancy, which supports the tumour-suppressor mechanism curated here. But the tumour is T-cell lymphoma, not bone sarcoma, and the animals have no bone dysplasia at all.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a null allele, not the human lesion. The human mutations sit in retroviral-derived terminal exons that entered the primate genome and have no mouse counterpart, so the model cannot carry the actual allele and its isoform-balance effect is absent. What it models is complete loss of one copy, which is a different molecular state from a synonymous variant that shifts splicing among isoforms while leaving archetype MTAP intact. The tissue mismatch may follow from that, or from species differences in which lineage is vulnerable to MTAP loss; nothing distinguishes the two.\"}, {\"source\": \"MTAP\", \"target\": \"MTAP Retroviral-Exon Splicing Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bone Sarcoma Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"About 35 percent of affected individuals develop malignant fibrous histiocytoma of bone. That is the feature which makes this a cancer predisposition syndrome rather than a bone dysplasia, and it is why surveillance rather than symptomatic management is the reasonable posture.\\nThe tumour-suppressor route is established: tumour DNA is homozygous for the germline mutation with complete loss of the wild-type allele, so this is direct loss of MTAP function by Knudson\u0027s two hits. What remains unresolved is whether the abnormal bone environment created by the dysplasia additionally contributes, and what the biallelic metabolic state does to permit transformation.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Mtap(lacZ) heterozygous knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Mtap/Mtap(lacZ) heterozygote\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse confirms the principle and misses the disease. Losing one Mtap allele does predispose to malignancy, which supports the tumour-suppressor mechanism curated here. But the tumour is T-cell lymphoma, not bone sarcoma, and the animals have no bone dysplasia at all.\"}]}}, {\"id\": \"Diaphyseal Cortical Dysplasia and Medullary Stenosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal cortical growth narrows the medullary canal of the long bones, with bone infarctions, pathological fractures and painful debilitation. This is the non-neoplastic half of the syndrome and it is what brings most patients to attention before any tumour appears.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"diaphysis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dysregulated Alternative Splicing of MTAP Isoforms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Six distinct retroviral-sequence-containing MTAP isoforms exist, and each can physically interact with the archetype enzyme. Exon skipping in the mutated isoform dysregulates alternative splicing across all of them, so the defect is combinatorial rather than confined to one product. Because the isoforms bind the canonical trimeric enzyme, the plausible route to disease is interference with archetype MTAP rather than its simple absence, though no source states this as demonstrated.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of alternative mRNA splicing, via spliceosome\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Polyamine and Methionine Salvage Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MTAP is a ubiquitously expressed homotrimeric enzyme central to polyamine metabolism and to the adenine and methionine salvage pathways, and the enzymatic step is demonstrably impaired in patients. Methylthioadenosine, the direct substrate of MTAP and a by-product of polyamine synthesis, is not normally present in human serum. In a blinded assay it was undetectable in all three unaffected individuals and accumulated in both affected individuals. Substrate accumulation in vivo is a direct demonstration that the enzyme step is compromised, not an inference from what the enzyme is known to do, and it is the reason MONDO\u0027s classification of this syndrome as a disorder of polyamine metabolism is more than nominal.\\nTwo limits on how far that goes. The measurement is five people, two of them affected, so it establishes that the step is perturbed rather than how much. And flux through the downstream salvage pathways has not been measured at all: what is shown is that the substrate backs up, not what happens to polyamine or methionine economy as a result.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"polyamine metabolic process\", \"L-methionine salvage\", \"purine ribonucleoside salvage\"], \"molecular_functions\": [\"S-methyl-5-thioadenosine phosphorylase activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"MTAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"MTAP\"], \"gene_terms\": [{\"label\": \"MTAP\", \"id\": \"hgnc:7413\"}], \"association\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MTAP Retroviral-Exon Splicing Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations fall in the most proximal of three previously uncharacterised terminal exons of MTAP. Two of these exons derive from independent retroviral integrations into the primate genome at least forty million years ago, and have since taken on a function. The gene had been thought to be encoded by eight exons alone, which is why the locus resisted identification for more than a decade after linkage.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"MTAP\"], \"gene_terms\": [{\"label\": \"MTAP\", \"id\": \"hgnc:7413\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Heterozygous germline mutation in a retroviral-derived terminal exon, acting dominantly through dysregulated splicing rather than by straightforward loss of enzyme activity. No source classifies the functional impact, and the category is left UNKNOWN rather than guessed.\", \"gene_terms\": [{\"label\": \"MTAP\", \"id\": \"hgnc:7413\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Mtap(lacZ) heterozygous knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A conventional MTAP knockout, made to ask whether MTAP loss drives tumorigenesis independently of the CDKN2A and ARF genes it is usually co-deleted with. Homozygous nulls die around day 8 postconception. Heterozygotes look normal for a year and then die early, median survival 585 days, with enlarged spleens, altered thymic histology and hepatic lymphocytic infiltration; the lymphomas are primarily T-cell.\"}, {\"id\": \"Somatic Loss of the Wild-Type MTAP Allele\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tumour-suppressive mechanism is characterised, and it is Knudson\u0027s two hits. In an osteosarcoma from an affected individual carrying c.885A\u003eG, the tumour DNA was homozygous for the mutation, and loss-of-heterozygosity analysis across the 2.9 Mb critical region showed complete loss of the wild-type allele from the unaffected chromosome. So the germline allele is the first hit and somatic loss of the remaining wild-type copy is the second.\\nThis is also what ties the syndrome to its sporadic counterpart: the same interval is lost in most informative sporadic bone malignant fibrous histiocytoma specimens, which is what motivated the search for a shared tumour suppressor in the first place.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"MTAP Retroviral-Exon Splicing Mutation\", \"target\": \"Dysregulated Alternative Splicing of MTAP Isoforms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutation causes skipping of the affected exon, which propagates to the splicing of the whole isoform family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MTAP Retroviral-Exon Splicing Mutation\", \"target\": \"Somatic Loss of the Wild-Type MTAP Allele\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The germline allele is the first hit. It does not cause the second one: loss of the remaining wild-type copy is a stochastic somatic event, and what the inherited allele supplies is the vulnerability that makes that loss consequential. No mechanism linking the germline lesion to the occurrence of the somatic event has been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Alternative Splicing of MTAP Isoforms\", \"target\": \"Impaired Polyamine and Methionine Salvage Metabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered isoform splicing is presumed to compromise the enzyme\u0027s metabolic role. The quantitative effect on flux through the salvage pathways has not been reported in patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Polyamine and Methionine Salvage Metabolism\", \"target\": \"Diaphyseal Cortical Dysplasia and Medullary Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from the metabolic lesion to the bone phenotype is unknown. No cell type, signalling pathway or bone-remodelling mechanism has been implicated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic Loss of the Wild-Type MTAP Allele\", \"target\": \"Bone Sarcoma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic loss of MTAP function in the tumour precedes sarcoma, but what the resulting metabolic state does to the cell to permit transformation is not established.\", \"hypothesis_groups\": [\"dmsmfh_prmt5_synthetic_lethality_untested\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mtap(lacZ) heterozygous knockout mouse\", \"target\": \"Bone Sarcoma Predisposition\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse confirms the principle and misses the disease. Losing one Mtap allele does predispose to malignancy, which supports the tumour-suppressor mechanism curated here. But the tumour is T-cell lymphoma, not bone sarcoma, and the animals have no bone dysplasia at all.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a null allele, not the human lesion. The human mutations sit in retroviral-derived terminal exons that entered the primate genome and have no mouse counterpart, so the model cannot carry the actual allele and its isoform-balance effect is absent. What it models is complete loss of one copy, which is a different molecular state from a synonymous variant that shifts splicing among isoforms while leaving archetype MTAP intact. The tissue mismatch may follow from that, or from species differences in which lineage is vulnerable to MTAP loss; nothing distinguishes the two.\"}, {\"source\": \"MTAP\", \"target\": \"MTAP Retroviral-Exon Splicing Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5585,11 +5715,15 @@ The tumour-suppressor route is established: tumour DNA is homozygous for the ger
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(5)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Neoplasm<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5598,13 +5732,13 @@ The tumour-suppressor route is established: tumour DNA is homozygous for the ger
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">3</span>
+                    Eye
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pathologic-fracture" data-dismech-node="Pathologic Fracture" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-presenile-cataract" data-dismech-node="Presenile Cataract" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Pathologic Fracture
+                        Presenile Cataract
 
 
 
@@ -5613,180 +5747,23 @@ The tumour-suppressor route is established: tumour DNA is homozygous for the ger
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Presenile cataracts</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002756</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0007819</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pathologic fracture (HP:0002756). HP:0002756 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Presenile cataracts (HP:0007819). HP:0007819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
 
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10612808" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10612808" target="_blank">PMID:10612808</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"cortical growth abnormalities, pathologic fractures, and painful debilitation"</div>
-
-
-                <div class="evidence-explanation">Names pathologic fracture among the defining features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myopathy" data-dismech-node="Myopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myopathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0003198</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Diaphyseal medullary stenosis with malignant fibrous histiocytoma (DMS-MFH) is an autosomal-dominant syndrome characterized by bone dysplasia, myopathy, and bone cancer."</div>
-
-
-                <div class="evidence-explanation">Names myopathy as one of the three defining components of the syndrome.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We recently expanded the known clinical features of the syndrome by characterizing two new unrelated families affected by a progressive form of muscular disease"</div>
-
-
-                <div class="evidence-explanation">Shows myopathy was a later addition to the phenotype from two specific families. The quote asserts that expansion directly; qualifying the universality of the feature is what it is cited for.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-osteosarcoma" data-dismech-node="Osteosarcoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Osteosarcoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002669" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002669</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Osteosarcoma (HP:0002669). HP:0002669 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
 
 
 
@@ -5808,17 +5785,16 @@ This clinical feature is Osteosarcoma (HP:0002669). HP:0002669 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Thus, inherited MTAP alternative-splicing mutations can result in histology-proven osteosarcoma."</div>
+                <div class="evidence-snippet">"and the development of presenile cataracts"</div>
 
 
-                <div class="evidence-explanation">States that the inherited splicing mutations can produce osteosarcoma on histology, which is a diagnosis distinct from the malignant fibrous histiocytoma in the disease name.</div>
+                <div class="evidence-explanation">Names presenile cataract among the clinical features of the syndrome.</div>
 
 
 
@@ -5839,184 +5815,9 @@ This clinical feature is Osteosarcoma (HP:0002669). HP:0002669 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
+                    Limbs
+                    <span class="cat-count">4</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-pain" data-dismech-node="Bone Pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bone Pain
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002653</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10612808" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10612808" target="_blank">PMID:10612808</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"cortical growth abnormalities, pathologic fractures, and painful debilitation"</div>
-
-
-                <div class="evidence-explanation">Names painful debilitation among the defining features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-infarction" data-dismech-node="Bone Infarction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bone Infarction
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Avascular necrosis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010885" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0010885</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Avascular necrosis (HP:0010885). HP:0010885 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10612808" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10612808" target="_blank">PMID:10612808</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This hereditary cancer syndrome is characterized by bone infarctions, cortical growth abnormalities, pathologic fractures, and painful debilitation."</div>
-
-
-                <div class="evidence-explanation">Names bone infarction as a defining feature. Typed INDIRECT because HPO&#39;s Avascular necrosis is the closest available term and is broader than the medullary bone infarction the source describes, so the phenotype claim follows from the quote by a term-matching step.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"phenotype characterized by cortical growth abnormalities, including diffuse diaphyseal medullary stenosis with overlying endosteal cortical thickening, metaphyseal striations, and scattered infarctions within the bone marrow."</div>
-
-
-                <div class="evidence-explanation">Localises the infarctions to the bone marrow, which is more precise than the general list and narrows what the broader Avascular necrosis binding is standing in for. Still INDIRECT for the same term-matching reason.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-diaphyseal-medullary-stenosis" data-dismech-node="Diaphyseal Medullary Stenosis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6034,15 +5835,18 @@ This clinical feature is Avascular necrosis (HP:0010885). HP:0010885 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0100254</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0100254</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stenosis of the medullary cavity of the long bones (HP:0100254). HP:0100254 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6062,6 +5866,7 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6102,15 +5907,18 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0005045</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005045</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diaphyseal cortical sclerosis (HP:0005045). HP:0005045 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6130,6 +5938,7 @@ This clinical feature is Diaphyseal cortical sclerosis (HP:0005045). HP:0005045 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6170,15 +5979,18 @@ This clinical feature is Diaphyseal cortical sclerosis (HP:0005045). HP:0005045 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031367" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0031367</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031367" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0031367</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Metaphyseal striations (HP:0031367). HP:0031367 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6201,6 +6013,7 @@ This clinical feature is Metaphyseal striations (HP:0031367). HP:0031367 is a ph
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6226,9 +6039,195 @@ This clinical feature is Metaphyseal striations (HP:0031367). HP:0031367 is a ph
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-fibrosarcoma" data-dismech-node="Bone Fibrosarcoma" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bowing-of-the-lower-extremities" data-dismech-node="Bowing of the Lower Extremities" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Bone Fibrosarcoma
+                        Bowing of the Lower Extremities
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bowing of the legs</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002979</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bowing of the legs (HP:0002979). HP:0002979 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"fractures that subsequently heal poorly, progressive wasting, bowing of the lower extremities"</div>
+
+
+                <div class="evidence-explanation">Names bowing of the lower extremities among the skeletal features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">5</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-infarction" data-dismech-node="Bone Infarction" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bone Infarction
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Avascular necrosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010885" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010885</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Avascular necrosis (HP:0010885). HP:0010885 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10612808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10612808" target="_blank">PMID:10612808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This hereditary cancer syndrome is characterized by bone infarctions, cortical growth abnormalities, pathologic fractures, and painful debilitation."</div>
+
+
+                <div class="evidence-explanation">Names bone infarction as a defining feature. Typed INDIRECT because HPO&#39;s Avascular necrosis is the closest available term and is broader than the medullary bone infarction the source describes, so the phenotype claim follows from the quote by a term-matching step.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"phenotype characterized by cortical growth abnormalities, including diffuse diaphyseal medullary stenosis with overlying endosteal cortical thickening, metaphyseal striations, and scattered infarctions within the bone marrow."</div>
+
+
+                <div class="evidence-explanation">Localises the infarctions to the bone marrow, which is more precise than the general list and narrows what the broader Avascular necrosis binding is standing in for. Still INDIRECT for the same term-matching reason.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pathologic-fracture" data-dismech-node="Pathologic Fracture" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pathologic Fracture
 
 
 
@@ -6240,15 +6239,189 @@ This clinical feature is Metaphyseal striations (HP:0031367). HP:0031367 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100244" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100244</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002756</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pathologic fracture (HP:0002756). HP:0002756 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10612808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10612808" target="_blank">PMID:10612808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cortical growth abnormalities, pathologic fractures, and painful debilitation"</div>
+
+
+                <div class="evidence-explanation">Names pathologic fracture among the defining features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myopathy" data-dismech-node="Myopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Myopathy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003198</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diaphyseal medullary stenosis with malignant fibrous histiocytoma (DMS-MFH) is an autosomal-dominant syndrome characterized by bone dysplasia, myopathy, and bone cancer."</div>
+
+
+                <div class="evidence-explanation">Names myopathy as one of the three defining components of the syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We recently expanded the known clinical features of the syndrome by characterizing two new unrelated families affected by a progressive form of muscular disease"</div>
+
+
+                <div class="evidence-explanation">Shows myopathy was a later addition to the phenotype from two specific families. The quote asserts that expansion directly; qualifying the universality of the feature is what it is cited for.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteosarcoma" data-dismech-node="Osteosarcoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Osteosarcoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002669" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002669</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fibrosarcoma (HP:0100244). HP:0100244 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Osteosarcoma (HP:0002669). HP:0002669 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6271,6 +6444,245 @@ This clinical feature is Fibrosarcoma (HP:0100244). HP:0100244 is a phenotype fr
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, inherited MTAP alternative-splicing mutations can result in histology-proven osteosarcoma."</div>
+
+
+                <div class="evidence-explanation">States that the inherited splicing mutations can produce osteosarcoma on histology, which is a diagnosis distinct from the malignant fibrous histiocytoma in the disease name.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-poor-fracture-healing" data-dismech-node="Poor Fracture Healing" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Poor Fracture Healing
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Delayed fracture healing</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032537" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0032537</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed fracture healing (HP:0032537). HP:0032537 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"fractures that subsequently heal poorly, progressive wasting, bowing of the lower extremities"</div>
+
+
+                <div class="evidence-explanation">Reports impaired fracture healing alongside the wasting and limb bowing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-pain" data-dismech-node="Bone Pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bone Pain
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10612808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10612808" target="_blank">PMID:10612808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cortical growth abnormalities, pathologic fractures, and painful debilitation"</div>
+
+
+                <div class="evidence-explanation">Names painful debilitation among the defining features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-fibrosarcoma" data-dismech-node="Bone Fibrosarcoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bone Fibrosarcoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100244" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100244</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fibrosarcoma (HP:0100244). HP:0100244 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6314,15 +6726,18 @@ This clinical feature is Fibrosarcoma (HP:0100244). HP:0100244 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100242" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100242</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100242" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100242</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bone sarcoma, annotated with Sarcoma (HP:0100242). HP:0100242 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The 35 percent figure is a within-pedigree proportion from three kindreds reported in 1999, and those kindreds were ascertained because they had sarcoma. It therefore describes the families that came to attention, not the lifetime risk of a carrier identified some other way, and the true penetrance could be lower. FREQUENT is recorded because the figure sits squarely in that band, but the band inherits the same ascertainment bias as the number.</div>
@@ -6347,6 +6762,7 @@ This clinical feature is Bone sarcoma, annotated with Sarcoma (HP:0100242). HP:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6355,216 +6771,6 @@ This clinical feature is Bone sarcoma, annotated with Sarcoma (HP:0100242). HP:0
 
 
                 <div class="evidence-explanation">Quantifies the proportion developing bone sarcoma.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-presenile-cataract" data-dismech-node="Presenile Cataract" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Presenile Cataract
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Presenile cataracts</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0007819</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Presenile cataracts (HP:0007819). HP:0007819 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"and the development of presenile cataracts"</div>
-
-
-                <div class="evidence-explanation">Names presenile cataract among the clinical features of the syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-poor-fracture-healing" data-dismech-node="Poor Fracture Healing" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Poor Fracture Healing
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Delayed fracture healing</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032537" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0032537</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed fracture healing (HP:0032537). HP:0032537 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"fractures that subsequently heal poorly, progressive wasting, bowing of the lower extremities"</div>
-
-
-                <div class="evidence-explanation">Reports impaired fracture healing alongside the wasting and limb bowing.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bowing-of-the-lower-extremities" data-dismech-node="Bowing of the Lower Extremities" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bowing of the Lower Extremities
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Bowing of the legs</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002979</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bowing of the legs (HP:0002979). HP:0002979 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22464254" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22464254" target="_blank">PMID:22464254</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"fractures that subsequently heal poorly, progressive wasting, bowing of the lower extremities"</div>
-
-
-                <div class="evidence-explanation">Names bowing of the lower extremities among the skeletal features.</div>
 
 
 
@@ -6654,6 +6860,9 @@ This disease-associated gene is MTAP (hgnc:7413). hgnc:7413 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6668,6 +6877,7 @@ This disease-associated gene is MTAP (hgnc:7413). hgnc:7413 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6695,6 +6905,7 @@ This disease-associated gene is MTAP (hgnc:7413). hgnc:7413 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6716,6 +6927,7 @@ This disease-associated gene is MTAP (hgnc:7413). hgnc:7413 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6803,6 +7015,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6813,6 +7028,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6843,6 +7061,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6908,6 +7127,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6918,6 +7140,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6945,6 +7170,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7014,6 +7240,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7035,6 +7262,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7137,6 +7365,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7227,6 +7456,7 @@ The same history is why candidate screening of the linked region failed for over
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7301,6 +7531,7 @@ The same history is why candidate screening of the linked region failed for over
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7322,6 +7553,7 @@ The same history is why candidate screening of the linked region failed for over
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7405,6 +7637,7 @@ The same history is why candidate screening of the linked region failed for over
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7550,6 +7783,7 @@ The same history is why candidate screening of the linked region failed for over
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7592,6 +7826,7 @@ The same history is why candidate screening of the linked region failed for over
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7638,6 +7873,7 @@ The same history is why candidate screening of the linked region failed for over
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9029,6 +9265,37 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Diaphyseal_Medullary_Stenosis_With_Malignant_Fibrous_Histiocytoma</strong> · 2026-08-29T05:25:17Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Diaphyseal_Medullary_Stenosis_With_Malignant_Fibrous_Histiocytoma/2026-08-29T052517Z-claude-code-3da30b.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Diaphyseal_Medullary_Stenosis_With_Malignant_Fibrous_Histiocytoma.yaml (MONDO:0007205, MTAP).
+
+Deep research was requested from falcon, which is not configured here, so the run used --fallback and claude_code produced the report. It was clean: 19 of 19 references verified, 0.0 confabulation rate, both checked quotes valid, no not-found and no obsolete terms. Its four flagged label mismatches are artifacts of source names and prose appearing in the label column of the report&#39;s own tables rather than wrong bindings.
+
+The entry was drafted from primary literature first and the report then contributed real content. It supplied the pedigree-level distribution of myopathy, presenile cataracts, and the observation that fewer than six families have been reported, each of which was then verified against the primary full text before use.
+
+Two facts from the full text materially changed the entry and neither was in the abstract. First, one of the two reported mutations is synonymous, c.885A&gt;G, changing no amino acid. That is the most informative single fact about this lesion: a synonymous change cannot act by altering the protein sequence, so the splicing mechanism is the explanation rather than one candidate among several, and the entry now says so in the description and cites it. Second, myopathy was not present in the three originally described families and entered the phenotype when two further families with facioscapulohumeral-like muscular disease were characterised. The phenotype is retained, since the defining report names it as one of three components, but its description and a knowledge gap now record that it is a feature of the syndrome as defined rather than of every pedigree, and that the two myopathic families carry different mutations so a simple allele correlation does not explain it.
+
+A Named Entity Confusion warning is recorded in the entry notes. MTAP is far better known as a somatic passenger deletion adjacent to CDKN2A at 9p21, and MTAP-deleted tumours are an active PRMT5 target; that literature concerns homozygous somatic deletion in tumour cells and is not about this syndrome, whose lesion is a germline splicing mutation in a retroviral-derived exon. A gene-symbol search returns overwhelmingly the former. The one genuine connection, loss of heterozygosity across the same 9p21-22 interval in five of seven informative sporadic bone malignant fibrous histiocytoma specimens, is curated with its own evidence in the genetic block.
+
+Per the granularity ladder in the design-decision register this is a germline predisposition syndrome and follows the plain Mendelian rules, staying separate from the somatic sarcoma entries it predisposes to.
+
+Three knowledge gaps are recorded: the entirely unmapped route from the splicing defect to bone infarction, cortical dysplasia and sarcoma, including the structural reason no conventional mouse model can exist since the causal exons are primate-specific retroviral insertions; the dependence of the whole molecular understanding on a single laboratory, which matters more than usual for a claim this unusual; and the unexplained variability of myopathy across families.
+
+Nomenclature is deliberately historical. Malignant fibrous histiocytoma is the term used throughout the primary literature and is retained in the disease name and quoted snippets; the description notes the entity was later reclassified as undifferentiated pleomorphic sarcoma.
+
+One snippet begins mid-sentence because the preceding word in the cached PDF text is set with an fi ligature, which no exact-substring quote can span; the explanation records why.
+
+Validated with just validate-disorders, just validate-terms, just count-verified-snippets (23/23), just check-entity-refs, just check-duplicate-keys and just check-folded-hyphens. Compliance 91.2 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

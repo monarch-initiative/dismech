@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4145,6 +4213,7 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4169,6 +4238,7 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4190,6 +4260,7 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4282,6 +4353,7 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4303,6 +4375,7 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4365,6 +4438,7 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4677,6 +4751,7 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4756,6 +4831,7 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4777,6 +4853,7 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4814,6 +4891,13 @@ This entry is the autosomal dominant, connexin-related disease. Two separate aut
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-gain-of-function-gjb2-missense-variant" data-dismech-node="Heterozygous Gain-of-Function GJB2 Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous Gain-of-Function GJB2 Missense Variant</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The initiating lesion. A single GJB2 allele carries a missense change that substitutes a conserved residue in the cytoplasmic N-terminus or first extracellular loop of connexin 26 - the domains controlling channel gating and permeability. Unlike the recessive loss-of-function alleles at this locus, which give nonsyndromic deafness only, these alleles produce a channel that is still made and delivered but behaves aberrantly. p.D50N is by far the most common; p.S17F and p.G12R are recurrent; p.G45E and p.A88V cause a lethal neonatal form.</div>
 
@@ -4916,6 +5000,8 @@ This genetic context concerns GJB2 (hgnc:4284). hgnc:4284 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -4928,6 +5014,9 @@ This genetic context concerns GJB2 (hgnc:4284). hgnc:4284 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">Recorded as GAIN_OF_FUNCTION at the variant level: the mutant subunit adds a pathological activity (aberrant hemichannel opening) rather than merely failing, which is what distinguishes syndromic KID alleles from the recessive nonsyndromic null alleles at the same locus. Several alleles additionally exert a dominant-negative effect on co-expressed connexins (see downstream nodes), so a single category cannot capture every allele&#39;s full behaviour.</div>
@@ -4977,6 +5066,7 @@ This genetic context concerns GJB2 (hgnc:4284). hgnc:4284 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5003,6 +5093,7 @@ This genetic context concerns GJB2 (hgnc:4284). hgnc:4284 is a gene from the HUG
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5025,6 +5116,13 @@ This genetic context concerns GJB2 (hgnc:4284). hgnc:4284 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperactive-connexin-26-hemichannels" data-dismech-node="Hyperactive Connexin 26 Hemichannels" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperactive Connexin 26 Hemichannels</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Connexins oligomerise into hexameric hemichannels (connexons); in non-junctional membrane an undocked hemichannel connects the cytoplasm to the extracellular space. Syndromic Cx26 mutants form hemichannels that open when they should be closed. The two best-characterised aberrations are loss of the normal restraint by extracellular calcium (the channels stay open at physiological Ca2+, as for A40V and D50N) and, for some alleles, a channel that is itself directly permeable to calcium (G45E). The result is an inappropriate conductance across the plasma membrane that has been measured as increased whole-cell hemichannel current for D50N, D50A, A88V, G12R, G45E and A40V, and which accelerates cell death in low extracellular calcium.</div>
 
@@ -5227,6 +5325,7 @@ This pathophysiological event involves gap junction hemichannel activity, annota
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5248,6 +5347,7 @@ This pathophysiological event involves gap junction hemichannel activity, annota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5275,6 +5375,7 @@ This pathophysiological event involves gap junction hemichannel activity, annota
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5299,6 +5400,13 @@ This pathophysiological event involves gap junction hemichannel activity, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-heteromeric-interaction-with-cx43-and-cx30" data-dismech-node="Aberrant Heteromeric Interaction with Cx43 and Cx30" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Heteromeric Interaction with Cx43 and Cx30</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Why some severe KID alleles cause disease despite forming non-functional homomeric hemichannels. In skin Cx26 is co-expressed with Cx43 and Cx30, and wild-type Cx26 and Cx43 are normally oligomerisation-incompatible. The syndromic N-terminal mutations change that compatibility: they oligomerise with Cx43 into heteromeric channels that show exacerbated hemichannel activity but non-functional gap-junction channels, giving a combined gain of leak and dominant-negative loss of coupling. This resolves the S17F paradox, whose homomeric hemichannels are silent yet whose disease is severe. Graded PROVISIONAL because the demonstrations are in HeLa cells and Xenopus oocytes at experimenter-set expression ratios, and one patient-keratinocyte study did not reproduce Cx26/Cx43 co-localisation.</div>
 
@@ -5437,6 +5545,7 @@ This pathophysiological event involves connexin complex (GO:0005922). GO:0005922
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5458,6 +5567,7 @@ This pathophysiological event involves connexin complex (GO:0005922). GO:0005922
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5483,6 +5593,13 @@ This pathophysiological event involves connexin complex (GO:0005922). GO:0005922
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-gap-junction-intercellular-communication" data-dismech-node="Loss of Gap Junction Intercellular Communication" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Gap Junction Intercellular Communication</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Whether by failure of homomeric channels to couple or by a dominant-negative effect on Cx43/Cx30 partners, mutant Cx26 reduces functional gap-junction intercellular communication in the epithelia that normally depend on it. In the corneal epithelium the common D50N allele accumulates intracellularly and fails to form gap-junction plaques even when co-expressed with wild-type Cx26 or Cx30, consistent with a dominant-negative effect on connexon assembly.</div>
 
@@ -5610,6 +5727,7 @@ This pathophysiological event involves decreased gap junction channel activity (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5631,6 +5749,7 @@ This pathophysiological event involves decreased gap junction channel activity (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5656,6 +5775,13 @@ This pathophysiological event involves decreased gap junction channel activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratinocyte-calcium-overload-and-atp-release" data-dismech-node="Keratinocyte Calcium Overload and ATP Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Keratinocyte Calcium Overload and ATP Release</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The functional consequence of a leaky hemichannel in the keratinocyte: inappropriate opening loads the cell with calcium and releases ATP into the extracellular space. ATP acts on epidermal P2 purinergic receptors that regulate keratinocyte differentiation and proliferation, and calcium overload plus sustained leak drives keratinocyte death. Peptidoglycan from Staphylococcus aureus triggers additional hemichannel-dependent ATP release selectively in KID-mutant keratinocytes, coupling the leak to the infection that characterises the disease.</div>
 
@@ -5813,6 +5939,7 @@ This pathophysiological event involves increased keratinocyte apoptotic process 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5834,6 +5961,7 @@ This pathophysiological event involves increased keratinocyte apoptotic process 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5861,6 +5989,7 @@ This pathophysiological event involves increased keratinocyte apoptotic process 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5883,6 +6012,13 @@ This pathophysiological event involves increased keratinocyte apoptotic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-keratinocyte-proliferation-and-differentiation" data-dismech-node="Disordered Keratinocyte Proliferation and Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered Keratinocyte Proliferation and Differentiation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of coupling and calcium/ATP dysregulation together derange the tightly ordered program by which basal keratinocytes proliferate and then differentiate toward the cornified layer. The epidermis becomes hyperproliferative with abnormal differentiation - the cellular substrate of the clinical hyperkeratosis.</div>
 
@@ -6060,6 +6196,7 @@ This pathophysiological event involves dysregulated keratinocyte differentiation
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6086,6 +6223,7 @@ This pathophysiological event involves dysregulated keratinocyte differentiation
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6108,6 +6246,13 @@ This pathophysiological event involves dysregulated keratinocyte differentiation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epidermal-barrier-failure-and-hyperkeratosis" data-dismech-node="Epidermal Barrier Failure and Hyperkeratosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Epidermal Barrier Failure and Hyperkeratosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The hyperproliferative, poorly differentiated epidermis produces a defective stratum corneum: transgenic KID mice show impaired epidermal calcium homeostasis and an abnormal stratum-corneum lipid composition that degrades the water barrier, clinically visible as erythrokeratoderma, ichthyosiform scaling, palmoplantar keratoderma and follicular hyperkeratosis. This entry does NOT conform to the epidermal_cornification_failure module: that module scopes itself to primary lesions of the terminal cornification enzymes/structural proteins (TGM1, FLG, ALOX, ABCA12, STS, SPINK5), whereas here the barrier failure is secondary to connexin-driven keratinocyte dysregulation.</div>
 
@@ -6236,6 +6381,7 @@ This pathophysiological event occurs in epidermis, annotated with skin epidermis
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6258,6 +6404,13 @@ This pathophysiological event occurs in epidermis, annotated with skin epidermis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cutaneous-host-defense-and-chronic-inflammation" data-dismech-node="Impaired Cutaneous Host Defense and Chronic Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cutaneous Host Defense and Chronic Inflammation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Barrier failure plus a keratinocyte-intrinsic immune defect predisposes to chronic mucocutaneous candidiasis and recurrent bacterial superinfection. Beyond the physical barrier, KID keratinocytes down-regulate immune response-associated genes (IL15, CCL5, IL1A, IL23R, TLR5), and their hemichannels amplify inflammatory ATP signalling in response to Staphylococcus aureus peptidoglycan. Chronic infection and inflammation, together with the intrinsic proliferative drive, create the microenvironment in which squamous cell carcinoma arises.</div>
 
@@ -6393,6 +6546,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6414,6 +6568,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6443,6 +6598,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6465,6 +6621,13 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneal-epithelial-gap-junction-dysfunction" data-dismech-node="Corneal Epithelial Gap Junction Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneal Epithelial Gap Junction Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Gap-junction communication in the human corneal epithelium is carried by Cx26, Cx30, Cx31.1 and Cx43. The common D50N mutant fails to form corneal gap-junction plaques, and the resulting epithelial dysfunction produces recurrent epithelial defects, corneal surface instability, limbal stem cell deficiency, and the progressive stromal vascularization that defines the &#34;keratitis&#34; of KID and can end in scarring and blindness.</div>
 
@@ -6627,6 +6790,7 @@ This pathophysiological event occurs in corneal epithelium (UBERON:0001772). UBE
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6648,6 +6812,7 @@ This pathophysiological event occurs in corneal epithelium (UBERON:0001772). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6673,6 +6838,13 @@ This pathophysiological event occurs in corneal epithelium (UBERON:0001772). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-supporting-cell-hemichannel-hyperactivity" data-dismech-node="Cochlear Supporting Cell Hemichannel Hyperactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Supporting Cell Hemichannel Hyperactivity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Cx26 is not expressed in cochlear hair cells but is expressed throughout the non-sensory (supporting) epithelial cells. In a Cx26-S17F knock-in mouse cochlea, supporting cells develop hyperactive hemichannels - forming with Cx30, and insensitive to hemichannel blockers, calcium and lanthanum - that admit excess calcium and cause cellular damage, accompanied by loss of hair cell stereocilia. This relocates the syndromic deafness lesion to a leaky hemichannel in the supporting-cell network rather than to loss of potassium recycling, the account for the recessive nonsyndromic form.</div>
 
@@ -6837,6 +7009,7 @@ This pathophysiological event occurs in spiral organ of Corti, annotated with sp
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6863,6 +7036,7 @@ This pathophysiological event occurs in spiral organ of Corti, annotated with sp
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6885,6 +7059,13 @@ This pathophysiological event occurs in spiral organ of Corti, annotated with sp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sensorineural-hair-cell-dysfunction" data-dismech-node="Sensorineural Hair Cell Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Sensorineural Hair Cell Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Hair cell dysfunction and loss follow the supporting-cell lesion. A temporal bone from a G45E KID infant showed dysplasia of the cochlear and saccular neuroepithelium, and the S17F mouse loses hair cell stereocilia - so the endpoint is degeneration of the sensory epithelium downstream of the supporting-cell hemichannel defect. Conforms to the sensorineural hair cell loss module&#39;s hair-cell node, entered here through supporting-cell hemichannel hyperactivity rather than the module&#39;s generic insult.</div>
 
@@ -7038,6 +7219,7 @@ This pathophysiological event involves decreased sensory perception of sound (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7083,7 +7265,7 @@ This pathophysiological event involves decreased sensory perception of sound (GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Heteromeric Interaction with Cx43 and Cx30\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Why some severe KID alleles cause disease despite forming non-functional homomeric hemichannels. In skin Cx26 is co-expressed with Cx43 and Cx30, and wild-type Cx26 and Cx43 are normally oligomerisation-incompatible. The syndromic N-terminal mutations change that compatibility: they oligomerise with Cx43 into heteromeric channels that show exacerbated hemichannel activity but non-functional gap-junction channels, giving a combined gain of leak and dominant-negative loss of coupling. This resolves the S17F paradox, whose homomeric hemichannels are silent yet whose disease is severe. Graded PROVISIONAL because the demonstrations are in HeLa cells and Xenopus oocytes at experimenter-set expression ratios, and one patient-keratinocyte study did not reproduce Cx26/Cx43 co-localisation.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"gap junction hemichannel activity\"]}}, {\"id\": \"Allele-Specific siRNA (Experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A precision strategy for the dominant D50N allele: a mutant-selective siRNA silences the D50N transcript without touching the wild-type allele, correcting both the impaired gap-junction coupling and the hyperactive hemichannel in patient keratinocytes. Proof of concept only, with topical delivery to skin still to be solved and no cochlear delivery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Antimicrobial Therapy for Cutaneous Infection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antifungal and antibiotic therapy to control the chronic mucocutaneous candidiasis and bacterial superinfection that drive morbidity and, in the neonatal form, mortality.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antifungal agent\", \"antibiotic\"]}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For the profound sensorineural hearing loss. Because skin debris and chronic otitis can render hearing aids ineffective and visual loss can preclude sign language, cochlear implantation is often the definitive auditory intervention; it is safe and effective in most patients but carries a raised rate of postoperative wound/infection complications requiring close monitoring. The implant device term (NCIT:C157820) names equipment and is not a clinical-action term, so the surgical action is bound and the device carried as a qualifier.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Cochlear Supporting Cell Hemichannel Hyperactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cx26 is not expressed in cochlear hair cells but is expressed throughout the non-sensory (supporting) epithelial cells. In a Cx26-S17F knock-in mouse cochlea, supporting cells develop hyperactive hemichannels - forming with Cx30, and insensitive to hemichannel blockers, calcium and lanthanum - that admit excess calcium and cause cellular damage, accompanied by loss of hair cell stereocilia. This relocates the syndromic deafness lesion to a leaky hemichannel in the supporting-cell network rather than to loss of potassium recycling, the account for the recessive nonsyndromic form.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"organ of Corti supporting cell\"], \"molecular_functions\": [\"gap junction hemichannel activity\"], \"locations\": [\"spiral organ of Corti\"], \"animal_models\": [{\"name\": \"Cx26-S17F knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Constitutive Cx26-S17F knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces hyperactive supporting-cell hemichannels and stereocilia loss in the organ of Corti.\"}]}}, {\"id\": \"Congenital Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital, bilateral, typically profound sensorineural hearing loss - the \\\"deafness\\\" of the triad and usually the earliest recognised feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008527\"}}, {\"id\": \"Corneal Epithelial Gap Junction Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gap-junction communication in the human corneal epithelium is carried by Cx26, Cx30, Cx31.1 and Cx43. The common D50N mutant fails to form corneal gap-junction plaques, and the resulting epithelial dysfunction produces recurrent epithelial defects, corneal surface instability, limbal stem cell deficiency, and the progressive stromal vascularization that defines the \\\"keratitis\\\" of KID and can end in scarring and blindness.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"corneal epithelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"corneal epithelium\"]}}, {\"id\": \"Corneal Neovascularization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Superficial and deep corneal stromal vascularization arising from the limbus, driving progressive visual loss.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011496\"}}, {\"id\": \"Cutaneous Squamous Cell Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive squamous cell carcinoma of skin, especially at acral and chronically inflamed sites, in roughly 15% of patients; can be aggressive and multifocal, with amputation reported. Benign trichilemmal tumors may herald malignant change.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006739\"}}, {\"id\": \"Cx26-G45E inducible transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model of the lethal KID skin phenotype, created because the G45E allele forms constitutively active hemichannels. Induced expression in keratinocytes reproduces hyperkeratosis, scaling, hair loss and the hyperproliferative histopathology of human KID, with increased hemichannel currents in the transgenic keratinocytes.\"}, {\"id\": \"Cx26-S17F knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that localizes the cochlear lesion. A constitutive S17F knock-in cochlea develops hyperactive hemichannels in the supporting cells of the organ of Corti (formed with Cx30) and loses hair cell stereocilia, demonstrating the supporting-cell hemichannel mechanism directly in cochlear tissue.\"}, {\"id\": \"D50N patient-derived immortalized keratinocytes (KID-KC)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Immortalized keratinocytes from a heterozygous D50N KID patient, which reproduce the impaired gap-junction communication and hyperactive hemichannels of the disease and, in a human-murine chimeric skin graft, recapitulate patient skin. Used to demonstrate allele-specific siRNA rescue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:31705875\"}}, {\"id\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of coupling and calcium/ATP dysregulation together derange the tightly ordered program by which basal keratinocytes proliferate and then differentiate toward the cornified layer. The epidermis becomes hyperproliferative with abnormal differentiation - the cellular substrate of the clinical hyperkeratosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinocyte proliferation\", \"keratinocyte differentiation\"], \"animal_models\": [{\"name\": \"Cx26-G45E inducible transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Inducible transgenic expressing human Cx26-G45E in keratinocytes\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the hyperproliferative, abnormally differentiated epidermis and the clinical scaling/hyperkeratosis.\"}]}}, {\"id\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hyperproliferative, poorly differentiated epidermis produces a defective stratum corneum: transgenic KID mice show impaired epidermal calcium homeostasis and an abnormal stratum-corneum lipid composition that degrades the water barrier, clinically visible as erythrokeratoderma, ichthyosiform scaling, palmoplantar keratoderma and follicular hyperkeratosis. This entry does NOT conform to the epidermal_cornification_failure module: that module scopes itself to primary lesions of the terminal cornification enzymes/structural proteins (TGM1, FLG, ALOX, ABCA12, STS, SPINK5), whereas here the barrier failure is secondary to connexin-driven keratinocyte dysregulation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"establishment of skin barrier\"], \"locations\": [\"epidermis\"]}}, {\"id\": \"Experimental Hemichannel Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A mechanism-directed experimental strategy. Because most KID alleles confer aberrant hemichannel opening, blocking the hemichannel is a rational target; mefloquine, an FDA-approved antimalarial, inhibits mutant KID hemichannels in Xenopus oocytes and attenuates macroscopic currents in G45E keratinocytes. Engineered anti-Cx26 antibodies act similarly. Preclinical only.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"mefloquine\"]}}, {\"id\": \"Follicular Hyperkeratosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Follicular plugging and hyperkeratosis, part of the ichthyosiform skin phenotype; can progress to follicular occlusion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007502\"}}, {\"id\": \"GJB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GJB2\"], \"gene_terms\": [{\"label\": \"GJB2\", \"id\": \"hgnc:4284\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"Heterozygous Gain-of-Function GJB2 Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. A single GJB2 allele carries a missense change that substitutes a conserved residue in the cytoplasmic N-terminus or first extracellular loop of connexin 26 - the domains controlling channel gating and permeability. Unlike the recessive loss-of-function alleles at this locus, which give nonsyndromic deafness only, these alleles produce a channel that is still made and delivered but behaves aberrantly. p.D50N is by far the most common; p.S17F and p.G12R are recurrent; p.G45E and p.A88V cause a lethal neonatal form.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GJB2\"], \"gene_terms\": [{\"label\": \"GJB2\", \"id\": \"hgnc:4284\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"GJB2\", \"id\": \"hgnc:4284\"}]}}}, {\"id\": \"Hidradenitis Suppurativa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Follicular occlusion triad - hidradenitis suppurativa (acne inversa), acne conglobata and dissecting cellulitis of the scalp - is a recognised, disfiguring complication reflecting the follicular occlusion of KID.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040154\"}}, {\"id\": \"Hyperactive Connexin 26 Hemichannels\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Connexins oligomerise into hexameric hemichannels (connexons); in non-junctional membrane an undocked hemichannel connects the cytoplasm to the extracellular space. Syndromic Cx26 mutants form hemichannels that open when they should be closed. The two best-characterised aberrations are loss of the normal restraint by extracellular calcium (the channels stay open at physiological Ca2+, as for A40V and D50N) and, for some alleles, a channel that is itself directly permeable to calcium (G45E). The result is an inappropriate conductance across the plasma membrane that has been measured as increased whole-cell hemichannel current for D50N, D50A, A88V, G12R, G45E and A40V, and which accelerates cell death in low extracellular calcium.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"calcium ion transmembrane transport\"], \"molecular_functions\": [\"gap junction hemichannel activity\"], \"experimental_models\": [{\"name\": \"D50N patient-derived immortalized keratinocytes (KID-KC)\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Patient cells at the native heterozygous genotype reproduce the hyperactive hemichannel and impaired coupling, unlike prior models that expressed the mutant allele alone.\"}]}}, {\"id\": \"Ichthyosiform Erythrokeratoderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized erythema and ichthyosiform scaling from birth, evolving into fixed erythrokeratodermic plaques - a defining feature of the triad.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007431\"}}, {\"id\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barrier failure plus a keratinocyte-intrinsic immune defect predisposes to chronic mucocutaneous candidiasis and recurrent bacterial superinfection. Beyond the physical barrier, KID keratinocytes down-regulate immune response-associated genes (IL15, CCL5, IL1A, IL23R, TLR5), and their hemichannels amplify inflammatory ATP signalling in response to Staphylococcus aureus peptidoglycan. Chronic infection and inflammation, together with the intrinsic proliferative drive, create the microenvironment in which squamous cell carcinoma arises.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Keratinocyte Calcium Overload and ATP Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional consequence of a leaky hemichannel in the keratinocyte: inappropriate opening loads the cell with calcium and releases ATP into the extracellular space. ATP acts on epidermal P2 purinergic receptors that regulate keratinocyte differentiation and proliferation, and calcium overload plus sustained leak drives keratinocyte death. Peptidoglycan from Staphylococcus aureus triggers additional hemichannel-dependent ATP release selectively in KID-mutant keratinocytes, coupling the leak to the infection that characterises the disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"ATP export\", \"keratinocyte apoptotic process\"]}}, {\"id\": \"Limbal Stem Cell Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure of the corneal limbal stem cell niche, producing conjunctivalization, persistent epithelial defects and treatment-refractory surface disease; a principal driver of the ocular morbidity and a target of stem cell transplantation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032107\"}}, {\"id\": \"Loss of Gap Junction Intercellular Communication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whether by failure of homomeric channels to couple or by a dominant-negative effect on Cx43/Cx30 partners, mutant Cx26 reduces functional gap-junction intercellular communication in the epithelia that normally depend on it. In the corneal epithelium the common D50N allele accumulates intracellularly and fails to form gap-junction plaques even when co-expressed with wild-type Cx26 or Cx30, consistent with a dominant-negative effect on connexon assembly.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"gap junction-mediated intercellular transport\"], \"molecular_functions\": [\"gap junction channel activity\"]}}, {\"id\": \"Ocular Surface Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For limbal stem cell deficiency and corneal surface failure. Ocular surface stem cell transplantation (limbal allograft), often followed by keratoplasty, can stabilize the surface; living-related conjunctival limbal allograft may outperform keratolimbal allograft because it is HLA/ABO-matched. Outcomes remain challenging.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Palmoplantar Keratoderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thickened, often stippled or leathery keratoderma of the palms and soles, common in KID.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000982\"}}, {\"id\": \"Recurrent Mucocutaneous Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic mucocutaneous candidiasis and recurrent bacterial superinfection of skin lesions; in the lethal neonatal form, overwhelming infection and septicaemia are the cause of death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002728\"}}, {\"id\": \"Sensorineural Hair Cell Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hair cell dysfunction and loss follow the supporting-cell lesion. A temporal bone from a G45E KID infant showed dysplasia of the cochlear and saccular neuroepithelium, and the S17F mouse loses hair cell stereocilia - so the endpoint is degeneration of the sensory epithelium downstream of the supporting-cell hemichannel defect. Conforms to the sensorineural hair cell loss module\u0027s hair-cell node, entered here through supporting-cell hemichannel hyperactivity rather than the module\u0027s generic insult.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\", \"cochlear outer hair cell\"], \"biological_processes\": [\"sensory perception of sound\"]}}, {\"id\": \"Systemic Retinoid Therapy (Acitretin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral acitretin improves the hyperkeratotic/ichthyotic skin, with reports of rapid improvement within weeks; occasional reports describe visual improvement. It does not correct the underlying channel defect and carries ocular and skeletal toxicity risks that require caution, especially in children with the keratitis of KID.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"acitretin\"]}}, {\"id\": \"Vascularizing Keratitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic corneal inflammation with progressive vascularization - the \\\"keratitis\\\" of the triad. Usually appears in childhood or adolescence, after the skin and hearing manifestations, and progresses to stromal scarring.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000491\"}}, {\"id\": \"Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive visual loss from corneal scarring and vascularization, up to blindness in severe cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Heterozygous Gain-of-Function GJB2 Missense Variant\", \"target\": \"Hyperactive Connexin 26 Hemichannels\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutant subunit assembles into hemichannels whose gating is deranged.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperactive Connexin 26 Hemichannels\", \"target\": \"Keratinocyte Calcium Overload and ATP Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"hyperactive_hemichannel\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperactive Connexin 26 Hemichannels\", \"target\": \"Aberrant Heteromeric Interaction with Cx43 and Cx30\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"heteromeric_connexin_interaction\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperactive Connexin 26 Hemichannels\", \"target\": \"Corneal Epithelial Gap Junction Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperactive Connexin 26 Hemichannels\", \"target\": \"Cochlear Supporting Cell Hemichannel Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Heteromeric Interaction with Cx43 and Cx30\", \"target\": \"Keratinocyte Calcium Overload and ATP Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"heteromeric_connexin_interaction\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Heteromeric Interaction with Cx43 and Cx30\", \"target\": \"Loss of Gap Junction Intercellular Communication\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Gap Junction Intercellular Communication\", \"target\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratinocyte Calcium Overload and ATP Release\", \"target\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"target\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"target\": \"Ichthyosiform Erythrokeratoderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"target\": \"Palmoplantar Keratoderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"target\": \"Follicular Hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"target\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"target\": \"Recurrent Mucocutaneous Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"target\": \"Cutaneous Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"target\": \"Hidradenitis Suppurativa\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Corneal Epithelial Gap Junction Dysfunction\", \"target\": \"Vascularizing Keratitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Epithelial Gap Junction Dysfunction\", \"target\": \"Corneal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Epithelial Gap Junction Dysfunction\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Epithelial Gap Junction Dysfunction\", \"target\": \"Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear Supporting Cell Hemichannel Hyperactivity\", \"target\": \"Sensorineural Hair Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sensorineural Hair Cell Dysfunction\", \"target\": \"Congenital Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Retinoid Therapy (Acitretin)\", \"target\": \"Ichthyosiform Erythrokeratoderma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Therapy for Cutaneous Infection\", \"target\": \"Recurrent Mucocutaneous Infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ocular Surface Stem Cell Transplantation\", \"target\": \"Corneal Epithelial Gap Junction Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ocular Surface Stem Cell Transplantation\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear Implantation\", \"target\": \"Congenital Sensorineural Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Experimental Hemichannel Blockade\", \"target\": \"Hyperactive Connexin 26 Hemichannels\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allele-Specific siRNA (Experimental)\", \"target\": \"Heterozygous Gain-of-Function GJB2 Missense Variant\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"D50N patient-derived immortalized keratinocytes (KID-KC)\", \"target\": \"Hyperactive Connexin 26 Hemichannels\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient cells at the native heterozygous genotype reproduce the hyperactive hemichannel and impaired coupling, unlike prior models that expressed the mutant allele alone.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Immortalized monolayer keratinocytes express Cx26 at lower levels than differentiated skin; represents one allele (D50N).\"}, {\"source\": \"Cx26-G45E inducible transgenic mouse\", \"target\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the hyperproliferative, abnormally differentiated epidermis and the clinical scaling/hyperkeratosis.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A transgene expressed from a non-native promoter does not reproduce the native one-mutant-allele stoichiometry, and G45E is a lethal-form allele rather than the common D50N.\"}, {\"source\": \"Cx26-S17F knock-in mouse\", \"target\": \"Cochlear Supporting Cell Hemichannel Hyperactivity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces hyperactive supporting-cell hemichannels and stereocilia loss in the organ of Corti.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A single allele (S17F) in mouse; the hemichannel hyperactivity requires co-expression with Cx30, and the readout is at the cellular scale while the clinical endpoint this node feeds (hearing loss) is at the organism scale.\"}, {\"source\": \"GJB2\", \"target\": \"Heterozygous Gain-of-Function GJB2 Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Heteromeric Interaction with Cx43 and Cx30\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Why some severe KID alleles cause disease despite forming non-functional homomeric hemichannels. In skin Cx26 is co-expressed with Cx43 and Cx30, and wild-type Cx26 and Cx43 are normally oligomerisation-incompatible. The syndromic N-terminal mutations change that compatibility: they oligomerise with Cx43 into heteromeric channels that show exacerbated hemichannel activity but non-functional gap-junction channels, giving a combined gain of leak and dominant-negative loss of coupling. This resolves the S17F paradox, whose homomeric hemichannels are silent yet whose disease is severe. Graded PROVISIONAL because the demonstrations are in HeLa cells and Xenopus oocytes at experimenter-set expression ratios, and one patient-keratinocyte study did not reproduce Cx26/Cx43 co-localisation.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"gap junction hemichannel activity\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Allele-Specific siRNA (Experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A precision strategy for the dominant D50N allele: a mutant-selective siRNA silences the D50N transcript without touching the wild-type allele, correcting both the impaired gap-junction coupling and the hyperactive hemichannel in patient keratinocytes. Proof of concept only, with topical delivery to skin still to be solved and no cochlear delivery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Antimicrobial Therapy for Cutaneous Infection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antifungal and antibiotic therapy to control the chronic mucocutaneous candidiasis and bacterial superinfection that drive morbidity and, in the neonatal form, mortality.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antifungal agent\", \"antibiotic\"]}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For the profound sensorineural hearing loss. Because skin debris and chronic otitis can render hearing aids ineffective and visual loss can preclude sign language, cochlear implantation is often the definitive auditory intervention; it is safe and effective in most patients but carries a raised rate of postoperative wound/infection complications requiring close monitoring. The implant device term (NCIT:C157820) names equipment and is not a clinical-action term, so the surgical action is bound and the device carried as a qualifier.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Cochlear Supporting Cell Hemichannel Hyperactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cx26 is not expressed in cochlear hair cells but is expressed throughout the non-sensory (supporting) epithelial cells. In a Cx26-S17F knock-in mouse cochlea, supporting cells develop hyperactive hemichannels - forming with Cx30, and insensitive to hemichannel blockers, calcium and lanthanum - that admit excess calcium and cause cellular damage, accompanied by loss of hair cell stereocilia. This relocates the syndromic deafness lesion to a leaky hemichannel in the supporting-cell network rather than to loss of potassium recycling, the account for the recessive nonsyndromic form.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"organ of Corti supporting cell\"], \"molecular_functions\": [\"gap junction hemichannel activity\"], \"locations\": [\"spiral organ of Corti\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Cx26-S17F knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Constitutive Cx26-S17F knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces hyperactive supporting-cell hemichannels and stereocilia loss in the organ of Corti.\"}]}}, {\"id\": \"Congenital Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital, bilateral, typically profound sensorineural hearing loss - the \\\"deafness\\\" of the triad and usually the earliest recognised feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008527\"}}, {\"id\": \"Corneal Epithelial Gap Junction Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gap-junction communication in the human corneal epithelium is carried by Cx26, Cx30, Cx31.1 and Cx43. The common D50N mutant fails to form corneal gap-junction plaques, and the resulting epithelial dysfunction produces recurrent epithelial defects, corneal surface instability, limbal stem cell deficiency, and the progressive stromal vascularization that defines the \\\"keratitis\\\" of KID and can end in scarring and blindness.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"corneal epithelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"corneal epithelium\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Corneal Neovascularization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Superficial and deep corneal stromal vascularization arising from the limbus, driving progressive visual loss.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011496\"}}, {\"id\": \"Cutaneous Squamous Cell Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive squamous cell carcinoma of skin, especially at acral and chronically inflamed sites, in roughly 15% of patients; can be aggressive and multifocal, with amputation reported. Benign trichilemmal tumors may herald malignant change.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006739\"}}, {\"id\": \"Cx26-G45E inducible transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model of the lethal KID skin phenotype, created because the G45E allele forms constitutively active hemichannels. Induced expression in keratinocytes reproduces hyperkeratosis, scaling, hair loss and the hyperproliferative histopathology of human KID, with increased hemichannel currents in the transgenic keratinocytes.\"}, {\"id\": \"Cx26-S17F knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that localizes the cochlear lesion. A constitutive S17F knock-in cochlea develops hyperactive hemichannels in the supporting cells of the organ of Corti (formed with Cx30) and loses hair cell stereocilia, demonstrating the supporting-cell hemichannel mechanism directly in cochlear tissue.\"}, {\"id\": \"D50N patient-derived immortalized keratinocytes (KID-KC)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Immortalized keratinocytes from a heterozygous D50N KID patient, which reproduce the impaired gap-junction communication and hyperactive hemichannels of the disease and, in a human-murine chimeric skin graft, recapitulate patient skin. Used to demonstrate allele-specific siRNA rescue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:31705875\"}}, {\"id\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of coupling and calcium/ATP dysregulation together derange the tightly ordered program by which basal keratinocytes proliferate and then differentiate toward the cornified layer. The epidermis becomes hyperproliferative with abnormal differentiation - the cellular substrate of the clinical hyperkeratosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinocyte proliferation\", \"keratinocyte differentiation\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Cx26-G45E inducible transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Inducible transgenic expressing human Cx26-G45E in keratinocytes\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the hyperproliferative, abnormally differentiated epidermis and the clinical scaling/hyperkeratosis.\"}]}}, {\"id\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hyperproliferative, poorly differentiated epidermis produces a defective stratum corneum: transgenic KID mice show impaired epidermal calcium homeostasis and an abnormal stratum-corneum lipid composition that degrades the water barrier, clinically visible as erythrokeratoderma, ichthyosiform scaling, palmoplantar keratoderma and follicular hyperkeratosis. This entry does NOT conform to the epidermal_cornification_failure module: that module scopes itself to primary lesions of the terminal cornification enzymes/structural proteins (TGM1, FLG, ALOX, ABCA12, STS, SPINK5), whereas here the barrier failure is secondary to connexin-driven keratinocyte dysregulation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"establishment of skin barrier\"], \"locations\": [\"epidermis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Experimental Hemichannel Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A mechanism-directed experimental strategy. Because most KID alleles confer aberrant hemichannel opening, blocking the hemichannel is a rational target; mefloquine, an FDA-approved antimalarial, inhibits mutant KID hemichannels in Xenopus oocytes and attenuates macroscopic currents in G45E keratinocytes. Engineered anti-Cx26 antibodies act similarly. Preclinical only.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"mefloquine\"]}}, {\"id\": \"Follicular Hyperkeratosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Follicular plugging and hyperkeratosis, part of the ichthyosiform skin phenotype; can progress to follicular occlusion.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007502\"}}, {\"id\": \"GJB2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GJB2\"], \"gene_terms\": [{\"label\": \"GJB2\", \"id\": \"hgnc:4284\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"Heterozygous Gain-of-Function GJB2 Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. A single GJB2 allele carries a missense change that substitutes a conserved residue in the cytoplasmic N-terminus or first extracellular loop of connexin 26 - the domains controlling channel gating and permeability. Unlike the recessive loss-of-function alleles at this locus, which give nonsyndromic deafness only, these alleles produce a channel that is still made and delivered but behaves aberrantly. p.D50N is by far the most common; p.S17F and p.G12R are recurrent; p.G45E and p.A88V cause a lethal neonatal form.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GJB2\"], \"gene_terms\": [{\"label\": \"GJB2\", \"id\": \"hgnc:4284\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"GJB2\", \"id\": \"hgnc:4284\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hidradenitis Suppurativa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Follicular occlusion triad - hidradenitis suppurativa (acne inversa), acne conglobata and dissecting cellulitis of the scalp - is a recognised, disfiguring complication reflecting the follicular occlusion of KID.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040154\"}}, {\"id\": \"Hyperactive Connexin 26 Hemichannels\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Connexins oligomerise into hexameric hemichannels (connexons); in non-junctional membrane an undocked hemichannel connects the cytoplasm to the extracellular space. Syndromic Cx26 mutants form hemichannels that open when they should be closed. The two best-characterised aberrations are loss of the normal restraint by extracellular calcium (the channels stay open at physiological Ca2+, as for A40V and D50N) and, for some alleles, a channel that is itself directly permeable to calcium (G45E). The result is an inappropriate conductance across the plasma membrane that has been measured as increased whole-cell hemichannel current for D50N, D50A, A88V, G12R, G45E and A40V, and which accelerates cell death in low extracellular calcium.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"calcium ion transmembrane transport\"], \"molecular_functions\": [\"gap junction hemichannel activity\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"D50N patient-derived immortalized keratinocytes (KID-KC)\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Patient cells at the native heterozygous genotype reproduce the hyperactive hemichannel and impaired coupling, unlike prior models that expressed the mutant allele alone.\"}]}}, {\"id\": \"Ichthyosiform Erythrokeratoderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized erythema and ichthyosiform scaling from birth, evolving into fixed erythrokeratodermic plaques - a defining feature of the triad.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007431\"}}, {\"id\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barrier failure plus a keratinocyte-intrinsic immune defect predisposes to chronic mucocutaneous candidiasis and recurrent bacterial superinfection. Beyond the physical barrier, KID keratinocytes down-regulate immune response-associated genes (IL15, CCL5, IL1A, IL23R, TLR5), and their hemichannels amplify inflammatory ATP signalling in response to Staphylococcus aureus peptidoglycan. Chronic infection and inflammation, together with the intrinsic proliferative drive, create the microenvironment in which squamous cell carcinoma arises.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"inflammatory response\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Keratinocyte Calcium Overload and ATP Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional consequence of a leaky hemichannel in the keratinocyte: inappropriate opening loads the cell with calcium and releases ATP into the extracellular space. ATP acts on epidermal P2 purinergic receptors that regulate keratinocyte differentiation and proliferation, and calcium overload plus sustained leak drives keratinocyte death. Peptidoglycan from Staphylococcus aureus triggers additional hemichannel-dependent ATP release selectively in KID-mutant keratinocytes, coupling the leak to the infection that characterises the disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"ATP export\", \"keratinocyte apoptotic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Limbal Stem Cell Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure of the corneal limbal stem cell niche, producing conjunctivalization, persistent epithelial defects and treatment-refractory surface disease; a principal driver of the ocular morbidity and a target of stem cell transplantation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032107\"}}, {\"id\": \"Loss of Gap Junction Intercellular Communication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whether by failure of homomeric channels to couple or by a dominant-negative effect on Cx43/Cx30 partners, mutant Cx26 reduces functional gap-junction intercellular communication in the epithelia that normally depend on it. In the corneal epithelium the common D50N allele accumulates intracellularly and fails to form gap-junction plaques even when co-expressed with wild-type Cx26 or Cx30, consistent with a dominant-negative effect on connexon assembly.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"gap junction-mediated intercellular transport\"], \"molecular_functions\": [\"gap junction channel activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ocular Surface Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For limbal stem cell deficiency and corneal surface failure. Ocular surface stem cell transplantation (limbal allograft), often followed by keratoplasty, can stabilize the surface; living-related conjunctival limbal allograft may outperform keratolimbal allograft because it is HLA/ABO-matched. Outcomes remain challenging.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Palmoplantar Keratoderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thickened, often stippled or leathery keratoderma of the palms and soles, common in KID.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000982\"}}, {\"id\": \"Recurrent Mucocutaneous Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic mucocutaneous candidiasis and recurrent bacterial superinfection of skin lesions; in the lethal neonatal form, overwhelming infection and septicaemia are the cause of death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002728\"}}, {\"id\": \"Sensorineural Hair Cell Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hair cell dysfunction and loss follow the supporting-cell lesion. A temporal bone from a G45E KID infant showed dysplasia of the cochlear and saccular neuroepithelium, and the S17F mouse loses hair cell stereocilia - so the endpoint is degeneration of the sensory epithelium downstream of the supporting-cell hemichannel defect. Conforms to the sensorineural hair cell loss module\u0027s hair-cell node, entered here through supporting-cell hemichannel hyperactivity rather than the module\u0027s generic insult.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\", \"cochlear outer hair cell\"], \"biological_processes\": [\"sensory perception of sound\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Systemic Retinoid Therapy (Acitretin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral acitretin improves the hyperkeratotic/ichthyotic skin, with reports of rapid improvement within weeks; occasional reports describe visual improvement. It does not correct the underlying channel defect and carries ocular and skeletal toxicity risks that require caution, especially in children with the keratitis of KID.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"acitretin\"]}}, {\"id\": \"Vascularizing Keratitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic corneal inflammation with progressive vascularization - the \\\"keratitis\\\" of the triad. Usually appears in childhood or adolescence, after the skin and hearing manifestations, and progresses to stromal scarring.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000491\"}}, {\"id\": \"Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive visual loss from corneal scarring and vascularization, up to blindness in severe cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Heterozygous Gain-of-Function GJB2 Missense Variant\", \"target\": \"Hyperactive Connexin 26 Hemichannels\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mutant subunit assembles into hemichannels whose gating is deranged.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperactive Connexin 26 Hemichannels\", \"target\": \"Keratinocyte Calcium Overload and ATP Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"hyperactive_hemichannel\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperactive Connexin 26 Hemichannels\", \"target\": \"Aberrant Heteromeric Interaction with Cx43 and Cx30\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"heteromeric_connexin_interaction\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperactive Connexin 26 Hemichannels\", \"target\": \"Corneal Epithelial Gap Junction Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperactive Connexin 26 Hemichannels\", \"target\": \"Cochlear Supporting Cell Hemichannel Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant Heteromeric Interaction with Cx43 and Cx30\", \"target\": \"Keratinocyte Calcium Overload and ATP Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"heteromeric_connexin_interaction\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant Heteromeric Interaction with Cx43 and Cx30\", \"target\": \"Loss of Gap Junction Intercellular Communication\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Gap Junction Intercellular Communication\", \"target\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratinocyte Calcium Overload and ATP Release\", \"target\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"target\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"target\": \"Ichthyosiform Erythrokeratoderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"target\": \"Palmoplantar Keratoderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"target\": \"Follicular Hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal Barrier Failure and Hyperkeratosis\", \"target\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"target\": \"Recurrent Mucocutaneous Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"target\": \"Cutaneous Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cutaneous Host Defense and Chronic Inflammation\", \"target\": \"Hidradenitis Suppurativa\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Corneal Epithelial Gap Junction Dysfunction\", \"target\": \"Vascularizing Keratitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Epithelial Gap Junction Dysfunction\", \"target\": \"Corneal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Epithelial Gap Junction Dysfunction\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Epithelial Gap Junction Dysfunction\", \"target\": \"Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear Supporting Cell Hemichannel Hyperactivity\", \"target\": \"Sensorineural Hair Cell Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sensorineural Hair Cell Dysfunction\", \"target\": \"Congenital Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Retinoid Therapy (Acitretin)\", \"target\": \"Ichthyosiform Erythrokeratoderma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Therapy for Cutaneous Infection\", \"target\": \"Recurrent Mucocutaneous Infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ocular Surface Stem Cell Transplantation\", \"target\": \"Corneal Epithelial Gap Junction Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ocular Surface Stem Cell Transplantation\", \"target\": \"Limbal Stem Cell Deficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear Implantation\", \"target\": \"Congenital Sensorineural Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Experimental Hemichannel Blockade\", \"target\": \"Hyperactive Connexin 26 Hemichannels\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allele-Specific siRNA (Experimental)\", \"target\": \"Heterozygous Gain-of-Function GJB2 Missense Variant\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"D50N patient-derived immortalized keratinocytes (KID-KC)\", \"target\": \"Hyperactive Connexin 26 Hemichannels\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient cells at the native heterozygous genotype reproduce the hyperactive hemichannel and impaired coupling, unlike prior models that expressed the mutant allele alone.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Immortalized monolayer keratinocytes express Cx26 at lower levels than differentiated skin; represents one allele (D50N).\"}, {\"source\": \"Cx26-G45E inducible transgenic mouse\", \"target\": \"Disordered Keratinocyte Proliferation and Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the hyperproliferative, abnormally differentiated epidermis and the clinical scaling/hyperkeratosis.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A transgene expressed from a non-native promoter does not reproduce the native one-mutant-allele stoichiometry, and G45E is a lethal-form allele rather than the common D50N.\"}, {\"source\": \"Cx26-S17F knock-in mouse\", \"target\": \"Cochlear Supporting Cell Hemichannel Hyperactivity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces hyperactive supporting-cell hemichannels and stereocilia loss in the organ of Corti.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A single allele (S17F) in mouse; the hemichannel hyperactivity requires co-expression with Cx30, and the readout is at the cellular scale while the clinical endpoint this node feeds (hearing loss) is at the organism scale.\"}, {\"source\": \"GJB2\", \"target\": \"Heterozygous Gain-of-Function GJB2 Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7104,11 +7286,15 @@ This pathophysiological event involves decreased sensory perception of sound (GO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(5)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(6)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7149,6 +7335,9 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7163,6 +7352,7 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7194,8 +7384,201 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tongue-squamous-cell-carcinoma" data-dismech-node="Tongue Squamous Cell Carcinoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tongue Squamous Cell Carcinoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Squamous cell carcinoma of the tongue</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030413" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030413</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Squamous cell carcinoma of the tongue (HP:0030413). HP:0030413 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17381453" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17381453" target="_blank">PMID:17381453</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One patient presented at the age of 18 years with a fatal carcinoma of the tongue, an extremely rare reported complication."</div>
+
+
+                <div class="evidence-explanation">Documents fatal tongue carcinoma as a rare mucosal neoplastic complication.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Ear
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-sensorineural-hearing-impairment" data-dismech-node="Congenital Sensorineural Hearing Impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Congenital Sensorineural Hearing Impairment
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0008527</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital sensorineural hearing impairment (HP:0008527), qualified as congenital onset. HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: CONGENITAL</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11912510" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11912510" target="_blank">PMID:11912510</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characterized by vascularizing keratitis, profound sensorineural hearing loss (SNHL), and progressive erythrokeratoderma"</div>
+
+
+                <div class="evidence-explanation">Names profound sensorineural hearing loss as one of the three defining features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-vascularizing-keratitis" data-dismech-node="Vascularizing Keratitis" data-dismech-type="phenotype">
@@ -7212,15 +7595,18 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000491</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000491</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vascularizing keratitis, annotated with Keratitis (HP:0000491). HP:0000491 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7243,6 +7629,7 @@ This clinical feature is Vascularizing keratitis, annotated with Keratitis (HP:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7251,6 +7638,150 @@ This clinical feature is Vascularizing keratitis, annotated with Keratitis (HP:0
 
 
                 <div class="evidence-explanation">Human case series documenting vascularizing keratopathy and corneal scarring as the core ocular features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-neovascularization" data-dismech-node="Corneal Neovascularization" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Corneal Neovascularization
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011496</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12527832" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12527832" target="_blank">PMID:12527832</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report the case of a 30-year-old woman with KID (keratitis ichthyosis deafness) syndrome consulting for massive corneal neovascularization."</div>
+
+
+                <div class="evidence-explanation">Documents massive corneal neovascularization in a KID patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limbal-stem-cell-deficiency" data-dismech-node="Limbal Stem Cell Deficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Limbal Stem Cell Deficiency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0032107</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limbal stem cell deficiency (HP:0032107). HP:0032107 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30371567" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30371567" target="_blank">PMID:30371567</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We present 5 eyes of 3 patients with KID syndrome that developed LSCD and underwent OSST."</div>
+
+
+                <div class="evidence-explanation">Documents limbal stem cell deficiency in a KID case series.</div>
 
 
 
@@ -7280,15 +7811,18 @@ This clinical feature is Vascularizing keratitis, annotated with Keratitis (HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000613</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000613</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7308,6 +7842,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7348,15 +7883,18 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7376,6 +7914,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7404,11 +7943,168 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-mucocutaneous-infections" data-dismech-node="Recurrent Mucocutaneous Infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent Mucocutaneous Infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Chronic mucocutaneous candidiasis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002728</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic mucocutaneous candidiasis and bacterial superinfection, annotated with Chronic mucocutaneous candidiasis (HP:0002728). HP:0002728 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23384797" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23384797" target="_blank">PMID:23384797</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chronic mucocutaneous candidiasis and/or superinfection of skin lesions commonly occur and warrant aggressive therapeutic intervention."</div>
+
+
+                <div class="evidence-explanation">Documents chronic candidiasis and bacterial superinfection as common KID complications.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hidradenitis-suppurativa" data-dismech-node="Hidradenitis Suppurativa" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hidradenitis Suppurativa
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Acne inversa</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0040154</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hidradenitis suppurativa, annotated with Acne inversa (HP:0040154). HP:0040154 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16172043" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16172043" target="_blank">PMID:16172043</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"our patient presented a follicular occlusion triad with hidradenitis suppurativa (HS, alias acne inversa), acne conglobata and dissecting cellulitis of the scalp, leading to cicatricial alopecia"</div>
+
+
+                <div class="evidence-explanation">Documents hidradenitis suppurativa as part of the follicular occlusion triad in a D50N KID patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ichthyosiform-erythrokeratoderma" data-dismech-node="Ichthyosiform Erythrokeratoderma" data-dismech-type="phenotype">
@@ -7427,10 +8123,10 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0007431</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0007431</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ichthyosiform erythrokeratoderma, annotated with Congenital ichthyosiform erythroderma (HP:0007431), qualified as congenital onset. HP:0007431 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7470,6 +8166,9 @@ This clinical feature is Ichthyosiform erythrokeratoderma, annotated with Congen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7484,6 +8183,7 @@ This clinical feature is Ichthyosiform erythrokeratoderma, annotated with Congen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7524,15 +8224,18 @@ This clinical feature is Ichthyosiform erythrokeratoderma, annotated with Congen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000982</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000982</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7555,6 +8258,7 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7563,6 +8267,80 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a 
 
 
                 <div class="evidence-explanation">Lists palmoplantar keratoderma among the cutaneous features of KID.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-follicular-hyperkeratosis" data-dismech-node="Follicular Hyperkeratosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Follicular Hyperkeratosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0007502</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Follicular hyperkeratosis (HP:0007502). HP:0007502 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11912510" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11912510" target="_blank">PMID:11912510</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a clinical triad that indicates a failure in development and differentiation of multiple stratifying epithelia"</div>
+
+
+                <div class="evidence-explanation">Supports the disordered follicular/epidermal keratinization underlying this feature. INDIRECT: the abstract does not name follicular hyperkeratosis itself, so it supports the class of lesion rather than the specific sign.</div>
 
 
 
@@ -7592,15 +8370,18 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001596</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001596</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7620,6 +8401,7 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7660,15 +8442,18 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0008404</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0008404</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7688,6 +8473,7 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7732,15 +8518,18 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0006739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0006739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Squamous cell carcinoma of the skin (HP:0006739). HP:0006739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7760,6 +8549,7 @@ This clinical feature is Squamous cell carcinoma of the skin (HP:0006739). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7787,6 +8577,7 @@ This clinical feature is Squamous cell carcinoma of the skin (HP:0006739). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7795,528 +8586,6 @@ This clinical feature is Squamous cell carcinoma of the skin (HP:0006739). HP:00
 
 
                 <div class="evidence-explanation">Documents the aggressive, acral, potentially limb-threatening behaviour of SCC in KID.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-follicular-hyperkeratosis" data-dismech-node="Follicular Hyperkeratosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Follicular Hyperkeratosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0007502</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Follicular hyperkeratosis (HP:0007502). HP:0007502 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11912510" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11912510" target="_blank">PMID:11912510</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a clinical triad that indicates a failure in development and differentiation of multiple stratifying epithelia"</div>
-
-
-                <div class="evidence-explanation">Supports the disordered follicular/epidermal keratinization underlying this feature. INDIRECT: the abstract does not name follicular hyperkeratosis itself, so it supports the class of lesion rather than the specific sign.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-neovascularization" data-dismech-node="Corneal Neovascularization" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Corneal Neovascularization
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011496</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12527832" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12527832" target="_blank">PMID:12527832</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report the case of a 30-year-old woman with KID (keratitis ichthyosis deafness) syndrome consulting for massive corneal neovascularization."</div>
-
-
-                <div class="evidence-explanation">Documents massive corneal neovascularization in a KID patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-limbal-stem-cell-deficiency" data-dismech-node="Limbal Stem Cell Deficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Limbal Stem Cell Deficiency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0032107</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Limbal stem cell deficiency (HP:0032107). HP:0032107 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30371567" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30371567" target="_blank">PMID:30371567</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We present 5 eyes of 3 patients with KID syndrome that developed LSCD and underwent OSST."</div>
-
-
-                <div class="evidence-explanation">Documents limbal stem cell deficiency in a KID case series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-sensorineural-hearing-impairment" data-dismech-node="Congenital Sensorineural Hearing Impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congenital Sensorineural Hearing Impairment
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0008527</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congenital sensorineural hearing impairment (HP:0008527), qualified as congenital onset. HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: CONGENITAL</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11912510" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11912510" target="_blank">PMID:11912510</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"characterized by vascularizing keratitis, profound sensorineural hearing loss (SNHL), and progressive erythrokeratoderma"</div>
-
-
-                <div class="evidence-explanation">Names profound sensorineural hearing loss as one of the three defining features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-mucocutaneous-infections" data-dismech-node="Recurrent Mucocutaneous Infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent Mucocutaneous Infections
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Chronic mucocutaneous candidiasis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002728</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic mucocutaneous candidiasis and bacterial superinfection, annotated with Chronic mucocutaneous candidiasis (HP:0002728). HP:0002728 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23384797" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23384797" target="_blank">PMID:23384797</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Chronic mucocutaneous candidiasis and/or superinfection of skin lesions commonly occur and warrant aggressive therapeutic intervention."</div>
-
-
-                <div class="evidence-explanation">Documents chronic candidiasis and bacterial superinfection as common KID complications.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tongue-squamous-cell-carcinoma" data-dismech-node="Tongue Squamous Cell Carcinoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tongue Squamous Cell Carcinoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Squamous cell carcinoma of the tongue</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030413" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0030413</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Squamous cell carcinoma of the tongue (HP:0030413). HP:0030413 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17381453" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17381453" target="_blank">PMID:17381453</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"One patient presented at the age of 18 years with a fatal carcinoma of the tongue, an extremely rare reported complication."</div>
-
-
-                <div class="evidence-explanation">Documents fatal tongue carcinoma as a rare mucosal neoplastic complication.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hidradenitis-suppurativa" data-dismech-node="Hidradenitis Suppurativa" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hidradenitis Suppurativa
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Acne inversa</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0040154</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hidradenitis suppurativa, annotated with Acne inversa (HP:0040154). HP:0040154 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16172043" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16172043" target="_blank">PMID:16172043</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"our patient presented a follicular occlusion triad with hidradenitis suppurativa (HS, alias acne inversa), acne conglobata and dissecting cellulitis of the scalp, leading to cicatricial alopecia"</div>
-
-
-                <div class="evidence-explanation">Documents hidradenitis suppurativa as part of the follicular occlusion triad in a D50N KID patient.</div>
 
 
 
@@ -8406,6 +8675,9 @@ This disease-associated gene is GJB2 (hgnc:4284). hgnc:4284 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8420,6 +8692,7 @@ This disease-associated gene is GJB2 (hgnc:4284). hgnc:4284 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8447,6 +8720,7 @@ This disease-associated gene is GJB2 (hgnc:4284). hgnc:4284 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8471,6 +8745,7 @@ This disease-associated gene is GJB2 (hgnc:4284). hgnc:4284 is a gene from the H
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8529,6 +8804,9 @@ This disease-associated gene is GJB6 (hgnc:4288). hgnc:4288 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8543,6 +8821,7 @@ This disease-associated gene is GJB6 (hgnc:4288). hgnc:4288 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8650,6 +8929,9 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8660,6 +8942,9 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -8712,6 +8997,7 @@ This treatment targets Ichthyosiform erythrokeratoderma, annotated with Congenit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8733,6 +9019,7 @@ This treatment targets Ichthyosiform erythrokeratoderma, annotated with Congenit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8839,6 +9126,9 @@ This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8849,6 +9139,9 @@ This treatment uses antibiotic (NCIT:C258). NCIT:C258 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -8898,6 +9191,7 @@ This treatment targets Chronic mucocutaneous candidiasis (HP:0002728). HP:000272
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8965,6 +9259,9 @@ This treatment is ocular surface stem cell transplantation, annotated with Corne
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8975,6 +9272,9 @@ This treatment is ocular surface stem cell transplantation, annotated with Corne
 
 
     </div>
+
+
+
 
 
 
@@ -9011,6 +9311,7 @@ This treatment is ocular surface stem cell transplantation, annotated with Corne
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9079,6 +9380,7 @@ This treatment targets Limbal stem cell deficiency (HP:0032107). HP:0032107 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9143,6 +9445,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9153,6 +9458,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -9205,6 +9513,7 @@ This treatment targets Congenital sensorineural hearing impairment (HP:0008527).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9229,6 +9538,7 @@ This treatment targets Congenital sensorineural hearing impairment (HP:0008527).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9250,6 +9560,7 @@ This treatment targets Congenital sensorineural hearing impairment (HP:0008527).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9338,6 +9649,9 @@ This treatment uses mefloquine (CHEBI:63609). CHEBI:63609 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9348,6 +9662,9 @@ This treatment uses mefloquine (CHEBI:63609). CHEBI:63609 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9384,6 +9701,7 @@ This treatment uses mefloquine (CHEBI:63609). CHEBI:63609 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9427,6 +9745,7 @@ This treatment uses mefloquine (CHEBI:63609). CHEBI:63609 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9493,6 +9812,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9503,6 +9825,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9539,6 +9864,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9582,6 +9908,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9690,6 +10017,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9777,6 +10105,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9848,6 +10177,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9950,6 +10280,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10015,6 +10346,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10192,6 +10524,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10231,6 +10564,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10278,6 +10612,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10418,6 +10753,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10457,6 +10793,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10504,6 +10841,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10525,6 +10863,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10652,6 +10991,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10691,6 +11031,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10735,6 +11076,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13472,6 +13814,29 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Lump/split decision. ONE Disease entry for autosomal dominant, connexin-related KID (MONDO:0007850), the syndromic gain-of-function counterpart of the nonsyndromic GJB2 hearing loss already curated (Autosomal_Dominant_Nonsyndromic_Hearing_Loss_3A, and DFNB1). Rationale: the mechanism is genuinely different from the nonsyndromic forms at the same locus - gain-of-function aberrant hemichannels versus loss-of-function - which is the whole reason the skin and eye phenotypes appear, so it is not a severity variant of the nonsyndromic entries.
+Kept inside this entry rather than split out. The lethal neonatal form (p.G45E, p.A88V) and the HID (hystrix-like ichthyosis-deafness) variant are curated as has_subtypes, not separate entries: HID was shown to carry the same GJB2 mutation as KID (PMID:12072059) and is the same disease, and the lethal form is an allelic severity extreme. GJB6 (connexin 30) is a rare alternative cause and is curated as a second genetic entry, not a separate disease.
+Deliberately out of scope, mentioned but not curated here. Autosomal recessive KID (KIDAR, AP1B1, MONDO:0859278) is a vesicular-trafficking disorder with copper-metabolism features - a different mechanism and a separate MONDO concept. The Perplexity report spent more text on AP1B1 (56 mentions) than on GJB2 (40), and just preflight-dr WARNed on exactly this rival-gene mixing; the AP1B1 and VPS33B (ARKID) material was excluded, as was VPS33B-related ARKID itself.
+Module conformance. The cochlear arm conforms to sensorineural_hair_cell_loss#Hair Cell Mechanotransduction Failure and Death, entered through supporting-cell hemichannel hyperactivity rather than the module&#39;s generic insult. The skin arm deliberately does NOT conform to epidermal_cornification_failure: that module scopes itself to primary lesions of the terminal cornification machinery (TGM1/FLG/ALOX/ABCA12/STS/SPINK5), whereas here the barrier failure is a secondary consequence of connexin-driven keratinocyte dysregulation.
+Deep-research provenance and its limits. A Perplexity (sonar-deep-research) report was used as a lead source. Its citations were sound (11/11 verified, 8 on topic) but term_validation.needs_review was true with 18 mislabelled CURIEs, 3 invented HP terms (HP:0007393, HP:0001021, HP:0002727) and 1 obsolete UBERON term - so every ontology term in this entry was re-selected from scratch with OAK (ols:*) rather than copied from the report. Notably the report&#39;s HP:0012114 &#34;Keratitis&#34; is actually Endometrial carcinoma, HP:0007470 &#34;Erythrokeratoderma&#34; is Periarticular subcutaneous nodules, and UBERON:0001442 &#34;cornea&#34; is skeleton of manus; none were used. The terms bound instead are HP:0000491 (Keratitis), HP:0007431 (for the erythrokeratoderma presentation) and UBERON:0001772 (corneal epithelium). The report also gave GJB6 as HGNC:4289; the repository&#39;s HGNC cache resolves GJB6 to hgnc:4288, which is what is bound here.
+Evidence base. Human data are case series and case reports, with no cohort large enough for most frequencies, so most phenotypes carry no frequency value; SCC is OCCASIONAL (~15%, PMID:23384797) and the ~86% p.D50N case share is recorded as a genetic case_fraction rather than a phenotype frequency. Much of the mechanism rests on IN_VITRO work (Xenopus oocyte, HeLa and keratinocyte hemichannel electrophysiology) or MODEL_ORGANISM work (the G45E and S17F mice), graded accordingly; the two nodes with no human measurement - the cochlear supporting-cell node and the heteromeric Cx43 interaction - are PROVISIONAL, and the model-to-human gap is filed as a HUMAN_MODEL_MISMATCH discussion rather than papered over. ORPHA:477 could not be cited: `just fetch-reference ORPHA:477` reports no source for the reference type in this checkout, and the Orphadata XML it would be built from is not present.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Keratitis-Ichthyosis-Deafness Syndrome</strong> · 2026-09-05T18:33:05Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Keratitis-Ichthyosis-Deafness_Syndrome/2026-09-05T183305Z-claude-code-0f9829.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of autosomal dominant KID syndrome (MONDO:0007850, GJB2/connexin 26; rare GJB6). Built an 11-node causal chain from the heterozygous gain-of-function missense variant through hyperactive Cx26 hemichannels (loss of extracellular-Ca2+ restraint; direct Ca2+ permeability for G45E) and the heteromeric Cx43/Cx30 route, into three organ arms: keratinocyte Ca2+ overload/ATP release to epidermal barrier failure, infection and SCC; corneal epithelial gap-junction dysfunction to vascularizing keratitis and limbal stem cell deficiency; and cochlear supporting-cell hemichannel hyperactivity to hair cell dysfunction (conforms_to sensorineural_hair_cell_loss). 16 phenotypes, 2 genes, 2 subtypes (lethal neonatal G45E/A88V; HID), 6 treatments, 2 mouse models, 1 patient keratinocyte line, 2 mechanistic hypotheses and 2 discussions (HUMAN_MODEL_MISMATCH on the cochlear arm; CONTROVERSY on homomeric vs heteromeric hemichannel). 37 references, 82/82 evidence snippets verified against cached references. Perplexity sonar-deep-research was the lead source; its citations validated 11/11 but term_validation.needs_review was true with 18 mislabelled CURIEs, 3 nonexistent HP terms (HP:0007393, HP:0001021, HP:0002727) and 1 obsolete UBERON term, so every ontology term was re-selected independently with OAK via the ols adapter and none of the report&#39;s CURIEs were copied. preflight-dr returned WARN because the report discusses AP1B1 (56 mentions) more than GJB2 (40); the AP1B1 (KIDAR) and VPS33B (ARKID) recessive material was excluded as separate diseases and recorded in notes and differential_diagnoses. Report content not used: the AP1B1/VPS33B sections (wrong disease), PMID:35144013 and PMID:41453769 (both AP1B1 KIDAR), PMID:37555193 (no abstract cached), and PMID:36444857/DOI:10.1111/pde.15201 (one-sentence abstract with no quotable finding). Validation run: just validate (schema, terms, references) passed; count-verified-snippets 82/82; check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms (plus the online variant), check-enum-values, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading and check-reference-titles all passed; compliance 88.1 percent; validate-disorders run as the final gate.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

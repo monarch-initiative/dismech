@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4106,6 +4174,7 @@ What makes the entry mechanistically interesting is that the defining complicati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4240,6 +4309,7 @@ What makes the entry mechanistically interesting is that the defining complicati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-il-21-receptor-trafficking-and-loss-of-ligand-binding" data-dismech-node="Aberrant IL-21 Receptor Trafficking and Loss of Ligand Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant IL-21 Receptor Trafficking and Loss of Ligand Binding</div>
 
+
                 <div class="item-desc">The characterised missense allele does not abolish the protein; it misroutes it. IL-21R fails to traffic correctly to the plasma membrane and cannot bind IL-21. This distinction matters because it makes the disease a receptor functional failure rather than a null, and it is why the receptor may be detectable by flow cytometry in a patient who nonetheless has no IL-21 signalling.
 </div>
 
@@ -4370,6 +4440,7 @@ This pathophysiological event involves decreased protein transport (GO:0015031).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4392,6 +4463,7 @@ This pathophysiological event involves decreased protein transport (GO:0015031).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-il-21-stat-signal-transduction" data-dismech-node="Failure of IL-21/STAT Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of IL-21/STAT Signal Transduction</div>
+
 
                 <div class="item-desc">Without ligand binding there is no JAK-mediated phosphorylation of STAT1, STAT3 or STAT5 downstream of IL-21. Because IL-21R partners the common gamma chain, the defect is restricted to the IL-21 arm rather than affecting every gamma-chain cytokine, which is what separates this disease from X-linked SCID.
 </div>
@@ -4488,6 +4560,7 @@ This pathophysiological event involves decreased cytokine-mediated signaling pat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4510,6 +4583,7 @@ This pathophysiological event involves decreased cytokine-mediated signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-b-cell-class-switching-and-memory-formation" data-dismech-node="Impaired B Cell Class Switching and Memory Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired B Cell Class Switching and Memory Formation</div>
+
 
                 <div class="item-desc">Class-switch recombination and the differentiation of memory B cells fail, and the T follicular helper compartment that would normally drive them is itself reduced. The clinical readout is hypogammaglobulinaemia with, paradoxically, raised IgE in half of patients.
 </div>
@@ -4694,6 +4768,7 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4716,6 +4791,7 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nk-and-t-cell-effector-function" data-dismech-node="Impaired NK and T Cell Effector Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired NK and T Cell Effector Function</div>
+
 
                 <div class="item-desc">NK cytotoxicity and T-cell cytokine production are reduced, and the cohort immunophenotype shows depletion of MAIT cells and terminally differentiated NK cells. These are the arms that matter most for controlling an intracellular epithelial parasite.
 </div>
@@ -4870,6 +4946,7 @@ This pathophysiological event involves decreased natural killer cell mediated cy
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4892,6 +4969,7 @@ This pathophysiological event involves decreased natural killer cell mediated cy
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-clear-cryptosporidium-from-biliary-epithelium" data-dismech-node="Failure to Clear Cryptosporidium from Biliary Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Clear Cryptosporidium from Biliary Epithelium</div>
+
 
                 <div class="item-desc">Cryptosporidium establishes persistent infection of the biliary epithelium rather than being cleared as a self-limited enteritis. This node is the hinge of the entry: it is where the host genetic lesion and the environmental exposure meet, and neither produces the disease alone.
 </div>
@@ -4978,6 +5056,7 @@ This pathophysiological event involves cholangiocyte (CL:1000488). CL:1000488 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5000,6 +5079,7 @@ This pathophysiological event involves cholangiocyte (CL:1000488). CL:1000488 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sclerosing-cholangitis-and-progressive-liver-disease" data-dismech-node="Sclerosing Cholangitis and Progressive Liver Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Sclerosing Cholangitis and Progressive Liver Disease</div>
+
 
                 <div class="item-desc">Chronic biliary inflammation progresses to sclerosing cholangitis, fibrosis and end-stage liver disease. This is the damage that determines outcome, and critically it is not reversed by correcting the immune defect, which is why the timing of transplant dominates prognosis.
 </div>
@@ -5049,6 +5129,7 @@ This pathophysiological event involves cholangiocyte (CL:1000488). CL:1000488 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5116,15 +5197,15 @@ This pathophysiological event involves cholangiocyte (CL:1000488). CL:1000488 is
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5134,7 +5215,7 @@ This pathophysiological event involves cholangiocyte (CL:1000488). CL:1000488 is
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-immunoglobulin-concentration" data-dismech-node="Decreased circulating immunoglobulin concentration" data-dismech-type="phenotype">
@@ -5167,6 +5248,9 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5181,6 +5265,7 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5237,6 +5322,9 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5254,6 +5342,7 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5262,6 +5351,80 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
                 <div class="evidence-explanation">Quantifies elevated IgE at 50% of patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-memory-b-cell-proportion" data-dismech-node="Decreased memory B cell proportion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased memory B cell proportion
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0030374</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased memory B cell proportion (HP:0030374). HP:0030374 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33929673" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33929673" target="_blank">PMID:33929673</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most patients exhibited hypogammaglobulinemia and reduced proportions of memory B cells, circulating T follicular helper cells, MAIT cells and terminally differentiated NK cells."</div>
+
+
+                <div class="evidence-explanation">Reports reduced memory B cell proportions in most patients.</div>
 
 
 
@@ -5293,15 +5456,18 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002665</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002665</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5321,6 +5487,7 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5372,10 +5539,10 @@ This clinical feature is Lymphoma (HP:0002665). HP:0002665 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030991" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030991</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030991" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0030991</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sclerosing cholangitis (HP:0030991), qualified as course progressive. HP:0030991 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5404,6 +5571,9 @@ This clinical feature is Sclerosing cholangitis (HP:0030991), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5418,6 +5588,7 @@ This clinical feature is Sclerosing cholangitis (HP:0030991), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5458,10 +5629,10 @@ This clinical feature is Sclerosing cholangitis (HP:0030991), qualified as cours
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality chronic. HP:0002028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5490,6 +5661,9 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5504,6 +5678,7 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5535,164 +5710,8 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiectasis" data-dismech-node="Bronchiectasis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bronchiectasis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002110</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33929673" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33929673" target="_blank">PMID:33929673</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Recurrent bacterial infections of the upper and lower respiratory tracts leading to hospitalization were the most common infectious diseases, affecting 11/13 (84.6%) patients and causing bronchiectasis in 6/13 (46.2%) patients."</div>
-
-
-                <div class="evidence-explanation">Reported at 46.2% (6/13) as a consequence of the recurrent respiratory infection.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to thrive
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23440042" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23440042" target="_blank">PMID:23440042</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She had a history of recurrent pneumonia, chronic diarrhea, and failure to thrive."</div>
-
-
-                <div class="evidence-explanation">Case-level description naming failure to thrive. No frequency is asserted because the quoted sentence describes one patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
+                    Immune
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infections" data-dismech-node="Recurrent bacterial infections" data-dismech-type="phenotype">
@@ -5711,15 +5730,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5739,6 +5761,7 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5781,15 +5804,18 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002841</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002841</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5809,6 +5835,7 @@ This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5851,15 +5878,18 @@ This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004429</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004429</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5879,6 +5909,7 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5890,76 +5921,6 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
 
 
                 <div class="evidence-explanation">Reports viral infection in 38.5% of the cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-memory-b-cell-proportion" data-dismech-node="Decreased memory B cell proportion" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased memory B cell proportion
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030374</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased memory B cell proportion (HP:0030374). HP:0030374 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33929673" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33929673" target="_blank">PMID:33929673</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Most patients exhibited hypogammaglobulinemia and reduced proportions of memory B cells, circulating T follicular helper cells, MAIT cells and terminally differentiated NK cells."</div>
-
-
-                <div class="evidence-explanation">Reports reduced memory B cell proportions in most patients.</div>
 
 
 
@@ -5991,15 +5952,18 @@ This clinical feature is Decreased memory B cell proportion (HP:0030374). HP:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002099</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6019,6 +5983,7 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6061,15 +6026,18 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011123</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0011123</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Inflammatory abnormality of the skin (HP:0011123). HP:0011123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6092,6 +6060,7 @@ This clinical feature is Inflammatory abnormality of the skin (HP:0011123). HP:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6100,6 +6069,170 @@ This clinical feature is Inflammatory abnormality of the skin (HP:0011123). HP:0
 
 
                 <div class="evidence-explanation">Reported at 15.3% and named by the authors as one of two novel phenotypes of this immunodeficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiectasis" data-dismech-node="Bronchiectasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bronchiectasis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33929673" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33929673" target="_blank">PMID:33929673</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recurrent bacterial infections of the upper and lower respiratory tracts leading to hospitalization were the most common infectious diseases, affecting 11/13 (84.6%) patients and causing bronchiectasis in 6/13 (46.2%) patients."</div>
+
+
+                <div class="evidence-explanation">Reported at 46.2% (6/13) as a consequence of the recurrent respiratory infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Failure to thrive
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23440042" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23440042" target="_blank">PMID:23440042</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She had a history of recurrent pneumonia, chronic diarrhea, and failure to thrive."</div>
+
+
+                <div class="evidence-explanation">Case-level description naming failure to thrive. No frequency is asserted because the quoted sentence describes one patient.</div>
 
 
 
@@ -6189,6 +6322,9 @@ This disease-associated gene is IL21R (hgnc:6006). hgnc:6006 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6203,6 +6339,7 @@ This disease-associated gene is IL21R (hgnc:6006). hgnc:6006 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6230,6 +6367,7 @@ This disease-associated gene is IL21R (hgnc:6006). hgnc:6006 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6251,6 +6389,7 @@ This disease-associated gene is IL21R (hgnc:6006). hgnc:6006 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6336,6 +6475,9 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6346,6 +6488,9 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -6384,6 +6529,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6430,6 +6576,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6451,6 +6598,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6478,6 +6626,7 @@ This treatment is Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6546,6 +6695,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6556,6 +6708,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
     </div>
+
+
+
 
 
 
@@ -6594,6 +6749,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6640,6 +6796,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6661,6 +6818,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6749,6 +6907,9 @@ This treatment uses trimethoprim-sulfamethoxazole (NCIT:C909). NCIT:C909 is a th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6759,6 +6920,9 @@ This treatment uses trimethoprim-sulfamethoxazole (NCIT:C909). NCIT:C909 is a th
 
 
     </div>
+
+
+
 
 
 
@@ -6797,6 +6961,7 @@ This treatment uses trimethoprim-sulfamethoxazole (NCIT:C909). NCIT:C909 is a th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6840,6 +7005,7 @@ This treatment uses trimethoprim-sulfamethoxazole (NCIT:C909). NCIT:C909 is a th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6928,6 +7094,9 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6938,6 +7107,9 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -6966,6 +7138,7 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7006,6 +7179,12 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">A management caution rather than an intervention. The cohort report advises caution with live vaccination, rubella in particular, which matters because live vaccines are otherwise routine in infancy and this diagnosis is often made late.
 </div>
 
@@ -7028,6 +7207,7 @@ This treatment uses clarithromycin (CHEBI:3732). CHEBI:3732 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7109,6 +7289,7 @@ This environmental factor is exposure to Cryptosporidium.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7158,6 +7339,7 @@ This environmental factor is exposure to Cryptosporidium.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7235,6 +7417,7 @@ This environmental factor is exposure to Cryptosporidium.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7303,6 +7486,7 @@ This environmental factor is exposure to Cryptosporidium.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7368,6 +7552,7 @@ This environmental factor is exposure to Cryptosporidium.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7454,6 +7639,7 @@ This environmental factor is exposure to Cryptosporidium.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7475,6 +7661,7 @@ This environmental factor is exposure to Cryptosporidium.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8647,6 +8834,35 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: IL21R Deficiency / immunodeficiency 56 (MONDO:0014082)</strong> · 2026-09-06T16:22:43Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/IL21R_Deficiency/2026-09-06T162243Z-claude-code-56e14f.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of IL-21R deficiency (immunodeficiency 56).
+
+Lump/split: DISEASE. MONDO leaf, one causal gene. IL21R appears in Asthma, Crohn_Disease and Rheumatoid_Arthritis as a susceptibility/pathway gene and in Immunodeficiency_88 only as a downstream TBX21 target; none curates it as a causal Mendelian gene, so this is not a duplicate.
+
+Naming: filed as IL21R_Deficiency rather than the MONDO clinical label, matching the GATA2_Deficiency convention. The MONDO label is carried as disease_term.preferred_term and in synonyms.
+
+Two-factor structure is the point of the entry. Neither the IL21R genotype nor Cryptosporidium exposure produces the defining cholangiopathy alone, so the exposure is modelled as an environmental[] entry with influences_mechanisms (environmental_effect: TRIGGERS) into the &#39;Failure to Clear Cryptosporidium from Biliary Epithelium&#39; node, rather than described in prose.
+
+exposure_term deliberately left unbound with the search recorded in review_notes: ECTO has no term naming Cryptosporidium or a protozoan pathogen, and the nearest term (ECTO:7000119 exposure to contaminated water) asserts a transmission route none of the cited sources establishes in these patients. check-environmental-evidence passes because the entry carries real evidence.
+
+Treatment evidence is deliberately hedged. Post-HSCT survival is 33.3% in six patients against 42.9% in seven non-transplanted. That is not a demonstration of benefit. The cohort authors attribute it to pre-existing organ damage, which is plausible, but with those numbers and no stage matching the comparison cannot separate procedure from timing. A discussion entry states this plainly rather than the entry asserting efficacy.
+
+Deep research: one openscientist report. preflight-dr WARN, resolved manually: the &#39;rival gene STAT3&#39; flag is a false positive (STAT3 is the downstream signalling molecule this entry cites as such, not a second disease entity), OMIM 615207 matches MONDO both ways, and IL21R is mentioned 23 times as the causal gene. 13/13 references resolved.
+
+Schema notes: ProgressionInfo has no &#39;description&#39; slot (use age_range/notes), and TreatmentMechanismTarget.treatment_effect has no CORRECTS value (RESTORES is the correct one). Both were caught by schema validation.
+
+Validation: just validate passes schema plus 38/38 snippets verified; validate-terms, check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-environmental-evidence all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

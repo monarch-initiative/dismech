@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4114,6 +4182,7 @@ Two cohort studies since 2018 have also settled things that would otherwise be l
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4135,6 +4204,7 @@ Two cohort studies since 2018 have also settled things that would otherwise be l
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4329,6 +4399,7 @@ This matters for counselling more than for mechanism. A family given a molecular
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4350,6 +4421,7 @@ This matters for counselling more than for mechanism. A family given a molecular
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4518,6 +4590,7 @@ The clinical reason this matters: if LOXHD1 maintains an activatable state rathe
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4542,6 +4615,7 @@ The clinical reason this matters: if LOXHD1 maintains an activatable state rathe
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4563,6 +4637,7 @@ The clinical reason this matters: if LOXHD1 maintains an activatable state rathe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4600,6 +4675,7 @@ The clinical reason this matters: if LOXHD1 maintains an activatable state rathe
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loxhd1-loss-of-function-in-stereocilia" data-dismech-node="LOXHD1 Loss of Function in Stereocilia" data-dismech-type="pathophysiology">
                 <div class="item-name">LOXHD1 Loss of Function in Stereocilia</div>
+
 
                 <div class="item-desc">Biallelic LOXHD1 variants remove or disable a protein consisting entirely of PLAT (polycystin/lipoxygenase/alpha-toxin) repeats - fifteen of them - which in other proteins bind lipids and proteins. LOXHD1 is distributed along the length of the stereocilia rather than concentrated at the tip-link ends, and it is evolutionarily conserved.
 Its arrival in the hair bundle is late. Both published mouse models carry mutations in the tenth PLAT repeat, and the functional consequence appears only as postnatal LOXHD1 expression and localisation in the bundle reach their normal level - which is what makes this a maintenance protein rather than a developmental one.</div>
@@ -4695,6 +4771,8 @@ This pathophysiological event involves LOXHD1 (hgnc:26521). hgnc:26521 is a gene
 
 
 
+
+
         <span class="tag tag-classification">allele_type: VARIANT</span>
 
 
@@ -4710,6 +4788,9 @@ This pathophysiological event involves LOXHD1 (hgnc:26521). hgnc:26521 is a gene
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4776,6 +4857,7 @@ This pathophysiological event involves hair-cell stereocilium membrane, annotate
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4802,6 +4884,7 @@ This pathophysiological event involves hair-cell stereocilium membrane, annotate
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4824,6 +4907,7 @@ This pathophysiological event involves hair-cell stereocilium membrane, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hair-cell-mechanotransduction-failure-with-intact-bundle-architecture" data-dismech-node="Hair-Cell Mechanotransduction Failure with Intact Bundle Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Hair-Cell Mechanotransduction Failure with Intact Bundle Architecture</div>
+
 
                 <div class="item-desc">The central mechanistic finding, and it is defined as much by what is normal as by what is not. Mutant inner hair cells have mechanotransduction currents at wild-type levels through the first postnatal week and severely reduced currents by postnatal day 11. Over the same interval the hair bundle stays morphologically normal, tip-link number is not reduced, and Harmonin and LHFPL5 - proteins of the upper and lower tip-link complexes - remain correctly localised.
 The authors&#39; reading is that the transduction machinery is present but not activatable. That is a specific claim and it excludes the two obvious alternatives, which is why this entry states the exclusions rather than only the positive finding: this is not a bundle malformation and it is not a tip-link deficiency.</div>
@@ -4991,6 +5075,7 @@ This pathophysiological event involves stereocilium bundle (GO:0032421). GO:0032
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5015,6 +5100,7 @@ This pathophysiological event involves stereocilium bundle (GO:0032421). GO:0032
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5043,6 +5129,7 @@ This pathophysiological event involves stereocilium bundle (GO:0032421). GO:0032
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5065,6 +5152,7 @@ This pathophysiological event involves stereocilium bundle (GO:0032421). GO:0032
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-hair-cell-degeneration" data-dismech-node="Progressive Hair-Cell Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Hair-Cell Degeneration</div>
+
 
                 <div class="item-desc">Hair cells that develop normally and then fail to transduce do not survive. In samba mice, stereociliary development is unaffected, hair-cell function is perturbed, and hair cells eventually degenerate. The ordering matters clinically: it is what makes the human hearing loss progressive rather than congenital and stable, and it is what defines the therapeutic window, if one ever exists, as the interval before degeneration.</div>
 
@@ -5172,6 +5260,7 @@ This pathophysiological event involves auditory hair cell (CL:0000202). CL:00002
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5194,6 +5283,7 @@ This pathophysiological event involves auditory hair cell (CL:0000202). CL:00002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vestibular-hair-cell-sparing" data-dismech-node="Vestibular Hair-Cell Sparing" data-dismech-type="pathophysiology">
                 <div class="item-name">Vestibular Hair-Cell Sparing</div>
+
 
                 <div class="item-desc">Vestibular hair cells are spared, and there is a mechanistic reason rather than a coincidence. LOXHD1 is expressed in the hair cells of the vestibule as well as the cochlea, so the null expectation is vestibular involvement - but vestibular hair cells express only reduced amounts of LOXHD1 and are not affected by the mutation in samba mice. The dose difference is what makes the disease non-syndromic.
 The clinical correlate is replicated across every series that looked: normal and symmetrical vestibular evoked myogenic potentials in a reported proband, no vestibular involvement in a nine-family Dutch series, and no accompanying symptoms including vestibular dysfunction in a screen of 8,074 Japanese hearing-loss patients.
@@ -5271,6 +5361,7 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5292,6 +5383,7 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5319,6 +5411,7 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5343,6 +5436,7 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-sensorineural-hearing-loss" data-dismech-node="Progressive Sensorineural Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Sensorineural Hearing Loss</div>
+
 
                 <div class="item-desc">The clinical endpoint. Hearing loss that is progressive rather than static, which the founding report places in a class of three genes - LOXHD1, MYO3A and PJVK - all of which are required for hair-cell function rather than for hair-cell development, and for which it proposes age-dependent hair-cell failure as the shared mechanism.</div>
 
@@ -5391,6 +5485,7 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5456,20 +5551,36 @@ This pathophysiological event involves vestibular hair cell (CL:0000609). CL:000
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-sensorineural-hearing-impairment" data-dismech-node="Progressive Sensorineural Hearing Impairment" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Progressive Sensorineural Hearing Impairment
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(2)</span></button>
 
-                    <span class="phenotype-freq">VERY_FREQUENT</span>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
 
 
-                    <span class="phenotype-category">Auditory</span>
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Ear
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-sensorineural-hearing-impairment" data-dismech-node="Progressive Sensorineural Hearing Impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive Sensorineural Hearing Impairment
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
 
 
 
 
                     <span class="phenotype-id">
+
 
 
 
@@ -5481,9 +5592,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Progressive sensorineural hearing impairment (HP:0000408), qualified as course progressive. HP:0000408 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
-                <div class="item-meta">
+                    <div class="item-meta">
 
 
 
@@ -5499,7 +5610,10 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5519,6 +5633,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5543,21 +5658,23 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-prelingual-onset-hearing-loss" data-dismech-node="Prelingual Onset Hearing Loss" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Prelingual Onset Hearing Loss
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prelingual-onset-hearing-loss" data-dismech-node="Prelingual Onset Hearing Loss" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Prelingual Onset Hearing Loss
 
-                    <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-category">Auditory</span>
 
 
 
 
                     <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Prelingual sensorineural hearing impairment</span>
+
 
 
 
@@ -5569,9 +5686,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399), qualified as congenital onset. HP:0000399 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
-                <div class="item-meta">
+                    <div class="item-meta">
 
 
 
@@ -5598,7 +5715,10 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5618,6 +5738,7 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5645,6 +5766,7 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5669,6 +5791,7 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5690,21 +5813,32 @@ This clinical feature is Prelingual sensorineural hearing impairment (HP:0000399
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-auditory-neuropathy-spectrum-disorder-presentation" data-dismech-node="Auditory Neuropathy Spectrum Disorder Presentation" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Auditory Neuropathy Spectrum Disorder Presentation
+            </details>
 
-                    <span class="phenotype-freq">VERY_RARE</span>
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-auditory-neuropathy-spectrum-disorder-presentation" data-dismech-node="Auditory Neuropathy Spectrum Disorder Presentation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Auditory Neuropathy Spectrum Disorder Presentation
+
+                        <span class="phenotype-freq">VERY_RARE</span>
 
 
-                    <span class="phenotype-category">Auditory</span>
 
 
 
 
                     <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal auditory evoked potentials</span>
+
 
 
 
@@ -5716,7 +5850,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Auditory Neuropathy Pattern, annotated with Abnormal auditory evoked potentials (HP:0006958). HP:0006958 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -5736,6 +5873,7 @@ This clinical feature is Auditory Neuropathy Pattern, annotated with Abnormal au
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5763,6 +5901,7 @@ This clinical feature is Auditory Neuropathy Pattern, annotated with Abnormal au
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5784,8 +5923,34 @@ This clinical feature is Auditory Neuropathy Pattern, annotated with Abnormal au
 
 
 
-            </div>
+                </div>
 
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -5832,6 +5997,9 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5846,6 +6014,7 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5870,6 +6039,7 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5904,6 +6074,12 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Recurrent splice-donor variant found in 18 of 28 LOXHD1-positive individuals in a Japanese hearing-loss cohort and reported only in Japanese patients. Haplotype analysis indicates a mutational hot spot arising in multiple ancestors rather than a single founder event.</div>
 
 
@@ -5928,6 +6104,7 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5962,6 +6139,12 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Novel compound heterozygous LOXHD1 alleles reported in a Pakistani family with prelingual autosomal recessive nonsyndromic hearing loss. Both are missense changes at conserved residues.</div>
 
 
@@ -5986,6 +6169,7 @@ This disease-associated gene is LOXHD1 (hgnc:26521). hgnc:26521 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6077,6 +6261,9 @@ This treatment is hearing aid amplification, annotated with Rehabilitation (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6087,6 +6274,9 @@ This treatment is hearing aid amplification, annotated with Rehabilitation (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -6136,6 +6326,7 @@ That divergence is the practical content of this entry&#39;s progression section
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6157,6 +6348,7 @@ That divergence is the practical content of this entry&#39;s progression section
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6224,6 +6416,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6234,6 +6429,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -6284,6 +6482,7 @@ One caveat on that reasoning, which the outcomes so far do not resolve: the samb
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6310,6 +6509,7 @@ One caveat on that reasoning, which the outcomes so far do not resolve: the samb
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6334,6 +6534,7 @@ One caveat on that reasoning, which the outcomes so far do not resolve: the samb
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6399,6 +6600,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6409,6 +6613,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6436,6 +6643,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6511,6 +6719,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6532,6 +6741,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6586,6 +6796,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6656,6 +6867,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6703,6 +6915,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6774,6 +6987,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6827,6 +7041,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6848,6 +7063,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7012,6 +7228,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7051,6 +7268,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7188,6 +7406,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7244,6 +7463,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7306,6 +7526,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7345,6 +7566,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8492,6 +8714,30 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Identifiers. OMIM #613079 (DFNB77) and OMIM 613072 (LOXHD1). These are recorded in prose because the schema&#39;s `mappings` block carries `mondo_mappings` only and there is no slot for an OMIM identifier - the same reason `kb/disorders/Perrault_Syndrome.yaml` lists its subtypes&#39; OMIM numbers in a description string.
+Evidence base. The founding report (PMID:19732867) pairs an ENU mouse mutant with a human deafness family and is the source of the gene-disease relationship. The mechanism is carried by a later study of two Loxhd1 mouse models (PMID:33707295) which is unusually informative because of what it rules out - bundle morphology, tip-link number, and tip-link complex protein localisation were all checked and all normal. Two cohort papers (PMID:34753855, PMID:36472766) supply the frequency and allelic-spectrum context, and one case series (PMID:35875410) supplies the auditory-neuropathy presentation.
+What the mouse can and cannot carry here. The mechanotransduction work is entirely murine, and the entry marks it INDIRECT wherever it supports a claim about the human disease. What makes it more than a model result is that the human gene was found *because* of the mouse: the same report that describes samba screened human deafness families on the strength of it and found DFNB77. The mouse is not a post-hoc model of a human disease; it is how the human disease was identified.
+Not curated here, deliberately. LOXHD1 also carries an association with Fuchs endothelial corneal dystrophy. That is a separate allelic phenotype in a different tissue, and no source cited here bears on it, so it is mentioned in the gene notes and nowhere else - it is not part of the DFNB77 phenotype and should not be inherited into this entry by association.
+No frequency is given for individual phenotypes as a percentage of DFNB77 patients, because no cohort of DFNB77 patients has been assembled. The frequencies below describe how often LOXHD1 accounts for a solved case in unselected hearing-loss cohorts, which is a different quantity and is labelled as such.
+Deep research: an OpenScientist report was generated for this disease and is committed alongside the entry. It was used as a lead source only - every snippet below is anchored to a PMID fetched into `references_cache/` and read directly. It earned its place: the two cohort papers that carry the vestibular-sparing finding, the absent genotype-phenotype correlation, the Japanese recurrent allele and the Fuchs corneal dystrophy carrier screen (PMID:31547530, PMID:29676012) all reached this entry as leads from that report and were then read directly.
+Its own record: 20 of 23 ontology terms resolved, with `HP:0008550` unresolved - a confabulated identifier, not used here. `just preflight-dr` returned WARN rather than PASS, flagging &#34;rival gene PLAT is mentioned 20 times&#34;. That is a false positive of the kind described in issue #9847: PLAT here is the polycystin/lipoxygenase/alpha-toxin *domain* that LOXHD1 is built from, not the plasminogen activator gene, and the same output line lists MET, which is mechanotransduction. The report is on topic.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autosomal Recessive Nonsyndromic Hearing Loss 77 (DFNB77, LOXHD1)</strong> · 2026-08-30T21:41:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_77/2026-08-30T214125Z-claude-code-2b8909.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of DFNB77 (MONDO:0013119, LOXHD1) from an OpenScientist deep-research report plus primary literature. Modelled the chain: LOXHD1 loss of function in stereocilia, hair-cell mechanotransduction failure with intact bundle architecture, progressive hair-cell degeneration, progressive sensorineural hearing loss. The mechanism node is defined as much by exclusions as by the positive result: bundle morphology, tip-link number and tip-link complex protein localisation were all measured and normal, which is what supports the authors&#39; reading that the machinery is present but not activatable. Curated two negative findings from cohort studies, vestibular sparing and the absent genotype-phenotype correlation, and recorded in the entry that the schema has no EXCLUDED frequency value to express the first properly (issue #10190). Two mouse models with explicit relationship types, including the samba line by which the human gene was found. Two discussions filed. preflight-dr returned WARN on a false-positive rival-gene call, PLAT being the protein domain rather than the gene; the report is on topic. Validated with just validate, just validate-terms, just validate-disorders, just check-entity-refs, just check-duplicate-keys, just check-snippet-grading and just check-folded-hyphens.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

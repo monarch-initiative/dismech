@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4128,6 +4196,7 @@ There is no disease-modifying therapy. Joint arthroplasty for end-stage large jo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4149,6 +4218,7 @@ There is no disease-modifying therapy. Joint arthroplasty for end-stage large jo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4230,6 +4300,7 @@ There is no disease-modifying therapy. Joint arthroplasty for end-stage large jo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4326,6 +4397,7 @@ There is no disease-modifying therapy. Joint arthroplasty for end-stage large jo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4398,6 +4470,7 @@ There is no disease-modifying therapy. Joint arthroplasty for end-stage large jo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4432,6 +4505,7 @@ There is no disease-modifying therapy. Joint arthroplasty for end-stage large jo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ccn6-loss-of-function" data-dismech-node="Biallelic CCN6 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CCN6 Loss of Function</div>
+
 
 
 
@@ -4483,6 +4557,8 @@ This genetic context concerns CCN6 (hgnc:12771). hgnc:12771 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4493,6 +4569,9 @@ This genetic context concerns CCN6 (hgnc:12771). hgnc:12771 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic nonsense, frameshift, splice-site and missense variants abolish CCN6 function. Disease-causing amino-acid substitutions reduce the protein&#39;s signalling-inhibitory activity in a zebrafish assay.</div>
 
@@ -4542,6 +4621,7 @@ This genetic context concerns CCN6 (hgnc:12771). hgnc:12771 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4564,6 +4644,7 @@ This genetic context concerns CCN6 (hgnc:12771). hgnc:12771 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ccn6-modulation-of-bmp-and-wnt-signaling" data-dismech-node="Loss of CCN6 Modulation of BMP and Wnt Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of CCN6 Modulation of BMP and Wnt Signaling</div>
+
 
                 <div class="item-desc">CCN6 is a secreted matricellular protein that binds BMP ligand and the Wnt co-receptors LRP6 and Frizzled. Loss of that binding removes a brake on both pathways in developing and mature cartilage.</div>
 
@@ -4689,6 +4770,7 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4711,6 +4793,7 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-articular-chondrocyte-matrix-homeostasis" data-dismech-node="Failure of Articular Chondrocyte Matrix Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Articular Chondrocyte Matrix Homeostasis</div>
+
 
                 <div class="item-desc">WISP-3 acts on chondrocytes as an autocrine and paracrine ligand, upregulating type II collagen and aggrecan and promoting superoxide dismutase activity, so its loss removes both a matrix-synthetic and an antioxidant input. A separate proposal is that mutant WISP3 loses its ability to restrain IGF-1, increasing chondrocyte IGF-1 sensitivity and shifting cells toward hypertrophic differentiation. These are complementary hypotheses rather than an established sequence.</div>
 
@@ -4798,6 +4881,7 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4820,6 +4904,7 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-noninflammatory-articular-cartilage-loss" data-dismech-node="Progressive Noninflammatory Articular Cartilage Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Noninflammatory Articular Cartilage Loss</div>
+
 
                 <div class="item-desc">Articular cartilage is lost progressively across multiple joints with no inflammatory component. The absence of inflammation is not incidental — it is what makes anti-inflammatory and immunosuppressive treatment futile, and it is the feature that should separate PPRD from juvenile idiopathic arthritis at the bedside.</div>
 
@@ -4873,6 +4958,7 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4894,6 +4980,7 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4919,6 +5006,7 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-joint-contracture-deformity-and-loss-of-ambulation" data-dismech-node="Joint Contracture, Deformity and Loss of Ambulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Joint Contracture, Deformity and Loss of Ambulation</div>
+
 
                 <div class="item-desc">The functional endpoint. Waddling gait occurred in 97.7% of the Turkish cohort and 47.7% lost independent walking at a median age of twelve.</div>
 
@@ -4954,6 +5042,7 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5002,7 +5091,7 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic CCN6 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic nonsense, frameshift, splice-site and missense variants abolish CCN6 function. Disease-causing amino-acid substitutions reduce the protein\u0027s signalling-inhibitory activity in a zebrafish assay.\", \"gene_terms\": [{\"label\": \"CCN6\", \"id\": \"hgnc:12771\"}]}}}, {\"id\": \"CCN6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"CCN6\"], \"gene_terms\": [{\"label\": \"CCN6\", \"id\": \"hgnc:12771\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"CCN6 c.1010G\u003eA (p.Cys337Tyr)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The commonest Indian allele, homozygous in 10 unrelated families of 25.\"}, {\"id\": \"CCN6 c.156C\u003eA (p.Cys52*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele found in 53.3% of Turkish families.\"}, {\"id\": \"CCN6 c.624dupA (p.C209Mfs*21)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Chinese hotspot allele associated with later onset, more extensive joint involvement and elbow involvement.\"}, {\"id\": \"Failure of Articular Chondrocyte Matrix Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WISP-3 acts on chondrocytes as an autocrine and paracrine ligand, upregulating type II collagen and aggrecan and promoting superoxide dismutase activity, so its loss removes both a matrix-synthetic and an antioxidant input. A separate proposal is that mutant WISP3 loses its ability to restrain IGF-1, increasing chondrocyte IGF-1 sensitivity and shifting cells toward hypertrophic differentiation. These are complementary hypotheses rather than an established sequence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"articular chondrocyte\"]}}, {\"id\": \"Immunosuppressants and DMARDs\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Modelled explicitly as an ineffective therapy rather than left as prose, because prescribing it is the characteristic clinical error in this disease and the entry should be queryable for that. There is no inflammatory process for these drugs to suppress; the misdiagnosis as juvenile idiopathic arthritis is what leads to years of them. Modality is OTHER rather than SMALL_MOLECULE because the class as prescribed here spans conventional synthetic DMARDs, corticosteroids and biologic agents, so no single platform describes it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Joint Contracture, Deformity and Loss of Ambulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional endpoint. Waddling gait occurred in 97.7% of the Turkish cohort and 47.7% lost independent walking at a median age of twelve.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of CCN6 Modulation of BMP and Wnt Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCN6 is a secreted matricellular protein that binds BMP ligand and the Wnt co-receptors LRP6 and Frizzled. Loss of that binding removes a brake on both pathways in developing and mature cartilage.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\", \"Wnt signaling pathway\"]}}, {\"id\": \"Progressive Noninflammatory Articular Cartilage Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Articular cartilage is lost progressively across multiple joints with no inflammatory component. The absence of inflammation is not incidental \\u2014 it is what makes anti-inflammatory and immunosuppressive treatment futile, and it is the feature that should separate PPRD from juvenile idiopathic arthritis at the bedside.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Total Hip Arthroplasty\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one intervention in PPRD with substantial outcome data. In four genetically confirmed patients undergoing one-stage bilateral total hip arthroplasty, Harris Hip Score rose from 39.67 to 91.67 and SF-36 from 19.67 to 71.33 over a mean 47.9 months, with no aseptic loosening. Named for the hip rather than for joint replacement generally: GeneReviews recommends arthroplasty for severe joint pain from advanced osteoarthritis without naming a joint, but every outcome figure quoted here is from hip series, so the broader name would claim a scope the evidence does not cover.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Biallelic CCN6 Loss of Function\", \"target\": \"Loss of CCN6 Modulation of BMP and Wnt Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CCN6 normally inhibits BMP and Wnt signalling by binding BMP ligand and the Wnt co-receptors LRP6 and Frizzled; disease alleles reduce that inhibition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of CCN6 Modulation of BMP and Wnt Signaling\", \"target\": \"Failure of Articular Chondrocyte Matrix Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deregulated BMP/Wnt signalling in cartilage is proposed to disturb chondrocyte matrix maintenance, but the intermediate steps between the signalling change and cartilage loss are not established in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Articular Chondrocyte Matrix Homeostasis\", \"target\": \"Progressive Noninflammatory Articular Cartilage Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of chondrocyte matrix maintenance produces progressive narrowing of all articular spaces as cartilage is lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Noninflammatory Articular Cartilage Loss\", \"target\": \"Joint Contracture, Deformity and Loss of Ambulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage loss across large joints and the spine causes contractures, gait disturbance and spinal deformity, culminating for many patients in loss of independent walking.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Total Hip Arthroplasty\", \"target\": \"Joint Contracture, Deformity and Loss of Ambulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunosuppressants and DMARDs\", \"target\": \"Progressive Noninflammatory Articular Cartilage Loss\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CCN6 c.1010G\u003eA (p.Cys337Tyr)\", \"target\": \"CCN6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CCN6 c.156C\u003eA (p.Cys52*)\", \"target\": \"CCN6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CCN6 c.624dupA (p.C209Mfs*21)\", \"target\": \"CCN6\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic CCN6 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic nonsense, frameshift, splice-site and missense variants abolish CCN6 function. Disease-causing amino-acid substitutions reduce the protein\u0027s signalling-inhibitory activity in a zebrafish assay.\", \"gene_terms\": [{\"label\": \"CCN6\", \"id\": \"hgnc:12771\"}]}}}, {\"id\": \"CCN6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"CCN6\"], \"gene_terms\": [{\"label\": \"CCN6\", \"id\": \"hgnc:12771\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"CCN6 c.1010G\u003eA (p.Cys337Tyr)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The commonest Indian allele, homozygous in 10 unrelated families of 25.\"}, {\"id\": \"CCN6 c.156C\u003eA (p.Cys52*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele found in 53.3% of Turkish families.\"}, {\"id\": \"CCN6 c.624dupA (p.C209Mfs*21)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Chinese hotspot allele associated with later onset, more extensive joint involvement and elbow involvement.\"}, {\"id\": \"Failure of Articular Chondrocyte Matrix Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WISP-3 acts on chondrocytes as an autocrine and paracrine ligand, upregulating type II collagen and aggrecan and promoting superoxide dismutase activity, so its loss removes both a matrix-synthetic and an antioxidant input. A separate proposal is that mutant WISP3 loses its ability to restrain IGF-1, increasing chondrocyte IGF-1 sensitivity and shifting cells toward hypertrophic differentiation. These are complementary hypotheses rather than an established sequence.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"articular chondrocyte\"]}}, {\"id\": \"Immunosuppressants and DMARDs\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Modelled explicitly as an ineffective therapy rather than left as prose, because prescribing it is the characteristic clinical error in this disease and the entry should be queryable for that. There is no inflammatory process for these drugs to suppress; the misdiagnosis as juvenile idiopathic arthritis is what leads to years of them. Modality is OTHER rather than SMALL_MOLECULE because the class as prescribed here spans conventional synthetic DMARDs, corticosteroids and biologic agents, so no single platform describes it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Joint Contracture, Deformity and Loss of Ambulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional endpoint. Waddling gait occurred in 97.7% of the Turkish cohort and 47.7% lost independent walking at a median age of twelve.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of CCN6 Modulation of BMP and Wnt Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCN6 is a secreted matricellular protein that binds BMP ligand and the Wnt co-receptors LRP6 and Frizzled. Loss of that binding removes a brake on both pathways in developing and mature cartilage.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\", \"Wnt signaling pathway\"]}}, {\"id\": \"Progressive Noninflammatory Articular Cartilage Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Articular cartilage is lost progressively across multiple joints with no inflammatory component. The absence of inflammation is not incidental \\u2014 it is what makes anti-inflammatory and immunosuppressive treatment futile, and it is the feature that should separate PPRD from juvenile idiopathic arthritis at the bedside.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Total Hip Arthroplasty\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one intervention in PPRD with substantial outcome data. In four genetically confirmed patients undergoing one-stage bilateral total hip arthroplasty, Harris Hip Score rose from 39.67 to 91.67 and SF-36 from 19.67 to 71.33 over a mean 47.9 months, with no aseptic loosening. Named for the hip rather than for joint replacement generally: GeneReviews recommends arthroplasty for severe joint pain from advanced osteoarthritis without naming a joint, but every outcome figure quoted here is from hip series, so the broader name would claim a scope the evidence does not cover.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Biallelic CCN6 Loss of Function\", \"target\": \"Loss of CCN6 Modulation of BMP and Wnt Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CCN6 normally inhibits BMP and Wnt signalling by binding BMP ligand and the Wnt co-receptors LRP6 and Frizzled; disease alleles reduce that inhibition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of CCN6 Modulation of BMP and Wnt Signaling\", \"target\": \"Failure of Articular Chondrocyte Matrix Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deregulated BMP/Wnt signalling in cartilage is proposed to disturb chondrocyte matrix maintenance, but the intermediate steps between the signalling change and cartilage loss are not established in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Articular Chondrocyte Matrix Homeostasis\", \"target\": \"Progressive Noninflammatory Articular Cartilage Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of chondrocyte matrix maintenance produces progressive narrowing of all articular spaces as cartilage is lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Noninflammatory Articular Cartilage Loss\", \"target\": \"Joint Contracture, Deformity and Loss of Ambulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage loss across large joints and the spine causes contractures, gait disturbance and spinal deformity, culminating for many patients in loss of independent walking.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Total Hip Arthroplasty\", \"target\": \"Joint Contracture, Deformity and Loss of Ambulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunosuppressants and DMARDs\", \"target\": \"Progressive Noninflammatory Articular Cartilage Loss\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CCN6\", \"target\": \"Biallelic CCN6 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCN6 c.1010G\u003eA (p.Cys337Tyr)\", \"target\": \"CCN6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CCN6 c.156C\u003eA (p.Cys52*)\", \"target\": \"CCN6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CCN6 c.624dupA (p.C209Mfs*21)\", \"target\": \"CCN6\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5021,15 +5110,13 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5039,8 +5126,105 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-interphalangeal-joints" data-dismech-node="Prominent interphalangeal joints" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Prominent interphalangeal joints
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006237" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0006237</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent interphalangeal joints (HP:0006237). HP:0006237 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34919662" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34919662" target="_blank">PMID:34919662</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The initial symptom in the early-onset group was genu varum deformity, while it was widening of IP joints in the classical group."</div>
+
+
+                <div class="evidence-explanation">Identifies interphalangeal widening as the presenting sign of classical disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22791401" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22791401" target="_blank">PMID:22791401</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bony enlargement at the interphalangeal joints progresses leading to camptodactyly."</div>
+
+
+                <div class="evidence-explanation">States that the enlargement is bony, which is the discriminating feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-genu-varum" data-dismech-node="Genu varum" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5056,15 +5240,18 @@ This pathophysiological event involves articular chondrocyte (CL:1001607). CL:10
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002970" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0002970</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002970" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002970</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Genu varum (HP:0002970). HP:0002970 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5087,6 +5274,7 @@ This clinical feature is Genu varum (HP:0002970). HP:0002970 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5095,6 +5283,80 @@ This clinical feature is Genu varum (HP:0002970). HP:0002970 is a phenotype from
 
 
                 <div class="evidence-explanation">Identifies genu varum as the early-onset presenting sign.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-contractures-of-the-small-joints-of-the-hands" data-dismech-node="Contractures of the small joints of the hands" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Contractures of the small joints of the hands
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Finger joint contracture</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034681" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0034681</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Finger joint contracture (HP:0034681). HP:0034681 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22987568" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22987568" target="_blank">PMID:22987568</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Swelling of small joints of hands and contractures are the most common presenting features."</div>
+
+
+                <div class="evidence-explanation">Identifies small-joint swelling and contracture as the commonest presentation in a 35-patient series.</div>
 
 
 
@@ -5135,10 +5397,10 @@ This clinical feature is Genu varum (HP:0002970). HP:0002970 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001387</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint stiffness (HP:0001387), qualified as course progressive. HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5167,6 +5429,9 @@ This clinical feature is Joint stiffness (HP:0001387), qualified as course progr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5181,6 +5446,7 @@ This clinical feature is Joint stiffness (HP:0001387), qualified as course progr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5221,15 +5487,18 @@ This clinical feature is Joint stiffness (HP:0001387), qualified as course progr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000926</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000926</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5249,6 +5518,7 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5289,15 +5559,18 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002758</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002758</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5317,6 +5590,7 @@ This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5357,15 +5631,18 @@ This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000939</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000939</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5385,6 +5662,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5425,15 +5703,18 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0012385</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012385</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5453,6 +5734,7 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5493,15 +5775,18 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002808</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5521,6 +5806,7 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5561,15 +5847,18 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5589,6 +5878,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5629,15 +5919,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0034392</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0034392</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5657,6 +5950,7 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5708,15 +6002,18 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002515</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002515</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5736,6 +6033,7 @@ This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5785,15 +6083,18 @@ This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5816,6 +6117,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5824,177 +6126,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Establishes the phenotype and its late emergence.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-interphalangeal-joints" data-dismech-node="Prominent interphalangeal joints" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prominent interphalangeal joints
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006237" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0006237</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Prominent interphalangeal joints (HP:0006237). HP:0006237 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34919662" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34919662" target="_blank">PMID:34919662</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The initial symptom in the early-onset group was genu varum deformity, while it was widening of IP joints in the classical group."</div>
-
-
-                <div class="evidence-explanation">Identifies interphalangeal widening as the presenting sign of classical disease.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22791401" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22791401" target="_blank">PMID:22791401</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Bony enlargement at the interphalangeal joints progresses leading to camptodactyly."</div>
-
-
-                <div class="evidence-explanation">States that the enlargement is bony, which is the discriminating feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-contractures-of-the-small-joints-of-the-hands" data-dismech-node="Contractures of the small joints of the hands" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Contractures of the small joints of the hands
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Finger joint contracture</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034681" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0034681</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Finger joint contracture (HP:0034681). HP:0034681 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22987568" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22987568" target="_blank">PMID:22987568</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Swelling of small joints of hands and contractures are the most common presenting features."</div>
-
-
-                <div class="evidence-explanation">Identifies small-joint swelling and contracture as the commonest presentation in a 35-patient series.</div>
 
 
 
@@ -6082,6 +6213,9 @@ This disease-associated gene is CCN6 (hgnc:12771). hgnc:12771 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6096,6 +6230,7 @@ This disease-associated gene is CCN6 (hgnc:12771). hgnc:12771 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6123,6 +6258,7 @@ This disease-associated gene is CCN6 (hgnc:12771). hgnc:12771 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6144,6 +6280,7 @@ This disease-associated gene is CCN6 (hgnc:12771). hgnc:12771 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6180,6 +6317,12 @@ This disease-associated gene is CCN6 (hgnc:12771). hgnc:12771 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The commonest Indian allele, homozygous in 10 unrelated families of 25.</div>
 
 
@@ -6204,6 +6347,12 @@ This disease-associated gene is CCN6 (hgnc:12771). hgnc:12771 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Nonsense allele found in 53.3% of Turkish families.</div>
 
 
@@ -6226,6 +6375,12 @@ This disease-associated gene is CCN6 (hgnc:12771). hgnc:12771 is a gene from the
         CCN6 c.624dupA (p.C209Mfs*21)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Chinese hotspot allele associated with later onset, more extensive joint involvement and elbow involvement.</div>
@@ -6309,6 +6464,9 @@ This treatment is total hip arthroplasty, annotated with Arthroplasty (NCIT:C516
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6319,6 +6477,9 @@ This treatment is total hip arthroplasty, annotated with Arthroplasty (NCIT:C516
 
 
     </div>
+
+
+
 
 
 
@@ -6355,6 +6516,7 @@ This treatment is total hip arthroplasty, annotated with Arthroplasty (NCIT:C516
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6401,6 +6563,7 @@ This treatment is total hip arthroplasty, annotated with Arthroplasty (NCIT:C516
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6422,6 +6585,7 @@ This treatment is total hip arthroplasty, annotated with Arthroplasty (NCIT:C516
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6489,6 +6653,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6499,6 +6666,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6529,6 +6699,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6550,6 +6721,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6616,6 +6788,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6626,6 +6801,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6653,6 +6831,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6741,6 +6920,9 @@ This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6751,6 +6933,9 @@ This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -6778,6 +6963,7 @@ This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6844,6 +7030,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6854,6 +7043,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6879,6 +7071,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6945,6 +7138,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6955,6 +7151,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6991,6 +7190,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7034,6 +7234,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7101,6 +7302,9 @@ This treatment is bracing, annotated with Therapeutic Procedure (NCIT:C49236). N
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7111,6 +7315,9 @@ This treatment is bracing, annotated with Therapeutic Procedure (NCIT:C49236). N
 
 
     </div>
+
+
+
 
 
 
@@ -7136,6 +7343,7 @@ This treatment is bracing, annotated with Therapeutic Procedure (NCIT:C49236). N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7203,6 +7411,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7213,6 +7424,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -7238,6 +7452,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7305,6 +7520,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7315,6 +7533,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -7342,6 +7563,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7406,6 +7628,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7508,6 +7731,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7592,6 +7816,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7682,6 +7907,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7706,6 +7932,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7727,6 +7954,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7817,6 +8045,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7884,6 +8113,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7905,6 +8135,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7960,6 +8191,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7981,6 +8213,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8036,6 +8269,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8057,6 +8291,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8110,6 +8345,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8131,6 +8367,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8207,6 +8444,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8265,6 +8503,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8347,6 +8586,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8368,6 +8608,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8423,6 +8664,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9891,6 +10133,48 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Naming hazard, recorded because this repository has already been bitten by it. &#34;Progressive pseudorheumatoid dysplasia&#34; names both this CCN6 recessive disorder and, loosely, the COL2A1 dominant Czech dysplasia. kb/disorders/Czech_Dysplasia.yaml carries a note that a deep-research report generated for that entry cited PMID:27587938, which is about the CCN6 disease. Every citation used here was checked against which of the two diseases the paper actually reports; PMID:27587938 is not cited in this entry, and the cross-reference is curated as a differential_diagnoses entry so the confusion is discoverable from either side.
+Deep research: eight wrong ontology bindings in one report. One OpenScientist report was generated (research/Progressive_Pseudorheumatoid_Arthropathy_Of_Childhood-deep-research-openscientist.md) and contributed most of the cohort literature used here. Its reference validation was clean — 29/29 verified, confabulation rate 0.0 — but its term validation set needs_review: true with 14 label mismatches, of which eight were CURIEs naming entirely different concepts. None was used:
+- MONDO:0009215 suggested as the disease term; it is Fanconi anemia
+  complementation group A. This entry uses MONDO:0008827, the stub&#39;s term,
+  which was independently confirmed by OAK lookup.
+- HP:0000944 for platyspondyly; it is Abnormal metaphysis morphology.
+  HP:0000926 is used here.
+- HP:0100360 for enlarged interphalangeal joints; it is Upper-limb joint
+  contracture. HP:0006237 is used here.
+- HP:0002826 for spinal canal stenosis; it is Halberd-shaped pelvis. No spinal
+  stenosis phenotype is curated.
+- NCIT:C157866 for total hip arthroplasty; it is Gluten Free Diet.
+  NCIT:C51691 is used here.
+- NCIT:C51765 for physical therapy; it is Bilateral Salpingectomy with
+  Oophorectomy. NCIT:C15302 is used here.
+- NCIT:C1898 for calcitriol; it is Physical Carcinogens. CHEBI:17823 is used
+  here as a therapeutic_agent.
+- UBERON:0002217 for articular cartilage and UBERON:0003656 for
+  interphalangeal joint resolve to synovial joint and mesopodium bone
+  respectively. No UBERON terms are bound in this entry.
+
+Every CURIE used in this entry was checked against the committed term cache or looked up directly with OAK, and none was copied from the report.
+Care guidance from GeneReviews that is recorded here rather than as a treatment, because none of it is an intervention with a mechanism target. Deformities of the pelvis may necessitate delivery by caesarean section. Surveillance is orthopaedic: assessment for bone deformity, secondary joint disease, spinal deformity and pain at each visit, with annual evaluation by a skeletal dysplasia specialist.
+Deliberately not curated. No histopathology section: the cited sources describe radiographic joint-space narrowing rather than tissue-level findings. No datasets. No model_organism animal_models entry, because the informative animal result here is the zebrafish morpholino work and the mouse null result, and both are curated as a discussion rather than as a model card — the mouse has no phenotype to link a modeled_mechanisms readout to, and the zebrafish reports pharyngeal cartilage morphology rather than the articular degeneration this disease is about.
+Frequency bands are given only for joint stiffness and waddling gait, where a denominator-backed figure or an &#34;in the absence of inflammation&#34; defining statement supports one.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Progressive Pseudorheumatoid Arthropathy of Childhood</strong> · 2026-08-30T07:02:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Progressive_Pseudorheumatoid_Arthropathy_Of_Childhood/2026-08-30T070206Z-claude-code-22e73d.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of progressive pseudorheumatoid arthropathy of childhood (MONDO:0008827, CCN6/WISP3), using GeneReviews PMID:26610319 as the phenotype baseline plus four national cohorts (Turkey, China, India, Egypt). One OpenScientist deep-research report was generated and read. Its reference validation was clean (29/29 verified) but its term validation set needs_review with 14 label mismatches, of which eight were CURIEs naming entirely different concepts. None was used: MONDO:0009215 as the disease term (it is Fanconi anemia complementation group A, confirmed by OAK lookup), HP:0000944 for platyspondyly (Abnormal metaphysis morphology), HP:0100360 for enlarged interphalangeal joints (Upper-limb joint contracture), HP:0002826 for spinal canal stenosis (Halberd-shaped pelvis), NCIT:C157866 for total hip arthroplasty (Gluten Free Diet), NCIT:C51765 for physical therapy (Bilateral Salpingectomy with Oophorectomy), NCIT:C1898 for calcitriol (Physical Carcinogens), and two UBERON terms. Every CURIE in the entry was instead checked against the committed term cache or looked up directly with OAK. The Czech dysplasia naming hazard already recorded in kb/disorders/Czech_Dysplasia.yaml was cross-referenced as a differential_diagnoses entry rather than re-derived; PMID:27587938, the citation that entry flags as misattributed, is not cited here. Two reference titles were corrected after the validator flagged mismatches against the cached records. Validated with just validate (50/50 snippets verified), check-entity-refs, check-duplicate-keys, check-snippet-length, check-title-snippets, check-snippet-grading and check-folded-hyphens.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

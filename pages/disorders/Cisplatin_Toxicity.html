@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4054,6 +4122,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cisplatin-uptake-by-transporter-expressing-cells" data-dismech-node="Cisplatin Uptake by Transporter-Expressing Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Cisplatin Uptake by Transporter-Expressing Cells</div>
 
+
                 <div class="item-desc">Cisplatin does not enter cells freely. It is carried in, chiefly by the organic cation transporter OCT2 and the copper transporter Ctr1, and the tissues that express those transporters most heavily are the tissues that are injured. This node is the selectivity step of the whole disease - it explains why a drug that crosslinks DNA everywhere produces damage in four particular organs and not uniformly.</div>
 
 
@@ -4114,6 +4183,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4135,6 +4205,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4160,6 +4231,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-platinum-dna-adduct-formation" data-dismech-node="Platinum-DNA Adduct Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Platinum-DNA Adduct Formation</div>
+
 
                 <div class="item-desc">Aquated cisplatin binds DNA and forms crosslinks. This is the therapeutic mechanism and the toxic mechanism, and they are the same mechanism - there is no separate off-target lesion to find. Adducts form in nuclear DNA and in mitochondrial DNA, and the distinction matters because the mitochondrion cannot repair them.</div>
 
@@ -4259,6 +4331,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4280,6 +4353,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4305,6 +4379,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-mitochondrial-injury" data-dismech-node="Oxidative Stress and Mitochondrial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress and Mitochondrial Injury</div>
+
 
                 <div class="item-desc">Reactive oxygen species generation and mitochondrial damage. This arm matters most in the tissues that do not divide, because a post-mitotic cell is not threatened by a stalled replication fork but is threatened by losing its mitochondria.</div>
 
@@ -4404,6 +4479,7 @@ This pathophysiological event involves increased cellular response to oxidative 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4425,6 +4501,7 @@ This pathophysiological event involves increased cellular response to oxidative 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4450,6 +4527,7 @@ This pathophysiological event involves increased cellular response to oxidative 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoptotic-cell-death-in-platinum-loaded-tissue" data-dismech-node="Apoptotic Cell Death in Platinum-Loaded Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Apoptotic Cell Death in Platinum-Loaded Tissue</div>
+
 
                 <div class="item-desc">Programmed death of the cells that took up the most platinum. The same endpoint in four tissues, which is why the four toxicities look mechanistically alike while behaving very differently in the clinic. What differs downstream is whether the dead cell can be replaced.</div>
 
@@ -4565,6 +4643,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4587,6 +4666,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-tubular-epithelial-cell-death" data-dismech-node="Proximal Tubular Epithelial Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal Tubular Epithelial Cell Death</div>
+
 
                 <div class="item-desc">Death of proximal tubule epithelium, the cells that concentrated the drug. Distal segments are affected too, which is where the magnesium wasting comes from.</div>
 
@@ -4674,6 +4754,7 @@ This pathophysiological event involves epithelial cell of proximal tubule (CL:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4696,6 +4777,7 @@ This pathophysiological event involves epithelial cell of proximal tubule (CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cisplatin-induced-acute-kidney-injury" data-dismech-node="Cisplatin-Induced Acute Kidney Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cisplatin-Induced Acute Kidney Injury</div>
+
 
                 <div class="item-desc">Falling glomerular filtration after tubular injury, with magnesium and potassium wasting alongside it. Unlike the cochlear arm this is often reversible, because the epithelium regenerates.</div>
 
@@ -4757,6 +4839,7 @@ This pathophysiological event involves epithelial cell of proximal tubule (CL:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4779,6 +4862,7 @@ This pathophysiological event involves epithelial cell of proximal tubule (CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-hair-cell-death" data-dismech-node="Cochlear Hair Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Hair Cell Death</div>
+
 
                 <div class="item-desc">Death of cochlear hair cells, beginning with the outer hair cells of the basal turn, which is why the loss starts at high frequency. Hair cell death is not the only cochlear lesion - stria vascularis injury and spiral ganglion degeneration are reported alongside it - and this entry does not model it as the sole route.</div>
 
@@ -4866,6 +4950,7 @@ This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4887,6 +4972,7 @@ This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4912,6 +4998,7 @@ This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-irreversible-sensorineural-hearing-loss" data-dismech-node="Irreversible Sensorineural Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Irreversible Sensorineural Hearing Loss</div>
+
 
                 <div class="item-desc">Permanent high-frequency sensorineural hearing loss. It is the toxicity with the worst long-term arithmetic, because it does not recover and because the frequencies lost first carry the consonants. In children under five the cumulative incidence reaches 75 percent at three years and it appears early in treatment.</div>
 
@@ -4973,6 +5060,7 @@ This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4994,6 +5082,7 @@ This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5021,6 +5110,7 @@ This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5045,6 +5135,7 @@ This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dorsal-root-ganglion-sensory-neuron-injury" data-dismech-node="Dorsal Root Ganglion Sensory Neuron Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Dorsal Root Ganglion Sensory Neuron Injury</div>
+
 
                 <div class="item-desc">Platinum accumulates in dorsal root ganglion sensory neurons, which sit outside the blood-nerve barrier and are therefore not protected the way the rest of the peripheral nervous system is. The primary lesion here is at the cell body, not at the far end of the axon, even though the symptoms begin distally.</div>
 
@@ -5132,6 +5223,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5153,6 +5245,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5180,6 +5273,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5202,6 +5296,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dna-damage-in-sensory-neurons" data-dismech-node="Mitochondrial DNA Damage in Sensory Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial DNA Damage in Sensory Neurons</div>
+
 
                 <div class="item-desc">Platinum binds mitochondrial DNA in dorsal root ganglion neurons with the same affinity as nuclear DNA, and blocks its replication and transcription. This is the arm that explains coasting: mitochondria have no nucleotide excision repair, so the adducts are not removed when the drug stops, and the neuron goes on failing.</div>
 
@@ -5255,6 +5350,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5276,6 +5372,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5301,6 +5398,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sensory-peripheral-neuropathy" data-dismech-node="Sensory Peripheral Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Sensory Peripheral Neuropathy</div>
+
 
                 <div class="item-desc">Distal sensory loss, often painful, in about 30 percent of treated patients. Its distinguishing feature is coasting - the neuropathy keeps worsening for weeks to months after the drug is stopped, which is reported only for the platinum drugs.</div>
 
@@ -5354,6 +5452,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5375,6 +5474,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5402,6 +5502,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5424,6 +5525,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytotoxic-insult-to-proliferating-hematopoietic-progenitors" data-dismech-node="Cytotoxic Insult to Proliferating Hematopoietic Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytotoxic Insult to Proliferating Hematopoietic Progenitors</div>
+
 
                 <div class="item-desc">DNA crosslinking in dividing marrow progenitors. This arm needs no transporter story - it is the ordinary antiproliferative toxicity of a DNA-damaging drug.</div>
 
@@ -5511,6 +5613,7 @@ This pathophysiological event involves haematopoietic progenitor cell, annotated
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5533,6 +5636,7 @@ This pathophysiological event involves haematopoietic progenitor cell, annotated
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-hematopoietic-suppression" data-dismech-node="Bone Marrow Hematopoietic Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow Hematopoietic Suppression</div>
+
 
                 <div class="item-desc">Reduced marrow output across lineages, showing in the blood as anaemia, neutropenia and thrombocytopenia.</div>
 
@@ -5602,6 +5706,7 @@ This pathophysiological event involves haematopoietic progenitor cell, annotated
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5624,6 +5729,7 @@ This pathophysiological event involves haematopoietic progenitor cell, annotated
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-emetogenic-response-to-cisplatin" data-dismech-node="Emetogenic Response to Cisplatin" data-dismech-type="pathophysiology">
                 <div class="item-name">Emetogenic Response to Cisplatin</div>
+
 
                 <div class="item-desc">Cisplatin is the archetypal highly emetogenic drug: without antiemetic prophylaxis it makes nearly nine in ten patients vomit. This arm is separated from the four injury arms because it is not a cytotoxic lesion - nothing dies - and because it is the toxicity that modern prophylaxis has most changed.</div>
 
@@ -5682,6 +5788,7 @@ This pathophysiological event involves haematopoietic progenitor cell, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5757,9 +5864,9 @@ This pathophysiological event involves haematopoietic progenitor cell, annotated
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5800,6 +5907,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5814,6 +5924,7 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5868,6 +5979,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5882,6 +5996,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5936,6 +6051,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5950,6 +6068,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6031,6 +6150,9 @@ This clinical feature is Nausea (HP:0002018), qualified as temporality acute. HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6045,6 +6167,7 @@ This clinical feature is Nausea (HP:0002018), qualified as temporality acute. HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6117,6 +6240,9 @@ This clinical feature is Vomiting (HP:0002013), qualified as temporality acute. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6131,6 +6257,7 @@ This clinical feature is Vomiting (HP:0002013), qualified as temporality acute. 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6212,6 +6339,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6226,6 +6356,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6250,6 +6381,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6304,6 +6436,9 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6318,6 +6453,7 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6399,6 +6535,9 @@ This clinical feature is Acute kidney injury (HP:0001919), qualified as temporal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6413,6 +6552,7 @@ This clinical feature is Acute kidney injury (HP:0001919), qualified as temporal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6437,6 +6577,7 @@ This clinical feature is Acute kidney injury (HP:0001919), qualified as temporal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6468,6 +6609,87 @@ This clinical feature is Acute kidney injury (HP:0001919), qualified as temporal
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypomagnesemia" data-dismech-node="Hypomagnesemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypomagnesemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002917</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypomagnesemia (HP:0002917). HP:0002917 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18272962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18272962" target="_blank">PMID:18272962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"side effects in normal tissues and organs, notably nephrotoxicity in the kidneys, limit the use of cisplatin and related platinum-based therapeutics"</div>
+
+
+                <div class="evidence-explanation">Supports the renal toxicity this electrolyte disturbance belongs to. The cited sentence does not name magnesium wasting specifically, and the persistence claim in the description is not asserted by this source.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">1</span>
                 </summary>
@@ -6486,10 +6708,10 @@ This clinical feature is Acute kidney injury (HP:0001919), qualified as temporal
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0009830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course progressive. HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6518,6 +6740,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6532,6 +6757,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6559,6 +6785,7 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6567,83 +6794,6 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as course
 
 
                 <div class="evidence-explanation">Supports the post-treatment worsening named in the description.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypomagnesemia" data-dismech-node="Hypomagnesemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypomagnesemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002917</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypomagnesemia (HP:0002917). HP:0002917 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18272962" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18272962" target="_blank">PMID:18272962</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"side effects in normal tissues and organs, notably nephrotoxicity in the kidneys, limit the use of cisplatin and related platinum-based therapeutics"</div>
-
-
-                <div class="evidence-explanation">Supports the renal toxicity this electrolyte disturbance belongs to. The cited sentence does not name magnesium wasting specifically, and the persistence claim in the description is not asserted by this source.</div>
 
 
 
@@ -6731,6 +6881,9 @@ This disease-associated gene is ACYP2 (hgnc:180). hgnc:180 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6745,6 +6898,7 @@ This disease-associated gene is ACYP2 (hgnc:180). hgnc:180 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6769,6 +6923,7 @@ This disease-associated gene is ACYP2 (hgnc:180). hgnc:180 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6826,6 +6981,9 @@ This disease-associated gene is TPMT (hgnc:12014). hgnc:12014 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6840,6 +6998,7 @@ This disease-associated gene is TPMT (hgnc:12014). hgnc:12014 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6864,6 +7023,7 @@ This disease-associated gene is TPMT (hgnc:12014). hgnc:12014 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6921,6 +7081,9 @@ This disease-associated gene is COMT (hgnc:2228). hgnc:2228 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6935,6 +7098,7 @@ This disease-associated gene is COMT (hgnc:2228). hgnc:2228 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7042,6 +7206,9 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7052,6 +7219,9 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7088,6 +7258,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7131,6 +7302,7 @@ This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7197,6 +7369,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7207,6 +7382,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7234,6 +7412,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7300,6 +7479,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7310,6 +7492,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7346,6 +7531,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7443,6 +7629,9 @@ This treatment uses sodium thiosulfate (NCIT:C1230). NCIT:C1230 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7453,6 +7642,9 @@ This treatment uses sodium thiosulfate (NCIT:C1230). NCIT:C1230 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -7492,6 +7684,7 @@ This treatment uses sodium thiosulfate (NCIT:C1230). NCIT:C1230 is a therapeutic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7513,6 +7706,7 @@ This treatment uses sodium thiosulfate (NCIT:C1230). NCIT:C1230 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7559,6 +7753,7 @@ This treatment uses sodium thiosulfate (NCIT:C1230). NCIT:C1230 is a therapeutic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7583,6 +7778,7 @@ This treatment uses sodium thiosulfate (NCIT:C1230). NCIT:C1230 is a therapeutic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7604,6 +7800,7 @@ This treatment uses sodium thiosulfate (NCIT:C1230). NCIT:C1230 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7670,6 +7867,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7680,6 +7880,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7716,6 +7919,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7762,6 +7966,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7786,6 +7991,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7807,6 +8013,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7898,6 +8105,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7953,6 +8161,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8014,6 +8223,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8069,6 +8279,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8177,6 +8388,7 @@ This clinical trial targets Sensorineural hearing impairment (HP:0000407). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8249,6 +8461,7 @@ This clinical trial targets Sensorineural hearing impairment (HP:0000407). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9713,6 +9926,149 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Cisplatin Toxicity</strong> · 2026-09-02T02:30:12Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cisplatin_Toxicity/2026-09-02T023012Z-claude-code-542784.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for cisplatin toxicity (MONDO:0027664), curated as a four-arm
+treatment-toxicity entry. One lesion - platinum-DNA crosslinking - reaching four
+organs, where what decides the target is transporter-mediated uptake and what
+decides the prognosis is whether the dead cell can be replaced.
+
+Pathograph: 13 nodes, fully connected apart from the uptake trigger. Shared
+upstream chain (transporter uptake, adduct formation, oxidative and mitochondrial
+injury, apoptosis) branching into renal, cochlear, neural and marrow arms.
+Eleven conforms_to declarations across four modules: drug_induced_nephrotoxicity
+(4 nodes), sensorineural_hair_cell_loss (2), peripheral_axonal_degeneration (3),
+myelosuppression (2).
+
+Two conformances deliberately withheld, with the reasons recorded in notes:
+
+- NOT peripheral_axonal_degeneration#Distal Axonal Degeneration and Demyelination.
+  Cisplatin neuropathy is a sensory neuronopathy - platinum accumulates in and
+  kills the dorsal root ganglion cell body. Symptoms beginning distally is a
+  different claim from the lesion being distal, and no cited source reports
+  demyelination.
+- On the module&#39;s Axonal Transport Impairment and Mitochondrial Dysfunction node,
+  only the mitochondrial half is conformed. The axonal-transport mechanism in
+  chemotherapy-induced neuropathy is established for the microtubule-targeting
+  agents (taxanes, vinca alkaloids); PMID:38660386 states it in those terms, and
+  cisplatin is not a microtubule poison. The mechanism was not transferred.
+
+Similarly, the sensorineural_hair_cell_loss conformance covers the death half of
+its module node; no mechanotransduction measurement is reported by the sources
+cited here.
+
+Evidence: 67 items over 14 references, every snippet pre-verified against the
+local cache before the YAML was written. Anchors are a 2024 multi-toxicity review
+(PMID:39423903), the SIOPEL 6 randomised phase 3 otoprotection trial
+(PMID:29924955, full text cached), a 2023 ototoxicity review (PMID:36455457), the
+Kidney International nephrotoxicity review (PMID:18272962), transporter studies
+for OCT2 (PMID:16242669) and Ctr1 (PMID:19144690), the DRG mitochondrial-DNA
+study (PMID:21145397), and a 368-patient paediatric audiology cohort
+(PMID:34490624).
+
+Frequency discipline: no frequency band is asserted on any phenotype. For hearing
+loss this is deliberate rather than incidental - the cumulative incidence is 75
+percent under age five against 48 percent over five in the same cohort, so a
+single band would misrepresent a strongly age-dependent risk, and the explanation
+says so.
+
+Claims deliberately not made: no hair-cell-regeneration claim (the usual
+explanation for the permanence, but absent from the cited sources - the
+irreversibility itself is sourced); no erythropoietin mechanism for the anaemia;
+no hydration-specific evidence for the renoprotective treatment, whose cited
+review discusses renoprotection at the level of strategy and states plainly that
+protection is mostly partial.
+
+Self-audit before commit found three overclaims in my own prose, all corrected:
+&#34;in every cell it enters&#34;, &#34;behaving completely differently&#34;, and an unsourced
+statement that mammalian cochlear hair cells are not replaced doing load-bearing
+work in a causal edge description.
+
+Validation: just validate-disorders (the batched sweep CI runs) passed; 67/67
+snippets verified; check-folded-hyphens, check-duplicate-keys,
+check-title-snippets and check-entity-refs all clean; 20 structural tests pass;
+all 11 conformance anchors resolve to real module nodes. All reference_title
+values generated programmatically from the cache files, never typed.
+
+Deep research: just research-disorder claude_code produced a 96 KB report;
+32/32 references resolved, 0 unresolved, 13/13 quoted claims found in source.
+NEC preflight returned SKIP (MONDO records no causal gene for a drug
+toxicity) and was cleared manually - the report&#39;s top gene mentions are ACYP2,
+TPMT, COMT and SLC22A2, which are the cisplatin ototoxicity susceptibility
+loci plus OCT2.
+
+The report was used as leads only; no snippet was taken from it unverified.
+It contributed two things the draft lacked, both then fetched and checked
+independently:
+
+- A genetic: section. PMID:37726872, the Canadian Pharmacogenomics Network for
+  Drug Safety 2022 update, graded 40 reports across 47 populations and 24
+  genes and placed only ACYP2 and TPMT in the strong-and-replicated tier.
+  Those two are curated SUSCEPTIBILITY. COMT is curated DISPUTED on purpose:
+  it is a frequently cited candidate locus that the grading review assigns to
+  the further-research tier, and recording it at the same strength as the
+  other two would misstate the evidence. The report flagged that trap
+  explicitly and it was verified against the source before curating.
+- PMID:37530867, which supplied the hydration-specific evidence the draft had
+  recorded as missing: a meta-analysis of 11 retrospective studies giving
+  OR 0.22 (95% CI 0.14-0.35) for magnesium supplementation against
+  cisplatin-induced nephrotoxicity, plus the &#34;up to 20% of patients&#34; clinical
+  proportion for the renal arm. The retrospective design of the pooled studies
+  is recorded as a limit, and the same review&#39;s statement that the best
+  prevention method remains uncertain is curated alongside it.
+
+The ACYP2 HGNC identifier was resolved from the ontology rather than taken
+from the report&#39;s gene table.
+
+Review round 1 (ai4c-reviewer, CHANGES_REQUESTED) raised eight items. All
+eight addressed.
+
+1. CL:1000838 was the wrong proximal tubule cell type. It sits under
+   CL:0002584 renal CORTICAL epithelial cell, so it excludes the S3 straight
+   segment where cisplatin injury is maximal, and this entry&#39;s own node
+   description says distal segments are affected too. Verified against the
+   ontology and replaced with CL:0002306, which is what all five nodes of the
+   conformed module use. This is the id-and-label-agree-but-meaning-is-wrong
+   failure: nothing in validation could have caught it.
+2. PMID:16242669 was graded IN_VITRO. The quoted conclusion rests on the in
+   vivo rat arm - sex differences in renal uptake clearance, urinary NAG, the
+   castrated-male comparison - and the record carries the Animals keyword.
+   Regraded MODEL_ORGANISM with the reason stated.
+3. All eight phenotypes were disconnected from the pathograph. A survey of 400
+   KB entries found 233 wire phenotypes as downstream targets, so this is
+   established practice and the entry was the outlier. All phenotypes now hang
+   off the terminal node of their arm.
+4. Added the second randomised phase 3 otoprotection trial (ACCL0431,
+   PMID:27914822, OR 0.31) alongside SIOPEL 6, and duloxetine for established
+   painful CIPN (PMID:32663120). Two ASCO negatives are curated rather than
+   omitted: acetyl-L-carnitine as a REFUTE item, and the finding that no agent
+   prevents CIPN as the bound on duloxetine&#39;s claim.
+5. clinical_trials block for NCT00652132 and NCT00716976, both fetched.
+6. Four prevalence records, one per endpoint, each carrying the definitional
+   caveat that makes the figures non-comparable: an age stratum for hearing
+   loss, an upper bound for nephrotoxicity, a background statement for
+   neuropathy, and an untreated-population rate for emesis.
+7. Added an Emetogenic Response node with nausea and vomiting. The receptor
+   mechanism (5-HT3, NK1) is NOT asserted - the cited source describes the
+   antiemetic classes, not the biology producing the emesis - and the edge
+   into this node is INDIRECT_UNKNOWN_INTERMEDIATES because this arm is not
+   established here as running through the transporter uptake that gates the
+   four injury arms.
+8. therapeutic_agent rebound from CHEBI:26977 thiosulfate to NCIT:C1230 Sodium
+   Thiosulfate. The old notes justified the looser term on the better one
+   being absent from the term cache; that was not a real constraint, since the
+   cache is populated by validation. The corrected reasoning is recorded in
+   place rather than the old rationale quietly deleted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

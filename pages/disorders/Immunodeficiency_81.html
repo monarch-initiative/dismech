@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 31</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 32</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Immunodeficiency%2081"
@@ -3988,7 +4056,7 @@ IMD81 is very rare, with only a handful of reported kindreds. The clinical sever
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">31</div>
+                <div class="stat-value">32</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4104,6 +4172,7 @@ IMD81 is very rare, with only a handful of reported kindreds. The clinical sever
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4297,6 +4366,7 @@ IMD81 is very rare, with only a handful of reported kindreds. The clinical sever
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lcp2-biallelic-loss-of-function" data-dismech-node="LCP2 Biallelic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">LCP2 Biallelic Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in LCP2 reduce or abolish functional SLP-76 protein. Frameshift alleles eliminate the protein; missense alleles in the proline-rich repeat domain reduce its expression and signalosome function.</div>
 
 
@@ -4348,6 +4418,8 @@ This genetic context concerns LCP2 (hgnc:6529). hgnc:6529 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">allele_type: frameshift, splice-site, and proline-rich-domain missense</span>
 
 
@@ -4359,6 +4431,9 @@ This genetic context concerns LCP2 (hgnc:6529). hgnc:6529 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4404,6 +4479,7 @@ This genetic context concerns LCP2 (hgnc:6529). hgnc:6529 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4426,6 +4502,7 @@ This genetic context concerns LCP2 (hgnc:6529). hgnc:6529 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-slp-76-adaptor-function" data-dismech-node="Loss of SLP-76 Adaptor Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of SLP-76 Adaptor Function</div>
+
 
                 <div class="item-desc">SLP-76 is a scaffold adaptor that, once recruited to phosphorylated LAT, nucleates the proximal TCR signalosome. Loss of the protein removes this assembly point for downstream TCR (and other hematopoietic immunoreceptor) signaling.</div>
 
@@ -4521,6 +4598,7 @@ This pathophysiological event involves SLP-76 signaling adaptor activity, annota
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4543,6 +4621,7 @@ This pathophysiological event involves SLP-76 signaling adaptor activity, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-proximal-tcr-signaling" data-dismech-node="Impaired Proximal TCR Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Proximal TCR Signaling</div>
+
 
                 <div class="item-desc">Without SLP-76, the LAT-SLP-76 signalosome fails to activate PLCgamma1, so downstream calcium mobilization and ERK/MAP-kinase signaling are blunted. Patient T and B cells show reduced ligand-induced phospho-PLCgamma1 and phospho-S6, and a SLP76-deficient T-cell line shows reduced ERK1/2 phosphorylation, CD69 induction, and calcium mobilization.</div>
 
@@ -4705,6 +4784,7 @@ This pathophysiological event involves decreased positive regulation of cytosoli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4726,6 +4806,7 @@ This pathophysiological event involves decreased positive regulation of cytosoli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4753,6 +4834,7 @@ This pathophysiological event involves decreased positive regulation of cytosoli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4775,6 +4857,7 @@ This pathophysiological event involves decreased positive regulation of cytosoli
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-thymic-t-cell-development" data-dismech-node="Impaired Thymic T-Cell Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Thymic T-Cell Development</div>
+
 
                 <div class="item-desc">SLP-76 integrates the pre-TCR signals that drive expansion of CD4+CD8+ double-positive thymocytes. In the mouse Slp76 knockout, thymocyte development is blocked at the double-negative 3 stage, with resulting absence of CD4+CD8+ double-positive thymocytes and peripheral T cells, providing the developmental basis for the T-cell lymphopenia seen in severe human cases.</div>
 
@@ -4932,6 +5015,7 @@ This pathophysiological event involves decreased T cell differentiation in thymu
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4956,6 +5040,7 @@ This pathophysiological event involves decreased T cell differentiation in thymu
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4984,6 +5069,7 @@ This pathophysiological event involves decreased T cell differentiation in thymu
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5006,6 +5092,7 @@ This pathophysiological event involves decreased T cell differentiation in thymu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-t-cell-activation" data-dismech-node="Defective T-Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective T-Cell Activation</div>
+
 
                 <div class="item-desc">Mature T cells that do develop cannot be properly activated through the TCR because the SLP-76 signalosome is required to couple receptor engagement to calcium/ERK signaling and activation-marker induction.</div>
 
@@ -5101,6 +5188,7 @@ This pathophysiological event involves decreased T cell activation (GO:0042110).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5123,6 +5211,7 @@ This pathophysiological event involves decreased T cell activation (GO:0042110).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-t-and-b-cell-immunodeficiency" data-dismech-node="Combined T- and B-Cell Immunodeficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined T- and B-Cell Immunodeficiency</div>
+
 
                 <div class="item-desc">The convergence of impaired T-cell development and activation, together with defective T-cell help for B cells, produces a combined immunodeficiency with failure of protective immunity. B-cell antigen-receptor signaling is itself impaired by SLP-76 loss, and specific antibody deficiency with reduced IgA and memory B cells is seen even when circulating cell numbers are near-normal.</div>
 
@@ -5224,6 +5313,7 @@ This pathophysiological event involves decreased T cell activation (GO:0042110).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5246,6 +5336,7 @@ This pathophysiological event involves decreased T cell activation (GO:0042110).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-functional-defect" data-dismech-node="Neutrophil Functional Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Functional Defect</div>
+
 
                 <div class="item-desc">SLP-76 is also required in myeloid immunoreceptor and integrin signaling, so its loss impairs neutrophil reactive-oxygen-species production, integrin-dependent spreading and chemotaxis independently of the lymphocyte defect, contributing to bacterial and fungal susceptibility.</div>
 
@@ -5343,6 +5434,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5364,6 +5456,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5393,6 +5486,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5415,6 +5509,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-platelet-gpvi-integrin-signaling" data-dismech-node="Defective Platelet GPVI/Integrin Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Platelet GPVI/Integrin Signaling</div>
+
 
                 <div class="item-desc">SLP-76 transmits signals from the platelet collagen receptor GPVI and integrin pathways, so its loss impairs platelet activation and aggregation. This arm is present in the severe index case but was spared in a milder compound-heterozygous patient, so it is not obligate.</div>
 
@@ -5500,6 +5595,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5526,6 +5622,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5548,6 +5645,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-susceptibility-to-ebv-driven-lymphoproliferation" data-dismech-node="Susceptibility to EBV-Driven Lymphoproliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Susceptibility to EBV-Driven Lymphoproliferation</div>
+
 
                 <div class="item-desc">Loss of cytotoxic T-cell surveillance in combined immunodeficiency permits uncontrolled Epstein-Barr virus infection and EBV-driven B-cell proliferation, which in one reported patient progressed to diffuse large B-cell lymphoma.</div>
 
@@ -5599,6 +5697,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5644,7 +5743,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal neutrophil physiology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neutrophil functional defects contribute to infection susceptibility independent of the lymphocyte defect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011990\"}}, {\"id\": \"Abnormally low TREC level\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low thymic output measured by TCR excision circle (TREC) quantification in the index infant, consistent with impaired thymic T-cell development.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031545\"}}, {\"id\": \"Antimicrobial Prophylaxis and Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Broad antibacterial, antiviral, and antifungal prophylaxis and treatment to manage the recurrent and opportunistic infections of the combined immune and neutrophil defect.\", \"meta\": {\"therapeutic_agents\": [\"anti-infective agent\"]}}, {\"id\": \"Autoimmunity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Immune dysregulation with autoimmunity, reported both as early-onset Coombs-positive hemolytic anemia in the index infant and as autoimmunity in the milder combined immunodeficiency presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002960\"}}, {\"id\": \"B-cell lymphoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"EBV-driven diffuse large B-cell lymphoma developed in a homozygous SLP76-deficient patient, reflecting failed control of EBV-infected B cells.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012191\"}}, {\"id\": \"Bleeding tendency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A bleeding tendency (petechial rash) in the index infant, attributed to defective collagen-induced platelet aggregation and granule release.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001892\"}}, {\"id\": \"Colitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammatory bowel disease, part of the early-onset immune-dysregulation presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002583\"}}, {\"id\": \"Combined T- and B-Cell Immunodeficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence of impaired T-cell development and activation, together with defective T-cell help for B cells, produces a combined immunodeficiency with failure of protective immunity. B-cell antigen-receptor signaling is itself impaired by SLP-76 loss, and specific antibody deficiency with reduced IgA and memory B cells is seen even when circulating cell numbers are near-normal.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Slp76-null mouse (Lcp2 knockout)\", \"species\": \"Mouse\", \"genotype\": \"Slp76 (Lcp2) null (homozygous knockout)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The Slp76-null mouse does not reproduce the B-cell arm of the human combined immunodeficiency: murine B-cell development is entirely normal.\"}]}}, {\"id\": \"Combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined defect of T- and B-cell immunity, ranging from a T-B+ severe combined immunodeficiency presentation to a milder later-onset combined immunodeficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005387\"}}, {\"id\": \"Decreased circulating IgA concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced serum IgA as part of the specific antibody deficiency seen in milder combined immunodeficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002720\"}}, {\"id\": \"Decreased class-switched memory B cell proportion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced numbers of unswitched and class-switched memory B cells, reflecting impaired T-cell help and B-cell antigen-receptor signaling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030388\"}}, {\"id\": \"Decreased mitogen-induced T-cell proliferation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent peripheral lymphocyte proliferation to PHA or anti-CD3 (with or without anti-CD28) in the index infant, partially restored by exogenous IL-2.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031381\"}}, {\"id\": \"Defective Platelet GPVI/Integrin Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLP-76 transmits signals from the platelet collagen receptor GPVI and integrin pathways, so its loss impairs platelet activation and aggregation. This arm is present in the severe index case but was spared in a milder compound-heterozygous patient, so it is not obligate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"]}}, {\"id\": \"Defective T-Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mature T cells that do develop cannot be properly activated through the TCR because the SLP-76 signalosome is required to couple receptor engagement to calcium/ERK signaling and activation-marker induction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"T cell activation\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive in infancy/early childhood, a common consequence of severe early-onset immunodeficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fungal brain abscess\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive fungal (Aspergillus) brain abscesses developed in the index infant, reflecting the severe neutrophil defect. Bound to the structural Brain abscess HP term; the fungal etiology is carried in the preferred_term.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030049\"}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation is the definitive treatment for the severe combined immunodeficiency form, replacing the SLP-76-deficient hematopoietic compartment. The index infant underwent haplo-identical HSCT but died of transplant-related complications; HSCT is the standard curative approach for T-B+ SCID generally.\"}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunoglobulin replacement supports the humoral immunodeficiency (antibody deficiency, reduced IgA and memory B cells) seen in these patients.\"}, {\"id\": \"Impaired Proximal TCR Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without SLP-76, the LAT-SLP-76 signalosome fails to activate PLCgamma1, so downstream calcium mobilization and ERK/MAP-kinase signaling are blunted. Patient T and B cells show reduced ligand-induced phospho-PLCgamma1 and phospho-S6, and a SLP76-deficient T-cell line shows reduced ERK1/2 phosphorylation, CD69 induction, and calcium mobilization.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"T cell receptor signaling pathway\", \"positive regulation of cytosolic calcium ion concentration\"], \"experimental_models\": [{\"name\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reconstituting J14 with the patient\u0027s SLP-76 mutant reproduces the reduced proximal TCR signaling (ERK phosphorylation, CD69 induction, calcium mobilization).\"}, {\"name\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Ectopic expression of wild-type SLP-76 in the deficient line rescues the signaling consequences, confirming the defect is SLP-76-dependent and reversible.\"}]}}, {\"id\": \"Impaired Thymic T-Cell Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLP-76 integrates the pre-TCR signals that drive expansion of CD4+CD8+ double-positive thymocytes. In the mouse Slp76 knockout, thymocyte development is blocked at the double-negative 3 stage, with resulting absence of CD4+CD8+ double-positive thymocytes and peripheral T cells, providing the developmental basis for the T-cell lymphopenia seen in severe human cases.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4+CD8+ double-positive thymocyte\"], \"biological_processes\": [\"T cell differentiation in thymus\"], \"animal_models\": [{\"name\": \"Slp76-null mouse (Lcp2 knockout)\", \"species\": \"Mouse\", \"genotype\": \"Slp76 (Lcp2) null (homozygous knockout)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The null reproduces the SLP-76-dependent thymic developmental block, with absence of double-positive thymocytes and peripheral T cells.\"}]}}, {\"id\": \"Impaired platelet aggregation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired platelet aggregation from defective SLP-76-dependent platelet signaling, present in the severe index case but not in all reported patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003540\"}}, {\"id\": \"Inverted CD4:CD8 ratio\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A skewed peripheral T-cell compartment with a high proportion of CD8 T cells and a very low proportion of CD4 T cells in the index infant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033222\"}}, {\"id\": \"LCP2 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in LCP2 reduce or abolish functional SLP-76 protein. Frameshift alleles eliminate the protein; missense alleles in the proline-rich repeat domain reduce its expression and signalosome function.\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"allele_type\": \"frameshift, splice-site, and proline-rich-domain missense\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"LCP2\", \"id\": \"hgnc:6529\"}]}}}, {\"id\": \"Loss of SLP-76 Adaptor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLP-76 is a scaffold adaptor that, once recruited to phosphorylated LAT, nucleates the proximal TCR signalosome. Loss of the protein removes this assembly point for downstream TCR (and other hematopoietic immunoreceptor) signaling.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"SLP-76 signaling adaptor activity\"]}}, {\"id\": \"Neutrophil Functional Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLP-76 is also required in myeloid immunoreceptor and integrin signaling, so its loss impairs neutrophil reactive-oxygen-species production, integrin-dependent spreading and chemotaxis independently of the lymphocyte defect, contributing to bacterial and fungal susceptibility.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset, recurrent, and life-threatening bacterial, viral, and other infections reflecting the combined immune defect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002719\"}}, {\"id\": \"Reduced natural killer cell degranulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Normal NK cell numbers but diminished K562-induced degranulation (surface CD107a) in the index infant, partially rescued by IL-2.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012177\"}}, {\"id\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The J14 line is the classical in vitro system for dissecting SLP-76 function downstream of the TCR. Reconstituting it with the patient\u0027s SLP-76 mutant reproduces the reduced proximal TCR signaling, and ectopic wild-type SLP-76 rescues it, linking the specific mutation to the signaling phenotype.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:33231617\"}}, {\"id\": \"Slp76-null mouse (Lcp2 knockout)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The germline Slp76-null mouse, generated by homologous recombination, was the original in vivo model of SLP-76 loss. It exhibits impaired viability, a profound thymic developmental block, and hemorrhage. It informs the human disease but diverges from it in two ways relevant to IMD81: the complete null causes an absolute developmental block with no peripheral T cells (human hypomorphic alleles leave dysregulated peripheral T cells), and B-cell development is entirely normal (human patients have a B-cell antigen-receptor signaling defect).\"}, {\"id\": \"Supportive and Oncologic Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care and, when EBV-driven lymphoproliferation or lymphoma develops, directed oncologic therapy. One reported patient developed and succumbed to EBV-related diffuse large B-cell lymphoma.\"}, {\"id\": \"Susceptibility to EBV-Driven Lymphoproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of cytotoxic T-cell surveillance in combined immunodeficiency permits uncontrolled Epstein-Barr virus infection and EBV-driven B-cell proliferation, which in one reported patient progressed to diffuse large B-cell lymphoma.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"LCP2 Biallelic Loss of Function\", \"target\": \"Loss of SLP-76 Adaptor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of SLP-76 Adaptor Function\", \"target\": \"Impaired Proximal TCR Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of SLP-76 Adaptor Function\", \"target\": \"Reduced natural killer cell degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Proximal TCR Signaling\", \"target\": \"Impaired Thymic T-Cell Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Proximal TCR Signaling\", \"target\": \"Defective T-Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Proximal TCR Signaling\", \"target\": \"Autoimmunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thymic T-Cell Development\", \"target\": \"Combined T- and B-Cell Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thymic T-Cell Development\", \"target\": \"Inverted CD4:CD8 ratio\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thymic T-Cell Development\", \"target\": \"Abnormally low TREC level\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective T-Cell Activation\", \"target\": \"Combined T- and B-Cell Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective T-Cell Activation\", \"target\": \"Decreased mitogen-induced T-cell proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Decreased circulating IgA concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Decreased class-switched memory B cell proportion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Colitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Susceptibility to EBV-Driven Lymphoproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Functional Defect\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Functional Defect\", \"target\": \"Abnormal neutrophil physiology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Functional Defect\", \"target\": \"Fungal brain abscess\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Platelet GPVI/Integrin Signaling\", \"target\": \"Impaired platelet aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Susceptibility to EBV-Driven Lymphoproliferation\", \"target\": \"B-cell lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Recurrent infections\", \"target\": \"Failure to thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Recurrent, severe early-onset infection drives the failure to thrive seen in infancy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired platelet aggregation\", \"target\": \"Bleeding tendency\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Reduced collagen-induced platelet aggregation and granule release produce the bleeding tendency observed clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Loss of SLP-76 Adaptor Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Prophylaxis and Treatment\", \"target\": \"Recurrent infections\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Combined T- and B-Cell Immunodeficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and Oncologic Care\", \"target\": \"B-cell lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"target\": \"Impaired Proximal TCR Signaling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reconstituting J14 with the patient\u0027s SLP-76 mutant reproduces the reduced proximal TCR signaling (ERK phosphorylation, CD69 induction, calcium mobilization).\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A transformed leukemic line with fixed-promoter cDNA expression, not primary cells; the clonal, supraphysiological context limits quantitative transfer to the patient\u0027s cells.\"}, {\"source\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"target\": \"Impaired Proximal TCR Signaling\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Ectopic expression of wild-type SLP-76 in the deficient line rescues the signaling consequences, confirming the defect is SLP-76-dependent and reversible.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Rescue is partial and demonstrated in a leukemic cell line rather than in patient primary cells or in vivo.\"}, {\"source\": \"Slp76-null mouse (Lcp2 knockout)\", \"target\": \"Impaired Thymic T-Cell Development\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The null reproduces the SLP-76-dependent thymic developmental block, with absence of double-positive thymocytes and peripheral T cells.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The complete null causes an absolute block with no peripheral T cells, whereas human hypomorphic/leaky alleles leave dysregulated peripheral T cells (skewed toward CD8 TEMRA), so the null overstates the human developmental defect.\"}, {\"source\": \"Slp76-null mouse (Lcp2 knockout)\", \"target\": \"Combined T- and B-Cell Immunodeficiency\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The Slp76-null mouse does not reproduce the B-cell arm of the human combined immunodeficiency: murine B-cell development is entirely normal.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"B-cell development is normal in the null mouse, whereas human IMD81 patients have a B-cell antigen-receptor signaling defect with reduced class-switched memory B cells and antibody deficiency; the null therefore misses the B-cell component of the human phenotype.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal neutrophil physiology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neutrophil functional defects contribute to infection susceptibility independent of the lymphocyte defect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011990\"}}, {\"id\": \"Abnormally low TREC level\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low thymic output measured by TCR excision circle (TREC) quantification in the index infant, consistent with impaired thymic T-cell development.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031545\"}}, {\"id\": \"Antimicrobial Prophylaxis and Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Broad antibacterial, antiviral, and antifungal prophylaxis and treatment to manage the recurrent and opportunistic infections of the combined immune and neutrophil defect.\", \"meta\": {\"therapeutic_agents\": [\"anti-infective agent\"]}}, {\"id\": \"Autoimmunity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Immune dysregulation with autoimmunity, reported both as early-onset Coombs-positive hemolytic anemia in the index infant and as autoimmunity in the milder combined immunodeficiency presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002960\"}}, {\"id\": \"B-cell lymphoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"EBV-driven diffuse large B-cell lymphoma developed in a homozygous SLP76-deficient patient, reflecting failed control of EBV-infected B cells.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012191\"}}, {\"id\": \"Bleeding tendency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A bleeding tendency (petechial rash) in the index infant, attributed to defective collagen-induced platelet aggregation and granule release.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001892\"}}, {\"id\": \"Colitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammatory bowel disease, part of the early-onset immune-dysregulation presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002583\"}}, {\"id\": \"Combined T- and B-Cell Immunodeficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence of impaired T-cell development and activation, together with defective T-cell help for B cells, produces a combined immunodeficiency with failure of protective immunity. B-cell antigen-receptor signaling is itself impaired by SLP-76 loss, and specific antibody deficiency with reduced IgA and memory B cells is seen even when circulating cell numbers are near-normal.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Slp76-null mouse (Lcp2 knockout)\", \"species\": \"Mouse\", \"genotype\": \"Slp76 (Lcp2) null (homozygous knockout)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The Slp76-null mouse does not reproduce the B-cell arm of the human combined immunodeficiency: murine B-cell development is entirely normal.\"}]}}, {\"id\": \"Combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined defect of T- and B-cell immunity, ranging from a T-B+ severe combined immunodeficiency presentation to a milder later-onset combined immunodeficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005387\"}}, {\"id\": \"Decreased circulating IgA concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced serum IgA as part of the specific antibody deficiency seen in milder combined immunodeficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002720\"}}, {\"id\": \"Decreased class-switched memory B cell proportion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced numbers of unswitched and class-switched memory B cells, reflecting impaired T-cell help and B-cell antigen-receptor signaling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030388\"}}, {\"id\": \"Decreased mitogen-induced T-cell proliferation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent peripheral lymphocyte proliferation to PHA or anti-CD3 (with or without anti-CD28) in the index infant, partially restored by exogenous IL-2.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031381\"}}, {\"id\": \"Defective Platelet GPVI/Integrin Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLP-76 transmits signals from the platelet collagen receptor GPVI and integrin pathways, so its loss impairs platelet activation and aggregation. This arm is present in the severe index case but was spared in a milder compound-heterozygous patient, so it is not obligate.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"]}}, {\"id\": \"Defective T-Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mature T cells that do develop cannot be properly activated through the TCR because the SLP-76 signalosome is required to couple receptor engagement to calcium/ERK signaling and activation-marker induction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"T cell activation\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive in infancy/early childhood, a common consequence of severe early-onset immunodeficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fungal brain abscess\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive fungal (Aspergillus) brain abscesses developed in the index infant, reflecting the severe neutrophil defect. Bound to the structural Brain abscess HP term; the fungal etiology is carried in the preferred_term.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030049\"}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation is the definitive treatment for the severe combined immunodeficiency form, replacing the SLP-76-deficient hematopoietic compartment. The index infant underwent haplo-identical HSCT but died of transplant-related complications; HSCT is the standard curative approach for T-B+ SCID generally.\"}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunoglobulin replacement supports the humoral immunodeficiency (antibody deficiency, reduced IgA and memory B cells) seen in these patients.\"}, {\"id\": \"Impaired Proximal TCR Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without SLP-76, the LAT-SLP-76 signalosome fails to activate PLCgamma1, so downstream calcium mobilization and ERK/MAP-kinase signaling are blunted. Patient T and B cells show reduced ligand-induced phospho-PLCgamma1 and phospho-S6, and a SLP76-deficient T-cell line shows reduced ERK1/2 phosphorylation, CD69 induction, and calcium mobilization.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"T cell receptor signaling pathway\", \"positive regulation of cytosolic calcium ion concentration\"], \"experimental_models\": [{\"name\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reconstituting J14 with the patient\u0027s SLP-76 mutant reproduces the reduced proximal TCR signaling (ERK phosphorylation, CD69 induction, calcium mobilization).\"}, {\"name\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Ectopic expression of wild-type SLP-76 in the deficient line rescues the signaling consequences, confirming the defect is SLP-76-dependent and reversible.\"}]}}, {\"id\": \"Impaired Thymic T-Cell Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLP-76 integrates the pre-TCR signals that drive expansion of CD4+CD8+ double-positive thymocytes. In the mouse Slp76 knockout, thymocyte development is blocked at the double-negative 3 stage, with resulting absence of CD4+CD8+ double-positive thymocytes and peripheral T cells, providing the developmental basis for the T-cell lymphopenia seen in severe human cases.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4+CD8+ double-positive thymocyte\"], \"biological_processes\": [\"T cell differentiation in thymus\"], \"animal_models\": [{\"name\": \"Slp76-null mouse (Lcp2 knockout)\", \"species\": \"Mouse\", \"genotype\": \"Slp76 (Lcp2) null (homozygous knockout)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The null reproduces the SLP-76-dependent thymic developmental block, with absence of double-positive thymocytes and peripheral T cells.\"}]}}, {\"id\": \"Impaired platelet aggregation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired platelet aggregation from defective SLP-76-dependent platelet signaling, present in the severe index case but not in all reported patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003540\"}}, {\"id\": \"Inverted CD4:CD8 ratio\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A skewed peripheral T-cell compartment with a high proportion of CD8 T cells and a very low proportion of CD4 T cells in the index infant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033222\"}}, {\"id\": \"LCP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"LCP2\"], \"gene_terms\": [{\"label\": \"LCP2\", \"id\": \"hgnc:6529\"}], \"association\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"LCP2 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in LCP2 reduce or abolish functional SLP-76 protein. Frameshift alleles eliminate the protein; missense alleles in the proline-rich repeat domain reduce its expression and signalosome function.\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"allele_type\": \"frameshift, splice-site, and proline-rich-domain missense\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"LCP2\", \"id\": \"hgnc:6529\"}]}}}, {\"id\": \"Loss of SLP-76 Adaptor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLP-76 is a scaffold adaptor that, once recruited to phosphorylated LAT, nucleates the proximal TCR signalosome. Loss of the protein removes this assembly point for downstream TCR (and other hematopoietic immunoreceptor) signaling.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"SLP-76 signaling adaptor activity\"]}}, {\"id\": \"Neutrophil Functional Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLP-76 is also required in myeloid immunoreceptor and integrin signaling, so its loss impairs neutrophil reactive-oxygen-species production, integrin-dependent spreading and chemotaxis independently of the lymphocyte defect, contributing to bacterial and fungal susceptibility.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset, recurrent, and life-threatening bacterial, viral, and other infections reflecting the combined immune defect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002719\"}}, {\"id\": \"Reduced natural killer cell degranulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Normal NK cell numbers but diminished K562-induced degranulation (surface CD107a) in the index infant, partially rescued by IL-2.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012177\"}}, {\"id\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The J14 line is the classical in vitro system for dissecting SLP-76 function downstream of the TCR. Reconstituting it with the patient\u0027s SLP-76 mutant reproduces the reduced proximal TCR signaling, and ectopic wild-type SLP-76 rescues it, linking the specific mutation to the signaling phenotype.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:33231617\"}}, {\"id\": \"Slp76-null mouse (Lcp2 knockout)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The germline Slp76-null mouse, generated by homologous recombination, was the original in vivo model of SLP-76 loss. It exhibits impaired viability, a profound thymic developmental block, and hemorrhage. It informs the human disease but diverges from it in two ways relevant to IMD81: the complete null causes an absolute developmental block with no peripheral T cells (human hypomorphic alleles leave dysregulated peripheral T cells), and B-cell development is entirely normal (human patients have a B-cell antigen-receptor signaling defect).\"}, {\"id\": \"Supportive and Oncologic Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care and, when EBV-driven lymphoproliferation or lymphoma develops, directed oncologic therapy. One reported patient developed and succumbed to EBV-related diffuse large B-cell lymphoma.\"}, {\"id\": \"Susceptibility to EBV-Driven Lymphoproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of cytotoxic T-cell surveillance in combined immunodeficiency permits uncontrolled Epstein-Barr virus infection and EBV-driven B-cell proliferation, which in one reported patient progressed to diffuse large B-cell lymphoma.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"LCP2 Biallelic Loss of Function\", \"target\": \"Loss of SLP-76 Adaptor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of SLP-76 Adaptor Function\", \"target\": \"Impaired Proximal TCR Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of SLP-76 Adaptor Function\", \"target\": \"Reduced natural killer cell degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Proximal TCR Signaling\", \"target\": \"Impaired Thymic T-Cell Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Proximal TCR Signaling\", \"target\": \"Defective T-Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Proximal TCR Signaling\", \"target\": \"Autoimmunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thymic T-Cell Development\", \"target\": \"Combined T- and B-Cell Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thymic T-Cell Development\", \"target\": \"Inverted CD4:CD8 ratio\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thymic T-Cell Development\", \"target\": \"Abnormally low TREC level\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective T-Cell Activation\", \"target\": \"Combined T- and B-Cell Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective T-Cell Activation\", \"target\": \"Decreased mitogen-induced T-cell proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Decreased circulating IgA concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Decreased class-switched memory B cell proportion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Colitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined T- and B-Cell Immunodeficiency\", \"target\": \"Susceptibility to EBV-Driven Lymphoproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Functional Defect\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Functional Defect\", \"target\": \"Abnormal neutrophil physiology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Functional Defect\", \"target\": \"Fungal brain abscess\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Platelet GPVI/Integrin Signaling\", \"target\": \"Impaired platelet aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Susceptibility to EBV-Driven Lymphoproliferation\", \"target\": \"B-cell lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Recurrent infections\", \"target\": \"Failure to thrive\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Recurrent, severe early-onset infection drives the failure to thrive seen in infancy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired platelet aggregation\", \"target\": \"Bleeding tendency\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Reduced collagen-induced platelet aggregation and granule release produce the bleeding tendency observed clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Loss of SLP-76 Adaptor Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Prophylaxis and Treatment\", \"target\": \"Recurrent infections\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Combined T- and B-Cell Immunodeficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and Oncologic Care\", \"target\": \"B-cell lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"target\": \"Impaired Proximal TCR Signaling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reconstituting J14 with the patient\u0027s SLP-76 mutant reproduces the reduced proximal TCR signaling (ERK phosphorylation, CD69 induction, calcium mobilization).\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A transformed leukemic line with fixed-promoter cDNA expression, not primary cells; the clonal, supraphysiological context limits quantitative transfer to the patient\u0027s cells.\"}, {\"source\": \"SLP76-deficient Jurkat-derived T-cell line (J14)\", \"target\": \"Impaired Proximal TCR Signaling\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Ectopic expression of wild-type SLP-76 in the deficient line rescues the signaling consequences, confirming the defect is SLP-76-dependent and reversible.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Rescue is partial and demonstrated in a leukemic cell line rather than in patient primary cells or in vivo.\"}, {\"source\": \"Slp76-null mouse (Lcp2 knockout)\", \"target\": \"Impaired Thymic T-Cell Development\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The null reproduces the SLP-76-dependent thymic developmental block, with absence of double-positive thymocytes and peripheral T cells.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The complete null causes an absolute block with no peripheral T cells, whereas human hypomorphic/leaky alleles leave dysregulated peripheral T cells (skewed toward CD8 TEMRA), so the null overstates the human developmental defect.\"}, {\"source\": \"Slp76-null mouse (Lcp2 knockout)\", \"target\": \"Combined T- and B-Cell Immunodeficiency\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The Slp76-null mouse does not reproduce the B-cell arm of the human combined immunodeficiency: murine B-cell development is entirely normal.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"B-cell development is normal in the null mouse, whereas human IMD81 patients have a B-cell antigen-receptor signaling defect with reduced class-switched memory B cells and antibody deficiency; the null therefore misses the B-cell component of the human phenotype.\"}, {\"source\": \"LCP2\", \"target\": \"LCP2 Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5663,15 +5762,13 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(10)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(9)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5681,8 +5778,159 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">10</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-neutrophil-physiology" data-dismech-node="Abnormal neutrophil physiology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal neutrophil physiology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011990" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011990</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neutrophil functional defect, annotated with Abnormal neutrophil physiology (HP:0011990). HP:0011990 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37211057" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37211057" target="_blank">PMID:37211057</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, neutrophil function, numbers of unswitched and class-switched memory B cells, and serum IgA were decreased."</div>
+
+
+                <div class="evidence-explanation">Reports decreased neutrophil function in a patient with biallelic LCP2 variants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-platelet-aggregation" data-dismech-node="Impaired platelet aggregation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Impaired platelet aggregation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003540</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired platelet aggregation (HP:0003540). HP:0003540 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Bleeding tendency</span>
+
+                    </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our current study links this gene, for the first time, to a human immunodeficiency characterized by early-onset life-threatening infections, combined T and B cell immunodeficiency, severe neutrophil defects, and impaired platelet aggregation."</div>
+
+
+                <div class="evidence-explanation">Reports impaired platelet aggregation in the index SLP76-deficient patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bleeding-tendency" data-dismech-node="Bleeding tendency" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5700,15 +5948,18 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001892</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001892</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bleeding tendency, annotated with Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5731,6 +5982,7 @@ This clinical feature is Bleeding tendency, annotated with Abnormal bleeding (HP
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5739,6 +5991,298 @@ This clinical feature is Bleeding tendency, annotated with Abnormal bleeding (HP
 
 
                 <div class="evidence-explanation">Reports a bleeding tendency in the index patient linked to the platelet defect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inverted-cd4-cd8-ratio" data-dismech-node="Inverted CD4:CD8 ratio" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Inverted CD4:CD8 ratio
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0033222</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inverted CD4:CD8 ratio (HP:0033222). HP:0033222 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"lymphocyte immune phenotyping showed a high proportion of CD8 T cells and a very low proportion of CD4 T cells"</div>
+
+
+                <div class="evidence-explanation">Reports the inverted CD4:CD8 proportion in the index patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-mitogen-induced-t-cell-proliferation" data-dismech-node="Decreased mitogen-induced T-cell proliferation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased mitogen-induced T-cell proliferation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0031381</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent mitogen-induced T-cell proliferation, annotated with Decreased mitogen-induced T-cell proliferation (HP:0031381). HP:0031381 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Peripheral lymphocyte proliferation, as determined by either thymidine incorporation or CFSE, was absent in response to PHA or anti-CD3, with or without anti-CD28"</div>
+
+
+                <div class="evidence-explanation">Reports absent mitogen/anti-CD3-induced lymphocyte proliferation in the index patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-natural-killer-cell-degranulation" data-dismech-node="Reduced natural killer cell degranulation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced natural killer cell degranulation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal natural killer cell physiology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0012177</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced natural killer cell degranulation, annotated with Abnormal natural killer cell physiology (HP:0012177). HP:0012177 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"K562-induced degranulation was diminished, as reflected in degranulation-associated surface expression of CD107a"</div>
+
+
+                <div class="evidence-explanation">Reports reduced NK cell degranulation (CD107a) in the index patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormally-low-trec-level" data-dismech-node="Abnormally low TREC level" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormally low TREC level
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormally low T cell receptor excision circle level</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0031545</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Low T-cell receptor excision circles, annotated with Abnormally low T cell receptor excision circle level (HP:0031545). HP:0031545 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thymic activity, as determined by TCR excision circles quantification, was low"</div>
+
+
+                <div class="evidence-explanation">Reports low TRECs (reduced thymic output) in the index patient.</div>
 
 
 
@@ -5768,15 +6312,18 @@ This clinical feature is Bleeding tendency, annotated with Abnormal bleeding (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002720</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002720</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating IgA concentration (HP:0002720). HP:0002720 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5799,6 +6346,7 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5807,6 +6355,150 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
                 <div class="evidence-explanation">Reports decreased serum IgA in a patient with biallelic LCP2 variants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-class-switched-memory-b-cell-proportion" data-dismech-node="Decreased class-switched memory B cell proportion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased class-switched memory B cell proportion
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030388</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased class-switched memory B cell proportion (HP:0030388). HP:0030388 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37211057" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37211057" target="_blank">PMID:37211057</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, neutrophil function, numbers of unswitched and class-switched memory B cells, and serum IgA were decreased."</div>
+
+
+                <div class="evidence-explanation">Reports decreased class-switched memory B cells in a patient with biallelic LCP2 variants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-b-cell-lymphoma" data-dismech-node="B-cell lymphoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        B-cell lymphoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012191" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012191</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EBV-related diffuse large B-cell lymphoma, annotated with B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36474126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36474126" target="_blank">PMID:36474126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"presented with recurrent infections, failure to thrive, and severe EBV-related infection and proliferation. A diagnosis of diffuse large B cell lymphoma was made"</div>
+
+
+                <div class="evidence-explanation">Reports EBV-related diffuse large B-cell lymphoma in an SLP76-deficient patient.</div>
 
 
 
@@ -5845,15 +6537,18 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002583</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002583</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5873,6 +6568,7 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5905,7 +6601,7 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-combined-immunodeficiency" data-dismech-node="Combined immunodeficiency" data-dismech-type="phenotype">
@@ -5922,15 +6618,18 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0005387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005387</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5950,6 +6649,7 @@ This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5990,15 +6690,18 @@ This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002719</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002719</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6028,6 +6731,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6036,6 +6740,78 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                 <div class="evidence-explanation">Reports recurrent infections in an LCP2/SLP76-deficient patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fungal-brain-abscess" data-dismech-node="Fungal brain abscess" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fungal brain abscess
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0030049</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fungal (Aspergillus) brain abscess, annotated with Brain abscess (HP:0030049). HP:0030049 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our patient developed fungal brain abscesses, likely due to a specific defect in neutrophil function"</div>
+
+
+                <div class="evidence-explanation">Reports fungal brain abscesses attributed to the neutrophil defect in the index patient.</div>
 
 
 
@@ -6065,15 +6841,18 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6093,6 +6872,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6142,15 +6922,18 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6170,6 +6953,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6181,638 +6965,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Reports failure to thrive in an LCP2/SLP76-deficient patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-neutrophil-physiology" data-dismech-node="Abnormal neutrophil physiology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal neutrophil physiology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011990" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011990</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neutrophil functional defect, annotated with Abnormal neutrophil physiology (HP:0011990). HP:0011990 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37211057" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37211057" target="_blank">PMID:37211057</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"However, neutrophil function, numbers of unswitched and class-switched memory B cells, and serum IgA were decreased."</div>
-
-
-                <div class="evidence-explanation">Reports decreased neutrophil function in a patient with biallelic LCP2 variants.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fungal-brain-abscess" data-dismech-node="Fungal brain abscess" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fungal brain abscess
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030049</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Fungal (Aspergillus) brain abscess, annotated with Brain abscess (HP:0030049). HP:0030049 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Our patient developed fungal brain abscesses, likely due to a specific defect in neutrophil function"</div>
-
-
-                <div class="evidence-explanation">Reports fungal brain abscesses attributed to the neutrophil defect in the index patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-platelet-aggregation" data-dismech-node="Impaired platelet aggregation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired platelet aggregation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003540</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Impaired platelet aggregation (HP:0003540). HP:0003540 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-                    <div class="item-meta">
-                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
-
-                        <span class="tag" style="background: #bbf7d0; color: #166534;">Bleeding tendency</span>
-
-                    </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Our current study links this gene, for the first time, to a human immunodeficiency characterized by early-onset life-threatening infections, combined T and B cell immunodeficiency, severe neutrophil defects, and impaired platelet aggregation."</div>
-
-
-                <div class="evidence-explanation">Reports impaired platelet aggregation in the index SLP76-deficient patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inverted-cd4-cd8-ratio" data-dismech-node="Inverted CD4:CD8 ratio" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Inverted CD4:CD8 ratio
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0033222</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Inverted CD4:CD8 ratio (HP:0033222). HP:0033222 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"lymphocyte immune phenotyping showed a high proportion of CD8 T cells and a very low proportion of CD4 T cells"</div>
-
-
-                <div class="evidence-explanation">Reports the inverted CD4:CD8 proportion in the index patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-mitogen-induced-t-cell-proliferation" data-dismech-node="Decreased mitogen-induced T-cell proliferation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased mitogen-induced T-cell proliferation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0031381</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absent mitogen-induced T-cell proliferation, annotated with Decreased mitogen-induced T-cell proliferation (HP:0031381). HP:0031381 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Peripheral lymphocyte proliferation, as determined by either thymidine incorporation or CFSE, was absent in response to PHA or anti-CD3, with or without anti-CD28"</div>
-
-
-                <div class="evidence-explanation">Reports absent mitogen/anti-CD3-induced lymphocyte proliferation in the index patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-natural-killer-cell-degranulation" data-dismech-node="Reduced natural killer cell degranulation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced natural killer cell degranulation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal natural killer cell physiology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012177</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced natural killer cell degranulation, annotated with Abnormal natural killer cell physiology (HP:0012177). HP:0012177 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"K562-induced degranulation was diminished, as reflected in degranulation-associated surface expression of CD107a"</div>
-
-
-                <div class="evidence-explanation">Reports reduced NK cell degranulation (CD107a) in the index patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormally-low-trec-level" data-dismech-node="Abnormally low TREC level" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormally low TREC level
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormally low T cell receptor excision circle level</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0031545</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Low T-cell receptor excision circles, annotated with Abnormally low T cell receptor excision circle level (HP:0031545). HP:0031545 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33231617" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33231617" target="_blank">PMID:33231617</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Thymic activity, as determined by TCR excision circles quantification, was low"</div>
-
-
-                <div class="evidence-explanation">Reports low TRECs (reduced thymic output) in the index patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-class-switched-memory-b-cell-proportion" data-dismech-node="Decreased class-switched memory B cell proportion" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased class-switched memory B cell proportion
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0030388</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased class-switched memory B cell proportion (HP:0030388). HP:0030388 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37211057" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37211057" target="_blank">PMID:37211057</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"However, neutrophil function, numbers of unswitched and class-switched memory B cells, and serum IgA were decreased."</div>
-
-
-                <div class="evidence-explanation">Reports decreased class-switched memory B cells in a patient with biallelic LCP2 variants.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-b-cell-lymphoma" data-dismech-node="B-cell lymphoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        B-cell lymphoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012191" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012191</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is EBV-related diffuse large B-cell lymphoma, annotated with B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36474126" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36474126" target="_blank">PMID:36474126</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"presented with recurrent infections, failure to thrive, and severe EBV-related infection and proliferation. A diagnosis of diffuse large B cell lymphoma was made"</div>
-
-
-                <div class="evidence-explanation">Reports EBV-related diffuse large B-cell lymphoma in an SLP76-deficient patient.</div>
 
 
 
@@ -6902,6 +7054,9 @@ This disease-associated gene is LCP2 (hgnc:6529). hgnc:6529 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6916,6 +7071,7 @@ This disease-associated gene is LCP2 (hgnc:6529). hgnc:6529 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6943,6 +7099,7 @@ This disease-associated gene is LCP2 (hgnc:6529). hgnc:6529 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6964,6 +7121,7 @@ This disease-associated gene is LCP2 (hgnc:6529). hgnc:6529 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7096,6 +7254,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7106,6 +7267,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
     </div>
+
+
+
 
 
 
@@ -7205,6 +7369,9 @@ This treatment uses anti-infective agent (NCIT:C254). NCIT:C254 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7215,6 +7382,9 @@ This treatment uses anti-infective agent (NCIT:C254). NCIT:C254 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -7293,6 +7463,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7303,6 +7476,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
     </div>
+
+
+
 
 
 
@@ -7373,6 +7549,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7474,6 +7656,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7651,6 +7834,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7690,6 +7874,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7747,6 +7932,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7791,6 +7977,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7931,6 +8118,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7970,6 +8158,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8027,6 +8216,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8068,6 +8258,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

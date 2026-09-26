@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4246,6 +4314,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4267,6 +4336,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4488,6 +4558,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4509,6 +4580,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4642,6 +4714,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4663,6 +4736,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4740,6 +4814,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4774,6 +4849,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b3glct-loss-of-function" data-dismech-node="B3GLCT Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">B3GLCT Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function variants in B3GLCT abolish or severely reduce beta-1,3-glucosyltransferase activity. The recurrent intronic splice-donor allele c.660+1G&gt;A accounts for the majority of reported pathogenic alleles; frameshift, nonsense, other splice, and rare missense alleles complete the spectrum. In vitro assays show that PTRPLS-associated substitutions cause loss of catalytic activity and/or destabilize the protein, whereas substitutions found only in milder &#34;Peters-plus-like&#34; patients retain activity - evidence that it is specifically the loss of glucose transfer, not any B3GLCT sequence change, that produces the syndrome.</div>
 
@@ -4908,6 +4984,7 @@ This pathophysiological event involves decreased beta-1,3-glucosyltransferase ac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4929,6 +5006,7 @@ This pathophysiological event involves decreased beta-1,3-glucosyltransferase ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4956,6 +5034,7 @@ This pathophysiological event involves decreased beta-1,3-glucosyltransferase ac
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4978,6 +5057,7 @@ This pathophysiological event involves decreased beta-1,3-glucosyltransferase ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-glucose-beta-1-3-fucose-disaccharide-on-thrombospondin-type-1-repeats" data-dismech-node="Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Glucose-beta-1,3-Fucose Disaccharide on Thrombospondin Type-1 Repeats</div>
+
 
                 <div class="item-desc">POFUT2 and B3GLCT act sequentially to add an O-linked glucose-beta-1,3-fucose disaccharide to properly folded thrombospondin type-1 repeats. In PTRPLS the pathway stalls after the first step, so TSRs on target glycoproteins carry only O-fucose. This was shown directly in patient-derived properdin, the reporter protein used to establish PTRPLS as a congenital disorder of glycosylation; loss of the disaccharide on properdin remains the only human biochemical readout of functional null status.</div>
 
@@ -5103,6 +5183,7 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5124,6 +5205,7 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5149,6 +5231,7 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-er-quality-control-and-secretion-of-tsr-containing-proteins" data-dismech-node="Impaired ER Quality Control and Secretion of TSR-Containing Proteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ER Quality Control and Secretion of TSR-Containing Proteins</div>
+
 
                 <div class="item-desc">POFUT2 and B3GLCT together constitute a noncanonical endoplasmic-reticulum quality-control mechanism. Where classical ER quality control identifies and tags unfolded protein, this pathway recognizes the FOLDED TSR cotranslationally and stabilizes it by glycosylation, marking it for ER exit. Loss of the terminal glucose therefore reduces the secretion efficiency of a subset of the 49 predicted TSR-modified proteins - a subset, not all of them, which is why PTRPLS is survivable while Pofut2-null mice are embryonic lethal. Nearly half of the targets are members of the ADAMTS superfamily, which act in the extracellular matrix.</div>
 
@@ -5295,6 +5378,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5316,6 +5400,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5343,6 +5428,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5365,6 +5451,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-adamts9-and-adamts20-function-in-the-extracellular-matrix" data-dismech-node="Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced ADAMTS9 and ADAMTS20 Function in the Extracellular Matrix</div>
+
 
                 <div class="item-desc">Under-secretion of TSR-bearing ADAMTS metalloproteinases degrades extracellular-matrix remodelling during organogenesis. In B3glct knockout mice the pattern is target-specific: hydrocephalus and white spotting track with loss of ADAMTS20, eye abnormalities with partial reduction of ADAMTS9, and cleft palate with the combination of both.</div>
 
@@ -5488,6 +5575,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5510,6 +5598,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anterior-segment-dysgenesis" data-dismech-node="Anterior Segment Dysgenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Anterior Segment Dysgenesis</div>
+
 
                 <div class="item-desc">Defective remodelling of the developing anterior eye segment produces Peters anomaly: failure to separate the lens vesicle and/or iris from the surface ectoderm-derived cornea, leaving posterior corneal (Descemet membrane and endothelium) defects with iridocorneal and sometimes keratolenticular adhesions. Deep ocular phenotyping in PTRPLS most often shows an avascular paracentral ring opacity caused by iridocorneal adhesion, with relative central clearing over an area of posterior stromal thinning; a large vascularized central opacity is the less common alternative pattern. Periocular neural-crest-derived mesenchyme populates these structures, and abnormal neural crest development was the leading pre-molecular hypothesis for the syndrome.</div>
 
@@ -5782,6 +5871,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5803,6 +5893,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5832,6 +5923,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5854,6 +5946,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-craniofacial-and-endochondral-skeletal-growth" data-dismech-node="Impaired Craniofacial and Endochondral Skeletal Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Craniofacial and Endochondral Skeletal Growth</div>
+
 
                 <div class="item-desc">Disrupted extracellular-matrix remodelling in the growth plate and craniofacial skeleton produces disproportionate, rhizomelic short stature with brachydactyly and broad hands and feet, and the characteristic facial gestalt. B3glct knockout mice reproduce craniofacial and skeletal abnormalities comparable to the human syndrome.</div>
 
@@ -6141,6 +6234,7 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6162,6 +6256,7 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6187,6 +6282,7 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-palatal-shelf-fusion" data-dismech-node="Failure of Palatal Shelf Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Palatal Shelf Fusion</div>
+
 
                 <div class="item-desc">A subset of individuals develop cleft lip and/or palate. In the B3glct mouse, cleft palate arises only when ADAMTS20 is lost and ADAMTS9 is partially reduced, indicating that palatal shelf fusion is a combined-dosage-sensitive readout of the pathway.</div>
 
@@ -6299,6 +6395,7 @@ This pathophysiological event occurs in secondary palate (UBERON:0001716). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6320,6 +6417,7 @@ This pathophysiological event occurs in secondary palate (UBERON:0001716). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6389,17 +6487,17 @@ This pathophysiological event occurs in secondary palate (UBERON:0001716). UBERO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6444,6 +6542,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6458,6 +6559,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6490,7 +6592,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-peters-anomaly" data-dismech-node="Peters Anomaly" data-dismech-type="phenotype">
@@ -6521,6 +6623,9 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6535,6 +6640,7 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6559,6 +6665,7 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6613,6 +6720,9 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6630,6 +6740,7 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6638,6 +6749,80 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
                 <div class="evidence-explanation">GeneReviews documents corneal opacity as a direct consequence of the Peters anomaly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lens-anomalies" data-dismech-node="Lens Anomalies" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lens Anomalies
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal lens morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000517</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal lens morphology (HP:0000517). HP:0000517 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301637" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301637" target="_blank">PMID:20301637</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"which results in varying degrees of corneal opacity and lens anomalies"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists lens anomalies among the core ocular findings.</div>
 
 
 
@@ -6667,15 +6852,18 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000501</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6695,6 +6883,7 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6735,15 +6924,18 @@ This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000568</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6763,6 +6955,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6787,6 +6980,7 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6827,15 +7021,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000589</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6855,6 +7052,7 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6895,15 +7093,18 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6923,6 +7124,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6963,15 +7165,18 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6991,6 +7196,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7022,13 +7228,121 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">2</span>
+                    Genitourinary
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-forehead" data-dismech-node="Prominent Forehead" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-anomalies" data-dismech-node="Renal Anomalies" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Prominent Forehead
+                        Renal Anomalies
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal renal morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012210</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal anomalies, annotated with Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31600785" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31600785" target="_blank">PMID:31600785</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Children affected by PTRPLS also frequently have additional congenital defects including cleft palate and cardiovascular and urogenital malformations"</div>
+
+
+                <div class="evidence-explanation">Supports urogenital malformations as a recognized component of the human syndrome, matching the breadth of this phenotype. Classified OTHER because the quoted sentence is this mouse study&#39;s restatement of the established human clinical literature rather than its own data.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15912477" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15912477" target="_blank">PMID:15912477</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"short limbs with broad extremities and unilateral multicystic kidney"</div>
+
+
+                <div class="evidence-explanation">Documents unilateral multicystic dysplastic kidney - one specific renal anomaly of the spectrum - in an autopsy-confirmed case of Peters plus syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">5</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dandy-walker-malformation" data-dismech-node="Dandy-Walker Malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dandy-Walker Malformation
 
 
 
@@ -7040,15 +7354,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011220</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001305</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7071,6 +7388,151 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"postmortem analysis of PTRPLS fetuses identified additional abnormalities including growth retardation, hydrocephalus, agenesis of the corpus callosum, Dandy-Walker cyst and gut anomalies"</div>
+
+
+                <div class="evidence-explanation">Documents a Dandy-Walker cyst in human PTRPLS fetuses. Classified OTHER because this mouse paper is citing a separate human postmortem series rather than reporting the finding itself.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exaggerated-cupid-s-bow-upper-lip" data-dismech-node="Exaggerated Cupid&#39;s Bow Upper Lip" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Exaggerated Cupid&#39;s Bow Upper Lip
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exaggerated cupid&#39;s bow (HP:0002263). HP:0002263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12119218" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12119218" target="_blank">PMID:12119218</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Major symptoms are extremely variable anterior chamber anomalies, cupid bow of the upper lip, cleft lip and palate, short stature, broad hands and feet, and variable mental delay."</div>
+
+
+                <div class="evidence-explanation">Clinical review lists the cupid&#39;s-bow upper lip among the major manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-forehead" data-dismech-node="Prominent Forehead" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Prominent Forehead
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0011220</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31600785" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31600785" target="_blank">PMID:31600785</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7079,6 +7541,82 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
                 <div class="evidence-explanation">Prominent forehead listed among the defining clinical features. Classified OTHER because the quoted sentence is this mouse study&#39;s restatement of the established human clinical description rather than its own patient or model data.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-lip" data-dismech-node="Cleft Lip" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cleft Lip
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Cleft upper lip</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000204</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301637" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301637" target="_blank">PMID:20301637</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"and, occasionally, cleft lip/palate and congenital heart defects"</div>
+
+
+                <div class="evidence-explanation">GeneReviews describes cleft lip/palate as an occasional finding, which maps to the OCCASIONAL frequency band (5-29%) in the project&#39;s prose-to-enum mapping table.</div>
 
 
 
@@ -7110,15 +7648,18 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7138,6 +7679,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7166,11 +7708,11 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-brachydactyly" data-dismech-node="Brachydactyly" data-dismech-type="phenotype">
@@ -7187,15 +7729,18 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7215,6 +7760,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7239,6 +7785,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7281,15 +7828,18 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001169" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001169</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001169" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001169</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Broad palm (HP:0001169). HP:0001169 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7309,6 +7859,7 @@ This clinical feature is Broad palm (HP:0001169). HP:0001169 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7335,9 +7886,83 @@ This clinical feature is Broad palm (HP:0001169). HP:0001169 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-feet" data-dismech-node="Broad Feet" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Broad Feet
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Broad foot</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001769" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001769</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad foot (HP:0001769). HP:0001769 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301637" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301637" target="_blank">PMID:20301637</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"rhizomelic shortening of the limbs with broad hands and feet"</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents broad feet as part of the skeletal phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -7358,15 +7983,18 @@ This clinical feature is Broad palm (HP:0001169). HP:0001169 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7386,6 +8014,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7428,15 +8057,18 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7456,6 +8088,7 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7498,15 +8131,18 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7526,6 +8162,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7566,15 +8203,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7594,6 +8234,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7622,7 +8263,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -7643,15 +8284,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003498</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003498" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0003498</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7671,6 +8315,7 @@ This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7695,6 +8340,7 @@ This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7737,15 +8383,18 @@ This clinical feature is Disproportionate short stature (HP:0003498). HP:0003498
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0008905</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0008905</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7765,6 +8414,7 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7776,457 +8426,6 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
                 <div class="evidence-explanation">GeneReviews specifies the rhizomelic pattern of limb shortening.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lens-anomalies" data-dismech-node="Lens Anomalies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lens Anomalies
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal lens morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000517</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal lens morphology (HP:0000517). HP:0000517 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301637" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301637" target="_blank">PMID:20301637</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"which results in varying degrees of corneal opacity and lens anomalies"</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists lens anomalies among the core ocular findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dandy-walker-malformation" data-dismech-node="Dandy-Walker Malformation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dandy-Walker Malformation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001305</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dandy-Walker malformation (HP:0001305). HP:0001305 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31600785" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31600785" target="_blank">PMID:31600785</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"postmortem analysis of PTRPLS fetuses identified additional abnormalities including growth retardation, hydrocephalus, agenesis of the corpus callosum, Dandy-Walker cyst and gut anomalies"</div>
-
-
-                <div class="evidence-explanation">Documents a Dandy-Walker cyst in human PTRPLS fetuses. Classified OTHER because this mouse paper is citing a separate human postmortem series rather than reporting the finding itself.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-feet" data-dismech-node="Broad Feet" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Broad Feet
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Broad foot</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001769" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001769</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Broad foot (HP:0001769). HP:0001769 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301637" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301637" target="_blank">PMID:20301637</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"rhizomelic shortening of the limbs with broad hands and feet"</div>
-
-
-                <div class="evidence-explanation">GeneReviews documents broad feet as part of the skeletal phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-exaggerated-cupid-s-bow-upper-lip" data-dismech-node="Exaggerated Cupid&#39;s Bow Upper Lip" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Exaggerated Cupid&#39;s Bow Upper Lip
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Exaggerated cupid&#39;s bow (HP:0002263). HP:0002263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12119218" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12119218" target="_blank">PMID:12119218</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Major symptoms are extremely variable anterior chamber anomalies, cupid bow of the upper lip, cleft lip and palate, short stature, broad hands and feet, and variable mental delay."</div>
-
-
-                <div class="evidence-explanation">Clinical review lists the cupid&#39;s-bow upper lip among the major manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-lip" data-dismech-node="Cleft Lip" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cleft Lip
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Cleft upper lip</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000204</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301637" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301637" target="_blank">PMID:20301637</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"and, occasionally, cleft lip/palate and congenital heart defects"</div>
-
-
-                <div class="evidence-explanation">GeneReviews describes cleft lip/palate as an occasional finding, which maps to the OCCASIONAL frequency band (5-29%) in the project&#39;s prose-to-enum mapping table.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-anomalies" data-dismech-node="Renal Anomalies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Renal Anomalies
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal renal morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0012210</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Renal anomalies, annotated with Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31600785" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31600785" target="_blank">PMID:31600785</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Children affected by PTRPLS also frequently have additional congenital defects including cleft palate and cardiovascular and urogenital malformations"</div>
-
-
-                <div class="evidence-explanation">Supports urogenital malformations as a recognized component of the human syndrome, matching the breadth of this phenotype. Classified OTHER because the quoted sentence is this mouse study&#39;s restatement of the established human clinical literature rather than its own data.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15912477" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15912477" target="_blank">PMID:15912477</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"short limbs with broad extremities and unilateral multicystic kidney"</div>
-
-
-                <div class="evidence-explanation">Documents unilateral multicystic dysplastic kidney - one specific renal anomaly of the spectrum - in an autopsy-confirmed case of Peters plus syndrome.</div>
 
 
 
@@ -8316,6 +8515,9 @@ This disease-associated gene is B3GLCT (hgnc:20207). hgnc:20207 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -8330,6 +8532,7 @@ This disease-associated gene is B3GLCT (hgnc:20207). hgnc:20207 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8357,6 +8560,7 @@ This disease-associated gene is B3GLCT (hgnc:20207). hgnc:20207 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8378,6 +8582,7 @@ This disease-associated gene is B3GLCT (hgnc:20207). hgnc:20207 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8426,6 +8631,7 @@ This disease-associated gene is B3GLCT (hgnc:20207). hgnc:20207 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8447,7 +8653,13 @@ This variant is in B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent intronic splice-donor variant (rs80338851), the single most common pathogenic B3GLCT allele; it accounts for roughly two-thirds to three-quarters of reported pathogenic alleles across cohorts and is found homozygously or in trans with a rarer second allele.</div>
@@ -8477,6 +8689,7 @@ This variant is in B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8498,6 +8711,7 @@ This variant is in B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8533,6 +8747,7 @@ This variant is in B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8554,7 +8769,13 @@ This variant is in B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Frameshift variant in exon 9, first reported in 2019 in a newborn who was compound heterozygous for it and the recurrent c.660+1G&gt;A allele. Illustrates the typical &#34;one recurrent splice allele plus one private truncating allele&#34; genotype.</div>
@@ -8581,6 +8802,7 @@ This variant is in B3GLCT (hgnc:20207). hgnc:20207 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8672,6 +8894,12 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy - no B3GLCT replacement, substrate, chaperone, gene, or RNA therapy exists. Management is supportive and multidisciplinary, coordinating ophthalmology, orthopedics, rehabilitation therapies, educational support, a cleft lip/palate team, and social services including planning the transition from pediatric to adult care.</div>
 
 
@@ -8693,6 +8921,7 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8762,6 +8991,9 @@ This treatment is ophthalmologic surgical procedure (NCIT:C15331). NCIT:C15331 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8772,6 +9004,9 @@ This treatment is ophthalmologic surgical procedure (NCIT:C15331). NCIT:C15331 i
 
 
     </div>
+
+
+
 
 
 
@@ -8838,6 +9073,7 @@ This treatment targets Glaucoma (HP:0000501). HP:0000501 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8912,6 +9148,12 @@ This treatment is ophthalmologic surveillance, annotated with Eye Examination (N
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Because glaucoma can develop at any age and threatens residual vision, GeneReviews recommends intraocular-pressure and ophthalmologic surveillance in early infancy, again at three and six months of age, and at least every six months thereafter. Early infancy is also the critical window for detecting and treating deprivation amblyopia.</div>
 
 
@@ -8933,6 +9175,7 @@ This treatment is ophthalmologic surveillance, annotated with Eye Examination (N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9002,6 +9245,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9012,6 +9258,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -9039,6 +9288,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9108,6 +9358,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9118,6 +9371,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9187,6 +9443,7 @@ This treatment targets Cleft upper lip (HP:0000204). HP:0000204 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9253,6 +9510,9 @@ This treatment is educational and developmental support, annotated with Supporti
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9263,6 +9523,9 @@ This treatment is educational and developmental support, annotated with Supporti
 
 
     </div>
+
+
+
 
 
 
@@ -9312,6 +9575,7 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9386,6 +9650,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling on autosomal recessive recurrence risk. Once the familial B3GLCT variants are known, carrier testing for at-risk relatives and prenatal or preimplantation genetic testing are available. Counseling should note that the observed sibling risk at birth is below the theoretical 25% because of increased fetal loss.</div>
 
 
@@ -9407,6 +9677,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9482,6 +9753,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9503,6 +9775,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9557,6 +9830,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9625,6 +9899,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9672,6 +9947,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9740,6 +10016,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9846,6 +10123,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9870,6 +10148,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9891,6 +10170,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9966,6 +10246,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9990,6 +10271,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10011,6 +10293,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10159,6 +10442,7 @@ This experimental model concerns B3GLCT (hgnc:20207). hgnc:20207 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10180,6 +10464,7 @@ This experimental model concerns B3GLCT (hgnc:20207). hgnc:20207 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10306,6 +10591,7 @@ This experimental model concerns B3GLCT (hgnc:20207). hgnc:20207 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10327,6 +10613,7 @@ This experimental model concerns B3GLCT (hgnc:20207). hgnc:20207 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12549,6 +12836,28 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope note. This entry covers Peters plus syndrome, the B3GLCT-related syndromic entity (MONDO:0009856, OMIM 261540). It deliberately does NOT cover isolated Peters anomaly, which is a genetically distinct anterior-segment dysgenesis associated with PAX6, PITX2, PITX3, FOXE3, FOXC1, CYP1B1, and SOX2 and in which B3GLCT variants are consistently absent; that distinction is captured under differential_diagnoses. Related dismech entries covering the isolated anterior-segment side of the spectrum are FOXE3_Anterior_Segment_Dysgenesis and Axenfeld-Rieger_syndrome.
+Correction to the source issue. GitHub issue 7706 described this disorder as &#34;B4GALT1-related&#34;. That is incorrect: B4GALT1 causes CDG type IId, a distinct disorder. The causal gene here is B3GLCT (hgnc:20207, formerly B3GALTL), as confirmed by the MONDO:0009856 record (relationship RO:0004003 HGNC:20207), the OMIM 261540 xref, and GeneReviews. The NEC preflight was run against MONDO:0009856 before any deep-research content was used.
+Frequencies deliberately omitted. Apart from the three OCCASIONAL bands supported directly by the GeneReviews word &#34;occasionally&#34;, no phenotype frequency is asserted. Two numbers that circulate in the literature were specifically rejected: the 30-70% glaucoma frequency and the 2.2-3.1 per 100,000 birth prevalence both describe the broader Peters anomaly spectrum, not molecularly confirmed Peters plus syndrome, and a roughly 33% cardiac-malformation figure derives from a very small, ascertainment-biased case literature.
+Prevalence. Orphanet (ORPHA:709) is the natural structured source, but the pinned Orphadata bulk XML in this repository no longer matches its manifest checksum, so no ORPHA_709 cache record could be generated. Only the qualitative rarity band is therefore recorded.
+Deep research. Edison/falcon was run for this entry (research/Peters_Plus_Syndrome-deep-research-falcon.md, 730 s, 19 citations). Its NEC identity anchors matched (B3GLCT, MONDO:0009856, OMIM 261540, explicit separation from isolated Peters anomaly). The report contributed the Vasudevan 2015 noncanonical-ER-quality-control mechanism (PMID:25544610), the Chesneau 2022 Peters anomaly cohort (PMID:35170016), the Delas 2025 Peters-plus-like CNV case (PMID:40650233), and the c.755delC variant report (PMID:31795264). Its claim that no validated B3glct-null mouse exists was contradicted by independent PubMed searching and is not reflected in this entry; PMID:31600785 describes exactly such a model.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Peters Plus Syndrome</strong> · 2026-08-01T17:50:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Peters_Plus_Syndrome/2026-08-01T175001Z-claude-code-961906.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Peters_Plus_Syndrome.yaml for Peters plus syndrome (MONDO:0009856, OMIM 261540, B3GLCT / hgnc:20207). NEC preflight was run first against the MONDO record - gene relationship RO:0004003 HGNC:20207, OMIM:261540 xref, synonyms Krause-Kivlin syndrome and Peters anomaly with short limb dwarfism. The entry is scoped to the B3GLCT syndromic entity and explicitly separated from isolated Peters anomaly, whose genes are PAX6, PITX2, PITX3, FOXE3, FOXC1, CYP1B1 and SOX2, via differential_diagnoses and a scope note. Issue 7706 wrongly described the gene as B4GALT1, which causes CDG type IId; this is corrected to B3GLCT and documented in the entry notes. Deep research used Edison/falcon, saved at research/Peters_Plus_Syndrome-deep-research-falcon.md, 730 seconds and 19 citations. Its NEC identity anchors matched and it contributed PMID:25544610, PMID:35170016, PMID:40650233 and PMID:31795264. Its claim that no validated B3glct-null mouse model exists was contradicted by independent PubMed searching, PMID:31600785, and was not carried into the entry. The GeneReviews baseline step was completed: PMID:20301637 was fetched, tagged GeneReviews in the top-level references block, and every phenotype in its Clinical Characteristics section is represented in the YAML. Curated content: a seven-node pathophysiology chain running B3GLCT loss of function to absent Glc-beta-1,3-Fuc disaccharide on thrombospondin type-1 repeats to impaired noncanonical ER quality control and TSR secretion to reduced ADAMTS9 and ADAMTS20 function, branching into anterior segment dysgenesis, craniofacial and endochondral skeletal growth, and palatal shelf fusion; 20 phenotypes; a genetic block plus two variants; two diagnosis entries; two differential diagnoses; seven treatments; two animal models; two progression phases; and three discussions, including a HUMAN_MODEL_MISMATCH for the phenotype-free zebrafish b3glct double null. Frequencies were deliberately limited to three OCCASIONAL bands supported directly by the GeneReviews word occasionally; the 30 to 70 percent glaucoma figure and the 2.2 to 3.1 per 100000 birth prevalence were rejected as Peters-anomaly-spectrum statistics rather than PTRPLS-specific. Validation: just validate passed, just validate-terms passed, just validate-references passed with 84 of 84 snippets verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

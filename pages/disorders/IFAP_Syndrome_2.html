@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4288,6 +4356,7 @@ One nosological question sits at the centre of the entry rather than at its edge
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4309,6 +4378,7 @@ One nosological question sits at the centre of the entry rather than at its edge
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4556,6 +4626,13 @@ Nothing currently separates them. Both observations come from the same cross-sec
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-srebf1-cleavage-site-variant" data-dismech-node="SREBF1 Cleavage-Site Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">SREBF1 Cleavage-Site Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A heterozygous missense substitution or small in-frame deletion in SREBF1 affecting residues 527, 528 or 530 - the motif site-1 protease must recognise before it can cut SREBP1.
 The allelic spectrum is narrow and mechanistically legible: these are not scattered loss-of-function variants but a functional hotspot, and their common property is that they leave the protein intact while making it uncleavable. That has two consequences a curator should keep separate. The protein is still made, so this is not haploinsufficiency; and the uncleavable product is suspected of suppressing output from the normal allele, which is why the disease is dominant with a single hit rather than requiring both.</div>
 
@@ -4651,6 +4728,8 @@ This genetic context concerns SREBF1 (hgnc:11289). hgnc:11289 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense substitution or small in-frame deletion at the S1P recognition motif</span>
 
 
@@ -4666,6 +4745,9 @@ This genetic context concerns SREBF1 (hgnc:11289). hgnc:11289 is a gene from the
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Variants at residues 527-530 abolish site-1 protease cleavage. Curated as loss of function because that is what the assays measure - reduced cleavage, blocked nuclear entry, reduced reporter activity. A dominant-negative component is plausible from the dominance of the trait and from residual activity well above zero in the reporter assay, but no experiment has separated a dominant-negative effect from simple haploinsufficiency of the pathway, so the stronger category is not asserted.</div>
 
@@ -4715,6 +4797,7 @@ This genetic context concerns SREBF1 (hgnc:11289). hgnc:11289 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4737,6 +4820,13 @@ This genetic context concerns SREBF1 (hgnc:11289). hgnc:11289 is a gene from the
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blocked-site-1-proteolytic-activation-of-srebp1" data-dismech-node="Blocked Site-1 Proteolytic Activation of SREBP1" data-dismech-type="pathophysiology">
                 <div class="item-name">Blocked Site-1 Proteolytic Activation of SREBP1</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">SREBP1 is a membrane-tethered precursor that becomes a transcription factor only after two sequential cuts - site-1 protease in the Golgi lumen, then site-2 protease within the membrane - which release the active amino-terminal domain into the cytosol for import into the nucleus. With the site-1 recognition motif destroyed, the cascade stops at the first step and the active fragment is never generated.
 This is the node that makes IFAP syndrome 1 and 2 one disease mechanism approached from two directions: IFAP syndrome 1 removes the second protease, this removes the first cut&#39;s substrate site, and both leave SREBP stranded on the membrane.</div>
@@ -4884,6 +4974,7 @@ This pathophysiological event involves Golgi membrane (GO:0000139). GO:0000139 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4906,6 +4997,13 @@ This pathophysiological event involves Golgi membrane (GO:0000139). GO:0000139 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-nuclear-srebp1-transcriptional-output" data-dismech-node="Reduced Nuclear SREBP1 Transcriptional Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Nuclear SREBP1 Transcriptional Output</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">SREBP-driven lipogenic transcription falls. Two things are worth noting for anyone reading the assays. The reduction is partial, not absolute - reporter activity in the mutants runs well below wild type but is not abolished - which fits a disease compatible with normal lifespan and adult reproduction. And the effect is confirmed in patient tissue rather than only in transfected cells: LDLR, the canonical SREBP target, is down in scalp skin from affected individuals.</div>
 
@@ -5081,6 +5179,7 @@ This pathophysiological event involves decreased cholesterol biosynthetic proces
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5102,6 +5201,7 @@ This pathophysiological event involves decreased cholesterol biosynthetic proces
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5127,6 +5227,13 @@ This pathophysiological event involves decreased cholesterol biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-follicular-keratinization" data-dismech-node="Failure of Follicular Keratinization" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Follicular Keratinization</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The hair follicle and interfollicular epidermis cannot execute their keratinization programme. Two visible things follow: the infundibulum plugs with keratotic material, which is the spiny follicular papule seen clinically, and the shaft itself is structurally defective, with cuticle warping and detachment on scanning electron microscopy.
 The specificity is what makes this node informative rather than generic. It is the outer root sheath keratins that collapse, which is exactly the compartment whose failure would give a hair that forms and then breaks rather than a follicle that never forms.</div>
@@ -5312,6 +5419,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5334,6 +5442,13 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratinocyte-apoptosis" data-dismech-node="Keratinocyte Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Keratinocyte Apoptosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Keratinocyte death is increased in scalp skin from affected individuals.
 Curated as provisional deliberately. The observation is real and made in patient tissue, but the paper reporting it frames the link to hyperkeratosis and hypotrichosis as something that might contribute, not something shown - and it is a correlation in a biopsy rather than a manipulation. Curating it at higher confidence would state more than the source does.</div>
@@ -5460,6 +5575,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5482,6 +5598,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-meibomian-gland-lipid-synthesis-failure" data-dismech-node="Meibomian Gland Lipid Synthesis Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Meibomian Gland Lipid Synthesis Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The meibomian gland secretes lipid of the wrong composition. Lipidomic analysis of meibum from an affected individual found it enriched in saturated wax esters, raising the saturated-to-unsaturated ratio to grossly abnormal levels.
 The consequence is physical rather than inflammatory, and that is the point: saturated wax esters melt at a higher temperature than unsaturated ones, so the secretion is thicker and expresses poorly at lid temperature. This is the step that turns a transcription-factor defect into an ocular surface disease, and it explains why photophobia in this disorder is not simply corneal irritation.</div>
@@ -5629,6 +5752,7 @@ This pathophysiological event occurs in meibomian gland, annotated with tarsal g
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5650,6 +5774,7 @@ This pathophysiological event occurs in meibomian gland, annotated with tarsal g
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5675,6 +5800,13 @@ This pathophysiological event occurs in meibomian gland, annotated with tarsal g
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-surface-lipid-layer-instability" data-dismech-node="Ocular Surface Lipid Layer Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Ocular Surface Lipid Layer Instability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Without a competent lipid layer the tear film is unstable, the corneal epithelium is exposed and repeatedly breaks down, and the surface becomes photophobic and prone to vascularizing keratitis.
 Provisional because the chain from meibum composition to keratopathy is assembled from two literatures - one lipidomic study and a set of ocular case series - rather than measured end to end in one cohort. The individual findings are solid; their linkage is inference.</div>
@@ -5788,6 +5920,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5809,6 +5942,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5857,7 +5991,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrichia and hypotrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hair loss ranging from complete congenital atrichia to sparse, fragile hair, affecting scalp, eyebrows, eyelashes and body hair. It is non-scarring, which separates it at the bedside from the scarring alopecias, and in some individuals it is cyclical - hair regrows and is lost again - rather than a single congenital absence.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0500262\"}}, {\"id\": \"Blocked Site-1 Proteolytic Activation of SREBP1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SREBP1 is a membrane-tethered precursor that becomes a transcription factor only after two sequential cuts - site-1 protease in the Golgi lumen, then site-2 protease within the membrane - which release the active amino-terminal domain into the cytosol for import into the nucleus. With the site-1 recognition motif destroyed, the cascade stops at the first step and the active fragment is never generated.\\nThis is the node that makes IFAP syndrome 1 and 2 one disease mechanism approached from two directions: IFAP syndrome 1 removes the second protease, this removes the first cut\u0027s substrate site, and both leave SREBP stranded on the membrane.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"SREBP signaling pathway\", \"proteolytic processing of SREBP1\"], \"role\": \"effector\"}}, {\"id\": \"Corneal opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stromal opacification following the keratitis, and the main threat to vision. It is not irreversible: with sustained ocular surface management one child\u0027s opacity improved greatly over seven years, which is an argument for treating aggressively rather than accepting the cornea as lost.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007957\"}}, {\"id\": \"Failure of Follicular Keratinization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hair follicle and interfollicular epidermis cannot execute their keratinization programme. Two visible things follow: the infundibulum plugs with keratotic material, which is the spiny follicular papule seen clinically, and the shaft itself is structurally defective, with cuticle warping and detachment on scanning electron microscopy.\\nThe specificity is what makes this node informative rather than generic. It is the outer root sheath keratins that collapse, which is exactly the compartment whose failure would give a hair that forms and then breaks rather than a follicle that never forms.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"outer root sheath cell\"], \"biological_processes\": [\"keratinization\", \"hair follicle development\"], \"role\": \"effector\", \"locations\": [\"hair follicle\"]}}, {\"id\": \"Follicular hyperkeratosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized spiny follicular keratotic papules, present from soon after birth. Some affected individuals instead show lamellar-type scaling or psoriasiform plaques, so the cutaneous presentation is less stereotyped than the syndrome\u0027s name implies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007502\"}}, {\"id\": \"Keratinocyte Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocyte death is increased in scalp skin from affected individuals.\\nCurated as provisional deliberately. The observation is real and made in patient tissue, but the paper reporting it frames the link to hyperkeratosis and hypotrichosis as something that might contribute, not something shown - and it is a correlation in a biopsy rather than a manipulation. Curating it at higher confidence would state more than the source does.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"apoptotic process\"], \"role\": \"effector\"}}, {\"id\": \"Meibomian Gland Lipid Synthesis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The meibomian gland secretes lipid of the wrong composition. Lipidomic analysis of meibum from an affected individual found it enriched in saturated wax esters, raising the saturated-to-unsaturated ratio to grossly abnormal levels.\\nThe consequence is physical rather than inflammatory, and that is the point: saturated wax esters melt at a higher temperature than unsaturated ones, so the secretion is thicker and expresses poorly at lid temperature. This is the step that turns a transcription-factor defect into an ocular surface disease, and it explains why photophobia in this disorder is not simply corneal irritation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"meibocyte\"], \"biological_processes\": [\"lipid biosynthetic process\"], \"role\": \"effector\", \"locations\": [\"meibomian gland\"]}}, {\"id\": \"Meibomian gland dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in almost every reported individual and the mechanistic hinge of the ocular phenotype: the gland makes lipid of the wrong composition, so the tear film has no stable outer layer. HPO has no term for meibomian gland dysfunction itself, so this is bound to posterior blepharitis, the closest available concept for disease of the meibomian-gland-bearing posterior lid margin, with the precise entity carried in the preferred term.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025610\"}}, {\"id\": \"Ocular Surface Lipid Layer Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without a competent lipid layer the tear film is unstable, the corneal epithelium is exposed and repeatedly breaks down, and the surface becomes photophobic and prone to vascularizing keratitis.\\nProvisional because the chain from meibum composition to keratopathy is assembled from two literatures - one lipidomic study and a set of ocular case series - rather than measured end to end in one cohort. The individual findings are solid; their linkage is inference.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"corneal epithelial cell\"], \"role\": \"effector\", \"locations\": [\"cornea\"]}}, {\"id\": \"Ocular surface lubrication and meibomian gland care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mainstay, and the intervention with the clearest mechanistic rationale in the entry: if the gland cannot make spreadable lipid, the tear film needs replacing and the gland needs help expressing what it does make. Warm compresses and lid hygiene are the standard meibomian-gland measures, added here on the strength of the lipid mechanism rather than any trial in this disorder. Sustained management has been followed by substantial improvement in corneal opacity over years.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-universal, typically from the first months of life, and generally the most disabling feature. It is a consequence of ocular surface disease rather than a primary neurological light sensitivity. Notably it can be absent - two individuals with a variant outside the founding hotspot had no apparent photophobia at all - so its absence does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000613\"}}, {\"id\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SREBP-driven lipogenic transcription falls. Two things are worth noting for anyone reading the assays. The reduction is partial, not absolute - reporter activity in the mutants runs well below wild type but is not abolished - which fits a disease compatible with normal lifespan and adult reproduction. And the effect is confirmed in patient tissue rather than only in transfected cells: LDLR, the canonical SREBP target, is down in scalp skin from affected individuals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"lipid biosynthetic process\", \"cholesterol biosynthetic process\"], \"role\": \"effector\"}}, {\"id\": \"SREBF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SREBF1\"], \"gene_terms\": [{\"label\": \"SREBF1\", \"id\": \"hgnc:11289\"}], \"association\": \"Heterozygous missense and small in-frame deletion variants at the site-1 protease cleavage motif.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SREBF1 Cleavage-Site Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous missense substitution or small in-frame deletion in SREBF1 affecting residues 527, 528 or 530 - the motif site-1 protease must recognise before it can cut SREBP1.\\nThe allelic spectrum is narrow and mechanistically legible: these are not scattered loss-of-function variants but a functional hotspot, and their common property is that they leave the protein intact while making it uncleavable. That has two consequences a curator should keep separate. The protein is still made, so this is not haploinsufficiency; and the uncleavable product is suspected of suppressing output from the normal allele, which is why the disease is dominant with a single hit rather than requiring both.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SREBF1\"], \"gene_terms\": [{\"label\": \"SREBF1\", \"id\": \"hgnc:11289\"}], \"genetic_context\": {\"allele_type\": \"missense substitution or small in-frame deletion at the S1P recognition motif\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Variants at residues 527-530 abolish site-1 protease cleavage. Curated as loss of function because that is what the assays measure - reduced cleavage, blocked nuclear entry, reduced reporter activity. A dominant-negative component is plausible from the dominance of the trait and from residual activity well above zero in the reporter assay, but no experiment has separated a dominant-negative effect from simple haploinsufficiency of the pathway, so the stronger category is not asserted.\", \"gene_terms\": [{\"label\": \"SREBF1\", \"id\": \"hgnc:11289\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Systemic acitretin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral retinoid for the cutaneous hyperkeratosis. The evidence is a single case treated before molecular subtyping existed, so it speaks to IFAP syndrome as a clinical entity rather than to the SREBF1 form specifically - and its result is as useful for what it did not do as for what it did: cutaneous features and corneal erosions improved, alopecia and photophobia did not. A family should be told that in advance.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"acitretin\"]}}, {\"id\": \"Topical corticosteroid for vascularizing keratitis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Partially effective for the keratitis specifically. Worth distinguishing from the general ocular surface care above, because the keratitis relapses - it waxed and waned over five years in the reported infants - so this is episodic treatment of a recurrent inflammatory event, not maintenance therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"topical corticosteroid\"]}}, {\"id\": \"Vascularizing keratitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corneal new vessels growing centripetally from the whole limbal circumference, with stromal opacity forming at the advancing edge. It waxes and wanes over years rather than progressing steadily, and partially responds to topical corticosteroid - so an apparently deteriorating cornea in this disorder is not necessarily on a one-way course.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011496\"}}], \"edges\": [{\"source\": \"SREBF1 Cleavage-Site Variant\", \"target\": \"Blocked Site-1 Proteolytic Activation of SREBP1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variant residues are the protease recognition site, so disrupting them prevents the first cut.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blocked Site-1 Proteolytic Activation of SREBP1\", \"target\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No cleaved fragment reaches the nucleus, so target-gene transcription falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"target\": \"Failure of Follicular Keratinization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outer-root-sheath keratin transcription falls with SREBP1 output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"target\": \"Keratinocyte Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised apoptosis accompanies the lipid-synthetic deficit in patient scalp; the authors themselves put this forward as a contributing mechanism rather than a demonstrated one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"target\": \"Meibomian Gland Lipid Synthesis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The meibomian gland is a specialized sebaceous gland whose secretion is SREBP-dependent lipid; reduced lipogenic transcription alters what it can make.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Follicular Keratinization\", \"target\": \"Follicular hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Follicular Keratinization\", \"target\": \"Atrichia and hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratinocyte Apoptosis\", \"target\": \"Atrichia and hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed by the reporting authors as a contributor to hair loss alongside the keratinization defect, not demonstrated as a separate cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Meibomian Gland Lipid Synthesis Failure\", \"target\": \"Ocular Surface Lipid Layer Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A higher-melting, poorly expressible secretion cannot form a competent tear-film lipid layer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Surface Lipid Layer Instability\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Surface Lipid Layer Instability\", \"target\": \"Vascularizing keratitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascularizing keratitis\", \"target\": \"Corneal opacity\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Stromal leucomatous opacity forms at the leading edge of the vessels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular surface lubrication and meibomian gland care\", \"target\": \"Ocular Surface Lipid Layer Instability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ocular surface lubrication and meibomian gland care\", \"target\": \"Meibomian gland dysfunction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ocular surface lubrication and meibomian gland care\", \"target\": \"Corneal opacity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical corticosteroid for vascularizing keratitis\", \"target\": \"Vascularizing keratitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Systemic acitretin\", \"target\": \"Follicular hyperkeratosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SREBF1\", \"target\": \"SREBF1 Cleavage-Site Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atrichia and hypotrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hair loss ranging from complete congenital atrichia to sparse, fragile hair, affecting scalp, eyebrows, eyelashes and body hair. It is non-scarring, which separates it at the bedside from the scarring alopecias, and in some individuals it is cyclical - hair regrows and is lost again - rather than a single congenital absence.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0500262\"}}, {\"id\": \"Blocked Site-1 Proteolytic Activation of SREBP1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SREBP1 is a membrane-tethered precursor that becomes a transcription factor only after two sequential cuts - site-1 protease in the Golgi lumen, then site-2 protease within the membrane - which release the active amino-terminal domain into the cytosol for import into the nucleus. With the site-1 recognition motif destroyed, the cascade stops at the first step and the active fragment is never generated.\\nThis is the node that makes IFAP syndrome 1 and 2 one disease mechanism approached from two directions: IFAP syndrome 1 removes the second protease, this removes the first cut\u0027s substrate site, and both leave SREBP stranded on the membrane.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"SREBP signaling pathway\", \"proteolytic processing of SREBP1\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Corneal opacity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stromal opacification following the keratitis, and the main threat to vision. It is not irreversible: with sustained ocular surface management one child\u0027s opacity improved greatly over seven years, which is an argument for treating aggressively rather than accepting the cornea as lost.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007957\"}}, {\"id\": \"Failure of Follicular Keratinization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hair follicle and interfollicular epidermis cannot execute their keratinization programme. Two visible things follow: the infundibulum plugs with keratotic material, which is the spiny follicular papule seen clinically, and the shaft itself is structurally defective, with cuticle warping and detachment on scanning electron microscopy.\\nThe specificity is what makes this node informative rather than generic. It is the outer root sheath keratins that collapse, which is exactly the compartment whose failure would give a hair that forms and then breaks rather than a follicle that never forms.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"outer root sheath cell\"], \"biological_processes\": [\"keratinization\", \"hair follicle development\"], \"role\": \"effector\", \"locations\": [\"hair follicle\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Follicular hyperkeratosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized spiny follicular keratotic papules, present from soon after birth. Some affected individuals instead show lamellar-type scaling or psoriasiform plaques, so the cutaneous presentation is less stereotyped than the syndrome\u0027s name implies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007502\"}}, {\"id\": \"Keratinocyte Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocyte death is increased in scalp skin from affected individuals.\\nCurated as provisional deliberately. The observation is real and made in patient tissue, but the paper reporting it frames the link to hyperkeratosis and hypotrichosis as something that might contribute, not something shown - and it is a correlation in a biopsy rather than a manipulation. Curating it at higher confidence would state more than the source does.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"apoptotic process\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Meibomian Gland Lipid Synthesis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The meibomian gland secretes lipid of the wrong composition. Lipidomic analysis of meibum from an affected individual found it enriched in saturated wax esters, raising the saturated-to-unsaturated ratio to grossly abnormal levels.\\nThe consequence is physical rather than inflammatory, and that is the point: saturated wax esters melt at a higher temperature than unsaturated ones, so the secretion is thicker and expresses poorly at lid temperature. This is the step that turns a transcription-factor defect into an ocular surface disease, and it explains why photophobia in this disorder is not simply corneal irritation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"meibocyte\"], \"biological_processes\": [\"lipid biosynthetic process\"], \"role\": \"effector\", \"locations\": [\"meibomian gland\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Meibomian gland dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in almost every reported individual and the mechanistic hinge of the ocular phenotype: the gland makes lipid of the wrong composition, so the tear film has no stable outer layer. HPO has no term for meibomian gland dysfunction itself, so this is bound to posterior blepharitis, the closest available concept for disease of the meibomian-gland-bearing posterior lid margin, with the precise entity carried in the preferred term.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025610\"}}, {\"id\": \"Ocular Surface Lipid Layer Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without a competent lipid layer the tear film is unstable, the corneal epithelium is exposed and repeatedly breaks down, and the surface becomes photophobic and prone to vascularizing keratitis.\\nProvisional because the chain from meibum composition to keratopathy is assembled from two literatures - one lipidomic study and a set of ocular case series - rather than measured end to end in one cohort. The individual findings are solid; their linkage is inference.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"corneal epithelial cell\"], \"role\": \"effector\", \"locations\": [\"cornea\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Ocular surface lubrication and meibomian gland care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mainstay, and the intervention with the clearest mechanistic rationale in the entry: if the gland cannot make spreadable lipid, the tear film needs replacing and the gland needs help expressing what it does make. Warm compresses and lid hygiene are the standard meibomian-gland measures, added here on the strength of the lipid mechanism rather than any trial in this disorder. Sustained management has been followed by substantial improvement in corneal opacity over years.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-universal, typically from the first months of life, and generally the most disabling feature. It is a consequence of ocular surface disease rather than a primary neurological light sensitivity. Notably it can be absent - two individuals with a variant outside the founding hotspot had no apparent photophobia at all - so its absence does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000613\"}}, {\"id\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SREBP-driven lipogenic transcription falls. Two things are worth noting for anyone reading the assays. The reduction is partial, not absolute - reporter activity in the mutants runs well below wild type but is not abolished - which fits a disease compatible with normal lifespan and adult reproduction. And the effect is confirmed in patient tissue rather than only in transfected cells: LDLR, the canonical SREBP target, is down in scalp skin from affected individuals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"lipid biosynthetic process\", \"cholesterol biosynthetic process\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"SREBF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SREBF1\"], \"gene_terms\": [{\"label\": \"SREBF1\", \"id\": \"hgnc:11289\"}], \"association\": \"Heterozygous missense and small in-frame deletion variants at the site-1 protease cleavage motif.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SREBF1 Cleavage-Site Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous missense substitution or small in-frame deletion in SREBF1 affecting residues 527, 528 or 530 - the motif site-1 protease must recognise before it can cut SREBP1.\\nThe allelic spectrum is narrow and mechanistically legible: these are not scattered loss-of-function variants but a functional hotspot, and their common property is that they leave the protein intact while making it uncleavable. That has two consequences a curator should keep separate. The protein is still made, so this is not haploinsufficiency; and the uncleavable product is suspected of suppressing output from the normal allele, which is why the disease is dominant with a single hit rather than requiring both.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SREBF1\"], \"gene_terms\": [{\"label\": \"SREBF1\", \"id\": \"hgnc:11289\"}], \"genetic_context\": {\"allele_type\": \"missense substitution or small in-frame deletion at the S1P recognition motif\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Variants at residues 527-530 abolish site-1 protease cleavage. Curated as loss of function because that is what the assays measure - reduced cleavage, blocked nuclear entry, reduced reporter activity. A dominant-negative component is plausible from the dominance of the trait and from residual activity well above zero in the reporter assay, but no experiment has separated a dominant-negative effect from simple haploinsufficiency of the pathway, so the stronger category is not asserted.\", \"gene_terms\": [{\"label\": \"SREBF1\", \"id\": \"hgnc:11289\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Systemic acitretin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral retinoid for the cutaneous hyperkeratosis. The evidence is a single case treated before molecular subtyping existed, so it speaks to IFAP syndrome as a clinical entity rather than to the SREBF1 form specifically - and its result is as useful for what it did not do as for what it did: cutaneous features and corneal erosions improved, alopecia and photophobia did not. A family should be told that in advance.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"acitretin\"]}}, {\"id\": \"Topical corticosteroid for vascularizing keratitis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Partially effective for the keratitis specifically. Worth distinguishing from the general ocular surface care above, because the keratitis relapses - it waxed and waned over five years in the reported infants - so this is episodic treatment of a recurrent inflammatory event, not maintenance therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"topical corticosteroid\"]}}, {\"id\": \"Vascularizing keratitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corneal new vessels growing centripetally from the whole limbal circumference, with stromal opacity forming at the advancing edge. It waxes and wanes over years rather than progressing steadily, and partially responds to topical corticosteroid - so an apparently deteriorating cornea in this disorder is not necessarily on a one-way course.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011496\"}}], \"edges\": [{\"source\": \"SREBF1 Cleavage-Site Variant\", \"target\": \"Blocked Site-1 Proteolytic Activation of SREBP1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variant residues are the protease recognition site, so disrupting them prevents the first cut.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blocked Site-1 Proteolytic Activation of SREBP1\", \"target\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No cleaved fragment reaches the nucleus, so target-gene transcription falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"target\": \"Failure of Follicular Keratinization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outer-root-sheath keratin transcription falls with SREBP1 output.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"target\": \"Keratinocyte Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised apoptosis accompanies the lipid-synthetic deficit in patient scalp; the authors themselves put this forward as a contributing mechanism rather than a demonstrated one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Nuclear SREBP1 Transcriptional Output\", \"target\": \"Meibomian Gland Lipid Synthesis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The meibomian gland is a specialized sebaceous gland whose secretion is SREBP-dependent lipid; reduced lipogenic transcription alters what it can make.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Follicular Keratinization\", \"target\": \"Follicular hyperkeratosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Follicular Keratinization\", \"target\": \"Atrichia and hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratinocyte Apoptosis\", \"target\": \"Atrichia and hypotrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed by the reporting authors as a contributor to hair loss alongside the keratinization defect, not demonstrated as a separate cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Meibomian Gland Lipid Synthesis Failure\", \"target\": \"Ocular Surface Lipid Layer Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A higher-melting, poorly expressible secretion cannot form a competent tear-film lipid layer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Surface Lipid Layer Instability\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Surface Lipid Layer Instability\", \"target\": \"Vascularizing keratitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascularizing keratitis\", \"target\": \"Corneal opacity\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Stromal leucomatous opacity forms at the leading edge of the vessels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular surface lubrication and meibomian gland care\", \"target\": \"Ocular Surface Lipid Layer Instability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ocular surface lubrication and meibomian gland care\", \"target\": \"Meibomian gland dysfunction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ocular surface lubrication and meibomian gland care\", \"target\": \"Corneal opacity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical corticosteroid for vascularizing keratitis\", \"target\": \"Vascularizing keratitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Systemic acitretin\", \"target\": \"Follicular hyperkeratosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SREBF1\", \"target\": \"SREBF1 Cleavage-Site Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5878,9 +6012,13 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5921,6 +6059,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5935,6 +6076,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5989,6 +6131,9 @@ This clinical feature is Esophageal stricture (HP:0002043). HP:0002043 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6003,6 +6148,7 @@ This clinical feature is Esophageal stricture (HP:0002043). HP:0002043 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6035,7 +6181,7 @@ This clinical feature is Esophageal stricture (HP:0002043). HP:0002043 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-photophobia" data-dismech-node="Photophobia" data-dismech-type="phenotype">
@@ -6068,6 +6214,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6082,6 +6231,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6109,6 +6259,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6117,548 +6268,6 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                 <div class="evidence-explanation">The documented exception, curated so the entry does not present photophobia as obligate.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-opacity" data-dismech-node="Corneal opacity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Corneal opacity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007957</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39278528" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39278528" target="_blank">PMID:39278528</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"With appropriate management and close follow-up over 7 years, corneal opacity improved greatly."</div>
-
-
-                <div class="evidence-explanation">Documents both the finding and its reversibility under management.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cataract" data-dismech-node="Cataract" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cataract
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000518</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39603447" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39603447" target="_blank">PMID:39603447</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This syndrome is associated with a variety of ocular conditions, including cataracts, nystagmus, keratitis, meibomian gland dysfunction (MGD), and decreased visual acuity."</div>
-
-
-                <div class="evidence-explanation">Lists cataract among the characteristic ocular findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nystagmus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000639</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39603447" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39603447" target="_blank">PMID:39603447</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This syndrome is associated with a variety of ocular conditions, including cataracts, nystagmus, keratitis, meibomian gland dysfunction (MGD), and decreased visual acuity."</div>
-
-
-                <div class="evidence-explanation">Lists nystagmus among the characteristic ocular findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-visual-acuity" data-dismech-node="Reduced visual acuity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced visual acuity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0007663</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39603447" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39603447" target="_blank">PMID:39603447</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This syndrome is associated with a variety of ocular conditions, including cataracts, nystagmus, keratitis, meibomian gland dysfunction (MGD), and decreased visual acuity."</div>
-
-
-                <div class="evidence-explanation">Lists decreased visual acuity among the characteristic ocular findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-glaucoma" data-dismech-node="Glaucoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Glaucoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000501</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39603447" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39603447" target="_blank">PMID:39603447</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient has severe MGD, with resulting keratitis and photosensitivity, and bilateral glaucoma, which has not previously been reported in association with HMD."</div>
-
-
-                <div class="evidence-explanation">The single reported case, quoted including the authors&#39; statement of its novelty so the entry does not imply an established association.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-follicular-hyperkeratosis" data-dismech-node="Follicular hyperkeratosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Follicular hyperkeratosis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0007502</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Follicular hyperkeratosis (HP:0007502), qualified as congenital onset. HP:0007502 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: CONGENITAL</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32497488" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32497488" target="_blank">PMID:32497488</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"IFAP syndrome is a rare genetic disorder characterized by ichthyosis follicularis, atrichia, and photophobia."</div>
-
-
-                <div class="evidence-explanation">Ichthyosis follicularis is the first element of the defining triad.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-atrichia-and-hypotrichosis" data-dismech-node="Atrichia and hypotrichosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Atrichia and hypotrichosis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0500262" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0500262</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Atrichia (HP:0500262). HP:0500262 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32497488" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32497488" target="_blank">PMID:32497488</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"IFAP syndrome is a rare genetic disorder characterized by ichthyosis follicularis, atrichia, and photophobia."</div>
-
-
-                <div class="evidence-explanation">Atrichia is the second element of the defining triad.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37699567" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37699567" target="_blank">PMID:37699567</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition, the loss of scalp hair developed in a cyclical pattern, causing diffuse scalp alopecia in the patients."</div>
-
-
-                <div class="evidence-explanation">Documents the cyclical rather than fixed course of the hair loss, which matters for counselling and for interpreting apparent regrowth.</div>
 
 
 
@@ -6692,15 +6301,18 @@ This clinical feature is Atrichia (HP:0500262). HP:0500262 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025610" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0025610</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025610" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0025610</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Meibomian gland dysfunction, annotated with Posterior blepharitis (HP:0025610). HP:0025610 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6720,6 +6332,7 @@ This clinical feature is Meibomian gland dysfunction, annotated with Posterior b
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6764,15 +6377,18 @@ This clinical feature is Meibomian gland dysfunction, annotated with Posterior b
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011496</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011496</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6802,6 +6418,7 @@ This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6825,6 +6442,375 @@ This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-opacity" data-dismech-node="Corneal opacity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Corneal opacity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0007957</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39278528" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39278528" target="_blank">PMID:39278528</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"With appropriate management and close follow-up over 7 years, corneal opacity improved greatly."</div>
+
+
+                <div class="evidence-explanation">Documents both the finding and its reversibility under management.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cataract" data-dismech-node="Cataract" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cataract
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000518</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39603447" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39603447" target="_blank">PMID:39603447</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This syndrome is associated with a variety of ocular conditions, including cataracts, nystagmus, keratitis, meibomian gland dysfunction (MGD), and decreased visual acuity."</div>
+
+
+                <div class="evidence-explanation">Lists cataract among the characteristic ocular findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nystagmus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000639</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39603447" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39603447" target="_blank">PMID:39603447</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This syndrome is associated with a variety of ocular conditions, including cataracts, nystagmus, keratitis, meibomian gland dysfunction (MGD), and decreased visual acuity."</div>
+
+
+                <div class="evidence-explanation">Lists nystagmus among the characteristic ocular findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-visual-acuity" data-dismech-node="Reduced visual acuity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced visual acuity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0007663</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39603447" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39603447" target="_blank">PMID:39603447</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This syndrome is associated with a variety of ocular conditions, including cataracts, nystagmus, keratitis, meibomian gland dysfunction (MGD), and decreased visual acuity."</div>
+
+
+                <div class="evidence-explanation">Lists decreased visual acuity among the characteristic ocular findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-glaucoma" data-dismech-node="Glaucoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Glaucoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000501</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39603447" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39603447" target="_blank">PMID:39603447</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient has severe MGD, with resulting keratitis and photosensitivity, and bilateral glaucoma, which has not previously been reported in association with HMD."</div>
+
+
+                <div class="evidence-explanation">The single reported case, quoted including the authors&#39; statement of its novelty so the entry does not imply an established association.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-erythematous-oral-mucosa" data-dismech-node="Erythematous oral mucosa" data-dismech-type="phenotype">
                     <div class="item-name">
                         Erythematous oral mucosa
@@ -6839,15 +6825,18 @@ This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0034418</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0034418</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Erythematous oral mucosa (HP:0034418). HP:0034418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6867,6 +6856,7 @@ This clinical feature is Erythematous oral mucosa (HP:0034418). HP:0034418 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6893,6 +6883,15 @@ This clinical feature is Erythematous oral mucosa (HP:0034418). HP:0034418 is a 
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-psoriasiform-dermatitis" data-dismech-node="Psoriasiform dermatitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Psoriasiform dermatitis
@@ -6909,15 +6908,18 @@ This clinical feature is Erythematous oral mucosa (HP:0034418). HP:0034418 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003765</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003765</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Psoriasiform dermatitis (HP:0003765). HP:0003765 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6940,6 +6942,7 @@ This clinical feature is Psoriasiform dermatitis (HP:0003765). HP:0003765 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6948,6 +6951,217 @@ This clinical feature is Psoriasiform dermatitis (HP:0003765). HP:0003765 is a p
 
 
                 <div class="evidence-explanation">The clinical description of the psoriasiform presentation and its distribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-follicular-hyperkeratosis" data-dismech-node="Follicular hyperkeratosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Follicular hyperkeratosis
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0007502</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Follicular hyperkeratosis (HP:0007502), qualified as congenital onset. HP:0007502 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: CONGENITAL</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32497488" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32497488" target="_blank">PMID:32497488</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"IFAP syndrome is a rare genetic disorder characterized by ichthyosis follicularis, atrichia, and photophobia."</div>
+
+
+                <div class="evidence-explanation">Ichthyosis follicularis is the first element of the defining triad.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atrichia-and-hypotrichosis" data-dismech-node="Atrichia and hypotrichosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Atrichia and hypotrichosis
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500262" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0500262</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrichia (HP:0500262). HP:0500262 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32497488" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32497488" target="_blank">PMID:32497488</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"IFAP syndrome is a rare genetic disorder characterized by ichthyosis follicularis, atrichia, and photophobia."</div>
+
+
+                <div class="evidence-explanation">Atrichia is the second element of the defining triad.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37699567" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37699567" target="_blank">PMID:37699567</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, the loss of scalp hair developed in a cyclical pattern, causing diffuse scalp alopecia in the patients."</div>
+
+
+                <div class="evidence-explanation">Documents the cyclical rather than fixed course of the hair loss, which matters for counselling and for interpreting apparent regrowth.</div>
 
 
 
@@ -7039,6 +7253,9 @@ This disease-associated gene is SREBF1 (hgnc:11289). hgnc:11289 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7053,6 +7270,7 @@ This disease-associated gene is SREBF1 (hgnc:11289). hgnc:11289 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7080,6 +7298,7 @@ This disease-associated gene is SREBF1 (hgnc:11289). hgnc:11289 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7101,6 +7320,7 @@ This disease-associated gene is SREBF1 (hgnc:11289). hgnc:11289 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7196,6 +7416,12 @@ This treatment is ocular surface supportive care, annotated with Supportive Care
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">The mainstay, and the intervention with the clearest mechanistic rationale in the entry: if the gland cannot make spreadable lipid, the tear film needs replacing and the gland needs help expressing what it does make. Warm compresses and lid hygiene are the standard meibomian-gland measures, added here on the strength of the lipid mechanism rather than any trial in this disorder. Sustained management has been followed by substantial improvement in corneal opacity over years.</div>
 
 
@@ -7277,6 +7503,7 @@ This treatment targets Corneal opacity (HP:0007957). HP:0007957 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7298,6 +7525,7 @@ This treatment targets Corneal opacity (HP:0007957). HP:0007957 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7388,6 +7616,9 @@ This treatment uses topical corticosteroid (NCIT:C29505). NCIT:C29505 is a thera
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7398,6 +7629,9 @@ This treatment uses topical corticosteroid (NCIT:C29505). NCIT:C29505 is a thera
 
 
     </div>
+
+
+
 
 
 
@@ -7447,6 +7681,7 @@ This treatment targets Corneal neovascularization (HP:0011496). HP:0011496 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7537,6 +7772,9 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7547,6 +7785,9 @@ This treatment uses acitretin (CHEBI:50172). CHEBI:50172 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -7599,6 +7840,7 @@ This treatment targets Follicular hyperkeratosis (HP:0007502). HP:0007502 is a p
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7672,6 +7914,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Autosomal dominant with documented parent-to-child transmission, so the offspring risk for an affected person is 50% - a different conversation from the X-linked form, and the practical reason the two must be separated molecularly. Expressivity within a family is wide: a reported father and daughter differed substantially in the distribution and severity of their skin disease.</div>
 
 
@@ -7693,6 +7941,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7805,6 +8054,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7894,6 +8144,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7980,6 +8231,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8101,6 +8353,7 @@ Mechanistically the two are one cascade broken at adjacent points. MBTPS2 encode
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8179,6 +8432,7 @@ The substantive argument for lumping is recorded in this entry&#39;s discussion 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8200,6 +8454,7 @@ The substantive argument for lumping is recorded in this entry&#39;s discussion 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8270,6 +8525,7 @@ The substantive argument for lumping is recorded in this entry&#39;s discussion 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10006,6 +10262,19 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: IFAP Syndrome 2 (SREBF1-related, autosomal dominant)</strong> · 2026-09-02T11:09:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/IFAP_Syndrome_2/2026-09-02T110933Z-claude-code-f5941a.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of IFAP syndrome 2 (MONDO:0100221) from primary literature plus a claude_code deep-research report (falcon was requested but returned HTTP 402, so the run fell back and the report is named for claude_code). The report&#39;s term-validation section flagged 13 CURIEs as naming a different term than the report claimed - among them HP:0100708 for meibomian gland dysfunction, which HPO calls Abnormal microglia morphology, and UBERON:0006238 for meibomian gland, which UBERON calls future brain - so none of its ontology suggestions were copied across; every binding here was resolved independently via OLS. HPO has no meibomian gland dysfunction term, so that phenotype is bound to HP:0025610 Posterior blepharitis with the precise entity in preferred_term. Pathophysiology runs from the SREBF1 site-1 cleavage-site variant through blocked proteolytic activation and reduced nuclear SREBP1 output, forking into follicular keratinization failure, keratinocyte apoptosis, and meibomian gland lipid synthesis failure leading to ocular surface disease. The hereditary mucoepithelial dysplasia lumping question is recorded as a CONTROVERSY discussion with a skos:closeMatch mapping to MONDO:0008017 rather than an exactMatch, since MONDO still maintains both terms. Half the clinical literature for this disease is published under the HMD name, which is recorded in notes. Validated with just validate (schema, terms, 48/48 snippets verified against cached references) plus the same gate suite as the sibling entry in this run.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

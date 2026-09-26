@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4193,6 +4261,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4302,6 +4371,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4323,6 +4393,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4420,6 +4491,7 @@ The obvious rival explanation has been checked and does not work. If affected ti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4444,6 +4516,7 @@ The obvious rival explanation has been checked and does not work. If affected ti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4465,6 +4538,7 @@ The obvious rival explanation has been checked and does not work. If affected ti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4542,6 +4616,7 @@ The obvious rival explanation has been checked and does not work. If affected ti
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4563,6 +4638,7 @@ The obvious rival explanation has been checked and does not work. If affected ti
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4648,6 +4724,7 @@ One candidate can now be excluded. Dolichol biosynthesis is no longer thought to
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4672,6 +4749,7 @@ One candidate can now be excluded. Dolichol biosynthesis is no longer thought to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4693,6 +4771,7 @@ One candidate can now be excluded. Dolichol biosynthesis is no longer thought to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4781,6 +4860,7 @@ Resolving it needs targeted neurological examination in an existing SRD5A3-CDG c
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4802,6 +4882,7 @@ Resolving it needs targeted neurological examination in an existing SRD5A3-CDG c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4887,6 +4968,7 @@ Two things stop that from being a treatment proposal. The rescue is partial and 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4908,6 +4990,7 @@ Two things stop that from being a treatment proposal. The rescue is partial and 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4945,6 +5028,7 @@ Two things stop that from being a treatment proposal. The rescue is partial and 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-srd5a3-polyprenol-reductase-deficiency" data-dismech-node="SRD5A3 Polyprenol Reductase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SRD5A3 Polyprenol Reductase Deficiency</div>
+
 
                 <div class="item-desc">Biallelic SRD5A3 variants abolish or reduce polyprenol reductase, the enzyme that reduces the alpha-isoprene unit of polyprenol to yield dolichol. Reported alleles are predominantly nonsense and frameshift changes; a missense allele modelled onto the predicted protein structure falls in a potential active site and is predicted to reduce catalytic efficiency rather than abolish it, which fits the milder phenotype seen in compound heterozygotes.
 What that enzymatic step is has been revised since SRD5A3 was identified. Finding the gene, together with its yeast counterpart, established the view that dolichol is made from polyprenol in one step; the later discovery of DHRSX in CDG patients replaced that with a three-step detour pathway, now shown to be conserved in yeast. The revision matters for this entry in a specific way: the yeast DHRSX counterpart cannot be substituted for by SRD5A3, so the two are separate, non-redundant steps rather than alternative routes to the same product. Whatever preserves dolichol levels in SRD5A3-null patient fibroblasts, it is not DHRSX standing in for the missing enzyme.</div>
@@ -5100,6 +5184,7 @@ This pathophysiological event involves decreased polyprenol reductase activity (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5121,6 +5206,7 @@ This pathophysiological event involves decreased polyprenol reductase activity (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5148,6 +5234,7 @@ This pathophysiological event involves decreased polyprenol reductase activity (
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -5172,6 +5259,7 @@ This pathophysiological event involves decreased polyprenol reductase activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polyprenol-accumulation-with-raised-polyprenol-to-dolichol-ratio" data-dismech-node="Polyprenol Accumulation with Raised Polyprenol-to-Dolichol Ratio" data-dismech-type="pathophysiology">
                 <div class="item-name">Polyprenol Accumulation with Raised Polyprenol-to-Dolichol Ratio</div>
+
 
                 <div class="item-desc">Unreduced polyprenol accumulates while dolichol levels remain near normal, because an alternative dolichol biosynthetic route persists. The resulting shift in the ratio, rather than a shortage of dolichol, is the proposed proximate cause of hypoglycosylation: excess polyprenol is thought to compete with dolichol at the initiation of glycan assembly without being able to carry the glycan.</div>
 
@@ -5247,6 +5335,7 @@ This pathophysiological event involves decreased polyprenol reductase activity (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5268,6 +5357,7 @@ This pathophysiological event involves decreased polyprenol reductase activity (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5293,6 +5383,7 @@ This pathophysiological event involves decreased polyprenol reductase activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-dolichol-linked-oligosaccharide-assembly" data-dismech-node="Impaired Dolichol-Linked Oligosaccharide Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Dolichol-Linked Oligosaccharide Assembly</div>
+
 
                 <div class="item-desc">Assembly of the lipid-linked oligosaccharide precursor on dolichol is compromised. Because dolichol also serves O-mannosylation, C-mannosylation and GPI anchor synthesis, the defect is not confined to the N-linked pathway, which is part of why the phenotype spans so many organ systems.</div>
 
@@ -5384,6 +5475,7 @@ This pathophysiological event involves decreased dolichol-linked oligosaccharide
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5405,6 +5497,7 @@ This pathophysiological event involves decreased dolichol-linked oligosaccharide
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5430,6 +5523,7 @@ This pathophysiological event involves decreased dolichol-linked oligosaccharide
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-protein-hypoglycosylation" data-dismech-node="Systemic Protein Hypoglycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Protein Hypoglycosylation</div>
+
 
                 <div class="item-desc">Secreted and membrane glycoproteins carry fewer or truncated N-glycans. Serum glycoproteomics in patients shows the change is broad rather than selective, and the affected proteins include several whose deficiency has recognised clinical consequences - haptoglobin, plasma serine protease inhibitor, alpha-1-B glycoprotein, alpha-2-macroglobulin and ceruloplasmin. Hypoglycosylation is partial rather than complete: a patient with no functional enzyme still glycosylated most of their transferrin correctly.</div>
 
@@ -5569,6 +5663,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5591,6 +5686,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-and-optic-pathway-vulnerability" data-dismech-node="Cerebellar and Optic Pathway Vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar and Optic Pathway Vulnerability</div>
+
 
                 <div class="item-desc">The cerebellum and the optic pathway are the tissues most consistently affected. Nearly every reported patient has cognitive delay, an optic nerve abnormality with nystagmus, and ataxia, frequently with cerebellar vermis hypoplasia. The optic involvement is not purely a developmental malformation: it also progresses, implicating long-term maintenance of the nerve as well as its formation. One proposed explanation for the selectivity is particular sensitivity of the optic nerve to polyprenol accumulation, which would distinguish this CDG from N-glycosylation defects further downstream.</div>
 
@@ -5716,6 +5812,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5742,6 +5839,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5763,6 +5861,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5790,6 +5889,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-ocular-and-skeletal-degeneration" data-dismech-node="Progressive Ocular and Skeletal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Ocular and Skeletal Degeneration</div>
+
 
                 <div class="item-desc">A second arm of the phenotype: features that worsen with time rather than being fixed at birth. Adults with SRD5A3-CDG develop cataracts, retinal degeneration and kyphosis that were not present in childhood, so the disorder is progressive rather than purely static. This is the basis for the recommendation that children diagnosed with SRD5A3-CDG be monitored for these complications as they age.
 The retinal component needs a distinction the sources do not always make. It is progressive, but it is not late-onset: cohorts ascertained through eye clinics find visual loss by age three and a rod-cone dystrophy on imaging in patients whose retinas were never examined that way before. What arrives late is the diagnosis, not the disease. Cataract and kyphosis, by contrast, are documented as genuinely absent in childhood and present in the same patients as adults.</div>
@@ -5876,6 +5976,7 @@ The retinal component needs a distinction the sources do not always make. It is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5940,17 +6041,19 @@ The retinal component needs a distinction the sources do not always make. It is 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5959,8 +6062,165 @@ The retinal component needs a distinction the sources do not always make. It is 
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-protein-c-activity" data-dismech-node="Reduced protein C activity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced protein C activity
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0005543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced protein C activity (HP:0005543). HP:0005543 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Protein C was 50% (normal range 70-180%), protein S was normal at 83%, antithrombin III was 53%"</div>
+
+
+                <div class="evidence-explanation">A measured protein C activity below the laboratory reference interval quoted alongside it in the same sentence, with protein S normal in the same patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-antithrombin-iii-activity" data-dismech-node="Reduced antithrombin III activity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced antithrombin III activity
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001976</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced antithrombin III activity (HP:0001976). HP:0001976 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"protein S was normal at 83%, antithrombin III was 53%"</div>
+
+
+                <div class="evidence-explanation">A measured antithrombin III activity below its reference interval, with protein S normal in the same patient, so the deficiency is selective rather than a global loss of plasma protein.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
@@ -5979,15 +6239,18 @@ The retinal component needs a distinction the sources do not always make. It is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000639</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6007,6 +6270,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6031,6 +6295,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6073,15 +6338,18 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000648</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6104,6 +6372,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6112,6 +6381,179 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                 <div class="evidence-explanation">The authors describe the optic nerve findings as ubiquitous in this disorder, which is the basis for the band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-nerve-hypoplasia" data-dismech-node="Optic nerve hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Optic nerve hypoplasia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000609</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition to optic nerve hypoplasia/atrophy, multiple individuals have been reported with colobomas of the optic nerve and iris"</div>
+
+
+                <div class="evidence-explanation">Establishes optic nerve hypoplasia as a recurrent finding. The source groups hypoplasia with atrophy rather than counting them separately, so the band here is set one step below the combined figure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris coloboma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Iris coloboma
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000612</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"multiple individuals have been reported with colobomas of the optic nerve and iris"</div>
+
+
+                <div class="evidence-explanation">Establishes coloboma as recurrent but, in contrast to the optic nerve findings, not described as ubiquitous.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20700148" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20700148" target="_blank">PMID:20700148</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a novel syndrome consisting of mental retardation, coloboma, cataract and kyphosis"</div>
+
+
+                <div class="evidence-explanation">Coloboma is one of the four defining features of Kahrizi syndrome, which this paper mapped to a homozygous SRD5A3 frameshift and showed to be allelic with SRD5A3-CDG.</div>
 
 
 
@@ -6143,10 +6585,10 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518), qualified as adult onset. HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6186,6 +6628,9 @@ This clinical feature is Cataract (HP:0000518), qualified as adult onset. HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6200,6 +6645,7 @@ This clinical feature is Cataract (HP:0000518), qualified as adult onset. HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6224,6 +6670,7 @@ This clinical feature is Cataract (HP:0000518), qualified as adult onset. HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6266,10 +6713,10 @@ This clinical feature is Cataract (HP:0000518), qualified as adult onset. HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000556</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000556</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinal dystrophy (HP:0000556), qualified as childhood onset. HP:0000556 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6309,6 +6756,9 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as childhood 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6323,6 +6773,7 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as childhood 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6350,6 +6801,7 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as childhood 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6371,6 +6823,7 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as childhood 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6415,10 +6868,10 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as childhood 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000662</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nyctalopia (HP:0000662), qualified as childhood onset. HP:0000662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6458,6 +6911,9 @@ This clinical feature is Nyctalopia (HP:0000662), qualified as childhood onset. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6472,6 +6928,7 @@ This clinical feature is Nyctalopia (HP:0000662), qualified as childhood onset. 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6514,15 +6971,18 @@ This clinical feature is Nyctalopia (HP:0000662), qualified as childhood onset. 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000545</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000545</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6542,6 +7002,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6570,7 +7031,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -6593,15 +7054,18 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6621,6 +7085,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6649,7 +7114,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -6672,15 +7137,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008064</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6700,6 +7168,7 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6742,15 +7211,18 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000982</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000982</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6770,6 +7242,7 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6798,7 +7271,115 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-serum-transferrin-glycoform-pattern" data-dismech-node="Abnormal serum transferrin glycoform pattern" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal serum transferrin glycoform pattern
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal isoelectric focusing of serum transferrin</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003160</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal isoelectric focusing of serum transferrin (HP:0003160). HP:0003160 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Carbohydrate deficient transferrin testing found: mono-oligo/di-oligo ratio of 0.44"</div>
+
+
+                <div class="evidence-explanation">A measured abnormal transferrin glycoform ratio in a reported patient, with the normal cut-off quoted immediately after it in the source.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41732066" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732066" target="_blank">PMID:41732066</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the current diagnosis of SRD5A3-CDG by screening assays remains challenging"</div>
+
+
+                <div class="evidence-explanation">States that the existing screening assays are not adequate, which is the practical consequence of the partial hypoglycosylation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -6821,15 +7402,18 @@ This clinical feature is Palmoplantar keratoderma (HP:0000982). HP:0000982 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6849,6 +7433,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6891,15 +7476,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002808</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6919,6 +7507,7 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6943,6 +7532,7 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6971,7 +7561,7 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6994,15 +7584,18 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7022,6 +7615,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7064,15 +7658,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7092,6 +7689,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7134,15 +7732,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001320</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001320</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7162,6 +7763,7 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7186,6 +7788,7 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7228,15 +7831,18 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7256,6 +7862,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7283,6 +7890,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7291,413 +7899,6 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                 <div class="evidence-explanation">A second independent report of infantile-onset seizures, and the source that says explicitly that seizures are under-reported for this disorder. That is the reason the band is left at OCCASIONAL rather than raised: the authors are describing what the literature records, not a counted frequency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-nerve-hypoplasia" data-dismech-node="Optic nerve hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Optic nerve hypoplasia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000609</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition to optic nerve hypoplasia/atrophy, multiple individuals have been reported with colobomas of the optic nerve and iris"</div>
-
-
-                <div class="evidence-explanation">Establishes optic nerve hypoplasia as a recurrent finding. The source groups hypoplasia with atrophy rather than counting them separately, so the band here is set one step below the combined figure.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris coloboma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Iris coloboma
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000612</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"multiple individuals have been reported with colobomas of the optic nerve and iris"</div>
-
-
-                <div class="evidence-explanation">Establishes coloboma as recurrent but, in contrast to the optic nerve findings, not described as ubiquitous.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20700148" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20700148" target="_blank">PMID:20700148</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a novel syndrome consisting of mental retardation, coloboma, cataract and kyphosis"</div>
-
-
-                <div class="evidence-explanation">Coloboma is one of the four defining features of Kahrizi syndrome, which this paper mapped to a homozygous SRD5A3 frameshift and showed to be allelic with SRD5A3-CDG.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-protein-c-activity" data-dismech-node="Reduced protein C activity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced protein C activity
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0005543</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced protein C activity (HP:0005543). HP:0005543 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Protein C was 50% (normal range 70-180%), protein S was normal at 83%, antithrombin III was 53%"</div>
-
-
-                <div class="evidence-explanation">A measured protein C activity below the laboratory reference interval quoted alongside it in the same sentence, with protein S normal in the same patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-antithrombin-iii-activity" data-dismech-node="Reduced antithrombin III activity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced antithrombin III activity
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001976</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced antithrombin III activity (HP:0001976). HP:0001976 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"protein S was normal at 83%, antithrombin III was 53%"</div>
-
-
-                <div class="evidence-explanation">A measured antithrombin III activity below its reference interval, with protein S normal in the same patient, so the deficiency is selective rather than a global loss of plasma protein.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-serum-transferrin-glycoform-pattern" data-dismech-node="Abnormal serum transferrin glycoform pattern" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal serum transferrin glycoform pattern
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal isoelectric focusing of serum transferrin</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003160</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal isoelectric focusing of serum transferrin (HP:0003160). HP:0003160 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27480077" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27480077" target="_blank">PMID:27480077</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Carbohydrate deficient transferrin testing found: mono-oligo/di-oligo ratio of 0.44"</div>
-
-
-                <div class="evidence-explanation">A measured abnormal transferrin glycoform ratio in a reported patient, with the normal cut-off quoted immediately after it in the source.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41732066" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41732066" target="_blank">PMID:41732066</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the current diagnosis of SRD5A3-CDG by screening assays remains challenging"</div>
-
-
-                <div class="evidence-explanation">States that the existing screening assays are not adequate, which is the practical consequence of the partial hypoglycosylation.</div>
 
 
 
@@ -7787,6 +7988,9 @@ This disease-associated gene is SRD5A3 (hgnc:25812). hgnc:25812 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -7801,6 +8005,7 @@ This disease-associated gene is SRD5A3 (hgnc:25812). hgnc:25812 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7828,6 +8033,7 @@ This disease-associated gene is SRD5A3 (hgnc:25812). hgnc:25812 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7849,6 +8055,7 @@ This disease-associated gene is SRD5A3 (hgnc:25812). hgnc:25812 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7886,6 +8093,7 @@ This disease-associated gene is SRD5A3 (hgnc:25812). hgnc:25812 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7905,11 +8113,17 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">An exon 1 nonsense allele leaving no functional protein. It is the genotype behind the entry&#39;s central mechanistic observation: fibroblasts from this homozygous patient still contained normal dolichol while accumulating polyprenol, which is what forces the mechanism onto the polyprenol-to-dolichol ratio rather than onto dolichol depletion.
@@ -7964,6 +8178,7 @@ It is also the most frequently reported allele in this disorder, and the reports
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7988,6 +8203,7 @@ It is also the most frequently reported allele in this disorder, and the reports
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8009,6 +8225,7 @@ It is also the most frequently reported allele in this disorder, and the reports
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8044,6 +8261,7 @@ It is also the most frequently reported allele in this disorder, and the reports
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8063,11 +8281,17 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A nonsense allele found homozygous in two affected siblings. Those siblings differ from each other in whether they have structural eye anomalies and in the severity of their skin involvement, which is this entry&#39;s evidence that genotype does not fix the phenotype.</div>
@@ -8094,6 +8318,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8129,6 +8354,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8148,11 +8374,17 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A missense allele modelled onto the predicted protein structure. It falls in a potential active site and is predicted to reduce catalytic efficiency rather than abolish it. Missense alleles are the minority in this disorder and are associated with the milder end of the cognitive spectrum, which is consistent with residual activity.</div>
@@ -8206,6 +8438,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -8238,6 +8471,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8257,11 +8491,17 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">FRAMESHIFT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A frameshift allele found homozygous in a consanguineous family whose condition had been described, and mapped, as a separate entity — Kahrizi syndrome, defined by intellectual disability with coloboma, cataract and kyphosis. Identifying this variant is what showed the two conditions to be the same gene, and is the reason Kahrizi syndrome is a synonym of this entry rather than a differential diagnosis.</div>
@@ -8291,6 +8531,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8312,6 +8553,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8347,6 +8589,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8366,11 +8609,17 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A missense allele found homozygous in a child followed for years as congenital nystagmus with bilateral optic neuropathy, in whom dedicated retinal imaging then showed an unrecognised retinal dystrophy. The same patient had optic nerve head drusen, which the authors state had not previously been seen in this syndrome; that is a single observation and is not curated as a phenotype here.</div>
@@ -8397,6 +8646,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8432,6 +8682,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8451,11 +8702,17 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A missense allele reported in a single patient who had the expected retinal dystrophy, ataxia and ichthyosiform skin change, together with a proximal limb-girdle pattern of weakness, brisk reflexes and extensor plantar responses. The authors propose those last findings as an expansion of the neurological phenotype. This entry records the allele but not the proposed new features as phenotypes — see the discussion on corticospinal involvement for why.</div>
@@ -8485,6 +8742,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8506,6 +8764,7 @@ This variant is in SRD5A3 (hgnc:25812). hgnc:25812 is a gene from the HUGO Gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8618,6 +8877,9 @@ This treatment uses atorvastatin (CHEBI:39548). CHEBI:39548 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8628,6 +8890,9 @@ This treatment uses atorvastatin (CHEBI:39548). CHEBI:39548 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -8667,6 +8932,7 @@ This treatment uses atorvastatin (CHEBI:39548). CHEBI:39548 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8688,6 +8954,7 @@ This treatment uses atorvastatin (CHEBI:39548). CHEBI:39548 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8734,6 +9001,7 @@ This treatment uses atorvastatin (CHEBI:39548). CHEBI:39548 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8758,6 +9026,7 @@ This treatment uses atorvastatin (CHEBI:39548). CHEBI:39548 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8779,6 +9048,7 @@ This treatment uses atorvastatin (CHEBI:39548). CHEBI:39548 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8845,6 +9115,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8855,6 +9128,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8924,6 +9200,7 @@ This treatment targets Retinal dystrophy (HP:0000556). HP:0000556 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8987,6 +9264,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8997,6 +9277,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9067,6 +9350,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9088,6 +9372,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9179,6 +9464,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9238,6 +9524,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9280,6 +9567,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9301,6 +9589,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9403,6 +9692,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9424,6 +9714,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9481,6 +9772,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -9502,6 +9794,7 @@ This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9593,6 +9886,7 @@ Two things make this more than a supporting investigation. It has found retinal 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9614,6 +9908,7 @@ Two things make this more than a supporting investigation. It has found retinal 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9700,6 +9995,7 @@ This is recorded as a diagnostic step so that a single heterozygous pathogenic v
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9774,6 +10070,7 @@ This is recorded as a diagnostic step so that a single heterozygous pathogenic v
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9798,6 +10095,7 @@ This is recorded as a diagnostic step so that a single heterozygous pathogenic v
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9819,6 +10117,7 @@ This is recorded as a diagnostic step so that a single heterozygous pathogenic v
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9901,6 +10200,7 @@ This is recorded as a diagnostic step so that a single heterozygous pathogenic v
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10051,6 +10351,7 @@ The choice of allele matters more than &#34;commonly observed in patients&#34; c
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10090,6 +10391,7 @@ The choice of allele matters more than &#34;commonly observed in patients&#34; c
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12591,6 +12893,35 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: SRD5A3-Congenital Disorder of Glycosylation</strong> · 2026-09-01T16:27:05Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SRD5A3-Congenital_Disorder_of_Glycosylation/2026-09-01T162705Z-claude-code-759d58.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MONDO:0012885 (CDG-Iq), claimed via issue #10378.
+
+Deep research: one openscientist run (research/SRD5A3-Congenital_Disorder_of_Glycosylation-deep-research-openscientist.md, 45 min, 27 citations, 27/27 references resolved, 0 unresolved).
+
+The run&#39;s recipe exited 3 after the research completed, because term validation hit a 5-second read timeout against EBI OLS on a single CURIE (HP:0000589). That aborted the recipe before either validation section was written, so the report landed looking complete and unchecked. I ran both validators by hand; the term validation succeeded on first retry, confirming the timeout was transient. Filed as issue #10396, because the abort discards the validation of a 45-minute run and does it silently from the curator&#39;s point of view.
+
+That mattered here. The report supplies MONDO:0012997 as this disease&#39;s identifier, labelled &#39;congenital disorder of glycosylation, type Iq&#39; - a genuine synonym for SRD5A3-CDG attached to the wrong ID. MONDO:0012997 is cholestasis-pigmentary retinopathy-cleft palate syndrome. The correct term, MONDO:0012885, is what this entry binds. The term validator catches it precisely, but only when it runs. This is the second instance in this claim run of the empty-mondo_id problem in issue #9888 producing an invented ID that resolves to a different disease; reported there with both cases.
+
+The entry was drafted first from the primary literature (PMID:20637498 gene discovery, PMID:22304929 the fibroblast lipid measurements, PMID:27480077 the phenotype expansion with adult-onset features, PMID:41732066 serum glycoproteomics). The report then contributed, all verified against the primary sources: the C. elegans W19X model and the atorvastatin repurposing result (PMID:41648237), the documented absence of a usable mouse model (PMID:26346620), the current case count of about 60 and the 23-variant allelic spectrum (PMID:35339718), the p.Gln96delinsX founder allele and its variable association with coloboma (PMID:30019980).
+
+Two curation decisions worth flagging. Atorvastatin is recorded as an explicitly experimental treatment, never administered to a patient, because the result is a worm rescue plus correction of the polyprenol-to-dolichol ratio in patient fibroblasts. It is included because the reasoning is mechanistically informative: an HMG-CoA reductase inhibitor restricts isoprenoid supply upstream of polyprenol, so it should help only if the pathogenic quantity is the ratio rather than the dolichol level - which makes the result independent support for this entry&#39;s central mechanistic hypothesis.
+
+Second, the missing mouse model is curated as a knowledge gap with REFUTE-graded evidence rather than as silence. The one published mouse lacking Srd5a3 lacks eight neighbouring genes, and its peri-implantation lethality was traced to Exoc1, confirmed by a separate Exoc1 knockout and by a CRISPR deletion of the same interval that is not lethal. Reading that mouse as an Srd5a3 phenotype would be wrong, so the entry says so explicitly.
+
+Pathograph routes the phenotype through the raised polyprenol-to-dolichol ratio rather than dolichol depletion, because two independent groups measured normal dolichol in enzyme-null cells. Zero phenotypes lack an incoming edge; single root at the enzyme deficiency node.
+
+Validation: just validate passes with 87/87 snippets verified; check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-snippet-length, check-title-snippets, check-snippet-grading, check-folded-hyphens all clean; the snippet-boundary prototype from issue #10388 returns zero findings.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

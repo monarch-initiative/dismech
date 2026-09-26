@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4199,6 +4267,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4220,6 +4289,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4547,6 +4617,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ndufa1-loss-of-function" data-dismech-node="NDUFA1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">NDUFA1 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">NDUFA1 encodes MWFE, a small accessory (non-catalytic) subunit of complex I that is nonetheless essential for the holoenzyme to assemble and remain stable. Reported pathogenic alleles are missense — p.Gly8Arg and p.Arg37Ser hemizygously in the index males, c.55C&gt;T identified later by exome sequencing, and p.Gly32Arg in an affected heterozygous female.</div>
 
 
@@ -4607,6 +4684,8 @@ This pathophysiological event involves NDUFA1 (hgnc:7683). hgnc:7683 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4617,6 +4696,9 @@ This pathophysiological event involves NDUFA1 (hgnc:7683). hgnc:7683 is a gene f
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline missense variants in the X-chromosomal NDUFA1 gene, hemizygous in affected males and heterozygous in the reported affected female.</div>
 
@@ -4664,6 +4746,7 @@ This pathophysiological event involves NDUFA1 (hgnc:7683). hgnc:7683 is a gene f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4685,6 +4768,7 @@ This pathophysiological event involves NDUFA1 (hgnc:7683). hgnc:7683 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4710,6 +4794,13 @@ This pathophysiological event involves NDUFA1 (hgnc:7683). hgnc:7683 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complex-i-assembly-and-stability-failure" data-dismech-node="Complex I Assembly and Stability Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Complex I Assembly and Stability Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Two-dimensional blue native gel electrophoresis of patient fibroblasts shows reduced amounts of fully assembled complex I with no accumulation of lower-molecular-weight subcomplexes. That negative finding is the mechanistically informative one: an assembly pathway blocked at a defined intermediate would leave that intermediate behind, so its absence points to failure of assembly, destabilization of the assembled holoenzyme, or both, rather than a discrete arrest point.</div>
 
@@ -4854,6 +4945,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4875,6 +4967,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4900,6 +4993,13 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nadh-ubiquinone-oxidoreduction-and-oxphos-deficit" data-dismech-node="Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Less intact complex I means less NADH oxidation and less electron delivery to ubiquinone, reducing proton pumping and oxidative phosphorylation capacity. NADH that cannot be reoxidized through the respiratory chain is instead consumed by cytosolic lactate dehydrogenase, which is why the biochemical signature is lactic acidosis and a raised lactate-to-pyruvate ratio. The deficiency is partial rather than complete — the mouse model of an equivalent allele shows roughly 50% residual activity — consistent with survival to presentation rather than embryonic lethality.</div>
 
@@ -5081,6 +5181,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5102,6 +5203,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5127,6 +5229,13 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skewed-x-inactivation-in-heterozygous-females" data-dismech-node="Skewed X-Inactivation in Heterozygous Females" data-dismech-type="pathophysiology">
                 <div class="item-name">Skewed X-Inactivation in Heterozygous Females</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Because NDUFA1 is X-linked, a heterozygous female is a mosaic of cells expressing either the wild-type or the mutant allele, and her phenotype depends on which allele is active in the affected tissue. In the reported affected girl, 72% of NDUFA1 mRNA in muscle carried the mutation and 74% of the active allele in that muscle was the paternally inherited one — skewing toward the mutant allele in the very tissue that was biochemically deficient. This is why heterozygous females cannot be assumed to be unaffected carriers, and it modifies the whole chain rather than sitting at one point in it.</div>
 
@@ -5178,6 +5287,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5199,6 +5309,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5226,6 +5337,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5248,6 +5360,13 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-encephalomyopathy" data-dismech-node="Mitochondrial Encephalomyopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Encephalomyopathy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint. Neurons and muscle are the tissues least able to tolerate reduced oxidative phosphorylation capacity, so the disease presents as encephalomyopathy: Leigh syndrome in one index patient, myoclonic epilepsy with developmental delay in the other, and muscular hypotonia with lactic acidosis in the affected heterozygous girl. Phenotypic variability between patients carrying different NDUFA1 alleles was noted from the outset.</div>
 
@@ -5306,6 +5425,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5327,6 +5447,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5375,7 +5496,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Complex I Assembly and Stability Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two-dimensional blue native gel electrophoresis of patient fibroblasts shows reduced amounts of fully assembled complex I with no accumulation of lower-molecular-weight subcomplexes. That negative finding is the mechanistically informative one: an assembly pathway blocked at a defined intermediate would leave that intermediate behind, so its absence points to failure of assembly, destabilization of the assembled holoenzyme, or both, rather than a discrete arrest point.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"role\": \"central_effector\"}}, {\"id\": \"Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Less intact complex I means less NADH oxidation and less electron delivery to ubiquinone, reducing proton pumping and oxidative phosphorylation capacity. NADH that cannot be reoxidized through the respiratory chain is instead consumed by cytosolic lactate dehydrogenase, which is why the biochemical signature is lactic acidosis and a raised lactate-to-pyruvate ratio. The deficiency is partial rather than complete \\u2014 the mouse model of an equivalent allele shows roughly 50% residual activity \\u2014 consistent with survival to presentation rather than embryonic lethality.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"], \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Ndufa1 S55A knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndufa1 S55A (serine-55-alanine knock-in, X-linked)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces a systemic, partial (roughly 50%) complex I deficiency in both sexes, matching the partial rather than complete enzyme deficit inferred in patients.\"}]}}, {\"id\": \"Mitochondrial Encephalomyopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Neurons and muscle are the tissues least able to tolerate reduced oxidative phosphorylation capacity, so the disease presents as encephalomyopathy: Leigh syndrome in one index patient, myoclonic epilepsy with developmental delay in the other, and muscular hypotonia with lactic acidosis in the affected heterozygous girl. Phenotypic variability between patients carrying different NDUFA1 alleles was noted from the outset.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"animal_models\": [{\"name\": \"Ndufa1 S55A knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndufa1 S55A (serine-55-alanine knock-in, X-linked)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The model develops age-dependent Purkinje neuron degeneration, giving a neurodegenerative phenotype, but this is a late cerebellar degeneration rather than the subacute necrotizing encephalomyelopathy or myoclonic epilepsy that define the human presentations.\"}]}}, {\"id\": \"NDUFA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NDUFA1\"], \"gene_terms\": [{\"label\": \"NDUFA1\", \"id\": \"hgnc:7683\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NDUFA1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDUFA1 encodes MWFE, a small accessory (non-catalytic) subunit of complex I that is nonetheless essential for the holoenzyme to assemble and remain stable. Reported pathogenic alleles are missense \\u2014 p.Gly8Arg and p.Arg37Ser hemizygously in the index males, c.55C\u003eT identified later by exome sequencing, and p.Gly32Arg in an affected heterozygous female.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NDUFA1\"], \"gene_terms\": [{\"label\": \"NDUFA1\", \"id\": \"hgnc:7683\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline missense variants in the X-chromosomal NDUFA1 gene, hemizygous in affected males and heterozygous in the reported affected female.\"}, \"role\": \"trigger\"}}, {\"id\": \"Ndufa1 S55A knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A homologous-recombination knock-in introducing a point mutation in the 55th codon of Ndufa1, producing a systemic serine-55-alanine substitution in the MWFE protein. Described by its authors as the first genuine X-chromosome linked mouse model of systemic partial complex I deficiency.\"}, {\"id\": \"Skewed X-Inactivation in Heterozygous Females\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because NDUFA1 is X-linked, a heterozygous female is a mosaic of cells expressing either the wild-type or the mutant allele, and her phenotype depends on which allele is active in the affected tissue. In the reported affected girl, 72% of NDUFA1 mRNA in muscle carried the mutation and 74% of the active allele in that muscle was the paternally inherited one \\u2014 skewing toward the mutant allele in the very tissue that was biochemically deficient. This is why heterozygous females cannot be assumed to be unaffected carriers, and it modifies the whole chain rather than sitting at one point in it.\", \"meta\": {\"evidence_count\": 3, \"role\": \"modifier\"}}], \"edges\": [{\"source\": \"NDUFA1 Loss of Function\", \"target\": \"Complex I Assembly and Stability Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Complex I Assembly and Stability Failure\", \"target\": \"Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit\", \"target\": \"Mitochondrial Encephalomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skewed X-Inactivation in Heterozygous Females\", \"target\": \"Complex I Assembly and Stability Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ndufa1 S55A knock-in mouse\", \"target\": \"Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces a systemic, partial (roughly 50%) complex I deficiency in both sexes, matching the partial rather than complete enzyme deficit inferred in patients.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"S55A is an engineered allele, not one of the human pathogenic variants (p.Gly8Arg, p.Arg37Ser, c.55C\u003eT, p.Gly32Arg), so it models the consequence of MWFE dysfunction rather than any specific patient genotype. The phenotype is also dominated by metabolic and behavioural readouts rather than the Leigh syndrome or myoclonic epilepsy that define the human disease.\"}, {\"source\": \"Ndufa1 S55A knock-in mouse\", \"target\": \"Mitochondrial Encephalomyopathy\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model develops age-dependent Purkinje neuron degeneration, giving a neurodegenerative phenotype, but this is a late cerebellar degeneration rather than the subacute necrotizing encephalomyelopathy or myoclonic epilepsy that define the human presentations.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The neuropathology does not match the human disease in either distribution or tempo: Leigh syndrome involves basal ganglia and brainstem lesions with infantile or early childhood onset, whereas this model shows age-dependent Purkinje cell loss. No seizure phenotype corresponding to the human myoclonic epilepsy presentation is reported.\"}, {\"source\": \"NDUFA1\", \"target\": \"NDUFA1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Complex I Assembly and Stability Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two-dimensional blue native gel electrophoresis of patient fibroblasts shows reduced amounts of fully assembled complex I with no accumulation of lower-molecular-weight subcomplexes. That negative finding is the mechanistically informative one: an assembly pathway blocked at a defined intermediate would leave that intermediate behind, so its absence points to failure of assembly, destabilization of the assembled holoenzyme, or both, rather than a discrete arrest point.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Less intact complex I means less NADH oxidation and less electron delivery to ubiquinone, reducing proton pumping and oxidative phosphorylation capacity. NADH that cannot be reoxidized through the respiratory chain is instead consumed by cytosolic lactate dehydrogenase, which is why the biochemical signature is lactic acidosis and a raised lactate-to-pyruvate ratio. The deficiency is partial rather than complete \\u2014 the mouse model of an equivalent allele shows roughly 50% residual activity \\u2014 consistent with survival to presentation rather than embryonic lethality.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"], \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ndufa1 S55A knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndufa1 S55A (serine-55-alanine knock-in, X-linked)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces a systemic, partial (roughly 50%) complex I deficiency in both sexes, matching the partial rather than complete enzyme deficit inferred in patients.\"}]}}, {\"id\": \"Mitochondrial Encephalomyopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. Neurons and muscle are the tissues least able to tolerate reduced oxidative phosphorylation capacity, so the disease presents as encephalomyopathy: Leigh syndrome in one index patient, myoclonic epilepsy with developmental delay in the other, and muscular hypotonia with lactic acidosis in the affected heterozygous girl. Phenotypic variability between patients carrying different NDUFA1 alleles was noted from the outset.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ndufa1 S55A knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Ndufa1 S55A (serine-55-alanine knock-in, X-linked)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The model develops age-dependent Purkinje neuron degeneration, giving a neurodegenerative phenotype, but this is a late cerebellar degeneration rather than the subacute necrotizing encephalomyelopathy or myoclonic epilepsy that define the human presentations.\"}]}}, {\"id\": \"NDUFA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NDUFA1\"], \"gene_terms\": [{\"label\": \"NDUFA1\", \"id\": \"hgnc:7683\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NDUFA1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDUFA1 encodes MWFE, a small accessory (non-catalytic) subunit of complex I that is nonetheless essential for the holoenzyme to assemble and remain stable. Reported pathogenic alleles are missense \\u2014 p.Gly8Arg and p.Arg37Ser hemizygously in the index males, c.55C\u003eT identified later by exome sequencing, and p.Gly32Arg in an affected heterozygous female.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NDUFA1\"], \"gene_terms\": [{\"label\": \"NDUFA1\", \"id\": \"hgnc:7683\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline missense variants in the X-chromosomal NDUFA1 gene, hemizygous in affected males and heterozygous in the reported affected female.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ndufa1 S55A knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A homologous-recombination knock-in introducing a point mutation in the 55th codon of Ndufa1, producing a systemic serine-55-alanine substitution in the MWFE protein. Described by its authors as the first genuine X-chromosome linked mouse model of systemic partial complex I deficiency.\"}, {\"id\": \"Skewed X-Inactivation in Heterozygous Females\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because NDUFA1 is X-linked, a heterozygous female is a mosaic of cells expressing either the wild-type or the mutant allele, and her phenotype depends on which allele is active in the affected tissue. In the reported affected girl, 72% of NDUFA1 mRNA in muscle carried the mutation and 74% of the active allele in that muscle was the paternally inherited one \\u2014 skewing toward the mutant allele in the very tissue that was biochemically deficient. This is why heterozygous females cannot be assumed to be unaffected carriers, and it modifies the whole chain rather than sitting at one point in it.\", \"meta\": {\"evidence_count\": 3, \"role\": \"modifier\", \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"NDUFA1 Loss of Function\", \"target\": \"Complex I Assembly and Stability Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Complex I Assembly and Stability Failure\", \"target\": \"Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit\", \"target\": \"Mitochondrial Encephalomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skewed X-Inactivation in Heterozygous Females\", \"target\": \"Complex I Assembly and Stability Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ndufa1 S55A knock-in mouse\", \"target\": \"Impaired NADH-Ubiquinone Oxidoreduction and OXPHOS Deficit\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces a systemic, partial (roughly 50%) complex I deficiency in both sexes, matching the partial rather than complete enzyme deficit inferred in patients.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"S55A is an engineered allele, not one of the human pathogenic variants (p.Gly8Arg, p.Arg37Ser, c.55C\u003eT, p.Gly32Arg), so it models the consequence of MWFE dysfunction rather than any specific patient genotype. The phenotype is also dominated by metabolic and behavioural readouts rather than the Leigh syndrome or myoclonic epilepsy that define the human disease.\"}, {\"source\": \"Ndufa1 S55A knock-in mouse\", \"target\": \"Mitochondrial Encephalomyopathy\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The model develops age-dependent Purkinje neuron degeneration, giving a neurodegenerative phenotype, but this is a late cerebellar degeneration rather than the subacute necrotizing encephalomyelopathy or myoclonic epilepsy that define the human presentations.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The neuropathology does not match the human disease in either distribution or tempo: Leigh syndrome involves basal ganglia and brainstem lesions with infantile or early childhood onset, whereas this model shows age-dependent Purkinje cell loss. No seizure phenotype corresponding to the human myoclonic epilepsy presentation is reported.\"}, {\"source\": \"NDUFA1\", \"target\": \"NDUFA1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5398,9 +5519,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5441,6 +5560,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5455,6 +5577,7 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5518,6 +5641,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5532,6 +5658,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5564,86 +5691,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-delay" data-dismech-node="Developmental Delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Developmental Delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Global developmental delay</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17262856" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17262856" target="_blank">PMID:17262856</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Two novel p.Gly8Arg and p.Arg37Ser hemizygous mutations in NDUFA1 were identified in two unrelated male patients presenting with Leigh&#39;s syndrome and with myoclonic epilepsy and developmental delay, respectively."</div>
-
-
-                <div class="evidence-explanation">Documents developmental delay in the index series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-leigh-syndrome" data-dismech-node="Leigh Syndrome" data-dismech-type="phenotype">
@@ -5662,15 +5710,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002448</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Progressive encephalopathy (HP:0002448). HP:0002448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5690,6 +5741,7 @@ This clinical feature is Progressive encephalopathy (HP:0002448). HP:0002448 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5732,15 +5784,18 @@ This clinical feature is Progressive encephalopathy (HP:0002448). HP:0002448 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0032794</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0032794</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5763,6 +5818,7 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5771,6 +5827,80 @@ This clinical feature is Myoclonic seizure (HP:0032794). HP:0032794 is a phenoty
 
 
                 <div class="evidence-explanation">Documents the myoclonic epilepsy presentation in the second hemizygote.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-delay" data-dismech-node="Developmental Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Developmental Delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Global developmental delay</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17262856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17262856" target="_blank">PMID:17262856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two novel p.Gly8Arg and p.Arg37Ser hemizygous mutations in NDUFA1 were identified in two unrelated male patients presenting with Leigh&#39;s syndrome and with myoclonic epilepsy and developmental delay, respectively."</div>
+
+
+                <div class="evidence-explanation">Documents developmental delay in the index series.</div>
 
 
 
@@ -5860,6 +5990,9 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5874,6 +6007,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5898,6 +6032,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5975,6 +6110,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6021,6 +6157,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6090,6 +6227,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6144,6 +6282,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6165,6 +6304,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6341,6 +6481,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6400,6 +6541,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6439,6 +6581,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6518,6 +6661,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6557,6 +6701,7 @@ This disease-associated gene is NDUFA1 (hgnc:7683). hgnc:7683 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

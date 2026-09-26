@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4155,6 +4223,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-remodeling" data-dismech-node="Vascular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Remodeling</div>
 
+
                 <div class="item-desc">Structural changes in the pulmonary vasculature including smooth muscle hypertrophy, intimal proliferation, and fibrosis.</div>
 
 
@@ -4416,6 +4485,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Many cell types are abnormal in PAH, including vascular cells (endothelial"</div>
@@ -4435,6 +4505,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4458,6 +4529,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction" data-dismech-node="Endothelial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Dysfunction</div>
+
 
                 <div class="item-desc">Endothelial injury and apoptosis with loss of BMPR2/BMP protective signaling; endothelial-to-mesenchymal transition contributing to vascular remodeling.</div>
 
@@ -4668,6 +4740,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4692,6 +4765,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Endothelial dysfunction has been observed in PAH development that results in a"</div>
@@ -4712,6 +4786,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammation-and-immune-activation" data-dismech-node="Inflammation and Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammation and Immune Activation</div>
+
 
                 <div class="item-desc">Perivascular immune cell infiltration and cytokine release fueling proliferative and fibrotic processes.</div>
 
@@ -4884,6 +4959,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"inflammatory mediators can be detected in PAH patients and correlate with"</div>
@@ -4903,6 +4979,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4926,6 +5003,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metabolic-reprogramming" data-dismech-node="Metabolic Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Metabolic Reprogramming</div>
+
 
                 <div class="item-desc">Shift from oxidative phosphorylation to glycolysis in vascular cells, supporting proliferation and apoptosis resistance.</div>
 
@@ -5107,6 +5185,7 @@ This pathophysiological event involves oxidative phosphorylation (GO:0006119). G
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A cancer-like increase in cell proliferation and resistance to apoptosis"</div>
@@ -5126,6 +5205,7 @@ This pathophysiological event involves oxidative phosphorylation (GO:0006119). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5149,6 +5229,7 @@ This pathophysiological event involves oxidative phosphorylation (GO:0006119). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoxia-signaling" data-dismech-node="Hypoxia Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoxia Signaling</div>
+
 
                 <div class="item-desc">Hypoxia-inducible factor (HIF) pathway activation contributing to vasoconstriction and vascular remodeling.</div>
 
@@ -5263,6 +5344,7 @@ This pathophysiological event involves HIF-1-alpha signaling pathway, annotated 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-pulmonary-vascular-resistance" data-dismech-node="Increased Pulmonary Vascular Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Pulmonary Vascular Resistance</div>
 
+
                 <div class="item-desc">Result of vascular remodeling and vasoconstriction leading to elevated pressure in the pulmonary artery.</div>
 
 
@@ -5344,6 +5426,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"this 6th WSPH Task Force proposes to include pulmonary"</div>
@@ -5364,6 +5447,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-ventricular-hypertrophy" data-dismech-node="Right Ventricular Hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Right Ventricular Hypertrophy</div>
+
 
                 <div class="item-desc">The right ventricle thickens in response to increased workload from elevated pulmonary arterial pressure.</div>
 
@@ -5494,6 +5578,7 @@ This pathophysiological event occurs in right cardiac ventricle, annotated with 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"maladaptive changes in the right ventricle, including ischemia and fibrosis"</div>
@@ -5566,7 +5651,7 @@ This pathophysiological event occurs in right cardiac ventricle, annotated with 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
 
@@ -5576,8 +5661,6 @@ This pathophysiological event occurs in right cardiac ventricle, annotated with 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
-
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
@@ -5586,7 +5669,7 @@ This pathophysiological event occurs in right cardiac ventricle, annotated with 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
@@ -5616,6 +5699,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Fainting spells associated with exertion.</div>
 
 
@@ -5635,6 +5721,7 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5693,6 +5780,120 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
 
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-hypertrophy" data-dismech-node="Right Ventricular Hypertrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Right Ventricular Hypertrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001667</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right ventricular hypertrophy (HP:0001667). HP:0001667 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Develops as a compensatory response to increased pulmonary vascular resistance</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29540357" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29540357" target="_blank">PMID:29540357</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Obstructive pulmonary vascular remodeling in PAH increases right"</div>
+
+
+                <div class="evidence-explanation">Thenappan et al. 2018 directly links obstructive vascular remodeling to right ventricular hypertrophy as a consequence of increased afterload.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tricuspid-regurgitation" data-dismech-node="Tricuspid Regurgitation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tricuspid Regurgitation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005180</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tricuspid regurgitation (HP:0005180). HP:0005180 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Due to right ventricular dilation and annular distortion</div>
+
+
+
+
+
+
+
+
                 </div>
 
             </details>
@@ -5720,15 +5921,18 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000961</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000961</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bluish discoloration due to inadequate oxygenation</div>
@@ -5767,15 +5971,18 @@ This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000969</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000969</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Swelling in the legs and ankles</div>
@@ -5814,15 +6021,18 @@ This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5849,6 +6059,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5898,15 +6109,18 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100749</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0100749</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5934,15 +6148,18 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Due to reduced cardiac output</div>
@@ -5974,15 +6191,18 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced Exercise Tolerance, annotated with Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6002,6 +6222,7 @@ This clinical feature is Reduced Exercise Tolerance, annotated with Exercise int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6019,119 +6240,6 @@ This clinical feature is Reduced Exercise Tolerance, annotated with Exercise int
 
         </div>
     </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-hypertrophy" data-dismech-node="Right Ventricular Hypertrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Right Ventricular Hypertrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001667</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Right ventricular hypertrophy (HP:0001667). HP:0001667 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Develops as a compensatory response to increased pulmonary vascular resistance</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29540357" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29540357" target="_blank">PMID:29540357</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"Obstructive pulmonary vascular remodeling in PAH increases right"</div>
-
-
-                <div class="evidence-explanation">Thenappan et al. 2018 directly links obstructive vascular remodeling to right ventricular hypertrophy as a consequence of increased afterload.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tricuspid-regurgitation" data-dismech-node="Tricuspid Regurgitation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tricuspid Regurgitation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005180" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0005180</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tricuspid regurgitation (HP:0005180). HP:0005180 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Due to right ventricular dilation and annular distortion</div>
-
-
-
 
 
 
@@ -6211,6 +6319,9 @@ This disease-associated gene is BMPR2 (hgnc:1078). hgnc:1078 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6225,6 +6336,7 @@ This disease-associated gene is BMPR2 (hgnc:1078). hgnc:1078 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6250,6 +6362,7 @@ This disease-associated gene is BMPR2 (hgnc:1078). hgnc:1078 is a gene from the 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"loss-of-function mutations in the BMPR2 gene, the most common genetic cause"</div>
@@ -6269,6 +6382,7 @@ This disease-associated gene is BMPR2 (hgnc:1078). hgnc:1078 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6326,6 +6440,9 @@ This disease-associated gene is SMAD9 (hgnc:6774). hgnc:6774 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-acvrl1" data-dismech-node="ACVRL1" data-dismech-type="genetic">
@@ -6357,6 +6474,9 @@ This disease-associated gene is ACVRL1 (hgnc:175). hgnc:175 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6400,6 +6520,9 @@ This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HU
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-eif2ak4" data-dismech-node="EIF2AK4" data-dismech-type="genetic">
@@ -6431,6 +6554,9 @@ This disease-associated gene is EIF2AK4 (hgnc:19687). hgnc:19687 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -6474,6 +6600,9 @@ This disease-associated gene is KCNK3 (hgnc:6278). hgnc:6278 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-tbx4" data-dismech-node="TBX4" data-dismech-type="genetic">
@@ -6505,6 +6634,9 @@ This disease-associated gene is TBX4 (hgnc:11603). hgnc:11603 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6548,6 +6680,9 @@ This disease-associated gene is SOX17 (hgnc:18122). hgnc:18122 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-cav1" data-dismech-node="CAV1" data-dismech-type="genetic">
@@ -6579,6 +6714,9 @@ This disease-associated gene is CAV1 (hgnc:1527). hgnc:1527 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6692,6 +6830,12 @@ This treatment uses tadalafil (CHEBI:71940). CHEBI:71940 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Medications like sildenafil and tadalafil that relax blood vessels in the lungs</div>
 
 
@@ -6731,6 +6875,7 @@ This treatment uses tadalafil (CHEBI:71940). CHEBI:71940 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6788,6 +6933,12 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6877,6 +7028,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6989,6 +7146,12 @@ This treatment uses sotatercept (NCIT:C80038). NCIT:C80038 is a therapeutic agen
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Activin-signaling inhibitor added to stable background therapy for pulmonary arterial hypertension. Phase III STELLAR data showed improved exercise capacity and multiple secondary endpoints compared with placebo.</div>
 
 
@@ -7028,6 +7191,7 @@ This treatment uses sotatercept (NCIT:C80038). NCIT:C80038 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7086,6 +7250,12 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7211,6 +7381,12 @@ This treatment uses anticoagulant agent (NCIT:C263). NCIT:C263 is a therapeutic 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Used particularly in chronic thromboembolic pulmonary hypertension to prevent clotting complications</div>
 
 
@@ -7288,6 +7464,12 @@ This treatment is balloon pulmonary angioplasty, annotated with Percutaneous Tra
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Catheter-based interventional treatment for chronic thromboembolic pulmonary hypertension (CTEPH), particularly in patients with inoperable or distal-vessel disease or persistent pulmonary hypertension after pulmonary endarterectomy. Serial balloon dilation of stenotic/occluded pulmonary arteries reduces pulmonary vascular resistance and improves functional capacity.
 </div>
 
@@ -7319,6 +7501,7 @@ This treatment is balloon pulmonary angioplasty, annotated with Percutaneous Tra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7365,6 +7548,7 @@ This treatment is balloon pulmonary angioplasty, annotated with Percutaneous Tra
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7386,6 +7570,7 @@ This treatment is balloon pulmonary angioplasty, annotated with Percutaneous Tra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7472,6 +7657,7 @@ This environmental factor occurs in Mountain environment, annotated with mountai
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7493,6 +7679,7 @@ This environmental factor occurs in Mountain environment, annotated with mountai
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7547,6 +7734,7 @@ This environmental factor occurs in Mountain environment, annotated with mountai
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7593,6 +7781,7 @@ This environmental factor occurs in Mountain environment, annotated with mountai
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7806,6 +7995,7 @@ This environmental factor occurs in Mountain environment, annotated with mountai
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9235,6 +9425,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

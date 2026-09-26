@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4353,6 +4421,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4377,6 +4446,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4398,6 +4468,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4525,6 +4596,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4546,6 +4618,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4640,6 +4713,7 @@
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4661,6 +4735,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4795,6 +4870,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4911,6 +4987,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5060,6 +5137,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5230,6 +5308,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5254,6 +5333,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5349,6 +5429,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5383,6 +5464,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mras-activating-missense-variant" data-dismech-node="MRAS Activating Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">MRAS Activating Missense Variant</div>
+
 
                 <div class="item-desc">NS11 is initiated by a germline heterozygous missense substitution in MRAS, almost always at one of a narrow set of codons — Gly23 (p.Gly23Val, p.Gly23Arg), Thr68 (p.Thr68Ile) or Gln71 (p.Gln71Arg) — that correspond to known RASopathy and oncogenic hotspots in other RAS-family GTPases. The substitutions lie in or adjacent to the P-loop, switch regions and GTP-binding site, and are predicted to perturb effector-interaction surfaces and nucleotide handling.</div>
 
@@ -5518,6 +5600,7 @@ This pathophysiological event involves MRAS (hgnc:7227). hgnc:7227 is a gene fro
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -5539,6 +5622,7 @@ This pathophysiological event involves MRAS (hgnc:7227). hgnc:7227 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5564,6 +5648,7 @@ This pathophysiological event involves MRAS (hgnc:7227). hgnc:7227 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-m-ras-gtp-loading" data-dismech-node="Constitutive M-Ras GTP Loading" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive M-Ras GTP Loading</div>
+
 
                 <div class="item-desc">Impaired intrinsic GTP hydrolysis leaves mutant M-Ras persistently GTP-bound. Activation is quantitatively large: ectopic expression of p.Gly23Val-MRAS produced an approximately 40-fold increase in M-Ras activation relative to wild type. The GTP-loaded mutant is also constitutively targeted to the plasma membrane and dwells abnormally long in non-raft microdomains, so the active protein is retained where its effectors are engaged.</div>
 
@@ -5763,6 +5848,7 @@ This pathophysiological event involves decreased M-Ras GTP hydrolysis, annotated
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5784,6 +5870,7 @@ This pathophysiological event involves decreased M-Ras GTP hydrolysis, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5809,6 +5896,7 @@ This pathophysiological event involves decreased M-Ras GTP hydrolysis, annotated
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-mras-shoc2-pp1-holophosphatase-assembly" data-dismech-node="Enhanced MRAS-SHOC2-PP1 Holophosphatase Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced MRAS-SHOC2-PP1 Holophosphatase Assembly</div>
+
 
                 <div class="item-desc">M-Ras, the leucine-rich-repeat scaffold SHOC2 and protein phosphatase 1 assemble into a heterotrimeric holoenzyme in which M-Ras and SHOC2 act as regulatory subunits conferring specificity for RAF, and M-Ras additionally acts as the membrane-targeting subunit. Noonan-causing substitutions in any of the three components — MRAS, SHOC2 or PPP1CB — promote assembly of this complex, which is the shared biochemical lesion linking NS11 to SHOC2-related and PPP1CB-related Noonan-spectrum disease.</div>
 
@@ -5900,6 +5988,7 @@ This pathophysiological event involves increased PP1 holoenzyme serine/threonine
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5921,6 +6010,7 @@ This pathophysiological event involves increased PP1 holoenzyme serine/threonine
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5950,6 +6040,7 @@ This pathophysiological event involves increased PP1 holoenzyme serine/threonine
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5972,6 +6063,7 @@ This pathophysiological event involves increased PP1 holoenzyme serine/threonine
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-raf-s259-dephosphorylation-and-raf-activation" data-dismech-node="RAF S259 Dephosphorylation and RAF Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">RAF S259 Dephosphorylation and RAF Activation</div>
+
 
                 <div class="item-desc">Dephosphorylation of the inhibitory S259 site on CRAF (S365 on BRAF) by the MRAS-SHOC2-PP1 holophosphatase is a rate-limiting step in RAF activation. With mutant M-Ras driving complex assembly, this brake is released more readily and RAF signalling into MEK-ERK is potentiated.</div>
 
@@ -6063,6 +6155,7 @@ This pathophysiological event involves increased RAF S259 dephosphorylation, ann
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6085,6 +6178,7 @@ This pathophysiological event involves increased RAF S259 dephosphorylation, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ras-mapk-and-pi3k-akt-pathway-hyperactivation" data-dismech-node="RAS-MAPK and PI3K-AKT Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">RAS-MAPK and PI3K-AKT Pathway Hyperactivation</div>
+
 
                 <div class="item-desc">The convergent cellular consequence of activating MRAS variants is upregulated signal flow through the RAF-MEK-ERK cascade, with variably increased PI3K-AKT signalling. This is the shared final common pathway of the RASopathies, and it accounts for the Noonan-spectrum craniofacial, growth and neurodevelopmental features that NS11 shares with the parent Noonan Syndrome entry.</div>
 
@@ -6330,6 +6424,7 @@ This pathophysiological event involves increased PI3K-AKT signalling, annotated 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6351,6 +6446,7 @@ This pathophysiological event involves increased PI3K-AKT signalling, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6378,6 +6474,7 @@ This pathophysiological event involves increased PI3K-AKT signalling, annotated 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6402,6 +6499,7 @@ This pathophysiological event involves increased PI3K-AKT signalling, annotated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-hypertrophy-and-calcium-handling-abnormality" data-dismech-node="Cardiomyocyte Hypertrophy and Calcium Handling Abnormality" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Hypertrophy and Calcium Handling Abnormality</div>
+
 
                 <div class="item-desc">In patient-derived and CRISPR-engineered isogenic iPSC-derived cardiomyocytes, p.Gly23Val-MRAS is both necessary and sufficient to produce increased cell size, a cardiac hypertrophy gene-expression signature, and impaired calcium handling with an increased frequency of irregular calcium transients and altered kinetics. This is the cell-level substrate of the hypertrophic cardiomyopathy that defines NS11 clinically.</div>
 
@@ -6578,6 +6676,7 @@ This pathophysiological event involves abnormal intracellular calcium ion homeos
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6599,6 +6698,7 @@ This pathophysiological event involves abnormal intracellular calcium ion homeos
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6624,6 +6724,7 @@ This pathophysiological event involves abnormal intracellular calcium ion homeos
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypertrophic-cardiomyopathy-with-outflow-tract-obstruction" data-dismech-node="Hypertrophic Cardiomyopathy with Outflow Tract Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypertrophic Cardiomyopathy with Outflow Tract Obstruction</div>
+
 
                 <div class="item-desc">The organ-level lesion that distinguishes NS11 within the Noonan spectrum. Reported patients have shown hypertrophic cardiomyopathy far more consistently than Noonan syndrome overall, in which HCM affects roughly 20-30%; the MRAS cases are additionally weighted towards early onset, outflow tract obstruction, and poor prognosis, with deaths in the neonatal and infant periods. The severity is nonetheless not invariant — an adult with the recurrent p.Thr68Ile substitution had only mild, late-onset left ventricular hypertrophy — so obligate early severe HCM is not a safe inference from genotype.</div>
 
@@ -6693,6 +6794,7 @@ This pathophysiological event involves abnormal intracellular calcium ion homeos
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6714,6 +6816,7 @@ This pathophysiological event involves abnormal intracellular calcium ion homeos
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6739,6 +6842,7 @@ This pathophysiological event involves abnormal intracellular calcium ion homeos
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphatic-dysplasia-and-impaired-lymphatic-drainage" data-dismech-node="Lymphatic Dysplasia and Impaired Lymphatic Drainage" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphatic Dysplasia and Impaired Lymphatic Drainage</div>
+
 
                 <div class="item-desc">Lymphatic vessel development is disturbed in MRAS-related Noonan syndrome, as across the wider Noonan spectrum. In the single antenatally diagnosed NS11 patient, histology showed dilated pulmonary lymphatic vessels lacking a muscular medial layer, and the prenatal picture of increased nuchal translucency, serosal effusions and hydrops is attributed in Noonan syndrome to disorders of lymphatic drainage. This tissue-level lesion accounts for the fluid-accumulation phenotypes that dominated the reported fetal course.</div>
 
@@ -6854,6 +6958,7 @@ This pathophysiological event involves abnormal lymphatic vessel development, an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6875,6 +6980,7 @@ This pathophysiological event involves abnormal lymphatic vessel development, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6934,6 +7040,7 @@ This pathophysiological event involves abnormal lymphatic vessel development, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6998,25 +7105,23 @@ This pathophysiological event involves abnormal lymphatic vessel development, an
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Prenatal and Birth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Prenatal and Birth<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(9)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7026,7 +7131,7 @@ This pathophysiological event involves abnormal lymphatic vessel development, an
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypertrophic-cardiomyopathy" data-dismech-node="Hypertrophic Cardiomyopathy" data-dismech-type="phenotype">
@@ -7059,6 +7164,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7073,6 +7181,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7100,6 +7209,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7108,6 +7218,103 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                 <div class="evidence-explanation">Independent case series placing MRAS among the HCM-predisposing RASopathy genes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-outflow-tract-obstruction" data-dismech-node="Left Ventricular Outflow Tract Obstruction" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Left Ventricular Outflow Tract Obstruction
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0032092</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular outflow tract obstruction (HP:0032092). HP:0032092 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34080768" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34080768" target="_blank">PMID:34080768</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, these preliminary data suggest that variants in MRAS per se are high risk factors for the development of an early, severe HCM, mostly of them with left ventricle outflow tract obstruction, with poor prognosis."</div>
+
+
+                <div class="evidence-explanation">States that most reported MRAS cases have outflow tract obstruction.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41517739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517739" target="_blank">PMID:41517739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Echocardiography demonstrated obstructive hypertrophic cardiomyopathy with vegetation located in the left ventricular outflow tract."</div>
+
+
+                <div class="evidence-explanation">Documents outflow tract obstruction in an adult NS11 patient.</div>
 
 
 
@@ -7137,15 +7344,18 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001712</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7168,6 +7378,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7176,6 +7387,177 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
                 <div class="evidence-explanation">Documents late-onset left ventricular hypertrophy as the cardiac manifestation in the reported adult NS11 patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-lymphangiectasia" data-dismech-node="Pulmonary Lymphangiectasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary Lymphangiectasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0006521</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary lymphangiectasia (HP:0006521). HP:0006521 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41866303" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41866303" target="_blank">PMID:41866303</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The fetus exhibited increased nuchal translucency, agenesis of the ductus venosus, pulmonary lymphangiectasia, and complex hepatic vascular anomalies."</div>
+
+
+                <div class="evidence-explanation">Names pulmonary lymphangiectasia specifically in the antenatally diagnosed NS11 case, supporting the HP:0006521 binding.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41866303" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41866303" target="_blank">PMID:41866303</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Histopathology revealed HCM, obliterative portal venopathy and lymphangiectasia, consistent with NS pathology."</div>
+
+
+                <div class="evidence-explanation">Histopathological confirmation of lymphangiectasia in the fetal NS11 case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-valve-stenosis" data-dismech-node="Pulmonary Valve Stenosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary Valve Stenosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Valvular pulmonary stenosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034350" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0034350</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary valve stenosis, annotated with Valvular pulmonary stenosis (HP:0034350). HP:0034350 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28289718" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28289718" target="_blank">PMID:28289718</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cardiac hypertrophy, pulmonary valve stenosis, ASD, facial dysmorphisms, ptosis, and developmental delays"</div>
+
+
+                <div class="evidence-explanation">The patient summary table records pulmonary valve stenosis in the p.Thr68Ile NS11 patient.</div>
 
 
 
@@ -7205,15 +7587,18 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001631</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7233,6 +7618,7 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7265,7 +7651,7 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-low-set-ears" data-dismech-node="Low-Set Ears" data-dismech-type="phenotype">
@@ -7282,15 +7668,18 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7313,6 +7702,7 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7321,6 +7711,78 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
                 <div class="evidence-explanation">Records low-set posteriorly rotated ears in a molecularly confirmed MRAS patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-posteriorly-rotated-ears" data-dismech-node="Posteriorly Rotated Ears" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Posteriorly Rotated Ears
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000358" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000358</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Posteriorly rotated ears (HP:0000358). HP:0000358 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41517739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517739" target="_blank">PMID:41517739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A 22-year-old woman presented with typical dysmorphic features of NS, including short stature, broad forehead, hypertelorism, low-set posteriorly rotated ears, and a broad neck."</div>
+
+
+                <div class="evidence-explanation">Records posteriorly rotated ears in a molecularly confirmed MRAS patient.</div>
 
 
 
@@ -7359,15 +7821,18 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7387,6 +7852,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7427,15 +7893,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7455,6 +7924,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7487,7 +7957,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-downslanted-palpebral-fissures" data-dismech-node="Downslanted Palpebral Fissures" data-dismech-type="phenotype">
@@ -7504,15 +7974,18 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000494</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000494</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7532,6 +8005,7 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7572,15 +8046,18 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0005280</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7603,6 +8080,7 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7611,6 +8089,78 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
                 <div class="evidence-explanation">Documents a depressed nasal bridge in the MRAS p.Gln71Arg patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-forehead" data-dismech-node="Broad Forehead" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Broad Forehead
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000337</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41517739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517739" target="_blank">PMID:41517739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A 22-year-old woman presented with typical dysmorphic features of NS, including short stature, broad forehead, hypertelorism, low-set posteriorly rotated ears, and a broad neck."</div>
+
+
+                <div class="evidence-explanation">Records a broad forehead in a molecularly confirmed MRAS patient.</div>
 
 
 
@@ -7640,15 +8190,18 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0004482</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7671,6 +8224,7 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7679,6 +8233,150 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
                 <div class="evidence-explanation">Documents relative macrocephaly in the MRAS p.Gln71Arg patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-neck" data-dismech-node="Broad Neck" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Broad Neck
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000475</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad neck (HP:0000475). HP:0000475 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41517739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517739" target="_blank">PMID:41517739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A 22-year-old woman presented with typical dysmorphic features of NS, including short stature, broad forehead, hypertelorism, low-set posteriorly rotated ears, and a broad neck."</div>
+
+
+                <div class="evidence-explanation">Records a broad neck in a molecularly confirmed MRAS patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-nuchal-translucency" data-dismech-node="Increased Nuchal Translucency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Nuchal Translucency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0010880</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased nuchal translucency (HP:0010880). HP:0010880 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41866303" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41866303" target="_blank">PMID:41866303</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The fetus exhibited increased nuchal translucency, agenesis of the ductus venosus, pulmonary lymphangiectasia, and complex hepatic vascular anomalies."</div>
+
+
+                <div class="evidence-explanation">Documents increased nuchal translucency in the first antenatally diagnosed NS11 case.</div>
 
 
 
@@ -7717,15 +8415,18 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001789</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7745,6 +8446,7 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7777,7 +8479,7 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pectus-excavatum" data-dismech-node="Pectus Excavatum" data-dismech-type="phenotype">
@@ -7794,15 +8496,18 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000767</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000767</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7822,6 +8527,7 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7862,15 +8568,18 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7893,6 +8602,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7901,6 +8611,78 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                 <div class="evidence-explanation">The examination findings for the p.Thr68Ile NS11 patient record hypotonia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-small-joint-hypermobility" data-dismech-node="Small Joint Hypermobility" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Small Joint Hypermobility
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0430046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0430046</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Small joint hypermobility (HP:0430046). HP:0430046 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28289718" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28289718" target="_blank">PMID:28289718</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mild hyperexten- sibility of her small joints, and hypotonia"</div>
+
+
+                <div class="evidence-explanation">Records mild hyperextensibility of the small joints in the p.Thr68Ile NS11 patient. The word is transcribed with the source&#39;s line-break hyphenation (`hyperexten- sibility`) because the cached full text splits it across a line; the quote is otherwise verbatim.</div>
 
 
 
@@ -7939,15 +8721,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7967,6 +8752,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8007,15 +8793,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8035,6 +8824,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8067,12 +8857,12 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Prenatal and Birth
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-polyhydramnios" data-dismech-node="Polyhydramnios" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fetal-pleural-effusion" data-dismech-node="Fetal Pleural Effusion" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Polyhydramnios
+                        Fetal Pleural Effusion
 
 
 
@@ -8084,15 +8874,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001561</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025676" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0025676</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Fetal pleural effusion (HP:0025676). HP:0025676 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8112,6 +8905,79 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A cesarean section was performed at 33 weeks&#39; gestation due to worsening fetal pleural effusions and maternal intolerance to polyhydramnios."</div>
+
+
+                <div class="evidence-explanation">Documents fetal pleural effusions in the antenatally diagnosed NS11 case.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyhydramnios" data-dismech-node="Polyhydramnios" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Polyhydramnios
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001561</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41866303" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41866303" target="_blank">PMID:41866303</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8161,15 +9027,18 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8189,6 +9058,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8200,677 +9070,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Records short stature in a molecularly confirmed MRAS p.Thr68Ile patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-outflow-tract-obstruction" data-dismech-node="Left Ventricular Outflow Tract Obstruction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Left Ventricular Outflow Tract Obstruction
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0032092</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Left ventricular outflow tract obstruction (HP:0032092). HP:0032092 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34080768" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34080768" target="_blank">PMID:34080768</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Thus, these preliminary data suggest that variants in MRAS per se are high risk factors for the development of an early, severe HCM, mostly of them with left ventricle outflow tract obstruction, with poor prognosis."</div>
-
-
-                <div class="evidence-explanation">States that most reported MRAS cases have outflow tract obstruction.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41517739" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517739" target="_blank">PMID:41517739</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Echocardiography demonstrated obstructive hypertrophic cardiomyopathy with vegetation located in the left ventricular outflow tract."</div>
-
-
-                <div class="evidence-explanation">Documents outflow tract obstruction in an adult NS11 patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-posteriorly-rotated-ears" data-dismech-node="Posteriorly Rotated Ears" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Posteriorly Rotated Ears
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000358" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000358</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Posteriorly rotated ears (HP:0000358). HP:0000358 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41517739" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517739" target="_blank">PMID:41517739</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A 22-year-old woman presented with typical dysmorphic features of NS, including short stature, broad forehead, hypertelorism, low-set posteriorly rotated ears, and a broad neck."</div>
-
-
-                <div class="evidence-explanation">Records posteriorly rotated ears in a molecularly confirmed MRAS patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-forehead" data-dismech-node="Broad Forehead" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Broad Forehead
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000337</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41517739" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517739" target="_blank">PMID:41517739</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A 22-year-old woman presented with typical dysmorphic features of NS, including short stature, broad forehead, hypertelorism, low-set posteriorly rotated ears, and a broad neck."</div>
-
-
-                <div class="evidence-explanation">Records a broad forehead in a molecularly confirmed MRAS patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-neck" data-dismech-node="Broad Neck" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Broad Neck
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000475</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Broad neck (HP:0000475). HP:0000475 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41517739" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517739" target="_blank">PMID:41517739</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A 22-year-old woman presented with typical dysmorphic features of NS, including short stature, broad forehead, hypertelorism, low-set posteriorly rotated ears, and a broad neck."</div>
-
-
-                <div class="evidence-explanation">Records a broad neck in a molecularly confirmed MRAS patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-nuchal-translucency" data-dismech-node="Increased Nuchal Translucency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Nuchal Translucency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0010880</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased nuchal translucency (HP:0010880). HP:0010880 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41866303" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41866303" target="_blank">PMID:41866303</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The fetus exhibited increased nuchal translucency, agenesis of the ductus venosus, pulmonary lymphangiectasia, and complex hepatic vascular anomalies."</div>
-
-
-                <div class="evidence-explanation">Documents increased nuchal translucency in the first antenatally diagnosed NS11 case.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-lymphangiectasia" data-dismech-node="Pulmonary Lymphangiectasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary Lymphangiectasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0006521</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary lymphangiectasia (HP:0006521). HP:0006521 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41866303" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41866303" target="_blank">PMID:41866303</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The fetus exhibited increased nuchal translucency, agenesis of the ductus venosus, pulmonary lymphangiectasia, and complex hepatic vascular anomalies."</div>
-
-
-                <div class="evidence-explanation">Names pulmonary lymphangiectasia specifically in the antenatally diagnosed NS11 case, supporting the HP:0006521 binding.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41866303" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41866303" target="_blank">PMID:41866303</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Histopathology revealed HCM, obliterative portal venopathy and lymphangiectasia, consistent with NS pathology."</div>
-
-
-                <div class="evidence-explanation">Histopathological confirmation of lymphangiectasia in the fetal NS11 case.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fetal-pleural-effusion" data-dismech-node="Fetal Pleural Effusion" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fetal Pleural Effusion
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025676" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0025676</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Fetal pleural effusion (HP:0025676). HP:0025676 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41866303" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41866303" target="_blank">PMID:41866303</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A cesarean section was performed at 33 weeks&#39; gestation due to worsening fetal pleural effusions and maternal intolerance to polyhydramnios."</div>
-
-
-                <div class="evidence-explanation">Documents fetal pleural effusions in the antenatally diagnosed NS11 case.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-valve-stenosis" data-dismech-node="Pulmonary Valve Stenosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary Valve Stenosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Valvular pulmonary stenosis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034350" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0034350</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary valve stenosis, annotated with Valvular pulmonary stenosis (HP:0034350). HP:0034350 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28289718" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28289718" target="_blank">PMID:28289718</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cardiac hypertrophy, pulmonary valve stenosis, ASD, facial dysmorphisms, ptosis, and developmental delays"</div>
-
-
-                <div class="evidence-explanation">The patient summary table records pulmonary valve stenosis in the p.Thr68Ile NS11 patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-small-joint-hypermobility" data-dismech-node="Small Joint Hypermobility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Small Joint Hypermobility
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0430046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0430046</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Small joint hypermobility (HP:0430046). HP:0430046 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28289718" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28289718" target="_blank">PMID:28289718</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"mild hyperexten- sibility of her small joints, and hypotonia"</div>
-
-
-                <div class="evidence-explanation">Records mild hyperextensibility of the small joints in the p.Thr68Ile NS11 patient. The word is transcribed with the source&#39;s line-break hyphenation (`hyperexten- sibility`) because the cached full text splits it across a line; the quote is otherwise verbatim.</div>
 
 
 
@@ -8962,6 +9161,9 @@ This disease-associated gene is MRAS (hgnc:7227). hgnc:7227 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -8976,6 +9178,7 @@ This disease-associated gene is MRAS (hgnc:7227). hgnc:7227 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9003,6 +9206,7 @@ This disease-associated gene is MRAS (hgnc:7227). hgnc:7227 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9024,6 +9228,7 @@ This disease-associated gene is MRAS (hgnc:7227). hgnc:7227 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9116,6 +9321,12 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Because hypertrophic cardiomyopathy is present in essentially every reported NS11 patient and can be obstructive from infancy or emerge late in adulthood, echocardiographic surveillance is the central management task. Cardiovascular anomalies in Noonan syndrome are otherwise treated as in the general population. A recognized complication of outflow tract obstruction in this group is infective endocarditis, which prompted a call for careful cardiac surveillance in RASopathy patients.</div>
 
 
@@ -9140,6 +9351,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9161,6 +9373,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9227,6 +9440,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9237,6 +9453,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9264,6 +9483,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9357,6 +9577,12 @@ This treatment uses somatropin (recombinant human growth hormone), annotated wit
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Growth hormone is used for the short stature of Noonan syndrome generally. No MRAS-specific growth hormone outcome data exist; this is inherited from the parent entry&#39;s management and should be applied with the usual caution in a patient with hypertrophic cardiomyopathy.</div>
 
 
@@ -9378,6 +9604,7 @@ This treatment uses somatropin (recombinant human growth hormone), annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9466,6 +9693,9 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9476,6 +9706,9 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9512,6 +9745,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9558,6 +9792,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9584,6 +9819,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9608,6 +9844,7 @@ This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9695,6 +9932,9 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9705,6 +9945,9 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9744,6 +9987,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9791,6 +10035,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9815,6 +10060,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9889,6 +10135,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9913,6 +10160,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9934,6 +10182,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10004,6 +10253,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10025,6 +10275,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10077,6 +10328,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10145,6 +10397,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10230,6 +10483,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10282,6 +10536,7 @@ This treatment uses rigosertib (CHEBI:145417). CHEBI:145417 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10375,6 +10630,7 @@ This clinical trial targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10506,6 +10762,7 @@ This clinical trial targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10565,6 +10822,7 @@ This clinical trial targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10604,6 +10862,7 @@ This clinical trial targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10651,6 +10910,7 @@ This clinical trial targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10748,6 +11008,7 @@ This clinical trial targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10792,6 +11053,7 @@ This clinical trial targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13247,6 +13509,72 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope note: this entry deliberately models only the MRAS-specific arm of Noonan syndrome. Features shared with the wider Noonan spectrum (pulmonary valve stenosis, coagulation defects, cryptorchidism, lymphatic dysplasia in general, feeding difficulties, and the full management and surveillance protocol) are curated on the parent entry, Noonan Syndrome, which this entry lists under `parents` rather than duplicating. Pulmonary valve stenosis and the prenatal lymphatic findings are the deliberate exceptions: they are curated here because they are directly documented in the reported MRAS patients themselves, not inherited from the general Noonan description.
+Frequency note: the GeneReviews entry (PMID:20301303) is cited for genotype-independent statements only — diagnostic criteria, transmission risk and management. Its frequency bands (&#34;50%-80% of individuals&#34;, &#34;found in 20%-50% of individuals&#34;) describe Noonan syndrome as a whole and were deliberately NOT inherited by this entry, because assigning general Noonan/RASopathy prevalence figures to the eight published MRAS patients would be unsupported. The single `frequency:` value in this file is the one figure reported for MRAS specifically (HCM in 100% of reported cases).
+Datasets note: this entry carries no `datasets:` block, and the omission has now been tested rather than assumed. `just discover-datasets Noonan_Syndrome_11` returns exactly one candidate, geo:GSE270298, and it is a GENE_ONLY match to a colorectal-cancer study of KAT7-driven MRAS-mediated MAPK/ERK activation. That is the Named Entity Confusion reached through dataset search that CLAUDE.md warns about: the accession resolves, but the study is not about NS11 or about germline MRAS disease. MRAS is additionally a well-known coronary-artery-disease GWAS locus, so gene-keyed searching will keep surfacing unrelated cardiovascular and cancer datasets. No omics dataset generated from an MRAS-related Noonan patient has been identified.
+Module conformance note: this entry deliberately declares no `conforms_to` against `cardiomyopathy_maladaptive_remodeling`, even though its terminal node is hypertrophic cardiomyopathy and most HCM entries in the KB do conform. That module&#39;s chain runs primary cardiomyocyte insult, then neurohormonal activation, then ventricular remodeling, then progressive contractile dysfunction, then structural cardiac impairment and heart failure. NS11 does not take that route: the wall thickening is driven directly by RAS-MAPK pro-hypertrophic signalling in the cardiomyocyte, is present at or near birth in most reported patients, and is not a compensatory response to a contractile deficit. Nor is there a downstream node at which conformance could be declared instead: no MRAS patient has been reported with a chronic contractile-dysfunction or dilated phase. The neonatal and infant cardiac deaths recorded in `progression` are not that phase - they follow obstructive hypertrophy and its surgical management, not the end of a progressive remodeling course. This follows the reasoning already recorded in PRKAG2 Cardiac Syndrome, which declines conformance at its own hypertrophy node on the same grounds and conforms only where the disease genuinely converges on the generic remodeling pathway. Revisit if a contractile-dysfunction phase is reported in MRAS carriers.
+Curation provenance note: the first falcon deep-research run for this entry resolved &#34;Noonan syndrome 11&#34; to autosomal dominant LZTR1-related Noonan syndrome (NS10, OMIM 616564) — a Named Entity Confusion within the numbered Noonan series. `just preflight-dr` returned WARN with LZTR1 mentioned 61 times against 5 for MRAS, and the report&#39;s own OMIM identifiers (605275, 616564) disagreed with the MONDO:0032786 xref (618499). That report was discarded and not cherry-picked; the entry was built from primary literature anchored on the OAK-verified causal gene MRAS (HGNC:7227).</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Augment: NS11 mechanistic hypotheses, druggability and in vivo model gaps</strong> · 2026-09-03T18:02:57Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Noonan_Syndrome_11/2026-09-03T180257Z-claude-code-aac172.yaml">View source</a></p>
+                        <p class="research-review-text">Augmentation of the existing NS11 entry (created 2026-08-18, three prior history records). The entry was already at 97.9% weighted compliance with 82/82 snippets verified, so this session looked for content gaps rather than compliance gaps, and the two remaining compliance gaps turned out to be recorded deliberate omissions rather than work.
+
+DEEP RESEARCH. Two new provider runs, both consulted only after their preflight verdict. `just research-disorder` derives disease_name from the YAML `name:` field, and plain &#34;Noonan Syndrome 11&#34; is the string that resolved to LZTR1-related disease in the August session, so both runs passed a disambiguating override naming MRAS, OMIM 618499 and MONDO:0032786. That override cannot be passed through `just` normally: `{{ args }}` is textual interpolation, so a multi-word `--var` value is word-split and the run fails. Passing the whole flag as one already-quoted argument works. Three runs were lost to this before it did.
+
+- claude_code: preflight PASS (MRAS=92, next rival SHOC2=14, report OMIM 618499 matching the MONDO xref). Reference validation 21/21 resolved, 0 unresolved, 0 off topic. Term validation flagged HP:0001692 (report calls it &#34;Left ventricular outflow tract obstruction&#34;; HPO calls it Atrial arrhythmia) and UBERON:0002012; neither was bound. Its substantive contribution was section 15, which establishes that no germline MRAS knock-in mouse, zebrafish or other whole-organism model has been published.
+- openscientist: preflight WARN, SHOC2 at 39% of MRAS mentions. Read and judged a false positive - SHOC2 is the obligate scaffold of the MRAS-SHOC2-PP1 holophosphatase, not a second disease entity, and the second OMIM number it carries (608435) is the MRAS gene MIM rather than a rival disorder. Reference validation 16/16 resolved. Nothing was curated from its prose. It independently reached the same two gaps found from primary literature (no in vivo model; MEK efficacy documented in RIT1/RAF1/PTPN11 but not MRAS), which is why it is committed.
+- The pre-existing falcon report was NOT re-run. `just research-disorder falcon` writes to the same path and would have overwritten a preflight-PASSed committed artifact with a run made under the confusable plain name. It was instead retro-fitted with `just validate-research-terms`, which it lacked; that section now records six HP identifiers the report names by category label rather than by term name.
+
+WHAT WAS ADDED.
+1. mechanistic_hypotheses (new section). Two groups covering the M-Ras activation question, with the contested pathophysiology edge opting into both via downstream[].hypothesis_groups. ns11_constitutive_gtp_loading (CANONICAL) is the impaired-GTPase account already implicit in the entry. ns11_complex_stabilized_activation (EMERGING) records the molecular-dynamics finding that GTP-bound wild-type M-Ras predominantly occupies the inactive state I conformation and that the effector-competent state II is stabilized allosterically within the holophosphatase (PMID:41340891).
+2. discussions: two new KNOWLEDGE_GAP entries. ns11_smp_complex_druggability records that MRTX1133 and RMC-6236 block the canonical SKP complex but do not bind M-Ras, so they are not a route into the NS11 lesion (PMID:41519889). ns11_no_whole_organism_model records the absence of any germline MRAS animal model, cites the Lztr1 knock-in mice as the contrast showing the approach works for a Noonan gene (PMID:39352760, INDIRECT), and explains why the entry has no animal_models section. Both carry proposed_experiments wired into the pathograph via would_support.
+3. pathophysiology: PMID:41519889 added to the holophosphatase node, establishing M-Ras as the high-affinity isoform partner.
+4. treatments: the MEK inhibition entry previously rested on a single &#34;emerging targeted therapies ... offer potential&#34; sentence. Added the RIT1 trametinib case with complete remission of cardiac hypertrophy (PMID:36184070) and the RASopathy-HCM repurposing review (PMID:38432396). Both are marked directness: INDIRECT with the cross-gene inference step named in the explanation; neither establishes efficacy in NS11.
+5. notes: three curation decisions recorded so they are not re-litigated - the tested datasets omission, the module-conformance decision, and (in the hypothesis notes) the provenance of the Q71R affinity figure.
+
+DECISIONS RECORDED RATHER THAN CHANGES MADE.
+- No conforms_to against cardiomyopathy_maladaptive_remodeling, although 14 of 16 Hypertrophic_Cardiomyopathy_* entries do conform. That module runs insult, then neurohormonal activation, then ventricular remodeling, then progressive contractile dysfunction. NS11 hypertrophy is driven directly by RAS-MAPK signalling and is present at or near birth, and no MRAS patient has a reported chronic contractile-dysfunction or dilated phase, so there is no downstream node to conform at either. This follows the reasoning PRKAG2_Cardiac_Syndrome already records for its own hypertrophy node.
+- No datasets block. `just discover-datasets Noonan_Syndrome_11` was actually run this session rather than the August reasoning being inherited: it returns exactly one candidate, geo:GSE270298, a GENE_ONLY match to a KAT7/colorectal-cancer study. That is Named Entity Confusion reached through dataset search.
+- PMID:42610277 (rigosertib reverses HCM in Noonan syndrome, 2026) was read and deliberately not cited. It is a genuine and recent result, but its evidence is a Drosophila panel plus Raf1L613V/+ knock-in mice, with no MRAS data, and adding it to a treatments section would imply a therapy that has never been tested against this gene.
+
+RED-TEAM REVIEW AND A CORRECTION. A subagent review of the draft found a real defect. The EMERGING hypothesis had been written from the abstract of PMID:41340891 and framed the substitution as acting &#34;by raising affinity for the holophosphatase rather than by locking in GTP&#34;. The paper&#39;s body says the opposite: &#34;In contrast, M-RasQ71R is primarily GTP-loaded&#34;, Q71R raises the stable GTP-bound population to 58%, and the paper likens Q71R to the canonical RAS Q61 oncogenic mutants. The paper is a refinement of the canonical model, not a rival to it. The block was rewritten around what the source supports, the group renamed from ns11_holophosphatase_affinity to ns11_complex_stabilized_activation, and both snippets replaced with quotes from the results text. The review also established that the Q71R affinity figure is cited prior surface-plasmon-resonance work rather than this paper&#39;s own measurement, which the hypothesis notes now say. Six further review findings were applied: module chain order, the overstated &#34;no downstream node&#34; claim, an overreaching explanation on the PMID:41519889 item (now directness: INDIRECT), an overstated RASopathy-uniqueness claim, the upstream causal edge left untagged, and missing would_support on the proposed experiments.
+
+VALIDATION ACTUALLY RUN, naming only checks whose output was read.
+- just validate: schema, terms and references all passed; &#34;Snippets checked: 91/91 verified against cached references&#34; (82/82 before this session, 9 new evidence items).
+- just validate-terms: passed. just check-entity-refs: OK. just check-duplicate-keys: OK. just check-causal-targets: OK, no new breakage. just check-enum-values: OK. just check-qualifier-terms: OK.
+- just check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading: all OK, no new baseline entries.
+- just discover-datasets and just preflight-dr on both new reports, as described above.
+- just compliance: 96.2% weighted, down from 97.9%. This is the metric artifact, not a regression: 12 more slots score OK and 4 more are MISSING, all four being datasets/evidence on the two new proposed_experiments - the same recommended-slot gap the two pre-existing proposed_experiments already carry, for the same reason, that a proposed and unperformed experiment has no results to cite.
+- The full tests/test_data.py suite was NOT run in this session.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Noonan Syndrome 11 - MRAS, MONDO:0032786</strong> · 2026-08-18T21:30:36Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Noonan_Syndrome_11/2026-08-18T213036Z-claude-code-d96c2e.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry for Noonan syndrome 11 (NS11), the MRAS-related form of Noonan syndrome (MONDO:0032786, OMIM:618499).
+
+IDENTITY ANCHORING. MONDO:0032786 carries no definition text, so identity was anchored on the OAK record and OMIM. `uv run runoak -i sqlite:obo:mondo info MONDO:0032786 -O obo` returns xref OMIM:618499 and relationship RO:0004003 HGNC:7227 (MRAS), is_a MONDO:0018997 (Noonan syndrome). MRAS is the verified causal gene.
+
+DEEP RESEARCH AND NAMED ENTITY CONFUSION. The first falcon run (disease_name &#34;Noonan Syndrome 11&#34;, 2026-08-18T09:23-09:33) resolved the label to autosomal dominant LZTR1-related Noonan syndrome and said so in its own scope warning. `just preflight-dr` returned WARN: MRAS mentioned 5 times against LZTR1 61 times (1220%), and the report cited OMIM 605275/616564 against the MONDO xref 618499. Per CLAUDE.md section 2b that report was discarded entirely and NOT cherry-picked; it is not committed. Falcon was re-run with a disambiguating disease name naming MRAS, OMIM 618499 and MONDO:0032786 and explicitly excluding LZTR1. The second report (09:43-09:52) returned preflight PASS: MRAS mentioned 86 times, top rival SHOC2 at 11, report OMIM 618499 matching the MONDO xref. Its own reference-validation block reports 6/6 references resolved, 0 unresolved, 0 off topic. That report is committed and was consulted only after the PASS verdict; the pathophysiology chain had already been built independently from primary literature.
+
+CONTENT. Six-node pathophysiology chain: MRAS activating missense variant (hotspot codons Gly23/Thr68/Gln71) then constitutive M-Ras GTP loading via impaired GTPase activity, then enhanced MRAS-SHOC2-PP1 holophosphatase assembly, then RAF S259 dephosphorylation and RAF activation, then RAS-MAPK and PI3K-AKT hyperactivation, then cardiomyocyte hypertrophy with abnormal calcium handling, then hypertrophic cardiomyopathy with outflow tract obstruction. Twenty phenotypes with HPO terms. Genetic block with MRAS (hgnc:7227), CAUSATIVE, DE_NOVO, citing the ClinGen RASopathy GCEP Moderate assertion. Two iPSC experimental models with modeled_mechanisms, readouts and limitations. Two KNOWLEDGE_GAP discussions (cancer risk; intra-genotype cardiac severity variability for p.Thr68Ile). MEKinRAS trial NCT06555237 recorded with supports PARTIAL because eligibility is RAS/MAPK-pathway-level, not MRAS-specific.
+
+DELIBERATE OMISSIONS. HP:0003811 (Neonatal death) was tried for the mortality phenotype and rejected: it sits under HP:0040006 Mortality/Aging, not reachable from HP:0000118, so it is not a legal PhenotypeTerm value. This matches the recorded finding in PRKAG2_Cardiac_Syndrome. The neonatal and infant deaths are instead carried in the progression phases and the HCM node description. No datasets block: MRAS is a well-known coronary-artery-disease GWAS locus, so a gene-only dataset search would surface CAD studies rather than NS11 data, which is the Named Entity Confusion risk CLAUDE.md warns about for dataset discovery. Features shared with the wider Noonan spectrum are left on the parent entry Noonan_Syndrome rather than duplicated; that file was not modified.
+
+VALIDATION ACTUALLY RUN. `just validate kb/disorders/Noonan_Syndrome_11.yaml` passed (schema, terms, references) with &#34;Snippets checked: 74/74 verified against cached references&#34;. `just validate-terms` passed. `just check-duplicate-keys` OK. `just check-title-snippets` OK, no new title-quoting snippets. `just compliance` reports 97.3% global, 97.8% weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

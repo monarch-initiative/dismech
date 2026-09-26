@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4330,6 +4398,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4411,6 +4480,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4476,6 +4546,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4569,6 +4640,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4629,6 +4701,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4735,6 +4808,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4773,6 +4847,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-galactosidase-a-deficiency" data-dismech-node="Alpha-galactosidase A deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-galactosidase A deficiency</div>
+
 
                 <div class="item-desc">Pathogenic GLA variants reduce or abolish α-galactosidase A activity, impairing lysosomal catabolism of neutral glycosphingolipids. This is the upstream enzymatic lesion that explains both the biochemical substrate burden and the genotype-dependent response to chaperone or gene-restorative therapies.
 </div>
@@ -4963,6 +5038,7 @@ This pathophysiological event involves alpha-galactosidase activity (GO:0004557)
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4984,6 +5060,7 @@ This pathophysiological event involves alpha-galactosidase activity (GO:0004557)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5009,6 +5086,7 @@ This pathophysiological event involves alpha-galactosidase activity (GO:0004557)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-gb3-and-lyso-gb3-accumulation" data-dismech-node="Lysosomal Gb3 and lyso-Gb3 accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Gb3 and lyso-Gb3 accumulation</div>
+
 
                 <div class="item-desc">Deficient α-galactosidase A activity causes progressive lysosomal accumulation of globotriaosylceramide (Gb3/GL-3) and related metabolites including lyso-Gb3. This node captures the shared biochemical storage lesion before it is specialized into organ and cell-type contexts.
 </div>
@@ -5142,6 +5220,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5163,6 +5242,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5188,6 +5268,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-specific-glycosphingolipid-storage" data-dismech-node="Tissue-specific glycosphingolipid storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue-specific glycosphingolipid storage</div>
+
 
                 <div class="item-desc">The same lysosomal substrate burden occurs across kidney, heart, blood vessels, neurons, skin, ocular tissues, and other affected compartments. This branch point represents the generic multisystem storage state before downstream damage is specialized by organ location, cell type, and local stress-response biology.
 </div>
@@ -5282,6 +5363,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5303,6 +5385,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5328,6 +5411,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-glycosphingolipid-storage-and-podocyte-injury" data-dismech-node="Renal glycosphingolipid storage and podocyte injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal glycosphingolipid storage and podocyte injury</div>
+
 
                 <div class="item-desc">GL-3 accumulation in kidney cells, especially podocytes, injures the glomerular filtration barrier. Podocyte storage connects the shared Fabry substrate burden to renal GL-3 biopsy readouts, proteinuria, and progressive chronic kidney disease.
 </div>
@@ -5477,6 +5561,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5498,6 +5583,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5523,6 +5609,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-glycosphingolipid-storage-and-myocardial-remodeling" data-dismech-node="Cardiac glycosphingolipid storage and myocardial remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac glycosphingolipid storage and myocardial remodeling</div>
+
 
                 <div class="item-desc">Gb3 accumulation in cardiac tissue contributes to Fabry cardiomyopathy, with cardiomyocyte hypertrophy, myocardial fibrosis, heart failure risk, and arrhythmogenic remodeling. This branch separates cardiac outcome biology from the renal substrate-clearance surrogate.
 </div>
@@ -5713,6 +5800,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5734,6 +5822,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5759,6 +5848,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-autophagy-impairment-and-oxidative-stress" data-dismech-node="Cardiomyocyte autophagy impairment and oxidative stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte autophagy impairment and oxidative stress</div>
+
 
                 <div class="item-desc">In cardiac pluripotent-stem-cell models of Fabry disease, GLA deficiency and Gb3 accumulation impair autophagic flux and protein turnover, increase mitochondrial reactive oxygen species, and promote apoptosis/necrosis and hypertrophic cellular features. This node captures a cardiac intracellular mechanism that is not measured by the renal GL-3 surrogate.
 </div>
@@ -5991,6 +6081,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6012,6 +6103,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6037,6 +6129,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-cardiomyocyte-electrophysiological-remodeling" data-dismech-node="Atrial cardiomyocyte electrophysiological remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial cardiomyocyte electrophysiological remodeling</div>
+
 
                 <div class="item-desc">Fabry atrial cardiomyocyte models show altered action-potential behavior, calcium handling, and contraction, and in silico atrial models translate these cellular changes into early P-wave morphology changes and increased atrial fibrillation vulnerability.
 </div>
@@ -6229,6 +6322,7 @@ This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6250,6 +6344,7 @@ This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6275,6 +6370,7 @@ This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-endothelial-glycosphingolipid-storage-and-dysfunction" data-dismech-node="Vascular endothelial glycosphingolipid storage and dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular endothelial glycosphingolipid storage and dysfunction</div>
+
 
                 <div class="item-desc">Gb3/lyso-Gb3 accumulation in endothelial and vascular cells leads to adhesion-molecule upregulation, reduced nitric oxide availability, and vascular remodeling. This branch links multisystem storage to cerebrovascular events and cochleo-vestibular manifestations.
 </div>
@@ -6472,6 +6568,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -6493,6 +6590,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6518,6 +6616,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-small-fiber-and-autonomic-glycosphingolipid-storage" data-dismech-node="Peripheral small-fiber and autonomic glycosphingolipid storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral small-fiber and autonomic glycosphingolipid storage</div>
+
 
                 <div class="item-desc">Glycosphingolipid accumulation in peripheral sensory and autonomic pathways contributes to small-fiber dysfunction, neuropathic pain, impaired sweating, heat intolerance, and gastrointestinal symptoms.
 </div>
@@ -6735,6 +6834,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6756,6 +6856,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6781,6 +6882,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-glycosphingolipid-deposition" data-dismech-node="Ocular glycosphingolipid deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Ocular glycosphingolipid deposition</div>
+
 
                 <div class="item-desc">Glycosphingolipid deposition in ocular tissues produces the ocular branch of Fabry disease, including whorl-like cornea verticillata, corneal opacity, and lenticular opacity/cataract detected on eye examination.
 </div>
@@ -6931,6 +7033,7 @@ This pathophysiological event occurs in lens of camera-type eye (UBERON:0000965)
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6952,6 +7055,7 @@ This pathophysiological event occurs in lens of camera-type eye (UBERON:0000965)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6977,6 +7081,7 @@ This pathophysiological event occurs in lens of camera-type eye (UBERON:0000965)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-vascular-glycosphingolipid-storage" data-dismech-node="Cutaneous vascular glycosphingolipid storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous vascular glycosphingolipid storage</div>
+
 
                 <div class="item-desc">GL3 accumulation in skin and cutaneous microvasculature contributes to angiokeratomas and other microvascular skin findings, separating the cutaneous branch from renal, cardiac, and neural manifestations.
 </div>
@@ -7086,6 +7191,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7107,6 +7213,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7132,6 +7239,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-stress-and-unfolded-protein-response" data-dismech-node="Endoplasmic reticulum stress and unfolded protein response" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic reticulum stress and unfolded protein response</div>
+
 
                 <div class="item-desc">Misfolded α-Gal A variants trigger endoplasmic reticulum stress and activate the unfolded protein response (UPR). Persistent UPR activation causes apoptosis and inflammatory signaling through NF-κB and MAPK pathways, contributing to cell death and tissue injury.
 </div>
@@ -7250,6 +7358,7 @@ This pathophysiological event involves NF-kappaB signaling pathway, annotated wi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7272,6 +7381,7 @@ This pathophysiological event involves NF-kappaB signaling pathway, annotated wi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-and-oxidative-stress" data-dismech-node="Mitochondrial dysfunction and oxidative stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial dysfunction and oxidative stress</div>
+
 
                 <div class="item-desc">Fabry podocyte models show mitochondrial abnormalities and oxidative-stress pathway activation downstream of GLA deficiency. This captures a renal cellular stress mechanism rather than a whole-disease terminal phenotype.
 </div>
@@ -7375,6 +7485,7 @@ This pathophysiological event involves regulation of mitochondrial membrane pote
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7396,6 +7507,7 @@ This pathophysiological event involves regulation of mitochondrial membrane pote
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7421,6 +7533,7 @@ This pathophysiological event involves regulation of mitochondrial membrane pote
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagy-impairment" data-dismech-node="Autophagy impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagy impairment</div>
+
 
                 <div class="item-desc">Lysosomal Gb3 accumulation in Fabry podocytes impairs autophagic flux, leading to accumulation of damaged proteins and organelles. Persistent podocyte injury despite enzyme replacement therapy is mediated in part by α-synuclein accumulation, implicating lysosomal toxicity as a disease driver beyond Gb3 storage.
 </div>
@@ -7598,6 +7711,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7620,6 +7734,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-activation-and-inflammation" data-dismech-node="Innate immune activation and inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate immune activation and inflammation</div>
+
 
                 <div class="item-desc">Gb3/lyso-Gb3 accumulation and unfolded-protein stress activate innate inflammatory programs, including complement activation and monocyte/macrophage/dendritic-cell cytokine release. This node captures the shared inflammatory mediator state before its consequences are interpreted in renal, vascular, and profibrotic tissue contexts.
 </div>
@@ -7754,6 +7869,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7775,6 +7891,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7802,6 +7919,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7824,6 +7942,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrosis-and-extracellular-matrix-remodeling" data-dismech-node="Fibrosis and extracellular matrix remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrosis and extracellular matrix remodeling</div>
+
 
                 <div class="item-desc">TGF-β-driven profibrotic signaling leads to extracellular matrix deposition in kidney and heart. This fibrotic process becomes partially independent of Gb3 substrate levels and contributes to progressive organ dysfunction through epithelial-to-mesenchymal transition and myofibroblast activation.
 </div>
@@ -8001,6 +8120,7 @@ This pathophysiological event involves transforming growth factor beta signaling
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8022,6 +8142,7 @@ This pathophysiological event involves transforming growth factor beta signaling
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8089,23 +8210,23 @@ This pathophysiological event involves transforming growth factor beta signaling
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8115,7 +8236,7 @@ This pathophysiological event involves transforming growth factor beta signaling
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-angiokeratomas" data-dismech-node="Angiokeratomas" data-dismech-type="phenotype">
@@ -8148,6 +8269,9 @@ This clinical feature is Angiokeratoma (HP:0001014). HP:0001014 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8162,6 +8286,7 @@ This clinical feature is Angiokeratoma (HP:0001014). HP:0001014 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8186,6 +8311,7 @@ This clinical feature is Angiokeratoma (HP:0001014). HP:0001014 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8242,6 +8368,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8256,6 +8385,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8283,6 +8413,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8304,6 +8435,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8360,6 +8492,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8374,6 +8509,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8401,6 +8537,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8409,6 +8546,80 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
                 <div class="evidence-explanation">Orphanet phenotype data confirms arrhythmia as an occasional manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-early-atrial-ecg-changes" data-dismech-node="Early atrial ECG changes" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Early atrial ECG changes
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal EKG</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003115</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Early atrial ECG changes, annotated with Abnormal EKG (HP:0003115). HP:0003115 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40557493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40557493" target="_blank">PMID:40557493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ECG analysis demonstrated P-wave duration and PQ interval shortening in FD adults before the onset of cardiomyopathy."</div>
+
+
+                <div class="evidence-explanation">Human ECG analysis in Fabry adults supports early atrial electrical changes before clinical cardiomyopathy.</div>
 
 
 
@@ -8440,15 +8651,18 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8468,6 +8682,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8495,6 +8710,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8503,6 +8719,105 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                 <div class="evidence-explanation">Orphanet phenotype data confirms stroke as an occasional manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-transient-ischemic-attack" data-dismech-node="Transient ischemic attack" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Transient ischemic attack
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:324" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:324" target="_blank">ORPHA:324</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002326 | Transient ischemic attack | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet supports TIA as a Fabry manifestation but gives a higher frequency band than registry data.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21290706" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290706" target="_blank">PMID:21290706</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, 13.2% (15.1% males, 11.5% females) have suffered an ischaemic stroke or transient ischaemic attack, usually at an early age."</div>
+
+
+                <div class="evidence-explanation">FOS registry data place combined stroke/TIA events in the 5-29% band, supporting the occasional frequency assignment.</div>
 
 
 
@@ -8534,15 +8849,18 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001635</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001635</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8565,6 +8883,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8573,6 +8892,80 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                 <div class="evidence-explanation">Orphanet records congestive heart failure as a very frequent Fabry phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-conjunctival-telangiectasia" data-dismech-node="Conjunctival telangiectasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Conjunctival telangiectasia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000524" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000524</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conjunctival telangiectasia (HP:0000524). HP:0000524 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:324" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:324" target="_blank">ORPHA:324</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000524 | Conjunctival telangiectasia | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records conjunctival telangiectasia as a very frequent Fabry phenotype.</div>
 
 
 
@@ -8613,15 +9006,18 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002017</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002017</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8641,6 +9037,7 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8692,15 +9089,18 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8720,6 +9120,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8762,15 +9163,18 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8790,6 +9194,7 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8822,14 +9227,14 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-opacity" data-dismech-node="Corneal opacity" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cornea-verticillata" data-dismech-node="Cornea verticillata" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Corneal opacity
+                        Cornea verticillata
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -8841,15 +9246,18 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0007957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0500008" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0500008</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Cornea verticillata (HP:0500008). HP:0500008 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8869,6 +9277,81 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0500008 | Cornea verticillata | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet phenotype data records cornea verticillata as a frequent manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-opacity" data-dismech-node="Corneal opacity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Corneal opacity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0007957</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:324" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:324" target="_blank">ORPHA:324</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8911,15 +9394,18 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8939,6 +9425,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8963,6 +9450,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8995,7 +9483,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
@@ -9014,15 +9502,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0000093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9042,6 +9533,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9066,6 +9558,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9108,15 +9601,18 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0012622</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9136,6 +9632,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9163,6 +9660,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9171,6 +9669,80 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
                 <div class="evidence-explanation">Orphanet rates the broader term renal insufficiency (HP:0000083) as very frequent, which is consistent with but not a direct match for the more specific chronic kidney disease (HP:0012622).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrotic-syndrome" data-dismech-node="Nephrotic syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nephrotic syndrome
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0000100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:324" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:324" target="_blank">ORPHA:324</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000100 | Nephrotic syndrome | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records nephrotic syndrome as a very frequent Fabry phenotype.</div>
 
 
 
@@ -9211,15 +9783,18 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000966" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000966" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0000966</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypohidrosis (HP:0000966). HP:0000966 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9239,6 +9814,7 @@ This clinical feature is Hypohidrosis (HP:0000966). HP:0000966 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9271,7 +9847,7 @@ This clinical feature is Hypohidrosis (HP:0000966). HP:0000966 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-heat-intolerance" data-dismech-node="Heat intolerance" data-dismech-type="phenotype">
@@ -9290,15 +9866,18 @@ This clinical feature is Hypohidrosis (HP:0000966). HP:0000966 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002046</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0002046</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Heat intolerance (HP:0002046). HP:0002046 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9318,6 +9897,7 @@ This clinical feature is Heat intolerance (HP:0002046). HP:0002046 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9329,492 +9909,6 @@ This clinical feature is Heat intolerance (HP:0002046). HP:0002046 is a phenotyp
 
 
                 <div class="evidence-explanation">Orphanet phenotype data records heat intolerance as a frequent manifestation of Fabry disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neuropathic-pain" data-dismech-node="Neuropathic pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neuropathic pain
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0012531</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neuropathic pain, annotated with Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21290706" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290706" target="_blank">PMID:21290706</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"FOS has confirmed a very high frequency of neuropathic pain (76% males, 64% females), beginning in childhood or adolescence."</div>
-
-
-                <div class="evidence-explanation">FOS registry data (688 patients) establish neuropathic pain as a very frequent manifestation across both sexes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abdominal pain
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002027</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:324" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:324" target="_blank">ORPHA:324</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002027 | Abdominal pain | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet phenotype data records abdominal pain as a very frequent manifestation of Fabry disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acroparesthesia" data-dismech-node="Acroparesthesia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Acroparesthesia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0031006</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Acroparesthesia (HP:0031006). HP:0031006 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31939530" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31939530" target="_blank">PMID:31939530</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The onset of symptoms occurs during childhood, with acroparesthesia, heat intolerance, and gastrointestinal symptoms, such as nausea, vomiting, abdominal pain, and neuropathic pain"</div>
-
-
-                <div class="evidence-explanation">Establishes acroparesthesia and neuropathic pain as early clinical manifestations in Fabry disease</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:324" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:324" target="_blank">ORPHA:324</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0031006 | Acroparesthesia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet phenotype data confirms acroparesthesia as a frequent manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-early-atrial-ecg-changes" data-dismech-node="Early atrial ECG changes" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Early atrial ECG changes
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal EKG</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0003115</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Early atrial ECG changes, annotated with Abnormal EKG (HP:0003115). HP:0003115 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40557493" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40557493" target="_blank">PMID:40557493</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ECG analysis demonstrated P-wave duration and PQ interval shortening in FD adults before the onset of cardiomyopathy."</div>
-
-
-                <div class="evidence-explanation">Human ECG analysis in Fabry adults supports early atrial electrical changes before clinical cardiomyopathy.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-transient-ischemic-attack" data-dismech-node="Transient ischemic attack" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Transient ischemic attack
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0002326</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:324" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:324" target="_blank">ORPHA:324</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002326 | Transient ischemic attack | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet supports TIA as a Fabry manifestation but gives a higher frequency band than registry data.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21290706" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290706" target="_blank">PMID:21290706</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Thus, 13.2% (15.1% males, 11.5% females) have suffered an ischaemic stroke or transient ischaemic attack, usually at an early age."</div>
-
-
-                <div class="evidence-explanation">FOS registry data place combined stroke/TIA events in the 5-29% band, supporting the occasional frequency assignment.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cornea-verticillata" data-dismech-node="Cornea verticillata" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cornea verticillata
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0500008" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0500008</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cornea verticillata (HP:0500008). HP:0500008 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:324" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:324" target="_blank">ORPHA:324</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0500008 | Cornea verticillata | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet phenotype data records cornea verticillata as a frequent manifestation.</div>
 
 
 
@@ -9846,15 +9940,18 @@ This clinical feature is Cornea verticillata (HP:0500008). HP:0500008 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033595" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0033595</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033595" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0033595</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating globotriaosylceramide concentration (HP:0033595). HP:0033595 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9874,6 +9971,7 @@ This clinical feature is Elevated circulating globotriaosylceramide concentratio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9918,15 +10016,18 @@ This clinical feature is Elevated circulating globotriaosylceramide concentratio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0034864</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0034864</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased alpha-galactosidase A activity (HP:0034864). HP:0034864 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9946,6 +10047,7 @@ This clinical feature is Decreased alpha-galactosidase A activity (HP:0034864). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9972,11 +10074,20 @@ This clinical feature is Decreased alpha-galactosidase A activity (HP:0034864). 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrotic-syndrome" data-dismech-node="Nephrotic syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nephrotic syndrome
+            </details>
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acroparesthesia" data-dismech-node="Acroparesthesia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acroparesthesia
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -9988,12 +10099,12 @@ This clinical feature is Decreased alpha-galactosidase A activity (HP:0034864). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0031006</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Acroparesthesia (HP:0031006). HP:0031006 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10002,11 +10113,39 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31939530" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31939530" target="_blank">PMID:31939530</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The onset of symptoms occurs during childhood, with acroparesthesia, heat intolerance, and gastrointestinal symptoms, such as nausea, vomiting, abdominal pain, and neuropathic pain"</div>
+
+
+                <div class="evidence-explanation">Establishes acroparesthesia and neuropathic pain as early clinical manifestations in Fabry disease</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="ORPHA:324" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -10019,14 +10158,15 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0000100 | Nephrotic syndrome | Very frequent (99-80%)"</div>
+                <div class="evidence-snippet">"HP:0031006 | Acroparesthesia | Frequent (79-30%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet records nephrotic syndrome as a very frequent Fabry phenotype.</div>
+                <div class="evidence-explanation">Orphanet phenotype data confirms acroparesthesia as a frequent manifestation.</div>
 
 
 
@@ -10042,9 +10182,18 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-conjunctival-telangiectasia" data-dismech-node="Conjunctival telangiectasia" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neuropathic-pain" data-dismech-node="Neuropathic pain" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Conjunctival telangiectasia
+                        Neuropathic pain
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
@@ -10058,15 +10207,92 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000524" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0000524</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0012531</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neuropathic pain, annotated with Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21290706" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21290706" target="_blank">PMID:21290706</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FOS has confirmed a very high frequency of neuropathic pain (76% males, 64% females), beginning in childhood or adolescence."</div>
+
+
+                <div class="evidence-explanation">FOS registry data (688 patients) establish neuropathic pain as a very frequent manifestation across both sexes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abdominal pain
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0002027</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Conjunctival telangiectasia (HP:0000524). HP:0000524 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10089,14 +10315,15 @@ This clinical feature is Conjunctival telangiectasia (HP:0000524). HP:0000524 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0000524 | Conjunctival telangiectasia | Very frequent (99-80%)"</div>
+                <div class="evidence-snippet">"HP:0002027 | Abdominal pain | Very frequent (99-80%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet records conjunctival telangiectasia as a very frequent Fabry phenotype.</div>
+                <div class="evidence-explanation">Orphanet phenotype data records abdominal pain as a very frequent manifestation of Fabry disease.</div>
 
 
 
@@ -10182,6 +10409,9 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -10204,6 +10434,7 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10231,6 +10462,7 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10252,6 +10484,7 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10309,6 +10542,9 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10323,6 +10559,7 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10407,6 +10644,7 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10431,6 +10669,7 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10452,6 +10691,7 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10520,6 +10760,7 @@ This disease-associated gene is GLA (hgnc:4296). hgnc:4296 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10605,6 +10846,12 @@ This treatment is enzyme replacement therapy, annotated with Protein Replacement
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Recombinant α-galactosidase A (agalsidase alfa/beta and pegunigalsidase alfa) restores enzyme activity and reduces Gb3 accumulation. Early initiation improves outcomes, but renal injury and cardiac hypertrophy can still progress despite long-term therapy.
 </div>
 
@@ -10636,6 +10883,7 @@ This treatment is enzyme replacement therapy, annotated with Protein Replacement
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10721,6 +10969,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10742,6 +10991,7 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10835,6 +11085,12 @@ This treatment uses migalastat (CHEBI:135923). CHEBI:135923 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Migalastat stabilizes GLA mutant variants and improves lysosomal trafficking. Useful for approximately 35-50% of patients with amenable mutations.
 </div>
 
@@ -10866,6 +11122,7 @@ This treatment uses migalastat (CHEBI:135923). CHEBI:135923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10909,6 +11166,7 @@ This treatment uses migalastat (CHEBI:135923). CHEBI:135923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10981,6 +11239,12 @@ This treatment is substrate reduction therapy, annotated with Substrate Deprivat
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Glucosylceramide synthase inhibition is an investigational substrate-reduction strategy for Fabry disease that aims to reduce glycosphingolipid substrate supply. In Fabry iPSC-derived cardiomyocytes, substrate reduction therapy prevented accumulation and cleared lysosomal GL-3, linking the cardiac non-animal model to a candidate therapeutic mechanism.
 </div>
 
@@ -11012,6 +11276,7 @@ This treatment is substrate reduction therapy, annotated with Substrate Deprivat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11055,6 +11320,7 @@ This treatment is substrate reduction therapy, annotated with Substrate Deprivat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11126,6 +11392,12 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">AAV and lentiviral-based therapies deliver functional GLA gene for sustained enzyme expression. Shows promise for achieving durable Gb3 clearance and reduced need for repeated infusions.
 </div>
 
@@ -11157,6 +11429,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11200,6 +11473,7 @@ This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11258,6 +11532,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -11332,6 +11612,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11431,6 +11712,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11455,6 +11737,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11476,6 +11759,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11639,6 +11923,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11660,6 +11945,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11731,6 +12017,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11755,6 +12042,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11776,6 +12064,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11852,6 +12141,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11873,6 +12163,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11934,6 +12225,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11955,6 +12247,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12014,6 +12307,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12067,6 +12361,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12182,6 +12477,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12262,6 +12558,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12348,6 +12645,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12428,6 +12726,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12513,6 +12812,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12744,6 +13044,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12805,6 +13106,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12973,6 +13275,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13018,6 +13321,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13082,6 +13386,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13250,6 +13555,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13323,6 +13629,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13491,6 +13798,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13536,6 +13844,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13600,6 +13909,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13768,6 +14078,7 @@ This experimental model uses cardiac atrium (UBERON:0002081). UBERON:0002081 is 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13816,6 +14127,7 @@ This experimental model uses cardiac atrium (UBERON:0002081). UBERON:0002081 is 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13860,6 +14172,7 @@ This experimental model uses cardiac atrium (UBERON:0002081). UBERON:0002081 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14014,6 +14327,7 @@ This experimental model uses cardiac atrium (UBERON:0002081). UBERON:0002081 is 
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -14075,6 +14389,7 @@ This experimental model uses cardiac atrium (UBERON:0002081). UBERON:0002081 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16850,6 +17165,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

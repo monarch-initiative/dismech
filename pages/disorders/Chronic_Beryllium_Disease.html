@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4183,6 +4251,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4204,6 +4273,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4342,6 +4412,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4376,6 +4447,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inhaled-beryllium-particle-deposition-and-alveolar-macrophage-uptake" data-dismech-node="Inhaled Beryllium Particle Deposition and Alveolar Macrophage Uptake" data-dismech-type="pathophysiology">
                 <div class="item-name">Inhaled Beryllium Particle Deposition and Alveolar Macrophage Uptake</div>
+
 
                 <div class="item-desc">Inhaled beryllium particles deposit in the distal airways and alveoli, where they are taken up by alveolar macrophages and dendritic cells. Beryllium is a poorly soluble, biopersistent metal that the macrophage cannot degrade or clear, so it acts as a persistent indigestible stimulus that sustains a chronic, rather than self-limited, macrophage response - the disease-specific substitution for the generic persistent stimulus of the granuloma module.</div>
 
@@ -4529,6 +4601,7 @@ This pathophysiological event involves increased chronic inflammatory response (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4551,6 +4624,7 @@ This pathophysiological event involves increased chronic inflammatory response (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-beryllium-modified-self-peptide-neoantigen-formation" data-dismech-node="Beryllium-Modified Self-Peptide Neoantigen Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Beryllium-Modified Self-Peptide Neoantigen Formation</div>
+
 
                 <div class="item-desc">Within the antigen-presenting cell, ionic beryllium (Be2+) is incorporated into the peptide-binding groove of HLA-DP class II molecules, coordinating with acidic residues of the HLA-DP beta chain and a bound self-peptide. Rather than acting as a classical hapten that modifies a protein covalently, beryllium is buried at the interface between the HLA-DP molecule and the peptide, altering the surface chemistry and conformation of the peptide-MHC complex so that it is seen as a neoantigen. This creates the antigenic determinant that beryllium-specific T cells recognize.</div>
 
@@ -4674,6 +4748,7 @@ This pathophysiological event involves increased antigen processing and presenta
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4695,6 +4770,7 @@ This pathophysiological event involves increased antigen processing and presenta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4720,6 +4796,7 @@ This pathophysiological event involves increased antigen processing and presenta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hla-dp-glu69-restricted-antigen-presentation" data-dismech-node="HLA-DP Glu69-Restricted Antigen Presentation" data-dismech-type="pathophysiology">
                 <div class="item-name">HLA-DP Glu69-Restricted Antigen Presentation</div>
+
 
                 <div class="item-desc">Presentation of the beryllium-modified neoantigen is restricted to HLA-DP molecules whose beta chain carries a glutamic acid (a negatively charged residue) at position 69 (HLA-DPB1 Glu69, e.g. HLA-DPB1*02:01, *06:01, *17:01). The Glu69 residue lines an acidic pocket that is required to coordinate the positively charged beryllium cation; HLA-DP molecules lacking Glu69 cannot bind beryllium and do not present it. This single genetic feature explains the dominant heritable susceptibility to sensitization and disease and is the molecular basis of the gene-environment interaction.</div>
 
@@ -4843,6 +4920,7 @@ This pathophysiological event involves increased antigen processing and presenta
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4864,6 +4942,7 @@ This pathophysiological event involves increased antigen processing and presenta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4891,6 +4970,7 @@ This pathophysiological event involves increased antigen processing and presenta
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4913,6 +4993,7 @@ This pathophysiological event involves increased antigen processing and presenta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-beryllium-specific-cd4-t-cell-sensitization" data-dismech-node="Beryllium-Specific CD4+ T Cell Sensitization" data-dismech-type="pathophysiology">
                 <div class="item-name">Beryllium-Specific CD4+ T Cell Sensitization</div>
+
 
                 <div class="item-desc">Recognition of the HLA-DP/Glu69-presented beryllium neoantigen by the T-cell receptor of naive CD4+ T cells drives their clonal expansion into a beryllium-specific memory/effector population. This antigen-driven expansion is beryllium sensitization (BeS), the immunological state that precedes organ disease and is measured clinically by the beryllium lymphocyte proliferation test (BeLPT), in which a patient&#39;s blood or lung lymphocytes proliferate on exposure to beryllium salts in vitro. Sensitization is necessary but not sufficient for CBD.</div>
 
@@ -5036,6 +5117,7 @@ This pathophysiological event involves increased T cell proliferation (GO:004209
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5057,6 +5139,7 @@ This pathophysiological event involves increased T cell proliferation (GO:004209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5084,6 +5167,7 @@ This pathophysiological event involves increased T cell proliferation (GO:004209
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5106,6 +5190,7 @@ This pathophysiological event involves increased T cell proliferation (GO:004209
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-beryllium-specific-th1-cytokine-response" data-dismech-node="Beryllium-Specific Th1 Cytokine Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Beryllium-Specific Th1 Cytokine Response</div>
+
 
                 <div class="item-desc">On re-encounter with beryllium in the lung, the expanded beryllium-specific CD4+ T cells polarize to a T-helper-1 effector phenotype and secrete interferon-gamma, tumor necrosis factor, and interleukin-2. These are predominantly effector-memory Th1 cells that accumulate in the bronchoalveolar space, producing the compartmentalized, beryllium-driven Th1 cytokine milieu that licenses macrophage activation and granuloma formation. This cytokine output is the disease-specific engine upstream of the conserved granuloma-formation amplifier.</div>
 
@@ -5263,6 +5348,7 @@ This pathophysiological event involves increased tumor necrosis factor productio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5285,6 +5371,7 @@ This pathophysiological event involves increased tumor necrosis factor productio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th1-and-tnf-driven-macrophage-recruitment-and-activation" data-dismech-node="Th1 and TNF-Driven Macrophage Recruitment and Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Th1 and TNF-Driven Macrophage Recruitment and Activation</div>
+
 
                 <div class="item-desc">Interferon-gamma and TNF from the beryllium-specific Th1 cells classically activate lung macrophages and recruit additional monocytes to the site. TNF is the non-redundant amplifier that organizes the granulomatous response. This activated, cytokine-rich macrophage compartment is the conserved amplifier step of the granuloma module, here driven specifically by the beryllium-antigen-specific T-cell response.</div>
 
@@ -5408,6 +5495,7 @@ This pathophysiological event involves increased macrophage activation (GO:00421
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5430,6 +5518,7 @@ This pathophysiological event involves increased macrophage activation (GO:00421
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelioid-transformation-and-multinucleated-giant-cell-formation" data-dismech-node="Epithelioid Transformation and Multinucleated Giant Cell Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelioid Transformation and Multinucleated Giant Cell Formation</div>
+
 
                 <div class="item-desc">In the activated milieu the lung macrophages undergo the defining transformations of the granulomatous response: they differentiate into interdigitated epithelioid cells and fuse into multinucleated giant cells (including the asteroid- and Schaumann-body-containing giant cells seen in beryllium and sarcoid granulomas). This converts a diffuse mononuclear infiltrate into the organized cellular core of a granuloma.</div>
 
@@ -5583,6 +5672,7 @@ This pathophysiological event involves increased syncytium formation by cell-cel
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5605,6 +5695,7 @@ This pathophysiological event involves increased syncytium formation by cell-cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-noncaseating-granuloma-assembly" data-dismech-node="Noncaseating Granuloma Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Noncaseating Granuloma Assembly</div>
+
 
                 <div class="item-desc">The transformed macrophages assemble into compact, well-formed non-caseating granulomas - an epithelioid/giant-cell core cuffed by CD4+ T lymphocytes - distributed along the bronchovascular bundles and interlobular septa of the lung and in the hilar lymph nodes. Unlike the caseating granulomas of tuberculosis, CBD granulomas characteristically lack central caseous necrosis, matching the non-caseating pattern of sarcoidosis and making the two histologically indistinguishable.</div>
 
@@ -5758,6 +5849,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5779,6 +5871,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5804,6 +5897,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-pulmonary-fibrosis-and-restrictive-lung-disease" data-dismech-node="Progressive Pulmonary Fibrosis and Restrictive Lung Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Pulmonary Fibrosis and Restrictive Lung Disease</div>
+
 
                 <div class="item-desc">Because the beryllium stimulus cannot be cleared, the granulomatous response persists and, in a subset of patients, drives progressive interstitial fibrosis. Fibroblast recruitment and excessive collagen deposition around and between granulomas produce a restrictive ventilatory defect with impaired gas exchange, progressive dyspnea, and, in advanced disease, respiratory failure and cor pulmonale. This fibrotic end state is the pathological (destructive) arm of the granuloma module&#39;s containment-versus-destruction consequence.</div>
 
@@ -5914,6 +6008,7 @@ This pathophysiological event involves increased collagen fibril organization (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5935,6 +6030,7 @@ This pathophysiological event involves increased collagen fibril organization (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6002,21 +6098,106 @@ This pathophysiological event involves increased collagen fibril organization (G
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Respiratory<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-non-caseating-pulmonary-granulomas" data-dismech-node="Non-caseating pulmonary granulomas" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Non-caseating pulmonary granulomas
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Non-caseating epithelioid cell granulomatosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012220</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Non-caseating epithelioid cell granulomatosis (HP:0012220). HP:0012220 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25007084" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25007084" target="_blank">PMID:25007084</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"granulomatous lung disease that may be pathologically and clinically indistinguishable from pulmonary sarcoidosis"</div>
+
+
+                <div class="evidence-explanation">CBD produces non-caseating granulomas pathologically indistinguishable from sarcoidosis. Evidence source is OTHER (review).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
@@ -6039,10 +6220,10 @@ This pathophysiological event involves increased collagen fibril organization (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100721</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100721</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6057,15 +6238,66 @@ This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is
 
 
 
+
+
+
                 </div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-digital-clubbing" data-dismech-node="Digital clubbing" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Digital clubbing
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Clubbing of fingers</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100759</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clubbing of fingers (HP:0100759). HP:0100759 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-exertional-dyspnea" data-dismech-node="Exertional dyspnea" data-dismech-type="phenotype">
@@ -6082,10 +6314,10 @@ This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094), qualified as course progressive. HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6118,6 +6350,9 @@ This clinical feature is Dyspnea (HP:0002094), qualified as course progressive. 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-dry-cough" data-dismech-node="Chronic dry cough" data-dismech-type="phenotype">
@@ -6136,10 +6371,10 @@ This clinical feature is Dyspnea (HP:0002094), qualified as course progressive. 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031246" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0031246</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031246" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0031246</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nonproductive cough (HP:0031246), qualified as temporality chronic. HP:0031246 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6172,6 +6407,83 @@ This clinical feature is Nonproductive cough (HP:0031246), qualified as temporal
 
 
 
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-granulomatosis" data-dismech-node="Pulmonary granulomatosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary granulomatosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0030250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary granulomatosis (HP:0030250). HP:0030250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-pneumonitis" data-dismech-node="Interstitial pneumonitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Interstitial pneumonitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0006515</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Interstitial pneumonitis (HP:0006515). HP:0006515 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary fibrosis" data-dismech-type="phenotype">
@@ -6188,10 +6500,10 @@ This clinical feature is Nonproductive cough (HP:0031246), qualified as temporal
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002206</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course progressive. HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6224,6 +6536,9 @@ This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course pr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-restrictive-ventilatory-defect" data-dismech-node="Restrictive ventilatory defect" data-dismech-type="phenotype">
@@ -6240,15 +6555,18 @@ This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course pr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002091</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002091</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6268,6 +6586,7 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6296,7 +6615,7 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -6317,15 +6636,18 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6351,10 +6673,10 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100749</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0100749</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6369,11 +6691,14 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
 
+
+
+
                 </div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6394,10 +6719,10 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6406,186 +6731,6 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-non-caseating-pulmonary-granulomas" data-dismech-node="Non-caseating pulmonary granulomas" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Non-caseating pulmonary granulomas
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Non-caseating epithelioid cell granulomatosis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012220</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Non-caseating epithelioid cell granulomatosis (HP:0012220). HP:0012220 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25007084" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25007084" target="_blank">PMID:25007084</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"granulomatous lung disease that may be pathologically and clinically indistinguishable from pulmonary sarcoidosis"</div>
-
-
-                <div class="evidence-explanation">CBD produces non-caseating granulomas pathologically indistinguishable from sarcoidosis. Evidence source is OTHER (review).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-granulomatosis" data-dismech-node="Pulmonary granulomatosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary granulomatosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary granulomatosis (HP:0030250). HP:0030250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-pneumonitis" data-dismech-node="Interstitial pneumonitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Interstitial pneumonitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0006515</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Interstitial pneumonitis (HP:0006515). HP:0006515 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-digital-clubbing" data-dismech-node="Digital clubbing" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Digital clubbing
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Clubbing of fingers</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0100759</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Clubbing of fingers (HP:0100759). HP:0100759 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
 
 
 
@@ -6669,6 +6814,9 @@ This disease-associated gene is HLA-DPB1 (hgnc:4940). hgnc:4940 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6683,6 +6831,7 @@ This disease-associated gene is HLA-DPB1 (hgnc:4940). hgnc:4940 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6710,6 +6859,7 @@ This disease-associated gene is HLA-DPB1 (hgnc:4940). hgnc:4940 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6731,6 +6881,7 @@ This disease-associated gene is HLA-DPB1 (hgnc:4940). hgnc:4940 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6822,6 +6973,12 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Removal from further beryllium exposure is the essential first intervention for anyone sensitized or with CBD, limiting antigen re-exposure that drives the beryllium-specific T-cell response.</div>
 
 
@@ -6897,6 +7054,9 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6907,6 +7067,9 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -6934,6 +7097,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7022,6 +7186,9 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7032,6 +7199,9 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -7113,6 +7283,9 @@ This treatment uses anti-TNF monoclonal antibody, annotated with Monoclonal Anti
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7123,6 +7296,9 @@ This treatment uses anti-TNF monoclonal antibody, annotated with Monoclonal Anti
 
 
     </div>
+
+
+
 
 
 
@@ -7168,6 +7344,7 @@ This treatment uses anti-TNF monoclonal antibody, annotated with Monoclonal Anti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7240,6 +7417,12 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Lung transplantation is an option for end-stage fibrotic CBD with respiratory failure refractory to medical therapy.</div>
 
 
@@ -7286,6 +7469,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7376,6 +7565,7 @@ This environmental factor is dermal beryllium exposure, annotated with exposure 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7424,6 +7614,7 @@ This environmental factor is dermal beryllium exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7521,6 +7712,7 @@ This environmental factor occurs in beryllium-containing dust and fume, annotate
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7569,6 +7761,7 @@ This environmental factor occurs in beryllium-containing dust and fume, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7645,6 +7838,7 @@ This environmental factor occurs in beryllium-containing dust and fume, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7669,6 +7863,7 @@ This environmental factor occurs in beryllium-containing dust and fume, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7690,6 +7885,7 @@ This environmental factor occurs in beryllium-containing dust and fume, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7770,6 +7966,7 @@ This environmental factor occurs in beryllium-containing dust and fume, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7876,6 +8073,7 @@ This environmental factor occurs in beryllium-containing dust and fume, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7897,6 +8095,7 @@ This environmental factor occurs in beryllium-containing dust and fume, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9022,6 +9221,19 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Chronic Beryllium Disease</strong> · 2026-07-17T03:47:40Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Chronic_Beryllium_Disease/2026-07-17T034740Z-claude-code-14a65a.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of Chronic Beryllium Disease (berylliosis, MONDO:0015274). Deep research via the claude_code provider. Modeled the gene-environment mechanism as a fully-debundled 9-node pathophysiology chain from beryllium deposition through HLA-DP Glu69 neoantigen presentation, beryllium-specific CD4 Th1 sensitization, macrophage activation, epithelioid/giant-cell transformation, non-caseating granuloma assembly, to fibrosis; the last four nodes conform to the granuloma_formation module. Evidence anchored on verified PMIDs 8105536, 20356827, 24995984, 16272364, 25398119, 25007084, 31743304, 15374840, all snippets manually confirmed as exact abstract substrings. Schema and term validation pass; reference validation is the known local no-op so snippets were checked by hand. Compliance 76.8%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

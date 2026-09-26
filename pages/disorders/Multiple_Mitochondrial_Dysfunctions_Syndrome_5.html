@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4235,6 +4303,7 @@ MMDS5 sits in a series of disorders that share this final common lesion - MMDS1 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4534,6 +4603,7 @@ MMDS5 sits in a series of disorders that share this final common lesion - MMDS1 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4555,6 +4625,7 @@ MMDS5 sits in a series of disorders that share this final common lesion - MMDS1 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4631,6 +4702,7 @@ MMDS5 sits in a series of disorders that share this final common lesion - MMDS1 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-isca1-loss-of-function" data-dismech-node="Biallelic ISCA1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ISCA1 Loss of Function</div>
 
+
                 <div class="item-desc">ISCA1 encodes a 129-amino-acid mitochondrial A-type carrier protein with a conserved C-terminal HESB domain. The founder p.(Glu87Lys) substitution sits in that domain at a highly conserved residue and abolishes a salt bridge to Lys49, destabilizing the protein; the independent p.V10G substitution lies in the uncleaved presequence and impairs both mitochondrial import and stability, reducing ISCA1 protein to a fraction of normal. Both routes converge on loss of functional ISCA1 in the mitochondrial matrix.</div>
 
 
@@ -4691,6 +4763,8 @@ This pathophysiological event involves ISCA1 (hgnc:28660). hgnc:28660 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4703,6 +4777,9 @@ This pathophysiological event involves ISCA1 (hgnc:28660). hgnc:28660 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4750,6 +4827,7 @@ This pathophysiological event involves ISCA1 (hgnc:28660). hgnc:28660 is a gene 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4771,6 +4849,7 @@ This pathophysiological event involves ISCA1 (hgnc:28660). hgnc:28660 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4796,6 +4875,7 @@ This pathophysiological event involves ISCA1 (hgnc:28660). hgnc:28660 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-mitochondrial-4fe-4s-cluster-assembly" data-dismech-node="Failure of Mitochondrial [4Fe-4S] Cluster Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Mitochondrial [4Fe-4S] Cluster Assembly</div>
+
 
                 <div class="item-desc">Mitochondrial Fe-S biogenesis runs in two steps. The core machinery builds a [2Fe-2S] cluster and hands it to GRX5; a second, separately staffed step converts that into [4Fe-4S] clusters and inserts them into client apoproteins. ISCA1 is the organizing node of that second step, interacting with both ISCA2 and NFU1 (which do not interact with each other) and forming the transient ternary complex through which the cluster is handed on. Losing ISCA1 therefore stalls maturation of every mitochondrial [4Fe-4S] client at once, which is why a single gene defect produces a multi-enzyme phenotype. The client class is wider than the two downstream nodes name: purified ISCA1 also matures apo-aconitase, so aconitase deficiency belongs to this lesion even though the human reports measure complex I, complex II and lipoylation specifically.</div>
 
@@ -4929,6 +5009,7 @@ This pathophysiological event involves decreased 4 iron, 4 sulfur cluster bindin
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4950,6 +5031,7 @@ This pathophysiological event involves decreased 4 iron, 4 sulfur cluster bindin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4977,6 +5059,7 @@ This pathophysiological event involves decreased 4 iron, 4 sulfur cluster bindin
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5001,6 +5084,7 @@ This pathophysiological event involves decreased 4 iron, 4 sulfur cluster bindin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-chain-complex-i-and-ii-deficiency" data-dismech-node="Respiratory Chain Complex I and II Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Chain Complex I and II Deficiency</div>
+
 
                 <div class="item-desc">Complex I carries eight [4Fe-4S] clusters and complex II carries one; both therefore fail to mature when the late assembly step is lost. Electron flow through the respiratory chain falls, oxidative phosphorylation is impaired, and pyruvate is shunted to lactate.</div>
 
@@ -5152,6 +5236,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5174,6 +5259,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipoic-acid-synthase-failure" data-dismech-node="Lipoic Acid Synthase Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Lipoic Acid Synthase Failure</div>
+
 
                 <div class="item-desc">Lipoic acid synthase is itself a [4Fe-4S] enzyme, so a defect in the assembly machinery also removes the cofactor from the enzyme that makes lipoate. Proteins that depend on a lipoyl group - pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, and the glycine cleavage system - lose activity as a second, parallel consequence. This is the branch responsible for the non-ketotic hyperglycinemia reported across the MMDS series.</div>
 
@@ -5333,6 +5419,7 @@ This pathophysiological event involves decreased glycine catabolic process (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5355,6 +5442,7 @@ This pathophysiological event involves decreased glycine catabolic process (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leukodystrophy" data-dismech-node="Leukodystrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Leukodystrophy</div>
+
 
                 <div class="item-desc">Extensive cerebral and cerebellar deep white matter disease with ventricular dilatation is the imaging hallmark, and in the index family was accompanied by pachygyria, a neuronal migration abnormality that had not been reported in the other MMDS subtypes.</div>
 
@@ -5470,6 +5558,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5492,6 +5581,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lactic-acidosis" data-dismech-node="Lactic Acidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Lactic Acidosis</div>
+
 
                 <div class="item-desc">Blood lactate is elevated and an increased lipid-lactate peak is seen on brain MR spectroscopy, reflecting the block in oxidative phosphorylation.</div>
 
@@ -5530,6 +5620,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5552,6 +5643,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neurological-deterioration" data-dismech-node="Progressive Neurological Deterioration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neurological Deterioration</div>
+
 
                 <div class="item-desc">The clinical endpoint of the chain: absent or lost milestones, early infantile seizures, spasticity with exaggerated reflexes, nystagmus and hearing loss, ending in death in early childhood.</div>
 
@@ -5647,6 +5739,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5717,13 +5810,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(4)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5766,6 +5857,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5780,6 +5874,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5845,6 +5940,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5859,6 +5957,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5924,6 +6023,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5938,6 +6040,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5970,12 +6073,12 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lactic-acidosis" data-dismech-node="Lactic acidosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-concentration" data-dismech-node="Increased circulating lactate concentration" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Lactic acidosis
+                        Increased circulating lactate concentration
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -5989,15 +6092,18 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003128</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002151</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6017,6 +6123,81 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Increased lipid lactate peak was seen on magnetic resonance spectroscopy of brain in P1"</div>
+
+
+                <div class="evidence-explanation">Documents the raised brain lactate on spectroscopy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lactic-acidosis" data-dismech-node="Lactic acidosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lactic acidosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003128</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28356563" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356563" target="_blank">PMID:28356563</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6056,18 +6237,23 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003236</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003236</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6087,6 +6273,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6138,10 +6325,10 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001257</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spasticity (HP:0001257), qualified as course progressive. HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6170,6 +6357,9 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6184,6 +6374,7 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6216,7 +6407,7 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental regression" data-dismech-type="phenotype">
@@ -6235,10 +6426,10 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental regression (HP:0002376), qualified as course progressive. HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6267,6 +6458,9 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6281,6 +6475,7 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6323,15 +6518,18 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6351,6 +6549,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6393,15 +6592,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002415" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002415</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002415" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002415</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6421,6 +6623,7 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6463,15 +6666,18 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6491,6 +6697,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6517,15 +6724,6 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pachygyria" data-dismech-node="Pachygyria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pachygyria
@@ -6542,15 +6740,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001302</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001302</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6570,6 +6771,7 @@ This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6581,76 +6783,6 @@ This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from
 
 
                 <div class="evidence-explanation">Records both the finding and the claim that it is not shared with the sibling MMDS forms.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-concentration" data-dismech-node="Increased circulating lactate concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased circulating lactate concentration
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002151</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28356563" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28356563" target="_blank">PMID:28356563</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Increased lipid lactate peak was seen on magnetic resonance spectroscopy of brain in P1"</div>
-
-
-                <div class="evidence-explanation">Documents the raised brain lactate on spectroscopy.</div>
 
 
 
@@ -6740,6 +6872,9 @@ This disease-associated gene is ISCA1 (hgnc:28660). hgnc:28660 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6754,6 +6889,7 @@ This disease-associated gene is ISCA1 (hgnc:28660). hgnc:28660 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6781,6 +6917,7 @@ This disease-associated gene is ISCA1 (hgnc:28660). hgnc:28660 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6802,6 +6939,7 @@ This disease-associated gene is ISCA1 (hgnc:28660). hgnc:28660 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6892,6 +7030,12 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is supportive. This entry is the umbrella statement; the individual measures GeneReviews names are curated as their own treatments below so that each one reaches the manifestation it addresses.</div>
 
 
@@ -6913,6 +7057,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6984,6 +7129,12 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">A nasogastric or gastrostomy tube may be required where oral intake becomes unsafe or insufficient.</div>
 
 
@@ -7027,6 +7178,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7098,6 +7250,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive recurrence risk is 25% per pregnancy. Carrier testing and prenatal testing are available where the familial variants are known, which in the reported families was the reason for referral.</div>
 
 
@@ -7119,6 +7277,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7191,6 +7350,12 @@ This treatment is antiseizure pharmacotherapy, annotated with Pharmacotherapy (N
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Seizures are treated with standard antiseizure regimens. GeneReviews names no agent and no MMDS-specific protocol, so no therapeutic_agent is bound here.</div>
 
 
@@ -7234,6 +7399,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7306,6 +7472,12 @@ This treatment is standard management of spasticity, annotated with Therapeutic 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Spasticity is managed by standard means. GeneReviews specifies no modality, so the binding is the generic therapeutic action rather than a drug or a physical therapy claim the source does not make.</div>
 
 
@@ -7349,6 +7521,7 @@ This treatment targets Spasticity (HP:0001257). HP:0001257 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7421,6 +7594,12 @@ This treatment is prevention of severe constipation, annotated with Preventive I
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Hydration, stool softeners and laxatives are used to prevent severe constipation, which GeneReviews lists as a secondary complication rather than a presenting feature.</div>
 
 
@@ -7464,6 +7643,7 @@ This treatment targets Constipation (HP:0002019). HP:0002019 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7536,6 +7716,12 @@ This treatment is surveillance physical examination at each visit, annotated wit
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Assessment at every visit for new neurologic manifestations, safe oral intake, adequate nutrition, and respiratory insufficiency or aspiration. This is the schedule against which deterioration is detected, and aspiration risk is the proximate cause of the intercurrent illness that ends most reported cases.</div>
 
 
@@ -7579,6 +7765,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7651,6 +7838,12 @@ This treatment is ophthalmologic evaluation, annotated with Eye Examination (NCI
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Eye examination annually or on clinical suspicion. Nystagmus is among the defining features, so this is surveillance of a manifestation the disease is expected to produce rather than screening for an unrelated risk.</div>
 
 
@@ -7694,6 +7887,7 @@ This treatment targets Nystagmus (HP:0000639). HP:0000639 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7766,6 +7960,12 @@ This treatment is audiologic evaluation, annotated with Overall Hearing Assessme
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Hearing assessment annually or on clinical suspicion, against the stated risk of sensorineural hearing loss.</div>
 
 
@@ -7809,6 +8009,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7900,6 +8101,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7981,6 +8183,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8057,6 +8260,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8122,6 +8326,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8143,6 +8348,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8211,6 +8417,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8315,6 +8522,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8340,12 +8548,11 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-multiple-mitochondrial-dysfunctions-syndrome-2">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Multiple mitochondrial dysfunctions syndrome 2</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Multiple_Mitochondrial_Dysfunctions_Syndrome_2.html">Multiple mitochondrial dysfunctions syndrome 2</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0013675" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0013675" target="_blank">
                             MONDO:0013675
                         </a>
                     </span>
@@ -8387,6 +8594,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8465,6 +8673,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8536,6 +8745,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8685,6 +8895,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8724,6 +8935,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8803,6 +9015,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8842,6 +9055,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9457,10 +9671,10 @@ phenotypes:
     Reported in one of the four children of the index families; otherwise
     haematological and biochemical investigations were normal.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:28356563
     reference_title: &#34;Homozygous p.(Glu87Lys) variant in ISCA1 is associated with a multiple mitochondrial dysfunctions syndrome.&#34;
@@ -10160,6 +10374,87 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation decisions worth recording.
+Entry versus subtype. The stub left entry_type UNDECIDED and flagged that the neonatal Fe-S-scaffold forms might belong together as one entry with per-gene subtypes. This is curated as its own DISEASE on two grounds: ISCA1 is a non-redundant node rather than a redundant paralogue of ISCA2 (the same knockdown experiment in PMID:28492233 finds ISCA1 required and ISCA2 not), and the reported phenotype carries a migration abnormality the authors say the other subtypes lack. The counter-argument is real and is recorded in the differential: the discoverers themselves say the phenotype resembles all four sibling syndromes. If the project later lumps the series, this entry is the ISCA1 subtype.
+The glycine branch is a mechanism node, not a phenotype. See the knowledge gap. No source cited here reports a glycine measurement in an ISCA1 patient.
+Frequency bands. With four children in two families plus one unrelated patient, band assignment is division over a handful of cases and is not a penetrance estimate. OBLIGATE is used where GeneReviews states the feature as definitional; OCCASIONAL where GeneReviews hedges (&#34;risk for&#34;) or the feature was present in one of four.
+Early death is not curated as a phenotype. HP:0003819 (Death in childhood) sits outside the branch the PhenotypeTerm dynamic enum expands from, so there is no valid binding; the mortality claim and the reported ages at death are carried in the progression record instead.
+Deep research. An OpenScientist report is committed with the entry. It added the third allele (p.Tyr101Cys, PMID:32092383) and the neuron-specific Isca1 knockout rat (PMID:37140997), which is the only in vivo model of this disorder.
+Two of the report&#39;s identifiers were wrong and are not used. It gives HGNC:16947 for ISCA1 in both its header and its genetics section; that code is ERLIN1, and ISCA1 is hgnc:28660. Nothing flagged it, because `just validate-research-terms` hardcodes --skip-prefix HGNC, so gene identifiers are the one class the report&#39;s term validation never examines (#9845). It also reports MMDS5 as OMIM #617613, which is correct, alongside ISCA1 as OMIM *611006, which belongs to a different gene; neither OMIM number is bound here.
+The report&#39;s own quote validation reports 7 of 20 quotes unsupported and sets needs_review: true. All seven are verbatim. Six fail on iron-sulfur notation ([4Fe-4S], [2Fe-2S]) and one on an HGVS designation, all stripped by the snippet matcher before comparison. That is #9364 and #10192, and it is why several snippets in this entry quote a bracket-free sentence where the bracketed one states the mechanism more directly.
+The sibling MMDS syndromes are four differential entries, not one. They were lumped as &#34;MMDS1-4&#34; in the first draft, which left the relationship out of reach of any query. Each now carries its own MONDO term. The distinguishing_features say the separator is the gene, because that is what the sources support: the discoverers describe the MMDS5 phenotype as similar to all four, and the only non-genetic separator anyone reports is the ISCA1/ISCA2 non-redundancy in PMID:28492233. Note that MMDS4 (ISCA2) is not yet an entry on main; its curation PR is open, so this is a forward link rather than a live cross-reference.
+Evidence source on patient-derived material. An assay run on cultured cells is IN_VITRO whatever the cells came from, so both the HeLa complementation (PMID:29767723) and the patient-fibroblast lipoylation and complex I/II measurements (PMID:32092383) are graded that way. HUMAN_CLINICAL is reserved for observations of the patient, such as the clinical description in PMID:29767723.
+Penetrance is deliberately not recorded. No reference cited here states one, and the five reported individuals were all ascertained through the phenotype, so &#34;every biallelic carrier is affected&#34; describes how they were found rather than how often the genotype manifests. The same reasoning governs the frequency bands above.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Multiple Mitochondrial Dysfunctions Syndrome 5 (ISCA1)</strong> · 2026-09-05T19:36:48Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Multiple_Mitochondrial_Dysfunctions_Syndrome_5/2026-09-05T193648Z-claude-code-0805a3.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MMDS5 (MONDO:0033282, ISCA1), claimed at #11155.
+entry_type resolved to DISEASE and the stub deleted.
+
+Sources: the ISCA1 GeneReviews chapter (PMID:31580634) as the mandatory
+phenotype baseline, plus Shukla 2017 (PMID:28356563), Shukla 2018
+(PMID:30105122), Torraco 2018 (PMID:29767723), Beilschmidt 2017
+(PMID:28492233), Suraci 2021 (PMID:33711344), Bogdan 2020 (PMID:32092383) and
+the Isca1 knockout rat (PMID:37140997).
+
+Deep research: one OpenScientist run, committed with the entry. It contributed
+the third allele p.(Tyr101Cys) and the neuron-specific Isca1 knockout rat,
+which is the only in vivo model of this disorder and is now linked to two
+pathograph nodes through modeled_mechanisms with readouts and per-link
+limitations.
+
+Two report identifiers were wrong and were not used. HGNC:16947, given for
+ISCA1 in both the report header and its genetics section, is ERLIN1; ISCA1 is
+hgnc:28660. Nothing flagged it because just validate-research-terms hardcodes
+--skip-prefix HGNC, so gene CURIEs are never checked in a report; reported on
+#9845. The report also pairs the correct disease OMIM (#617613) with an ISCA1
+gene OMIM (*611006) that belongs to a different gene; no OMIM number is bound.
+
+An earlier draft of this entry independently bound hgnc:14059 for ISCA1, which
+is CELF6. just validate-terms caught it on the first run because the KB path
+does resolve HGNC through conf/oak_config.yaml. Two wrong gene identifiers for
+one gene in one session, one caught in seconds and one invisible; that
+asymmetry is what was reported on #9845.
+
+The report&#39;s quote validation reports 7 of 20 quotes unsupported and sets
+needs_review: true. All seven were checked against the cached text and are
+verbatim; six fail on iron-sulfur notation and one on an HGVS designation,
+both stripped by the snippet matcher. Reported on #9364. Several snippets in
+this entry therefore quote a bracket-free sentence where the bracketed one
+states the mechanism more directly.
+
+preflight-dr returns WARN rather than PASS, on ISCA2 being mentioned at 36% of
+ISCA1&#39;s rate. That is expected here and is not entity confusion: ISCA1 and
+ISCA2 are obligate heterodimer partners in the step this disease breaks, so a
+correct mechanistic report has to discuss both. No ISCA2-specific (MMDS4)
+clinical content was taken.
+
+Curation decisions. The glycine-cleavage branch is a mechanism node with a
+KNOWLEDGE_GAP attached, not a phenotype, because no cited source reports a
+glycine measurement in an ISCA1 patient. HP:0003819 (Death in childhood) is
+outside the PhenotypeTerm dynamic enum, so mortality is carried in progression
+instead, with the reason in notes. The case for a separate entry rather than a
+subtype of the MMDS series rests on ISCA1 being non-redundant with ISCA2 in the
+same knockdown experiment and on a migration abnormality the other subtypes are
+said to lack; the counter-argument is recorded in differential_diagnoses.
+
+Validation: just validate-disorders passes schema, terms and 41/41 snippets.
+check-entity-refs, check-causal-targets, check-duplicate-keys and
+check-enum-values are clean. Eight references fetched during research but not
+cited were pruned from references_cache rather than staged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10642,7 +10937,7 @@ ISCA1–ISCA2 heterodimer fails to assemble [4Fe-4S] clusters
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Multiple Mitochondrial Dysfunctions Syndrome 5", "mondoId": "MONDO:0033282", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Mitochondrial_Dysfunctions_Syndrome_5", "yamlRevision": "3a3859c44917"};
+        const OS_CONFIG = {"diseaseName": "Multiple Mitochondrial Dysfunctions Syndrome 5", "mondoId": "MONDO:0033282", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Mitochondrial_Dysfunctions_Syndrome_5", "yamlRevision": "99a7937be843"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4260,6 +4328,7 @@ The disease is polygenic rather than Mendelian, with a strong and probably causa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-posterior-iris-concavity-and-iridozonular-contact" data-dismech-node="Posterior Iris Concavity and Iridozonular Contact" data-dismech-type="pathophysiology">
                 <div class="item-name">Posterior Iris Concavity and Iridozonular Contact</div>
 
+
                 <div class="item-desc">The initiating mechanical fault. The mid-peripheral iris bows posteriorly into a concave configuration, which presses its pigmented back surface against the zonular fibres suspending the lens. This is anatomy rather than biochemistry: a deep anterior chamber, a wide-open angle, and the axial geometry that accompanies myopia all increase the contact, and the movements of ordinary life supply the repetition.</div>
 
 
@@ -4312,6 +4381,7 @@ The disease is polygenic rather than Mendelian, with a strong and probably causa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4334,6 +4404,7 @@ The disease is polygenic rather than Mendelian, with a strong and probably causa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-liberation-of-iris-pigment-epithelial-granules" data-dismech-node="Liberation of Iris Pigment Epithelial Granules" data-dismech-type="pathophysiology">
                 <div class="item-name">Liberation of Iris Pigment Epithelial Granules</div>
+
 
                 <div class="item-desc">Pigment granules are released from the iris pigment epithelium, the densely pigmented layer on the posterior iris surface. The loss is structural and visible: where the epithelium has been scoured away, light passes through the iris in radial spoke-like defects, so the damage can be read directly at the slit lamp.</div>
 
@@ -4429,6 +4500,7 @@ This pathophysiological event involves iris pigment epithelial cell (CL:0002565)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4451,6 +4523,7 @@ This pathophysiological event involves iris pigment epithelial cell (CL:0002565)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pigment-dispersion-through-the-aqueous-humour" data-dismech-node="Pigment Dispersion Through the Aqueous Humour" data-dismech-type="pathophysiology">
                 <div class="item-name">Pigment Dispersion Through the Aqueous Humour</div>
+
 
                 <div class="item-desc">Released granules circulate in the aqueous humour and deposit wherever that fluid carries them: on the corneal endothelium as a vertically oriented Krukenberg spindle, on the lens and zonules, and in the trabecular meshwork. The distribution is a map of aqueous flow rather than of disease severity, which is why the corneal and iris signs are diagnostic without being harmful.</div>
 
@@ -4520,6 +4593,7 @@ This pathophysiological event involves iris pigment epithelial cell (CL:0002565)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4542,6 +4616,7 @@ This pathophysiological event involves iris pigment epithelial cell (CL:0002565)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trabecular-meshwork-pigment-loading-and-outflow-dysfunction" data-dismech-node="Trabecular Meshwork Pigment Loading and Outflow Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Trabecular Meshwork Pigment Loading and Outflow Dysfunction</div>
+
 
                 <div class="item-desc">The node where a cosmetic finding becomes a disease, and the point at which the two possible courses separate. Trabecular cells phagocytose small amounts of pigment and dispose of it without consequence, which is why a densely pigmented meshwork is compatible with a lifetime of normal pressure. Sustained loading is different: phagocytic and migratory capacity falls, trabecular cells are lost, and aqueous outflow resistance rises. The literature states the divergence directly, describing the same deposited pigment as behaving benignly in some eyes and malignantly in others.</div>
 
@@ -4687,6 +4762,7 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4708,6 +4784,7 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4733,6 +4810,7 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-intraocular-pressure" data-dismech-node="Elevated Intraocular Pressure" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Intraocular Pressure</div>
+
 
                 <div class="item-desc">Sustained rise in intraocular pressure as outflow resistance exceeds what aqueous production and alternative drainage can compensate for. This node exists as a mechanism node rather than only as a clinical sign because it is the step that carries the chain forward: pigment in the meshwork does nothing to the optic nerve except through pressure, and it is the only point in the chain that current treatment can act on.</div>
 
@@ -4794,6 +4872,7 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4815,6 +4894,7 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4840,6 +4920,7 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glaucomatous-optic-neuropathy" data-dismech-node="Glaucomatous Optic Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Glaucomatous Optic Neuropathy</div>
+
 
                 <div class="item-desc">Retinal ganglion cell loss with optic disc and nerve fibre layer damage, and the point at which the diagnosis changes name. Pigmentary glaucoma requires this node; dispersion syndrome with a heavily pigmented meshwork and a normal disc does not qualify, however dramatic the anterior-segment findings.</div>
 
@@ -4901,6 +4982,7 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4922,6 +5004,7 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4989,9 +5072,9 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5001,220 +5084,7 @@ This pathophysiological event involves decreased phagocytosis of pigment granule
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-glaucoma" data-dismech-node="Glaucoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Glaucoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0000501</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pigmentary glaucoma, annotated with Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26871761" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26871761" target="_blank">PMID:26871761</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pigmentary glaucoma is a specific form of open-angle glaucoma found in patients with pigment dispersion syndrome."</div>
-
-
-                <div class="evidence-explanation">Defines the phenotype as an open-angle glaucoma arising in this specific population.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myopia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000545</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36518550" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36518550" target="_blank">PMID:36518550</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It is more common in myopic patients with a predominance in young males in the third to fifth decade of life that affects about 1-2% of the population."</div>
-
-
-                <div class="evidence-explanation">Gives the myopic predominance, the sex skew, and the age of presentation in one sentence. No frequency band is assigned: the sentence establishes that the disease is more common in myopic patients without quantifying the proportion of patients who are myopic, and a band would assert a number the source does not report.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-visual-field-defect" data-dismech-node="Visual field defect" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Visual field defect
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001123</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36518550" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36518550" target="_blank">PMID:36518550</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pigmentary glaucoma (PG) can develop from PDS in the presence of elevated IOP coupled with glaucomatous optic neuropathy, retinal nerve fiber thinning, and/or visual field defects."</div>
-
-
-                <div class="evidence-explanation">Names visual field defects among the findings that establish glaucomatous damage.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-iris-transillumination-defect" data-dismech-node="Iris transillumination defect" data-dismech-type="phenotype">
@@ -5231,15 +5101,18 @@ This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012805" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0012805</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012805" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0012805</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Iris transillumination defect (HP:0012805). HP:0012805 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5259,6 +5132,7 @@ This clinical feature is Iris transillumination defect (HP:0012805). HP:0012805 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5299,15 +5173,18 @@ This clinical feature is Iris transillumination defect (HP:0012805). HP:0012805 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0012631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0012631</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pigment deposition in the trabecular meshwork (HP:0012631). HP:0012631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5327,6 +5204,7 @@ This clinical feature is Pigment deposition in the trabecular meshwork (HP:00126
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5338,57 +5216,6 @@ This clinical feature is Pigment deposition in the trabecular meshwork (HP:00126
 
 
                 <div class="evidence-explanation">Names increased trabecular meshwork pigmentation among the three defining clinical findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-pigment-deposition-krukenberg-spindle" data-dismech-node="Corneal pigment deposition (Krukenberg spindle)" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Corneal pigment deposition (Krukenberg spindle)
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29721842" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29721842" target="_blank">PMID:29721842</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The clinical presentation of PDS is defined by the presence of pigmented cells on the corneal endothelium, an increase of pigmentation of the trabecular meshwork, and mid-periphery transillumination defects of the iris."</div>
-
-
-                <div class="evidence-explanation">Names pigmented cells on the corneal endothelium as the first of the three defining findings. Left unbound because HPO has no Krukenberg spindle or corneal endothelial pigment term; the finding is described rather than forced onto a poor fit.</div>
 
 
 
@@ -5418,15 +5245,18 @@ This clinical feature is Pigment deposition in the trabecular meshwork (HP:00126
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007906" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0007906</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007906" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0007906</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5449,6 +5279,7 @@ This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5457,6 +5288,286 @@ This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a pheno
 
 
                 <div class="evidence-explanation">Establishes raised intraocular pressure as a consequence of the dispersion rather than an independent finding. Quoted verbatim including the source&#39;s grammatical slip.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-glaucoma" data-dismech-node="Glaucoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Glaucoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000501</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pigmentary glaucoma, annotated with Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26871761" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26871761" target="_blank">PMID:26871761</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pigmentary glaucoma is a specific form of open-angle glaucoma found in patients with pigment dispersion syndrome."</div>
+
+
+                <div class="evidence-explanation">Defines the phenotype as an open-angle glaucoma arising in this specific population.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Myopia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000545</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36518550" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36518550" target="_blank">PMID:36518550</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is more common in myopic patients with a predominance in young males in the third to fifth decade of life that affects about 1-2% of the population."</div>
+
+
+                <div class="evidence-explanation">Gives the myopic predominance, the sex skew, and the age of presentation in one sentence. No frequency band is assigned: the sentence establishes that the disease is more common in myopic patients without quantifying the proportion of patients who are myopic, and a band would assert a number the source does not report.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-visual-field-defect" data-dismech-node="Visual field defect" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Visual field defect
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001123</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36518550" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36518550" target="_blank">PMID:36518550</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pigmentary glaucoma (PG) can develop from PDS in the presence of elevated IOP coupled with glaucomatous optic neuropathy, retinal nerve fiber thinning, and/or visual field defects."</div>
+
+
+                <div class="evidence-explanation">Names visual field defects among the findings that establish glaucomatous damage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-pigment-deposition-krukenberg-spindle" data-dismech-node="Corneal pigment deposition (Krukenberg spindle)" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Corneal pigment deposition (Krukenberg spindle)
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29721842" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29721842" target="_blank">PMID:29721842</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical presentation of PDS is defined by the presence of pigmented cells on the corneal endothelium, an increase of pigmentation of the trabecular meshwork, and mid-periphery transillumination defects of the iris."</div>
+
+
+                <div class="evidence-explanation">Names pigmented cells on the corneal endothelium as the first of the three defining findings. Left unbound because HPO has no Krukenberg spindle or corneal endothelial pigment term; the finding is described rather than forced onto a poor fit.</div>
 
 
 
@@ -5528,6 +5639,9 @@ This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5542,6 +5656,7 @@ This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5569,6 +5684,7 @@ This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5590,6 +5706,7 @@ This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5647,6 +5764,9 @@ This disease-associated gene is GSAP (hgnc:28042). hgnc:28042 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5661,6 +5781,7 @@ This disease-associated gene is GSAP (hgnc:28042). hgnc:28042 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5718,6 +5839,9 @@ This disease-associated gene is TYR (hgnc:12442). hgnc:12442 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5732,6 +5856,7 @@ This disease-associated gene is TYR (hgnc:12442). hgnc:12442 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5789,6 +5914,9 @@ This disease-associated gene is GRM5 (hgnc:4597). hgnc:4597 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5803,6 +5931,7 @@ This disease-associated gene is GRM5 (hgnc:4597). hgnc:4597 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5927,6 +6056,9 @@ This treatment uses timolol (CHEBI:39465). CHEBI:39465 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5937,6 +6069,9 @@ This treatment uses timolol (CHEBI:39465). CHEBI:39465 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -5973,6 +6108,7 @@ This treatment uses timolol (CHEBI:39465). CHEBI:39465 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6016,6 +6152,7 @@ This treatment uses timolol (CHEBI:39465). CHEBI:39465 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6082,6 +6219,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6092,6 +6232,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -6128,6 +6271,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6171,6 +6315,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6237,6 +6382,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6247,6 +6395,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -6283,6 +6434,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6326,6 +6478,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6398,6 +6551,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6480,6 +6634,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6501,6 +6656,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6718,6 +6874,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6761,6 +6918,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7669,6 +7827,27 @@ prevalence:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry covers the dispersion syndrome and its progression to pigmentary glaucoma as one spectrum, because the literature treats them as two stages of a single disease and the mechanistic chain is continuous. The boundary is nonetheless made explicit at the node level: everything up to and including elevated intraocular pressure is dispersion syndrome, and pigmentary glaucoma requires glaucomatous optic neuropathy in addition. Curating them as separate entries would sever a chain that the pathophysiology does not sever.
+Module conformance. The outflow and optic-neuropathy arm conforms to `glaucoma_optic_neuropathy` at three nodes. The disorder-specific substitution is the cause of the trabecular dysfunction: here it is progressive loading of the meshwork with liberated iris pigment rather than the primary trabecular pathology of open-angle glaucoma.
+Genetics deliberately not asserted. This is a polygenic susceptibility, not a Mendelian disease. No causal gene is bound, no candidate locus is entered as causal, and in particular the melanosomal genes identified in the DBA/2J mouse are not curated as human disease genes; that inference is a known error in this area and the source deep-research report flags it explicitly.
+Provenance. Built from an Edison Falcon deep-research report. Falcon cites by DOI and by internal corpus keys rather than by PMID, and the reference validator skips DOI-prefixed snippets, so every DOI in the report was resolved to its PubMed record and all evidence here is cited and verified against PMIDs instead. The report&#39;s own analysis is reflected in the node structure; none of its unresolvable corpus-key citations are curated.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Pigment Dispersion Syndrome (MONDO:0010896)</strong> · 2026-08-17T00:26:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pigment_Dispersion_Syndrome/2026-08-17T002623Z-claude-code-84d83f.yaml">View source</a></p>
+                        <p class="research-review-text">New entry curated from an Edison Falcon deep-research report. Five pathophysiology nodes running posterior iris concavity and iridozonular contact, liberation of iris pigment epithelial granules, dispersion through the aqueous, trabecular meshwork pigment loading, and glaucomatous optic neuropathy. Conforms to glaucoma_optic_neuropathy at two nodes, with the disorder-specific substitution being that trabecular dysfunction is caused by loading with liberated iris pigment rather than by primary trabecular pathology. The organising decision is that the trabecular node is a THRESHOLD rather than a step: trabecular cells phagocytose small amounts of pigment harmlessly, and the entry curates the source&#39;s own statement that the same deposited pigment behaves benignly in some eyes and malignantly in others. That divergence is the central KNOWLEDGE_GAP, and it matters clinically because gonioscopic pigment burden appears to answer the question of who needs treatment and does not. A second KNOWLEDGE_GAP covers peripheral laser iridotomy, which targets the initiating mechanism directly and whose anatomical effect is undisputed, but whose effect on clinical outcome a systematic review calls unknown; the treatment carries REFUTE for the efficacy claim alongside PARTIAL for the proposal, because mechanistic plausibility is doing work evidence normally would. Genetics recorded as SUSCEPTIBILITY with no gene bound: association loci and measured heritability, not a Mendelian gene, and the DBA/2J mouse melanosomal genes deliberately NOT curated as human disease genes, which the source report explicitly flags as an error to avoid. Provider note: Falcon cites by DOI and by internal corpus keys rather than PMIDs, and the reference validator skips DOI-prefixed snippets, so all six report DOIs were resolved to PubMed records via esearch and every snippet is cited and verified against a PMID instead. Validated: just validate passed; count-verified-snippets 20/20; title audit 20 citations 0 mismatches; check_folded_hyphens, check-title-snippets and check_environmental_evidence OK; pytest tests/test_data.py -k Pigment_Dispersion 16 passed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

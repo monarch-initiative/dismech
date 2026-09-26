@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4270,6 +4338,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4294,6 +4363,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4315,6 +4385,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4673,6 +4744,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5115,6 +5187,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-sdha-missense-allele-at-a-conserved-arginine" data-dismech-node="Heterozygous SDHA Missense Allele at a Conserved Arginine" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous SDHA Missense Allele at a Conserved Arginine</div>
 
+
                 <div class="item-desc">The primary lesion is a single heterozygous missense change in SDHA at 5p15.33, reported against transcript NM_004168.4. Both alleles associated with this phenotype substitute a cysteine for a conserved arginine: the founding-family allele c.1351C&gt;T (p.Arg451Cys), historically written R408C in mature-protein numbering, and the de novo allele c.1984C&gt;T (p.Arg662Cys). Neither is a truncating or splice-disrupting change, and neither is predicted to remove the protein. This matters because heterozygous SDHA truncating alleles are the recognised cause of a completely different disease, tumour predisposition, and do not cause neurodegeneration. The genotype-phenotype rule for SDHA is therefore not &#34;how much protein is left&#34; but &#34;what kind of protein is made&#34;.</div>
 
 
@@ -5210,6 +5283,7 @@ This pathophysiological event involves SDHA (hgnc:10680). hgnc:10680 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5231,6 +5305,7 @@ This pathophysiological event involves SDHA (hgnc:10680). hgnc:10680 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5256,6 +5331,13 @@ This pathophysiological event involves SDHA (hgnc:10680). hgnc:10680 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-covalent-fad-attachment-to-the-sdha-flavoprotein" data-dismech-node="Failure of Covalent FAD Attachment to the SDHA Flavoprotein" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Covalent FAD Attachment to the SDHA Flavoprotein</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">SDHA is a flavoprotein whose catalytic activity depends absolutely on a FAD cofactor attached covalently to the subunit; without the covalent linkage the subunit cannot oxidise succinate. Two independent lines of evidence converge on this step for the two NDAXOA-associated alleles. For the founding-family allele, mutation of the equivalent base in the Escherichia coli orthologue produces an enzyme that is inactive and cannot bind FAD covalently. For the de novo allele, structural modelling of p.Arg662Cys predicts that it compromises the integrity of the FAD-binding region at the C-terminus and so impairs FAD binding.
 That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh1 shows that a pair of spatially close C-terminal arginine residues, physically distant from the FAD-binding site itself, are required for covalent flavinylation and for assembly of the tetramer, and that FAD binding rather than covalent attachment is what stabilises the Sdh1 conformation for association with its partners. Flavinylation is also an assisted reaction: the dedicated factor SDHAF2/SDH5 binds the catalytic subunit and is required for its flavination. The step is therefore a discrete, mutable chemistry, not a passive property of the folded protein, and it is a plausible point at which a single conservative-looking arginine substitution can abolish catalysis without abolishing expression.</div>
@@ -5458,6 +5540,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5479,6 +5562,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5506,6 +5590,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5530,6 +5615,13 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-catalytically-inert-sdha-subunit-competing-for-complex-ii-assembly" data-dismech-node="Catalytically Inert SDHA Subunit Competing for Complex II Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Catalytically Inert SDHA Subunit Competing for Complex II Assembly</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">This is the node that explains why the disease is dominant. Complex II is a heterotetramer containing exactly one copy of the flavoprotein subunit alongside the iron-sulfur subunit and the two transmembrane anchors, so every assembled complex commits to one SDHA molecule and there is no second copy to compensate. If the mutant subunit is still expressed and still competent to bind FAD non-covalently, it can be incorporated into complexes that are then structurally complete but catalytically dead, and it competes with the wild-type subunit for the available assembly slots. On that model a heterozygote loses close to half of total succinate dehydrogenase activity while retaining a full complement of assembled complex, which is precisely the biochemical picture reported in the founding family: an approximately 50% enzyme deficit accompanied by an apparent overexpression of the 70-kDa flavoprotein subunit whose membrane-associated amount was nonetheless normal.
 The alternative reading, simple haploinsufficiency, would predict the same 50% activity but is hard to reconcile with the population genetics. Heterozygous SDHA loss-of-function alleles are carried without neurodegeneration by the parents of children with recessive complex II deficiency and by members of tumour-predisposition families. The dominant-negative model accounts for that asymmetry; haploinsufficiency does not.</div>
@@ -5686,6 +5778,7 @@ This pathophysiological event involves abnormal mitochondrial respiratory chain 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5707,6 +5800,7 @@ This pathophysiological event involves abnormal mitochondrial respiratory chain 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5734,6 +5828,7 @@ This pathophysiological event involves abnormal mitochondrial respiratory chain 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5756,6 +5851,7 @@ This pathophysiological event involves abnormal mitochondrial respiratory chain 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-approximately-half-normal-succinate-dehydrogenase-activity" data-dismech-node="Approximately Half-Normal Succinate Dehydrogenase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Approximately Half-Normal Succinate Dehydrogenase Activity</div>
+
 
                 <div class="item-desc">The measured biochemical phenotype is a partial, roughly 50% deficiency of complex II and succinate dehydrogenase activity, reported concordantly in muscle and platelet mitochondria in the founding family and in fibroblasts and lymphocytes in the de novo case. This is the quantitative signature that separates NDAXOA from the recessive disorder, where biallelic loss-of-function genotypes drive activity far lower and produce infantile Leigh syndrome. A half-normal enzyme is compatible with decades of ordinary life and only fails where the metabolic margin is thinnest, which is the reason the disease is late in onset and restricted in the tissues it damages.
 Tissue expression of the defect is genuinely inconsistent between the two reports and this entry does not smooth that over. In the founding family the enzyme defect was explicitly not expressed in cultured skin fibroblasts or immortalised lymphocytes, so a normal fibroblast assay did not exclude the diagnosis; in the de novo case the defect was demonstrable in exactly those two cell types. The discrepancy has direct diagnostic consequences and is recorded as an open discussion.</div>
@@ -5928,6 +6024,7 @@ This pathophysiological event involves decreased succinate dehydrogenase activit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5949,6 +6046,7 @@ This pathophysiological event involves decreased succinate dehydrogenase activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5976,6 +6074,7 @@ This pathophysiological event involves decreased succinate dehydrogenase activit
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6000,6 +6099,7 @@ This pathophysiological event involves decreased succinate dehydrogenase activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-in-cells-with-low-metabolic-reserve" data-dismech-node="Bioenergetic Failure in Cells With Low Metabolic Reserve" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure in Cells With Low Metabolic Reserve</div>
+
 
                 <div class="item-desc">A permanent halving of succinate dehydrogenase activity is a mild insult in most cells and a severe one in a few. Complex II sits at the junction of the tricarboxylic acid cycle and the electron transport chain, so its impairment restricts both the oxidative arm of intermediary metabolism and the electron supply to the quinone pool at once. Cells that are long-lived, post-mitotic, unable to dilute damaged mitochondria by division, and running near their ATP ceiling therefore carry the cost: retinal ganglion cells, cerebellar neurons, skeletal myofibres and cardiomyocytes. Cells that turn over, or that can lean on glycolysis, are spared, which is why a systemic enzyme defect produces a strikingly selective clinical picture and why cultured fibroblasts may look normal.</div>
 
@@ -6122,6 +6222,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6143,6 +6244,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6168,6 +6270,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-and-optic-nerve-degeneration" data-dismech-node="Retinal Ganglion Cell and Optic Nerve Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Ganglion Cell and Optic Nerve Degeneration</div>
+
 
                 <div class="item-desc">Optic atrophy is the feature that names the disorder and the one that is present in every reported family. Its anatomical basis is the particular energetic geometry of the retinal ganglion cell: the cell body sits in the retina and generates the mitochondria, which are then transported down an axon that is unmyelinated and mitochondria-rich anterior to the lamina cribrosa and myelinated and mitochondria-poor behind it. The prelaminar segment therefore carries an unusually high, spatially concentrated demand for oxidative ATP with no local capacity to make more. Any systemic restriction of oxidative phosphorylation is felt there first, which is the accepted explanation for why chemically unrelated mitochondrial lesions, from mitochondrial DNA complex I mutations in Leber hereditary optic neuropathy to nuclear OPA1 mutations in dominant optic atrophy, all converge on the same optic neuropathy. Complex II deficiency joins that convergence from a different enzymatic starting point.</div>
 
@@ -6261,6 +6364,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6282,6 +6386,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6309,6 +6414,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6333,6 +6439,7 @@ This pathophysiological event occurs in optic nerve, annotated with cranial nerv
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-degeneration-and-ataxia" data-dismech-node="Cerebellar Degeneration and Ataxia" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Degeneration and Ataxia</div>
+
 
                 <div class="item-desc">Progressive cerebellar and gait ataxia is the second cardinal feature and was present in both members of the founding sibship. Clinically it takes the form recognisable across the hereditary ataxias: unsteady, wide-based gait with postural instability and falls, limb and truncal incoordination, gaze-evoked nystagmus and, in the OMIM clinical synopsis for this entity, cerebellar atrophy on imaging. Mechanistically it is treated here as the cerebellar instance of the same bioenergetic failure that produces the optic neuropathy, and the entry conforms it to the shared cerebellar ataxia module at the clinical-consequence node rather than at the Purkinje-degeneration node, because the intermediate cellular pathology has not been observed in this disorder.</div>
 
@@ -6392,6 +6499,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6413,6 +6521,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6438,6 +6547,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-striated-muscle-and-myocardial-energy-failure" data-dismech-node="Striated Muscle and Myocardial Energy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Striated Muscle and Myocardial Energy Failure</div>
+
 
                 <div class="item-desc">Skeletal muscle and myocardium are the third and fourth tissues that a permanent half-normal oxidative capacity cannot support. In the founding family the muscle involvement took the form of a myopathy with myalgia and limb weakness in older adults, and muscle mitochondria were the tissue in which the enzyme deficit was demonstrable. In the second pedigree the cardiac involvement was earlier and far more severe than the neurological involvement: both children presented with cardiomyopathy in early childhood and one died of cardiac insufficiency at seven months, while their father&#39;s cardiomyopathy accompanied an adult neurological presentation. Cardiac disease is therefore not a late complication of this disorder but, in some carriers, its first and lethal manifestation.
 The accompanying methylglutaconic aciduria in the two affected children is the expected urinary signature of a mitochondrial energy defect rather than a specific marker of complex II, and it is what should prompt a mitochondrial workup in a child with unexplained cardiomyopathy.</div>
@@ -6549,6 +6659,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6570,6 +6681,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6597,6 +6709,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6619,6 +6732,13 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-divergence-from-the-sdhx-tumour-predisposition-arm" data-dismech-node="Divergence From the SDHx Tumour-Predisposition Arm" data-dismech-type="pathophysiology">
                 <div class="item-name">Divergence From the SDHx Tumour-Predisposition Arm</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of succinate dehydrogenase has a second, entirely different consequence: succinate accumulates and acts as an oncometabolite, inhibiting alpha-ketoglutarate-dependent dioxygenases, driving a pseudohypoxic transcriptional response and remodelling the epigenome. That is the route by which heterozygous SDHx loss-of-function alleles, with somatic loss of the second allele, cause paraganglioma, phaeochromocytoma and gastrointestinal stromal tumour. This node exists to state explicitly that NDAXOA is not known to travel that route, and to keep the two arms from being conflated.
 The empirical position, as of this curation, is that mitochondrial-disease SDHx genotypes and tumour SDHx genotypes have historically been reported as separate sets, with only isolated alleles crossing over. No tumour has been reported in either NDAXOA pedigree. Whether that reflects a real mechanistic divergence, in which a missense allele that blocks flavinylation without destroying the tumour-suppressor function of the locus fails to initiate tumorigenesis, or merely reflects the tiny number of carriers ever followed, is unresolved and is recorded as an open discussion rather than asserted in either direction. The practical consequence is that clinicians have to make a surveillance decision on absent evidence.</div>
@@ -6739,6 +6859,7 @@ This pathophysiological event involves increased hypoxia-inducible factor-1alpha
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6763,6 +6884,7 @@ This pathophysiological event involves increased hypoxia-inducible factor-1alpha
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6784,6 +6906,7 @@ This pathophysiological event involves increased hypoxia-inducible factor-1alpha
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6832,7 +6955,7 @@ This pathophysiological event involves increased hypoxia-inducible factor-1alpha
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured biochemical phenotype is a partial, roughly 50% deficiency of complex II and succinate dehydrogenase activity, reported concordantly in muscle and platelet mitochondria in the founding family and in fibroblasts and lymphocytes in the de novo case. This is the quantitative signature that separates NDAXOA from the recessive disorder, where biallelic loss-of-function genotypes drive activity far lower and produce infantile Leigh syndrome. A half-normal enzyme is compatible with decades of ordinary life and only fails where the metabolic margin is thinnest, which is the reason the disease is late in onset and restricted in the tissues it damages.\\nTissue expression of the defect is genuinely inconsistent between the two reports and this entry does not smooth that over. In the founding family the enzyme defect was explicitly not expressed in cultured skin fibroblasts or immortalised lymphocytes, so a normal fibroblast assay did not exclude the diagnosis; in the de novo case the defect was demonstrable in exactly those two cell types. The discrepancy has direct diagnostic consequences and is recorded as an open discussion.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"tricarboxylic acid cycle\", \"electron transport chain\"], \"molecular_functions\": [\"succinate dehydrogenase activity\"]}}, {\"id\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A permanent halving of succinate dehydrogenase activity is a mild insult in most cells and a severe one in a few. Complex II sits at the junction of the tricarboxylic acid cycle and the electron transport chain, so its impairment restricts both the oxidative arm of intermediary metabolism and the electron supply to the quinone pool at once. Cells that are long-lived, post-mitotic, unable to dilute damaged mitochondria by division, and running near their ATP ceiling therefore carry the cost: retinal ganglion cells, cerebellar neurons, skeletal myofibres and cardiomyocytes. Cells that turn over, or that can lean on glycolysis, are spared, which is why a systemic enzyme defect produces a strikingly selective clinical picture and why cultured fibroblasts may look normal.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Catalytically Inert SDHA Subunit Competing for Complex II Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that explains why the disease is dominant. Complex II is a heterotetramer containing exactly one copy of the flavoprotein subunit alongside the iron-sulfur subunit and the two transmembrane anchors, so every assembled complex commits to one SDHA molecule and there is no second copy to compensate. If the mutant subunit is still expressed and still competent to bind FAD non-covalently, it can be incorporated into complexes that are then structurally complete but catalytically dead, and it competes with the wild-type subunit for the available assembly slots. On that model a heterozygote loses close to half of total succinate dehydrogenase activity while retaining a full complement of assembled complex, which is precisely the biochemical picture reported in the founding family: an approximately 50% enzyme deficit accompanied by an apparent overexpression of the 70-kDa flavoprotein subunit whose membrane-associated amount was nonetheless normal.\\nThe alternative reading, simple haploinsufficiency, would predict the same 50% activity but is hard to reconcile with the population genetics. Heterozygous SDHA loss-of-function alleles are carried without neurodegeneration by the parents of children with recessive complex II deficiency and by members of tumour-predisposition families. The dominant-negative model accounts for that asymmetry; haploinsufficiency does not.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial respiratory chain complex II assembly\"], \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}]}}, {\"id\": \"Cerebellar Degeneration and Ataxia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive cerebellar and gait ataxia is the second cardinal feature and was present in both members of the founding sibship. Clinically it takes the form recognisable across the hereditary ataxias: unsteady, wide-based gait with postural instability and falls, limb and truncal incoordination, gaze-evoked nystagmus and, in the OMIM clinical synopsis for this entity, cerebellar atrophy on imaging. Mechanistically it is treated here as the cerebellar instance of the same bioenergetic failure that produces the optic neuropathy, and the entry conforms it to the shared cerebellar ataxia module at the clinical-consequence node rather than at the Purkinje-degeneration node, because the intermediate cellular pathology has not been observed in this disorder.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cerebellum\"]}}, {\"id\": \"Complex II (succinate dehydrogenase) enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A reduction to approximately half of control values in muscle, platelets or, in some individuals, cultured fibroblasts and lymphocytes reports the partial enzymatic block produced by a heterozygous flavinylation-defective SDHA allele. A normal result in fibroblasts does not exclude the diagnosis.\"}]}}, {\"id\": \"Divergence From the SDHx Tumour-Predisposition Arm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of succinate dehydrogenase has a second, entirely different consequence: succinate accumulates and acts as an oncometabolite, inhibiting alpha-ketoglutarate-dependent dioxygenases, driving a pseudohypoxic transcriptional response and remodelling the epigenome. That is the route by which heterozygous SDHx loss-of-function alleles, with somatic loss of the second allele, cause paraganglioma, phaeochromocytoma and gastrointestinal stromal tumour. This node exists to state explicitly that NDAXOA is not known to travel that route, and to keep the two arms from being conflated.\\nThe empirical position, as of this curation, is that mitochondrial-disease SDHx genotypes and tumour SDHx genotypes have historically been reported as separate sets, with only isolated alleles crossing over. No tumour has been reported in either NDAXOA pedigree. Whether that reflects a real mechanistic divergence, in which a missense allele that blocks flavinylation without destroying the tumour-suppressor function of the locus fails to initiate tumorigenesis, or merely reflects the tiny number of carriers ever followed, is unresolved and is recorded as an open discussion rather than asserted in either direction. The practical consequence is that clinicians have to make a surveillance decision on absent evidence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"hypoxia-inducible factor-1alpha signaling pathway\"], \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}]}}, {\"id\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SDHA is a flavoprotein whose catalytic activity depends absolutely on a FAD cofactor attached covalently to the subunit; without the covalent linkage the subunit cannot oxidise succinate. Two independent lines of evidence converge on this step for the two NDAXOA-associated alleles. For the founding-family allele, mutation of the equivalent base in the Escherichia coli orthologue produces an enzyme that is inactive and cannot bind FAD covalently. For the de novo allele, structural modelling of p.Arg662Cys predicts that it compromises the integrity of the FAD-binding region at the C-terminus and so impairs FAD binding.\\nThat convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh1 shows that a pair of spatially close C-terminal arginine residues, physically distant from the FAD-binding site itself, are required for covalent flavinylation and for assembly of the tetramer, and that FAD binding rather than covalent attachment is what stabilises the Sdh1 conformation for association with its partners. Flavinylation is also an assisted reaction: the dedicated factor SDHAF2/SDH5 binds the catalytic subunit and is required for its flavination. The step is therefore a discrete, mutable chemistry, not a passive property of the folded protein, and it is a plausible point at which a single conservative-looking arginine substitution can abolish catalysis without abolishing expression.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"covalent flavinylation of the SDHA subunit\"], \"molecular_functions\": [\"flavin adenine dinucleotide binding\"], \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}]}}, {\"id\": \"Heterozygous SDHA Missense Allele at a Conserved Arginine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is a single heterozygous missense change in SDHA at 5p15.33, reported against transcript NM_004168.4. Both alleles associated with this phenotype substitute a cysteine for a conserved arginine: the founding-family allele c.1351C\u003eT (p.Arg451Cys), historically written R408C in mature-protein numbering, and the de novo allele c.1984C\u003eT (p.Arg662Cys). Neither is a truncating or splice-disrupting change, and neither is predicted to remove the protein. This matters because heterozygous SDHA truncating alleles are the recognised cause of a completely different disease, tumour predisposition, and do not cause neurodegeneration. The genotype-phenotype rule for SDHA is therefore not \\\"how much protein is left\\\" but \\\"what kind of protein is made\\\".\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}]}}, {\"id\": \"NM_004168.4(SDHA):c.1351C\u003eT (p.Arg451Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The established NDAXOA allele, historically designated R408C in mature-protein numbering. Identified in the family originally reported with biochemical complex II deficiency and subsequently found in a second, unrelated dominant pedigree. Functional support comes from the bacterial orthologue, where mutation of the equivalent base yields an enzyme unable to bind FAD covalently, and from a human SDHA-knockout cell line, in which this substitution abolishes SDH activity while leaving SDHA protein abundant (the per-variant result is in the PMC11611653 full text, Figure 2; the cached abstract for PMID:39321216 does not name this variant).\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}], \"variant_type\": \"missense variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_004168.4(SDHA):c.1984C\u003eT (p.Arg662Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Candidate second allele, reported de novo in an individual with global developmental delay, intellectual disability and childhood-onset progressive bilateral optic atrophy, with decreased complex II activity in fibroblasts and lymphocytes and in-silico evidence of impaired C-terminal FAD binding. It has since also been assayed in a human SDHA-knockout cell line, where it scored as essentially inactive (per-variant result from the PMC11611653 full text, Table 1; the cached abstract for PMID:39321216 reports only that 22 variants of uncertain significance were assayed and does not name this one); that study frames the result as functional evidence for cancer pathogenicity, so it speaks to the allele\u0027s effect on enzyme function and not to which SDHA phenotype it causes. Recorded as a candidate rather than an established NDAXOA allele because ClinVar holds no record for it against this condition and its aggregate classification is conflicting.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}], \"variant_type\": \"missense variant\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"Retinal Ganglion Cell and Optic Nerve Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Optic atrophy is the feature that names the disorder and the one that is present in every reported family. Its anatomical basis is the particular energetic geometry of the retinal ganglion cell: the cell body sits in the retina and generates the mitochondria, which are then transported down an axon that is unmyelinated and mitochondria-rich anterior to the lamina cribrosa and myelinated and mitochondria-poor behind it. The prelaminar segment therefore carries an unusually high, spatially concentrated demand for oxidative ATP with no local capacity to make more. Any systemic restriction of oxidative phosphorylation is felt there first, which is the accepted explanation for why chemically unrelated mitochondrial lesions, from mitochondrial DNA complex I mutations in Leber hereditary optic neuropathy to nuclear OPA1 mutations in dominant optic atrophy, all converge on the same optic neuropathy. Complex II deficiency joins that convergence from a different enzymatic starting point.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"retinal ganglion cell\"], \"locations\": [\"optic nerve\"]}}, {\"id\": \"Riboflavin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Riboflavin is the dietary precursor of FAD, the cofactor whose covalent attachment to SDHA is the step that the NDAXOA alleles are argued to disrupt, so raising intracellular flavin availability is the one mechanistically targeted intervention that has ever been tried in complex II deficiency. In three children with recessive complex II deficiency treated with oral riboflavin and followed for a mean of 4.5 years, the neurological course was stable or moderately improved in two and plasma lactate decreased to near-normal levels in the third, and riboflavin supplementation of the culture medium doubled complex II activity in patient fibroblasts but not in control fibroblasts.\\nWhether any of that transfers to NDAXOA is unknown and this entry does not claim it does. No patient with a dominant SDHA allele has been reported on riboflavin. There is a specific mechanistic reason for caution: raising FAD availability is a plausible remedy for a subunit that binds its cofactor poorly, but has no obvious mechanism against a subunit that cannot form the covalent linkage at all, and none at all if the dominant allele acts by competing for assembly slots. The intervention is nevertheless recorded because it is cheap, non-toxic and rationally connected to the curated mechanism, which is the strongest position available in a disease with no trials.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"riboflavin\"]}}, {\"id\": \"SDHA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}], \"association\": \"Heterozygous missense substitutions at conserved arginine residues, argued to disable covalent flavinylation or FAD binding of the flavoprotein subunit; the recurrent founding-family allele is c.1351C\u003eT (p.Arg451Cys), historically designated R408C.\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Striated Muscle and Myocardial Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal muscle and myocardium are the third and fourth tissues that a permanent half-normal oxidative capacity cannot support. In the founding family the muscle involvement took the form of a myopathy with myalgia and limb weakness in older adults, and muscle mitochondria were the tissue in which the enzyme deficit was demonstrable. In the second pedigree the cardiac involvement was earlier and far more severe than the neurological involvement: both children presented with cardiomyopathy in early childhood and one died of cardiac insufficiency at seven months, while their father\u0027s cardiomyopathy accompanied an adult neurological presentation. Cardiac disease is therefore not a late complication of this disorder but, in some carriers, its first and lethal manifestation.\\nThe accompanying methylglutaconic aciduria in the two affected children is the expected urinary signature of a mitochondrial energy defect rather than a specific marker of complex II, and it is what should prompt a mitochondrial workup in a child with unexplained cardiomyopathy.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"locations\": [\"skeletal muscle tissue\", \"heart\"]}}], \"edges\": [{\"source\": \"Heterozygous SDHA Missense Allele at a Conserved Arginine\", \"target\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both substitutions are argued to disable the covalent flavinylation chemistry or the FAD-binding conformation of the subunit rather than to destabilise or truncate it.\"}, {\"source\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"target\": \"Catalytically Inert SDHA Subunit Competing for Complex II Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subunit that binds FAD without the covalent linkage can still enter the tetramer, so the mutant polypeptide is not simply removed from the pool.\"}, {\"source\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"target\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whatever the assembly route, the measured net result in patient tissue is a partial rather than complete loss of enzyme activity.\"}, {\"source\": \"Catalytically Inert SDHA Subunit Competing for Complex II Assembly\", \"target\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether by competition or by dosage, the measured phenotype in patient tissue is a partial enzyme deficit.\"}, {\"source\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"target\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A partial and permanent shortfall in oxidative ATP production is the common upstream state for every tissue-level consequence below.\"}, {\"source\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"target\": \"Divergence From the SDHx Tumour-Predisposition Arm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same enzymatic block that produces neurodegeneration here produces tumours in other SDHA genotypes; the branch point is curated explicitly.\"}, {\"source\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"target\": \"Retinal Ganglion Cell and Optic Nerve Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"target\": \"Cerebellar Degeneration and Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"target\": \"Striated Muscle and Myocardial Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Riboflavin supplementation\", \"target\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"target\": \"Complex II (succinate dehydrogenase) enzyme activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A reduction to approximately half of control values in muscle, platelets or, in some individuals, cultured fibroblasts and lymphocytes reports the partial enzymatic block produced by a heterozygous flavinylation-defective SDHA allele. A normal result in fibroblasts does not exclude the diagnosis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SDHA\", \"target\": \"Catalytically Inert SDHA Subunit Competing for Complex II Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SDHA\", \"target\": \"Divergence From the SDHx Tumour-Predisposition Arm\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SDHA\", \"target\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SDHA\", \"target\": \"Heterozygous SDHA Missense Allele at a Conserved Arginine\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_004168.4(SDHA):c.1351C\u003eT (p.Arg451Cys)\", \"target\": \"SDHA\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_004168.4(SDHA):c.1984C\u003eT (p.Arg662Cys)\", \"target\": \"SDHA\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured biochemical phenotype is a partial, roughly 50% deficiency of complex II and succinate dehydrogenase activity, reported concordantly in muscle and platelet mitochondria in the founding family and in fibroblasts and lymphocytes in the de novo case. This is the quantitative signature that separates NDAXOA from the recessive disorder, where biallelic loss-of-function genotypes drive activity far lower and produce infantile Leigh syndrome. A half-normal enzyme is compatible with decades of ordinary life and only fails where the metabolic margin is thinnest, which is the reason the disease is late in onset and restricted in the tissues it damages.\\nTissue expression of the defect is genuinely inconsistent between the two reports and this entry does not smooth that over. In the founding family the enzyme defect was explicitly not expressed in cultured skin fibroblasts or immortalised lymphocytes, so a normal fibroblast assay did not exclude the diagnosis; in the de novo case the defect was demonstrable in exactly those two cell types. The discrepancy has direct diagnostic consequences and is recorded as an open discussion.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"tricarboxylic acid cycle\", \"electron transport chain\"], \"molecular_functions\": [\"succinate dehydrogenase activity\"]}}, {\"id\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A permanent halving of succinate dehydrogenase activity is a mild insult in most cells and a severe one in a few. Complex II sits at the junction of the tricarboxylic acid cycle and the electron transport chain, so its impairment restricts both the oxidative arm of intermediary metabolism and the electron supply to the quinone pool at once. Cells that are long-lived, post-mitotic, unable to dilute damaged mitochondria by division, and running near their ATP ceiling therefore carry the cost: retinal ganglion cells, cerebellar neurons, skeletal myofibres and cardiomyocytes. Cells that turn over, or that can lean on glycolysis, are spared, which is why a systemic enzyme defect produces a strikingly selective clinical picture and why cultured fibroblasts may look normal.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\"]}}, {\"id\": \"Catalytically Inert SDHA Subunit Competing for Complex II Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that explains why the disease is dominant. Complex II is a heterotetramer containing exactly one copy of the flavoprotein subunit alongside the iron-sulfur subunit and the two transmembrane anchors, so every assembled complex commits to one SDHA molecule and there is no second copy to compensate. If the mutant subunit is still expressed and still competent to bind FAD non-covalently, it can be incorporated into complexes that are then structurally complete but catalytically dead, and it competes with the wild-type subunit for the available assembly slots. On that model a heterozygote loses close to half of total succinate dehydrogenase activity while retaining a full complement of assembled complex, which is precisely the biochemical picture reported in the founding family: an approximately 50% enzyme deficit accompanied by an apparent overexpression of the 70-kDa flavoprotein subunit whose membrane-associated amount was nonetheless normal.\\nThe alternative reading, simple haploinsufficiency, would predict the same 50% activity but is hard to reconcile with the population genetics. Heterozygous SDHA loss-of-function alleles are carried without neurodegeneration by the parents of children with recessive complex II deficiency and by members of tumour-predisposition families. The dominant-negative model accounts for that asymmetry; haploinsufficiency does not.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial respiratory chain complex II assembly\"], \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Cerebellar Degeneration and Ataxia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive cerebellar and gait ataxia is the second cardinal feature and was present in both members of the founding sibship. Clinically it takes the form recognisable across the hereditary ataxias: unsteady, wide-based gait with postural instability and falls, limb and truncal incoordination, gaze-evoked nystagmus and, in the OMIM clinical synopsis for this entity, cerebellar atrophy on imaging. Mechanistically it is treated here as the cerebellar instance of the same bioenergetic failure that produces the optic neuropathy, and the entry conforms it to the shared cerebellar ataxia module at the clinical-consequence node rather than at the Purkinje-degeneration node, because the intermediate cellular pathology has not been observed in this disorder.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cerebellum\"]}}, {\"id\": \"Complex II (succinate dehydrogenase) enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A reduction to approximately half of control values in muscle, platelets or, in some individuals, cultured fibroblasts and lymphocytes reports the partial enzymatic block produced by a heterozygous flavinylation-defective SDHA allele. A normal result in fibroblasts does not exclude the diagnosis.\"}]}}, {\"id\": \"Divergence From the SDHx Tumour-Predisposition Arm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of succinate dehydrogenase has a second, entirely different consequence: succinate accumulates and acts as an oncometabolite, inhibiting alpha-ketoglutarate-dependent dioxygenases, driving a pseudohypoxic transcriptional response and remodelling the epigenome. That is the route by which heterozygous SDHx loss-of-function alleles, with somatic loss of the second allele, cause paraganglioma, phaeochromocytoma and gastrointestinal stromal tumour. This node exists to state explicitly that NDAXOA is not known to travel that route, and to keep the two arms from being conflated.\\nThe empirical position, as of this curation, is that mitochondrial-disease SDHx genotypes and tumour SDHx genotypes have historically been reported as separate sets, with only isolated alleles crossing over. No tumour has been reported in either NDAXOA pedigree. Whether that reflects a real mechanistic divergence, in which a missense allele that blocks flavinylation without destroying the tumour-suppressor function of the locus fails to initiate tumorigenesis, or merely reflects the tiny number of carriers ever followed, is unresolved and is recorded as an open discussion rather than asserted in either direction. The practical consequence is that clinicians have to make a surveillance decision on absent evidence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"hypoxia-inducible factor-1alpha signaling pathway\"], \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SDHA is a flavoprotein whose catalytic activity depends absolutely on a FAD cofactor attached covalently to the subunit; without the covalent linkage the subunit cannot oxidise succinate. Two independent lines of evidence converge on this step for the two NDAXOA-associated alleles. For the founding-family allele, mutation of the equivalent base in the Escherichia coli orthologue produces an enzyme that is inactive and cannot bind FAD covalently. For the de novo allele, structural modelling of p.Arg662Cys predicts that it compromises the integrity of the FAD-binding region at the C-terminus and so impairs FAD binding.\\nThat convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh1 shows that a pair of spatially close C-terminal arginine residues, physically distant from the FAD-binding site itself, are required for covalent flavinylation and for assembly of the tetramer, and that FAD binding rather than covalent attachment is what stabilises the Sdh1 conformation for association with its partners. Flavinylation is also an assisted reaction: the dedicated factor SDHAF2/SDH5 binds the catalytic subunit and is required for its flavination. The step is therefore a discrete, mutable chemistry, not a passive property of the folded protein, and it is a plausible point at which a single conservative-looking arginine substitution can abolish catalysis without abolishing expression.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"covalent flavinylation of the SDHA subunit\"], \"molecular_functions\": [\"flavin adenine dinucleotide binding\"], \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Heterozygous SDHA Missense Allele at a Conserved Arginine\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is a single heterozygous missense change in SDHA at 5p15.33, reported against transcript NM_004168.4. Both alleles associated with this phenotype substitute a cysteine for a conserved arginine: the founding-family allele c.1351C\u003eT (p.Arg451Cys), historically written R408C in mature-protein numbering, and the de novo allele c.1984C\u003eT (p.Arg662Cys). Neither is a truncating or splice-disrupting change, and neither is predicted to remove the protein. This matters because heterozygous SDHA truncating alleles are the recognised cause of a completely different disease, tumour predisposition, and do not cause neurodegeneration. The genotype-phenotype rule for SDHA is therefore not \\\"how much protein is left\\\" but \\\"what kind of protein is made\\\".\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}]}}, {\"id\": \"NM_004168.4(SDHA):c.1351C\u003eT (p.Arg451Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The established NDAXOA allele, historically designated R408C in mature-protein numbering. Identified in the family originally reported with biochemical complex II deficiency and subsequently found in a second, unrelated dominant pedigree. Functional support comes from the bacterial orthologue, where mutation of the equivalent base yields an enzyme unable to bind FAD covalently, and from a human SDHA-knockout cell line, in which this substitution abolishes SDH activity while leaving SDHA protein abundant (the per-variant result is in the PMC11611653 full text, Figure 2; the cached abstract for PMID:39321216 does not name this variant).\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}], \"variant_type\": \"missense variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_004168.4(SDHA):c.1984C\u003eT (p.Arg662Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Candidate second allele, reported de novo in an individual with global developmental delay, intellectual disability and childhood-onset progressive bilateral optic atrophy, with decreased complex II activity in fibroblasts and lymphocytes and in-silico evidence of impaired C-terminal FAD binding. It has since also been assayed in a human SDHA-knockout cell line, where it scored as essentially inactive (per-variant result from the PMC11611653 full text, Table 1; the cached abstract for PMID:39321216 reports only that 22 variants of uncertain significance were assayed and does not name this one); that study frames the result as functional evidence for cancer pathogenicity, so it speaks to the allele\u0027s effect on enzyme function and not to which SDHA phenotype it causes. Recorded as a candidate rather than an established NDAXOA allele because ClinVar holds no record for it against this condition and its aggregate classification is conflicting.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}], \"variant_type\": \"missense variant\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"Retinal Ganglion Cell and Optic Nerve Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Optic atrophy is the feature that names the disorder and the one that is present in every reported family. Its anatomical basis is the particular energetic geometry of the retinal ganglion cell: the cell body sits in the retina and generates the mitochondria, which are then transported down an axon that is unmyelinated and mitochondria-rich anterior to the lamina cribrosa and myelinated and mitochondria-poor behind it. The prelaminar segment therefore carries an unusually high, spatially concentrated demand for oxidative ATP with no local capacity to make more. Any systemic restriction of oxidative phosphorylation is felt there first, which is the accepted explanation for why chemically unrelated mitochondrial lesions, from mitochondrial DNA complex I mutations in Leber hereditary optic neuropathy to nuclear OPA1 mutations in dominant optic atrophy, all converge on the same optic neuropathy. Complex II deficiency joins that convergence from a different enzymatic starting point.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"retinal ganglion cell\"], \"locations\": [\"optic nerve\"]}}, {\"id\": \"Riboflavin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Riboflavin is the dietary precursor of FAD, the cofactor whose covalent attachment to SDHA is the step that the NDAXOA alleles are argued to disrupt, so raising intracellular flavin availability is the one mechanistically targeted intervention that has ever been tried in complex II deficiency. In three children with recessive complex II deficiency treated with oral riboflavin and followed for a mean of 4.5 years, the neurological course was stable or moderately improved in two and plasma lactate decreased to near-normal levels in the third, and riboflavin supplementation of the culture medium doubled complex II activity in patient fibroblasts but not in control fibroblasts.\\nWhether any of that transfers to NDAXOA is unknown and this entry does not claim it does. No patient with a dominant SDHA allele has been reported on riboflavin. There is a specific mechanistic reason for caution: raising FAD availability is a plausible remedy for a subunit that binds its cofactor poorly, but has no obvious mechanism against a subunit that cannot form the covalent linkage at all, and none at all if the dominant allele acts by competing for assembly slots. The intervention is nevertheless recorded because it is cheap, non-toxic and rationally connected to the curated mechanism, which is the strongest position available in a disease with no trials.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"riboflavin\"]}}, {\"id\": \"SDHA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SDHA\"], \"gene_terms\": [{\"label\": \"SDHA\", \"id\": \"hgnc:10680\"}], \"association\": \"Heterozygous missense substitutions at conserved arginine residues, argued to disable covalent flavinylation or FAD binding of the flavoprotein subunit; the recurrent founding-family allele is c.1351C\u003eT (p.Arg451Cys), historically designated R408C.\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Striated Muscle and Myocardial Energy Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal muscle and myocardium are the third and fourth tissues that a permanent half-normal oxidative capacity cannot support. In the founding family the muscle involvement took the form of a myopathy with myalgia and limb weakness in older adults, and muscle mitochondria were the tissue in which the enzyme deficit was demonstrable. In the second pedigree the cardiac involvement was earlier and far more severe than the neurological involvement: both children presented with cardiomyopathy in early childhood and one died of cardiac insufficiency at seven months, while their father\u0027s cardiomyopathy accompanied an adult neurological presentation. Cardiac disease is therefore not a late complication of this disorder but, in some carriers, its first and lethal manifestation.\\nThe accompanying methylglutaconic aciduria in the two affected children is the expected urinary signature of a mitochondrial energy defect rather than a specific marker of complex II, and it is what should prompt a mitochondrial workup in a child with unexplained cardiomyopathy.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"locations\": [\"skeletal muscle tissue\", \"heart\"]}}], \"edges\": [{\"source\": \"Heterozygous SDHA Missense Allele at a Conserved Arginine\", \"target\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both substitutions are argued to disable the covalent flavinylation chemistry or the FAD-binding conformation of the subunit rather than to destabilise or truncate it.\"}, {\"source\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"target\": \"Catalytically Inert SDHA Subunit Competing for Complex II Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subunit that binds FAD without the covalent linkage can still enter the tetramer, so the mutant polypeptide is not simply removed from the pool.\"}, {\"source\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"target\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whatever the assembly route, the measured net result in patient tissue is a partial rather than complete loss of enzyme activity.\"}, {\"source\": \"Catalytically Inert SDHA Subunit Competing for Complex II Assembly\", \"target\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether by competition or by dosage, the measured phenotype in patient tissue is a partial enzyme deficit.\"}, {\"source\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"target\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A partial and permanent shortfall in oxidative ATP production is the common upstream state for every tissue-level consequence below.\"}, {\"source\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"target\": \"Divergence From the SDHx Tumour-Predisposition Arm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same enzymatic block that produces neurodegeneration here produces tumours in other SDHA genotypes; the branch point is curated explicitly.\"}, {\"source\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"target\": \"Retinal Ganglion Cell and Optic Nerve Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"target\": \"Cerebellar Degeneration and Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Cells With Low Metabolic Reserve\", \"target\": \"Striated Muscle and Myocardial Energy Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Riboflavin supplementation\", \"target\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Approximately Half-Normal Succinate Dehydrogenase Activity\", \"target\": \"Complex II (succinate dehydrogenase) enzyme activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A reduction to approximately half of control values in muscle, platelets or, in some individuals, cultured fibroblasts and lymphocytes reports the partial enzymatic block produced by a heterozygous flavinylation-defective SDHA allele. A normal result in fibroblasts does not exclude the diagnosis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SDHA\", \"target\": \"Catalytically Inert SDHA Subunit Competing for Complex II Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SDHA\", \"target\": \"Divergence From the SDHx Tumour-Predisposition Arm\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SDHA\", \"target\": \"Failure of Covalent FAD Attachment to the SDHA Flavoprotein\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SDHA\", \"target\": \"Heterozygous SDHA Missense Allele at a Conserved Arginine\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_004168.4(SDHA):c.1351C\u003eT (p.Arg451Cys)\", \"target\": \"SDHA\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_004168.4(SDHA):c.1984C\u003eT (p.Arg662Cys)\", \"target\": \"SDHA\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6855,13 +6978,15 @@ This pathophysiological event involves increased hypoxia-inducible factor-1alpha
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Cellular<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6899,6 +7024,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in all three members of the second pedigree. Not reported in the founding family&#39;s abstracts. The OMIM clinical synopsis for 619259 additionally records HP:0001640 Cardiomegaly and HP:0001635 Congestive heart failure (MedGen C5543254, retrieved 2026-08-01), both of which are consistent with the fatal infant case. No frequency band is asserted.</div>
 
 
@@ -6918,6 +7046,7 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6942,6 +7071,7 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6993,6 +7123,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </div>
 
 
+
+
+
                     <div class="item-desc">The cited snippet reports &#34;cardiac insufficiency&#34; as the cause of death at seven months; HP:0001635 Congestive heart failure is the closest HPO term and is bound with the source&#39;s own wording preserved in the snippet. The same term appears independently in the OMIM clinical synopsis for 619259 (MedGen C5543254, retrieved 2026-08-01).</div>
 
 
@@ -7012,6 +7145,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7090,6 +7224,9 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
                     </div>
 
 
+
+
+
                     <div class="item-desc">Present in the two sisters of the founding family, in the index patient and the adult son of the second family, and in the de novo case. The daughter of the second family died at seven months and never reached an age at which optic atrophy could declare itself, so she is not a negative. No frequency band is asserted; see the entry notes.</div>
 
 
@@ -7109,6 +7246,7 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7136,6 +7274,7 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7157,6 +7296,7 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7210,6 +7350,9 @@ This clinical feature is Ocular movement disorder, annotated with Abnormality of
                     </div>
 
 
+
+
+
                     <div class="item-desc">The bound term is deliberately the parent HP:0000496 rather than the more specific HP:0000597 Ophthalmoparesis, because the only quotable source describes an unqualified &#34;ocular movement disorder&#34; and does not say which kind. The more specific reading, limited extraocular movements, comes from the OMIM narrative definition of 619259 exposed through MedGen C5543254 (retrieved 2026-08-01), which is not a cached quotable reference; that synopsis also records HP:0000639 Nystagmus, HP:0000640 Gaze-evoked nystagmus and HP:0000651 Diplopia. Both HP:0000496 and HP:0000597 were verified with OAK; the parent was chosen because the evidence does not support the child, not by accident.</div>
 
 
@@ -7229,6 +7372,7 @@ This clinical feature is Ocular movement disorder, annotated with Abnormality of
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7260,6 +7404,89 @@ This clinical feature is Ocular movement disorder, annotated with Abnormality of
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-3-methylglutaconic-aciduria" data-dismech-node="3-Methylglutaconic aciduria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        3-Methylglutaconic aciduria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003535</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">The cited abstract writes &#34;methylglutaconic aciduria&#34; without the 3- prefix; HP:0003535 is the corresponding HPO term and the snippet preserves the source wording. Reported in two of three carriers in the second pedigree; not reported in the founding family or in the de novo case. No frequency band is asserted.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27683074" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two of his children presented with cardiomyopathy and methylglutaconic aciduria in early childhood."</div>
+
+
+                <div class="evidence-explanation">Documents methylglutaconic aciduria in the two child carriers of the dominant allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
@@ -7278,10 +7505,10 @@ This clinical feature is Ocular movement disorder, annotated with Abnormality of
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003198</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003198</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myopathy (HP:0003198), qualified as course progressive. HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7310,6 +7537,9 @@ This clinical feature is Myopathy (HP:0003198), qualified as course progressive.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7324,6 +7554,7 @@ This clinical feature is Myopathy (HP:0003198), qualified as course progressive.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7352,11 +7583,11 @@ This clinical feature is Myopathy (HP:0003198), qualified as course progressive.
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
@@ -7373,10 +7604,10 @@ This clinical feature is Myopathy (HP:0003198), qualified as course progressive.
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7402,6 +7633,9 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in both sisters of the founding family. Ataxia is not mentioned in the abstract of the second pedigree&#39;s report, which describes that family&#39;s neurological involvement as a progressive polyneuropathy; whether the cerebellar syndrome is universal in this entity or specific to the founding family cannot be settled from the cached abstracts. The component terms HP:0002066 Gait ataxia, HP:0002078 Truncal ataxia, HP:0002070 Limb ataxia, HP:0002317 Unsteady gait, HP:0002172 Postural instability and HP:0002312 Clumsiness all appear in the OMIM clinical synopsis for 619259 (MedGen C5543254, retrieved 2026-08-01) and were each verified with OAK, but are not given separate phenotype entries here because they decompose a single clinical syndrome that the primary sources describe as &#34;ataxia&#34;.</div>
 
 
@@ -7421,6 +7655,7 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7461,10 +7696,10 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course progressive. HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7490,10 +7725,105 @@ This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course pr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated from the OMIM clinical synopsis for 619259 as exposed through MedGen concept C5543254 (HP:0001272, retrieved 2026-08-01 from the NCBI eutils esummary endpoint for MedGen uid 1779901). It does not appear in any cached abstract for this disorder, so no evidence item is attached. Note that progressive cerebellar atrophy on serial MRI has been imaged and published in SDHA disease, but in a biallelic child (PMID:33960148), not in a heterozygous NDAXOA patient; that image is deliberately not adopted as evidence here.</div>
 
 
 
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyneuropathy" data-dismech-node="Polyneuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Polyneuropathy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001271" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001271</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyneuropathy (HP:0001271), qualified as course progressive. HP:0001271 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Reported in the index patient of the second pedigree. The related sensory terms HP:0012534 Dysesthesia and HP:0003487 Babinski sign appear in the OMIM clinical synopsis for 619259 (MedGen C5543254, retrieved 2026-08-01); the Babinski sign indicates additional corticospinal involvement, which is recorded here rather than given its own phenotype entry because it rests on the synopsis alone.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27683074" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The index patient presented with bilateral optic atrophy and ocular movement disorder, a progressive polyneuropathy, psychiatric involvement, and cardiomyopathy."</div>
+
+
+                <div class="evidence-explanation">Names progressive polyneuropathy as a presenting feature in the index patient of the second dominant family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7517,15 +7847,18 @@ This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course pr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Psychiatric involvement, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The bound term is the broad behavioural-abnormality parent because the quotable source says only &#34;psychiatric involvement&#34; without specifying a syndrome. HP:0000716 Depression is recorded in the OMIM clinical synopsis for 619259 (MedGen C5543254, retrieved 2026-08-01) and was verified with OAK, but is not bound here because the synopsis is not a quotable source and the primary report does not name depression.</div>
@@ -7547,6 +7880,7 @@ This clinical feature is Psychiatric involvement, annotated with Atypical behavi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7587,15 +7921,18 @@ This clinical feature is Psychiatric involvement, annotated with Atypical behavi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported in one individual, the de novo case, whose assignment to this entity is qualified in the entry notes because ClinVar carries no NDAXOA record for that allele. Not reported in either dominant pedigree.</div>
@@ -7617,6 +7954,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7657,15 +7995,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported in one individual. Not reported in either dominant pedigree, whose affected adults had ordinary cognition alongside their psychiatric and motor features.</div>
@@ -7687,6 +8028,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7715,215 +8057,12 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myalgia" data-dismech-node="Myalgia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myalgia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003326</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Curated from the OMIM clinical synopsis for 619259 via MedGen C5543254 (HP:0003326, retrieved 2026-08-01), together with HP:0012378 Fatigue and HP:0003690 Limb muscle weakness from the same source. Not mentioned in any cached abstract, so no evidence item is attached.</div>
-
-
-
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
+                    Cellular
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-polyneuropathy" data-dismech-node="Polyneuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Polyneuropathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001271" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001271</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Polyneuropathy (HP:0001271), qualified as course progressive. HP:0001271 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-                    <div class="item-desc">Reported in the index patient of the second pedigree. The related sensory terms HP:0012534 Dysesthesia and HP:0003487 Babinski sign appear in the OMIM clinical synopsis for 619259 (MedGen C5543254, retrieved 2026-08-01); the Babinski sign indicates additional corticospinal involvement, which is recorded here rather than given its own phenotype entry because it rests on the synopsis alone.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27683074" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The index patient presented with bilateral optic atrophy and ocular movement disorder, a progressive polyneuropathy, psychiatric involvement, and cardiomyopathy."</div>
-
-
-                <div class="evidence-explanation">Names progressive polyneuropathy as a presenting feature in the index patient of the second dominant family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-3-methylglutaconic-aciduria" data-dismech-node="3-Methylglutaconic aciduria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        3-Methylglutaconic aciduria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003535</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">The cited abstract writes &#34;methylglutaconic aciduria&#34; without the 3- prefix; HP:0003535 is the corresponding HPO term and the snippet preserves the source wording. Reported in two of three carriers in the second pedigree; not reported in the founding family or in the de novo case. No frequency band is asserted.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27683074" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Two of his children presented with cardiomyopathy and methylglutaconic aciduria in early childhood."</div>
-
-
-                <div class="evidence-explanation">Documents methylglutaconic aciduria in the two child carriers of the dominant allele.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-activity-of-mitochondrial-complex-ii" data-dismech-node="Decreased activity of mitochondrial complex II" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7939,15 +8078,18 @@ This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008314" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0008314</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008314" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0008314</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased activity of mitochondrial complex II (HP:0008314). HP:0008314 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Demonstrated in muscle and platelet mitochondria in the founding family and in fibroblasts and lymphocytes in the de novo case, and inferred in the second pedigree from the title and framing of that report. The tissues in which the defect is expressible are not consistent between reports, which is curated as an open discussion and as a diagnostic caveat rather than resolved.</div>
@@ -7969,6 +8111,7 @@ This clinical feature is Decreased activity of mitochondrial complex II (HP:0008
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7996,6 +8139,7 @@ This clinical feature is Decreased activity of mitochondrial complex II (HP:0008
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8012,6 +8156,54 @@ This clinical feature is Decreased activity of mitochondrial complex II (HP:0008
 
         </div>
     </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myalgia" data-dismech-node="Myalgia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Myalgia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Curated from the OMIM clinical synopsis for 619259 via MedGen C5543254 (HP:0003326, retrieved 2026-08-01), together with HP:0012378 Fatigue and HP:0003690 Limb muscle weakness from the same source. Not mentioned in any cached abstract, so no evidence item is attached.</div>
+
+
+
 
 
 
@@ -8091,6 +8283,9 @@ This disease-associated gene is SDHA (hgnc:10680). hgnc:10680 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
@@ -8116,6 +8311,7 @@ This disease-associated gene is SDHA (hgnc:10680). hgnc:10680 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8137,6 +8333,7 @@ This disease-associated gene is SDHA (hgnc:10680). hgnc:10680 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8183,6 +8380,7 @@ This disease-associated gene is SDHA (hgnc:10680). hgnc:10680 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8202,11 +8400,17 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The established NDAXOA allele, historically designated R408C in mature-protein numbering. Identified in the family originally reported with biochemical complex II deficiency and subsequently found in a second, unrelated dominant pedigree. Functional support comes from the bacterial orthologue, where mutation of the equivalent base yields an enzyme unable to bind FAD covalently, and from a human SDHA-knockout cell line, in which this substitution abolishes SDH activity while leaving SDHA protein abundant (the per-variant result is in the PMC11611653 full text, Figure 2; the cached abstract for PMID:39321216 does not name this variant).</div>
@@ -8248,6 +8452,7 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8269,6 +8474,7 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8304,6 +8510,7 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8323,11 +8530,17 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Candidate second allele, reported de novo in an individual with global developmental delay, intellectual disability and childhood-onset progressive bilateral optic atrophy, with decreased complex II activity in fibroblasts and lymphocytes and in-silico evidence of impaired C-terminal FAD binding. It has since also been assayed in a human SDHA-knockout cell line, where it scored as essentially inactive (per-variant result from the PMC11611653 full text, Table 1; the cached abstract for PMID:39321216 reports only that 22 variants of uncertain significance were assayed and does not name this one); that study frames the result as functional evidence for cancer pathogenicity, so it speaks to the allele&#39;s effect on enzyme function and not to which SDHA phenotype it causes. Recorded as a candidate rather than an established NDAXOA allele because ClinVar holds no record for it against this condition and its aggregate classification is conflicting.</div>
@@ -8369,6 +8582,7 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8393,6 +8607,7 @@ This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8478,6 +8693,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8488,6 +8706,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8555,6 +8776,12 @@ This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Because cardiomyopathy was present in all three carriers of the second pedigree and killed one of them in infancy, cardiac surveillance is the one intervention in this disorder with a clear, published rationale. Echocardiographic follow-up and conventional heart failure management apply; the disorder does not change how the cardiomyopathy itself is treated, only the imperative to look for it.</div>
 
 
@@ -8576,6 +8803,7 @@ This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8667,6 +8895,9 @@ This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8677,6 +8908,9 @@ This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8726,6 +8960,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8747,6 +8982,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8821,6 +9057,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counselling in this disorder is unusually difficult and the difficulty is specific rather than generic. A carrier faces a 50% transmission risk, but what is transmitted cannot be described: within one published family the same allele produced lethal infantile cardiomyopathy in one child and adult optic atrophy in another. Beyond that, the family must be told that the literature attaches a tumour-surveillance recommendation to SDHA pathogenic variants generally, that no such recommendation exists for adult-onset mitochondrial disease, and that the absolute risk of either outcome for their particular allele is unknown. Predictive testing of at-risk relatives therefore returns a result whose meaning is genuinely indeterminate.</div>
 
 
@@ -8845,6 +9087,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8866,6 +9109,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8957,6 +9201,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9013,6 +9258,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9082,6 +9328,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9103,6 +9350,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9160,6 +9408,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9181,6 +9430,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9260,6 +9510,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9335,6 +9586,7 @@ The one quantitative anchor that does exist is upstream of the entity rather tha
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9356,6 +9608,7 @@ The one quantitative anchor that does exist is upstream of the entity rather tha
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9466,6 +9719,7 @@ The one quantitative anchor that does exist is upstream of the entity rather tha
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9487,6 +9741,7 @@ The one quantitative anchor that does exist is upstream of the entity rather tha
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9572,6 +9827,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9593,6 +9849,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9760,6 +10017,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9835,6 +10093,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9996,6 +10255,7 @@ This experimental model concerns SDHA (hgnc:10680). hgnc:10680 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10017,6 +10277,7 @@ This experimental model concerns SDHA (hgnc:10680). hgnc:10680 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12785,6 +13046,31 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review response: mark PMID:39321216 full-text-derived prose inline; weaken riboflavin target_mechanisms</strong> · 2026-08-02T05:12:05Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SDHA-Related_Neurodegeneration_With_Ataxia_And_Optic_Atrophy/2026-08-02T051205Z-claude-code-7dbea7.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the PR #7846 REQUEST_CHANGES review (comment 5155370248). Two of the reviewer&#39;s four findings were actioned, one was out of scope, one was rejected with reasoning.
+
+IMPORTANT 2, actioned: PMID:39321216 per-variant prose was unverifiable from the cache. references_cache/PMID_39321216.md is content_type abstract_only, and the cached abstract reports only aggregate results (72 variants characterised, 22 VUS assayed, 21 of 22 yielding functional evidence, 19 favouring pathogenicity) while naming neither p.Arg451Cys nor p.Arg662Cys. The previous commit had already recorded figure/table provenance in three places, but five further prose sites asserted the same per-variant results with no marker at all, which is exactly the unpoliced-prose exposure of issue #7791: the snippet checkers read only evidence[].snippet, so all 80 snippets pass while the figure-level claims sit unchecked. Took the reviewer&#39;s option (c) uniformly rather than option (b), because scoping back to the aggregate would silently reinstate the &#34;no human functional experiment exists&#34; claim that the preceding commit retracted. Every site in the entry that states a per-variant result from this paper now names the source (PMC11611653), the specific figure or table, the 2026-08-01 retrieval date, and the fact that the cached reference is abstract-only and therefore cannot verify it. The eight sites are the entry-level scope notes, the Failure of Covalent FAD Attachment node&#39;s evidence explanation and notes, the Catalytically Inert SDHA Subunit node&#39;s evidence explanation and notes, the genetic-section allelic-architecture notes, both variant descriptions and both variant evidence explanations, and the sdha-flavinylation-assay-human-alleles proposed experiment. The entry-level note additionally states the provenance limit once, up front, so a reader meets it before any downstream node repeats it. No snippet was changed; all remain scoped to the aggregate statements the abstract supports.
+
+Independent verification attempted and failed, which is why the marker rather than the assertion is the fix. Europe PMC reports PMC11611653 as isOpenAccess N; the fullTextXML endpoint returns empty and the annotations API exposes title and abstract sections only, with no mention of residue 451 or 662. The AACR PDF is paywalled. The per-variant claims therefore remain a recorded full-text derivation from the earlier session, not something this session could re-verify, and the prose now says so rather than implying snippet support.
+
+SUGGESTION 3, actioned: riboflavin target_mechanisms treatment_effect changed from RESTORES to MODULATES. RESTORES asserts that the treatment returns a disrupted mechanism to normal function, which contradicts the entry&#39;s own treatment description (&#34;no obvious mechanism against a subunit that cannot form the covalent linkage at all, and none at all if the dominant allele acts by competing for assembly slots&#34;). MODULATES (&#34;alters the mechanism without clear unidirectional effect&#34;) is the honest predicate. The link to the FAD-attachment node was kept rather than dropped, because the drug and the node are genuinely the same chemistry and the rationale is the reason the treatment is recorded at all; the edge description now states explicitly why the weaker predicate was chosen and that direction and magnitude are unestablished. Both evidence items were already PARTIAL and are unchanged.
+
+SUGGESTION 4, rejected: Saccharomyces cerevisiae under animal_models. The reviewer characterises this themselves as &#34;a labelling nit, not a correctness problem&#34; and notes it is &#34;worth noting only in case the schema later grows a better-fitting slot&#34;. The schema offers no in-vitro or model-system slot that would fit a site-directed-mutagenesis yeast experiment better, the node already states in its own description that the residues mutated are yeast Arg582 and Arg638 rather than the human ones, that no alignment to human Arg451 or Arg662 was performed or asserted, and that no animal model of NDAXOA exists in any species. Relocating the content would lose it; inventing a slot is out of scope for this file. Left as is.
+
+IMPORTANT 1, out of scope: the missing deep-research artifact is being handled at the batch level and was not addressed here.
+
+Validation: just validate PASS (80/80 snippets verified against cached references), validate-terms PASS, check_snippets_verbatim 80/80 verbatim and 0 failed, check_folded_hyphens PASS with no new folded-scalar hyphen splits, check_snippet_length --against-ref origin/main reports no new snippets under 5 words, pytest tests/test_data.py PASS. One HTTP 403 was logged during reference validation for the third-party publisher PDF at erc.bioscientifica.com; it is an external paywall hit by the validator&#39;s full-text fetch, not a repository permission problem, and validation still passed. Only the disorder YAML and this history record were modified; the ~7,600 references_cache files rewritten by the validator (issue #7507) were reverted with git checkout, and no cache/*.csv file changed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

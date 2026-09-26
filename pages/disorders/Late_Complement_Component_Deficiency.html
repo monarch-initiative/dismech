@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Late%20Complement%20Component%20Deficiency"
@@ -3987,7 +4055,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3996,7 +4064,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4015,7 +4083,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -4330,6 +4398,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4354,6 +4423,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4375,6 +4445,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4407,8 +4478,16 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -4456,6 +4535,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                C5
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:1331</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C5 (hgnc:1331). hgnc:1331 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Deficiency of complement C5 (gene C5, 9q33.2), the substrate cleaved by C5 convertase to initiate the terminal pathway. Complete deficiency abolishes both C5a generation and MAC assembly, with absent CH50/AH50 hemolytic activity.</div>
@@ -4481,6 +4579,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                C6
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:1339</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C6 (hgnc:1339). hgnc:1339 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4516,6 +4633,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                C7
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:1346</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C7 (hgnc:1346). hgnc:1346 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Deficiency of complement C7 (gene C7, 5p13), with a well-described founder mutation (p.Gly379Arg) in Moroccan-origin Israeli Jews.</div>
@@ -4544,9 +4680,186 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                C8A
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:1352</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C8A (hgnc:1352). hgnc:1352 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                C8B
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:1353</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C8B (hgnc:1353). hgnc:1353 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
-                    <div class="item-desc">Deficiency of complement C8, which is a heterotrimer of alpha (C8A, 1p32), beta (C8B, 1p32), and gamma (C8G, 9q34) chains. Functional C8 deficiency most often results from C8B (beta-chain) loss, with alpha-gamma deficiency described in other populations.</div>
+                    <div class="item-desc">Deficiency of complement C8, which is a heterotrimer of alpha (C8A, 1p32), beta (C8B, 1p32), and gamma (C8G, 9q34) chains. Functional C8 deficiency most often results from C8B (beta-chain) loss, with alpha-gamma deficiency described in other populations. MONDO splits the concept by chain, so the two chain-specific forms are declared as child rows below and each carries its own gene; this row is the span over both.</div>
+
+
+
+                    <ul class="subtype-children">
+
+                        <li>C8 Alpha-Gamma Deficiency</li>
+
+                        <li>C8 Beta Deficiency</li>
+
+                    </ul>
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-c8-alpha-gamma-deficiency">
+
+                    <div class="item-name">
+                        Complement Component 8 Deficiency, Type I (C8A, alpha-gamma)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013422" target="_blank">MONDO:0013422</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                C8A
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:1352</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C8A (hgnc:1352). hgnc:1352 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The alpha-gamma form of C8 deficiency, caused by biallelic loss-of-function variants in C8A. The gamma chain is not itself the lesion: in the two unrelated Japanese subjects whose molecular basis was characterised, all seven exons of C8G were screened and no variant was found, while both carried C8A defects.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9759902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9759902" target="_blank">PMID:9759902</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"No mutations were detected in the C8gamma gene by our method. Our results indicate that the pathogenesis of C8alpha-gammaD might be caused by heterogeneous molecular defects in the C8alpha gene."</div>
+
+
+                <div class="evidence-explanation">The molecular result that assigns the alpha-gamma form of C8 deficiency to C8A rather than to C8G, which is why this row binds C8A alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-c8-beta-deficiency">
+
+                    <div class="item-name">
+                        Complement Component 8 Deficiency, Type II (C8B, beta)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013421" target="_blank">MONDO:0013421</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                C8B
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:1353</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C8B (hgnc:1353). hgnc:1353 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The beta form of C8 deficiency, caused by biallelic loss-of-function variants in C8B. This is the more commonly reported route to functional C8 deficiency.</div>
 
 
 
@@ -4569,6 +4882,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                C9
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:1358</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C9 (hgnc:1358). hgnc:1358 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4610,6 +4942,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-terminal-complement-component-loss-of-function" data-dismech-node="Terminal Complement Component Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Terminal Complement Component Loss of Function</div>
 
+
                 <div class="item-desc">Germline biallelic loss-of-function variants (nonsense, frameshift, missense disrupting folding, splice, or 3&#39;UTR variants causing mRNA instability) in C5, C6, C7, C8 (C8A/C8B), or C9 lead to absent or severely reduced serum levels of the affected terminal complement component. Inheritance is autosomal recessive; heterozygotes are typically asymptomatic carriers.</div>
 
 
@@ -4632,11 +4965,11 @@
         C5
 
 
-    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:1331</a>
+    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:1331</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves C5 (hgnc:1331). hgnc:1331 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4671,11 +5004,11 @@ This pathophysiological event involves C5 (hgnc:1331). hgnc:1331 is a gene from 
         C6
 
 
-    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:1339</a>
+    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:1339</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves C6 (hgnc:1339). hgnc:1339 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4710,11 +5043,11 @@ This pathophysiological event involves C6 (hgnc:1339). hgnc:1339 is a gene from 
         C7
 
 
-    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:1346</a>
+    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:1346</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves C7 (hgnc:1346). hgnc:1346 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4749,11 +5082,11 @@ This pathophysiological event involves C7 (hgnc:1346). hgnc:1346 is a gene from 
         C8A
 
 
-    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:1352</a>
+    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:1352</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves C8A (hgnc:1352). hgnc:1352 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4788,11 +5121,11 @@ This pathophysiological event involves C8A (hgnc:1352). hgnc:1352 is a gene from
         C8B
 
 
-    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:1353</a>
+    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:1353</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves C8B (hgnc:1353). hgnc:1353 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4827,11 +5160,11 @@ This pathophysiological event involves C8B (hgnc:1353). hgnc:1353 is a gene from
         C9
 
 
-    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:1358</a>
+    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:1358</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves C9 (hgnc:1358). hgnc:1358 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4900,6 +5233,7 @@ This pathophysiological event involves C9 (hgnc:1358). hgnc:1358 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4921,6 +5255,7 @@ This pathophysiological event involves C9 (hgnc:1358). hgnc:1358 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4947,11 +5282,250 @@ This pathophysiological event involves C9 (hgnc:1358). hgnc:1358 is a gene from 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-membrane-attack-complex-assembly" data-dismech-node="Impaired Membrane Attack Complex Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Membrane Attack Complex Assembly</div>
 
+
                 <div class="item-desc">The terminal pathway is initiated when C5 convertase cleaves C5 into C5a and C5b; C5b sequentially binds C6 and C7, then C8, and finally multiple C9 molecules polymerize to form the lytic membrane attack complex (MAC; C5b-9) pore. Deficiency of any terminal component prevents MAC assembly, producing absent or markedly reduced classical (CH50) and alternative (AH50) pathway hemolytic activity.</div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        C5
+
+
+    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:1331</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C5 (hgnc:1331). hgnc:1331 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        C6
+
+
+    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1339</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C6 (hgnc:1339). hgnc:1339 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        C7
+
+
+    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:1346</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C7 (hgnc:1346). hgnc:1346 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        C8A
+
+
+    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:1352</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C8A (hgnc:1352). hgnc:1352 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        C8B
+
+
+    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:1353</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C8B (hgnc:1353). hgnc:1353 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        C9
+
+
+    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:1358</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C9 (hgnc:1358). hgnc:1358 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4968,11 +5542,11 @@ This pathophysiological event involves C9 (hgnc:1358). hgnc:1358 is a gene from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001905" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001905</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001905" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0001905</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Activation of Membrane Attack Complex (GO:0001905). GO:0001905 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5002,11 +5576,11 @@ This pathophysiological event involves decreased Activation of Membrane Attack C
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0006956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Complement Activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5079,6 +5653,7 @@ This pathophysiological event involves decreased Complement Activation (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5100,6 +5675,7 @@ This pathophysiological event involves decreased Complement Activation (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5126,6 +5702,7 @@ This pathophysiological event involves decreased Complement Activation (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-serum-bactericidal-activity-against-neisseria" data-dismech-node="Failure of Serum Bactericidal Activity Against Neisseria" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Serum Bactericidal Activity Against Neisseria</div>
 
+
                 <div class="item-desc">The membrane attack complex is the principal mechanism by which serum directly kills pathogenic Neisseria species. With MAC assembly impaired, serum bactericidal activity against Neisseria meningitidis and Neisseria gonorrhoeae is lost even though antibody production, opsonization, and phagocytosis are preserved. This is a selective defect in the terminal effector arm of innate immunity.</div>
 
 
@@ -5147,11 +5724,11 @@ This pathophysiological event involves decreased Complement Activation (GO:00069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031640" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0031640</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031640" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0031640</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Killing of Cells of Another Organism (GO:0031640). GO:0031640 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5181,11 +5758,11 @@ This pathophysiological event involves decreased Killing of Cells of Another Org
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0045087</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0045087</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Innate Immune Response (GO:0045087). GO:0045087 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5250,6 +5827,7 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5271,6 +5849,7 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5297,6 +5876,7 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-invasive-neisserial-infection" data-dismech-node="Recurrent Invasive Neisserial Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Invasive Neisserial Infection</div>
 
+
                 <div class="item-desc">The clinical end of the causal chain: recurrent invasive neisserial infection, predominantly meningococcal sepsis and/or meningitis, and disseminated gonococcal infection. Disease often involves less common meningococcal serogroups (e.g., Y, W, E in addition to B), reflecting failure of MAC-dependent killing rather than serogroup-specific antibody failure. Manifestations include meningococcal septicemia, meningitis, arthritis, and chronic meningococcemia; some patients remain asymptomatic until first exposure and are identified by family screening.</div>
 
 
@@ -5311,11 +5891,11 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000115</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5352,11 +5932,11 @@ This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0045087</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0045087</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Innate Immune Response (GO:0045087). GO:0045087 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5453,6 +6033,7 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5474,6 +6055,7 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5522,7 +6104,7 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of Complement System\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The core diagnostic laboratory phenotype: absent or markedly reduced classical (CH50) and alternative (AH50) pathway hemolytic activity due to failure to assemble C5b-9, typically with absence of the specific terminal component protein on immunoassay or Western blot.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005339\"}}, {\"id\": \"C5 Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C5\"], \"gene_terms\": [{\"label\": \"C5\", \"id\": \"hgnc:1331\"}], \"subtypes\": [\"C5 Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"C6 Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C6\"], \"gene_terms\": [{\"label\": \"C6\", \"id\": \"hgnc:1339\"}], \"subtypes\": [\"C6 Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"C7 Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"C7\"], \"gene_terms\": [{\"label\": \"C7\", \"id\": \"hgnc:1346\"}], \"subtypes\": [\"C7 Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"C8 Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C8B\"], \"gene_terms\": [{\"label\": \"C8B\", \"id\": \"hgnc:1353\"}], \"subtypes\": [\"C8 Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"C9 Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C9\"], \"gene_terms\": [{\"label\": \"C9\", \"id\": \"hgnc:1358\"}], \"subtypes\": [\"C9 Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Failure of Serum Bactericidal Activity Against Neisseria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The membrane attack complex is the principal mechanism by which serum directly kills pathogenic Neisseria species. With MAC assembly impaired, serum bactericidal activity against Neisseria meningitidis and Neisseria gonorrhoeae is lost even though antibody production, opsonization, and phagocytosis are preserved. This is a selective defect in the terminal effector arm of innate immunity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Killing of Cells of Another Organism\", \"Innate Immune Response\"]}}, {\"id\": \"Impaired Membrane Attack Complex Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal pathway is initiated when C5 convertase cleaves C5 into C5a and C5b; C5b sequentially binds C6 and C7, then C8, and finally multiple C9 molecules polymerize to form the lytic membrane attack complex (MAC; C5b-9) pore. Deficiency of any terminal component prevents MAC assembly, producing absent or markedly reduced classical (CH50) and alternative (AH50) pathway hemolytic activity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Activation of Membrane Attack Complex\", \"Complement Activation\"]}}, {\"id\": \"Meningococcal Septicemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meningococcal septicemia, which can be fulminant and require intensive care. In the UK cohort, 22% of patients were treated in intensive care for meningococcal septicaemia.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"SEVERE\", \"term_id\": \"HP:0100806\"}}, {\"id\": \"Meningococcal Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Meningococcal vaccination (quadrivalent MenACWY conjugate plus serogroup B vaccine) is a core preventive strategy. In the UK cohort, all but one patient had received booster meningococcal vaccines. Vaccination reduces but does not eliminate risk, so breakthrough disease remains possible and must be combined with prophylaxis and emergency planning.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Bacterial Meningitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent meningococcal meningitis, sometimes with multiple lifetime episodes. A Qatari patient with C7 deficiency experienced repeated meningitis episodes over years before diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007274\"}}, {\"id\": \"Recurrent Invasive Neisserial Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical end of the causal chain: recurrent invasive neisserial infection, predominantly meningococcal sepsis and/or meningitis, and disseminated gonococcal infection. Disease often involves less common meningococcal serogroups (e.g., Y, W, E in addition to B), reflecting failure of MAC-dependent killing rather than serogroup-specific antibody failure. Manifestations include meningococcal septicemia, meningitis, arthritis, and chronic meningococcemia; some patients remain asymptomatic until first exposure and are identified by family screening.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Endothelial Cell\"], \"biological_processes\": [\"Innate Immune Response\"]}}, {\"id\": \"Recurrent Meningococcal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent invasive meningococcal disease (sepsis and/or meningitis) is the most common clinical presentation. In a UK multicenter cohort the median age at first infection was 9 years, and serogroups B and Y each accounted for 43% of infections.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005381\"}}, {\"id\": \"Recurrent Neisserial Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The hallmark phenotype: recurrent invasive infection by pathogenic Neisseria species (meningococcal and gonococcal). Terminal pathway deficiency confers a roughly 1,000- to 10,000-fold higher risk of invasive meningococcal disease than the general population.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005430\"}}, {\"id\": \"Septic Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meningococcal (septic) arthritis can occur as a focal complication of invasive meningococcal infection in terminal complement deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003095\"}}, {\"id\": \"Terminal Complement Component Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline biallelic loss-of-function variants (nonsense, frameshift, missense disrupting folding, splice, or 3\u0027UTR variants causing mRNA instability) in C5, C6, C7, C8 (C8A/C8B), or C9 lead to absent or severely reduced serum levels of the affected terminal complement component. Inheritance is autosomal recessive; heterozygotes are typically asymptomatic carriers.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"C5\", \"C6\", \"C7\", \"C8A\", \"C8B\", \"C9\"], \"gene_terms\": [{\"label\": \"C5\", \"id\": \"hgnc:1331\"}, {\"label\": \"C6\", \"id\": \"hgnc:1339\"}, {\"label\": \"C7\", \"id\": \"hgnc:1346\"}, {\"label\": \"C8A\", \"id\": \"hgnc:1352\"}, {\"label\": \"C8B\", \"id\": \"hgnc:1353\"}, {\"label\": \"C9\", \"id\": \"hgnc:1358\"}]}}], \"edges\": [{\"source\": \"Terminal Complement Component Loss of Function\", \"target\": \"Impaired Membrane Attack Complex Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of any single terminal component interrupts sequential C5b-9 assembly, so the membrane attack complex cannot be formed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Membrane Attack Complex Assembly\", \"target\": \"Failure of Serum Bactericidal Activity Against Neisseria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without the MAC pore, serum cannot directly lyse Gram-negative Neisseria, so complement-mediated killing fails despite intact opsonization and antibody responses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Membrane Attack Complex Assembly\", \"target\": \"Abnormality of Complement System\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of terminal-pathway MAC assembly is measured as absent or markedly reduced CH50/AH50 hemolytic activity and absent terminal component protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Serum Bactericidal Activity Against Neisseria\", \"target\": \"Recurrent Invasive Neisserial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of serum bactericidal activity permits bloodstream and tissue proliferation of Neisseria upon exposure, producing invasive meningococcal and gonococcal disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Recurrent Neisserial Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent invasive-infection endpoint is recorded clinically as recurrent Neisseria infections.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Recurrent Meningococcal Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent invasive neisserial infection commonly manifests as recurrent meningococcal disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Meningococcal Septicemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive meningococcal infection can present as severe bloodstream infection and septicemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Recurrent Bacterial Meningitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent invasive meningococcal infection can present as repeated bacterial meningitis episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Septic Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated neisserial infection can produce focal septic arthritis as a joint manifestation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disseminated Neisseria infection with joint involvement\"]}, {\"source\": \"Meningococcal Vaccination\", \"target\": \"Recurrent Meningococcal Disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"C5 Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C6 Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C7 Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C8 Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C9 Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of Complement System\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The core diagnostic laboratory phenotype: absent or markedly reduced classical (CH50) and alternative (AH50) pathway hemolytic activity due to failure to assemble C5b-9, typically with absence of the specific terminal component protein on immunoassay or Western blot.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005339\"}}, {\"id\": \"C5 Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C5\"], \"gene_terms\": [{\"label\": \"C5\", \"id\": \"hgnc:1331\"}], \"subtypes\": [\"C5 Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"C6 Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C6\"], \"gene_terms\": [{\"label\": \"C6\", \"id\": \"hgnc:1339\"}], \"subtypes\": [\"C6 Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"C7 Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"C7\"], \"gene_terms\": [{\"label\": \"C7\", \"id\": \"hgnc:1346\"}], \"subtypes\": [\"C7 Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"C8 Alpha Chain Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"C8A\"], \"gene_terms\": [{\"label\": \"C8A\", \"id\": \"hgnc:1352\"}], \"subtypes\": [\"C8 Alpha-Gamma Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"C8 Beta Chain Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C8B\"], \"gene_terms\": [{\"label\": \"C8B\", \"id\": \"hgnc:1353\"}], \"subtypes\": [\"C8 Beta Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"C9 Deficiency\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C9\"], \"gene_terms\": [{\"label\": \"C9\", \"id\": \"hgnc:1358\"}], \"subtypes\": [\"C9 Deficiency\"], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Failure of Serum Bactericidal Activity Against Neisseria\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The membrane attack complex is the principal mechanism by which serum directly kills pathogenic Neisseria species. With MAC assembly impaired, serum bactericidal activity against Neisseria meningitidis and Neisseria gonorrhoeae is lost even though antibody production, opsonization, and phagocytosis are preserved. This is a selective defect in the terminal effector arm of innate immunity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Killing of Cells of Another Organism\", \"Innate Immune Response\"]}}, {\"id\": \"Impaired Membrane Attack Complex Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal pathway is initiated when C5 convertase cleaves C5 into C5a and C5b; C5b sequentially binds C6 and C7, then C8, and finally multiple C9 molecules polymerize to form the lytic membrane attack complex (MAC; C5b-9) pore. Deficiency of any terminal component prevents MAC assembly, producing absent or markedly reduced classical (CH50) and alternative (AH50) pathway hemolytic activity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Activation of Membrane Attack Complex\", \"Complement Activation\"], \"genes\": [\"C5\", \"C6\", \"C7\", \"C8A\", \"C8B\", \"C9\"], \"gene_terms\": [{\"label\": \"C5\", \"id\": \"hgnc:1331\"}, {\"label\": \"C6\", \"id\": \"hgnc:1339\"}, {\"label\": \"C7\", \"id\": \"hgnc:1346\"}, {\"label\": \"C8A\", \"id\": \"hgnc:1352\"}, {\"label\": \"C8B\", \"id\": \"hgnc:1353\"}, {\"label\": \"C9\", \"id\": \"hgnc:1358\"}]}}, {\"id\": \"Meningococcal Septicemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meningococcal septicemia, which can be fulminant and require intensive care. In the UK cohort, 22% of patients were treated in intensive care for meningococcal septicaemia.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"SEVERE\", \"term_id\": \"HP:0100806\"}}, {\"id\": \"Meningococcal Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Meningococcal vaccination (quadrivalent MenACWY conjugate plus serogroup B vaccine) is a core preventive strategy. In the UK cohort, all but one patient had received booster meningococcal vaccines. Vaccination reduces but does not eliminate risk, so breakthrough disease remains possible and must be combined with prophylaxis and emergency planning.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Bacterial Meningitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent meningococcal meningitis, sometimes with multiple lifetime episodes. A Qatari patient with C7 deficiency experienced repeated meningitis episodes over years before diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007274\"}}, {\"id\": \"Recurrent Invasive Neisserial Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical end of the causal chain: recurrent invasive neisserial infection, predominantly meningococcal sepsis and/or meningitis, and disseminated gonococcal infection. Disease often involves less common meningococcal serogroups (e.g., Y, W, E in addition to B), reflecting failure of MAC-dependent killing rather than serogroup-specific antibody failure. Manifestations include meningococcal septicemia, meningitis, arthritis, and chronic meningococcemia; some patients remain asymptomatic until first exposure and are identified by family screening.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Endothelial Cell\"], \"biological_processes\": [\"Innate Immune Response\"]}}, {\"id\": \"Recurrent Meningococcal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent invasive meningococcal disease (sepsis and/or meningitis) is the most common clinical presentation. In a UK multicenter cohort the median age at first infection was 9 years, and serogroups B and Y each accounted for 43% of infections.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005381\"}}, {\"id\": \"Recurrent Neisserial Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The hallmark phenotype: recurrent invasive infection by pathogenic Neisseria species (meningococcal and gonococcal). Terminal pathway deficiency confers a roughly 1,000- to 10,000-fold higher risk of invasive meningococcal disease than the general population.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005430\"}}, {\"id\": \"Septic Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meningococcal (septic) arthritis can occur as a focal complication of invasive meningococcal infection in terminal complement deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003095\"}}, {\"id\": \"Terminal Complement Component Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline biallelic loss-of-function variants (nonsense, frameshift, missense disrupting folding, splice, or 3\u0027UTR variants causing mRNA instability) in C5, C6, C7, C8 (C8A/C8B), or C9 lead to absent or severely reduced serum levels of the affected terminal complement component. Inheritance is autosomal recessive; heterozygotes are typically asymptomatic carriers.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"C5\", \"C6\", \"C7\", \"C8A\", \"C8B\", \"C9\"], \"gene_terms\": [{\"label\": \"C5\", \"id\": \"hgnc:1331\"}, {\"label\": \"C6\", \"id\": \"hgnc:1339\"}, {\"label\": \"C7\", \"id\": \"hgnc:1346\"}, {\"label\": \"C8A\", \"id\": \"hgnc:1352\"}, {\"label\": \"C8B\", \"id\": \"hgnc:1353\"}, {\"label\": \"C9\", \"id\": \"hgnc:1358\"}]}}], \"edges\": [{\"source\": \"Terminal Complement Component Loss of Function\", \"target\": \"Impaired Membrane Attack Complex Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of any single terminal component interrupts sequential C5b-9 assembly, so the membrane attack complex cannot be formed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Membrane Attack Complex Assembly\", \"target\": \"Failure of Serum Bactericidal Activity Against Neisseria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without the MAC pore, serum cannot directly lyse Gram-negative Neisseria, so complement-mediated killing fails despite intact opsonization and antibody responses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Membrane Attack Complex Assembly\", \"target\": \"Abnormality of Complement System\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of terminal-pathway MAC assembly is measured as absent or markedly reduced CH50/AH50 hemolytic activity and absent terminal component protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Serum Bactericidal Activity Against Neisseria\", \"target\": \"Recurrent Invasive Neisserial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of serum bactericidal activity permits bloodstream and tissue proliferation of Neisseria upon exposure, producing invasive meningococcal and gonococcal disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Recurrent Neisserial Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent invasive-infection endpoint is recorded clinically as recurrent Neisseria infections.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Recurrent Meningococcal Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent invasive neisserial infection commonly manifests as recurrent meningococcal disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Meningococcal Septicemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive meningococcal infection can present as severe bloodstream infection and septicemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Recurrent Bacterial Meningitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent invasive meningococcal infection can present as repeated bacterial meningitis episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Invasive Neisserial Infection\", \"target\": \"Septic Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated neisserial infection can produce focal septic arthritis as a joint manifestation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disseminated Neisseria infection with joint involvement\"]}, {\"source\": \"Meningococcal Vaccination\", \"target\": \"Recurrent Meningococcal Disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"C5 Deficiency\", \"target\": \"Impaired Membrane Attack Complex Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C5 Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C6 Deficiency\", \"target\": \"Impaired Membrane Attack Complex Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C6 Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C7 Deficiency\", \"target\": \"Impaired Membrane Attack Complex Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C7 Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C8 Beta Chain Deficiency\", \"target\": \"Impaired Membrane Attack Complex Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C8 Beta Chain Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C8 Alpha Chain Deficiency\", \"target\": \"Impaired Membrane Attack Complex Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C8 Alpha Chain Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C9 Deficiency\", \"target\": \"Impaired Membrane Attack Complex Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C9 Deficiency\", \"target\": \"Terminal Complement Component Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5541,9 +6123,9 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5553,85 +6135,6 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-meningococcal-septicemia" data-dismech-node="Meningococcal Septicemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Meningococcal Septicemia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Sepsis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0100806</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Meningococcal septicemia, annotated with Sepsis (HP:0100806). HP:0100806 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35084692" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35084692" target="_blank">PMID:35084692</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Nine (22%) were treated in intensive care for meningococcal septicaemia."</div>
-
-
-                <div class="evidence-explanation">Documents the severe meningococcal septicemia phenotype requiring intensive care in terminal complement deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
                     <span class="cat-count">5</span>
                 </summary>
 
@@ -5649,15 +6152,18 @@ This clinical feature is Meningococcal septicemia, annotated with Sepsis (HP:010
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005430" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0005430</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005430" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0005430</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent Neisserial infections (HP:0005430). HP:0005430 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5677,6 +6183,7 @@ This clinical feature is Recurrent Neisserial infections (HP:0005430). HP:000543
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5701,6 +6208,7 @@ This clinical feature is Recurrent Neisserial infections (HP:0005430). HP:000543
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5741,10 +6249,10 @@ This clinical feature is Recurrent Neisserial infections (HP:0005430). HP:000543
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0005381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005381</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent meningococcal disease (HP:0005381), qualified as temporality recurrent. HP:0005381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5773,6 +6281,9 @@ This clinical feature is Recurrent meningococcal disease (HP:0005381), qualified
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5790,6 +6301,7 @@ This clinical feature is Recurrent meningococcal disease (HP:0005381), qualified
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5798,6 +6310,80 @@ This clinical feature is Recurrent meningococcal disease (HP:0005381), qualified
 
 
                 <div class="evidence-explanation">Documents recurrent meningococcal disease with characteristic serogroup distribution and childhood onset in terminal complement deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-meningococcal-septicemia" data-dismech-node="Meningococcal Septicemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Meningococcal Septicemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sepsis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100806</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Meningococcal septicemia, annotated with Sepsis (HP:0100806). HP:0100806 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35084692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35084692" target="_blank">PMID:35084692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nine (22%) were treated in intensive care for meningococcal septicaemia."</div>
+
+
+                <div class="evidence-explanation">Documents the severe meningococcal septicemia phenotype requiring intensive care in terminal complement deficiency.</div>
 
 
 
@@ -5827,10 +6413,10 @@ This clinical feature is Recurrent meningococcal disease (HP:0005381), qualified
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent bacterial meningitis (HP:0007274), qualified as temporality recurrent. HP:0007274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5859,6 +6445,9 @@ This clinical feature is Recurrent bacterial meningitis (HP:0007274), qualified 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5876,6 +6465,7 @@ This clinical feature is Recurrent bacterial meningitis (HP:0007274), qualified 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5884,74 +6474,6 @@ This clinical feature is Recurrent bacterial meningitis (HP:0007274), qualified 
 
 
                 <div class="evidence-explanation">Documents recurrent bacterial meningitis episodes in a patient with C7 deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-septic-arthritis" data-dismech-node="Septic Arthritis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Septic Arthritis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003095" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003095</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Septic arthritis (HP:0003095). HP:0003095 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39294906" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39294906" target="_blank">PMID:39294906</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Disseminated Neisseria infections result from terminal pathway defects (i.e., C5, C6, C7, C8, and C9)."</div>
-
-
-                <div class="evidence-explanation">Septic/meningococcal arthritis is a focal manifestation of the disseminated neisserial infection caused by terminal pathway defects.</div>
 
 
 
@@ -5981,15 +6503,18 @@ This clinical feature is Septic arthritis (HP:0003095). HP:0003095 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005339" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0005339</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005339" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0005339</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of complement system (HP:0005339). HP:0005339 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6012,6 +6537,7 @@ This clinical feature is Abnormality of complement system (HP:0005339). HP:00053
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6020,6 +6546,87 @@ This clinical feature is Abnormality of complement system (HP:0005339). HP:00053
 
 
                 <div class="evidence-explanation">Documents the absent terminal-pathway hemolytic activity and absent component protein that constitute the diagnostic complement abnormality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-septic-arthritis" data-dismech-node="Septic Arthritis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Septic Arthritis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003095" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003095</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Septic arthritis (HP:0003095). HP:0003095 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39294906" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39294906" target="_blank">PMID:39294906</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disseminated Neisseria infections result from terminal pathway defects (i.e., C5, C6, C7, C8, and C9)."</div>
+
+
+                <div class="evidence-explanation">Septic/meningococcal arthritis is a focal manifestation of the disseminated neisserial infection caused by terminal pathway defects.</div>
 
 
 
@@ -6071,7 +6678,7 @@ This clinical feature is Abnormality of complement system (HP:0005339). HP:00053
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-c5-deficiency" data-dismech-node="C5 Deficiency" data-dismech-type="genetic">
@@ -6090,10 +6697,10 @@ This clinical feature is Abnormality of complement system (HP:0005339). HP:00053
                         Gene: C5
 
 
-    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:1331</a>
+    <a href="https://bioregistry.io/hgnc:1331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:1331</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is C5 (hgnc:1331). hgnc:1331 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6103,6 +6710,9 @@ This disease-associated gene is C5 (hgnc:1331). hgnc:1331 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6127,6 +6737,7 @@ This disease-associated gene is C5 (hgnc:1331). hgnc:1331 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6167,10 +6778,10 @@ This disease-associated gene is C5 (hgnc:1331). hgnc:1331 is a gene from the HUG
                         Gene: C6
 
 
-    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:1339</a>
+    <a href="https://bioregistry.io/hgnc:1339" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:1339</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is C6 (hgnc:1339). hgnc:1339 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6180,6 +6791,9 @@ This disease-associated gene is C6 (hgnc:1339). hgnc:1339 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6204,6 +6818,7 @@ This disease-associated gene is C6 (hgnc:1339). hgnc:1339 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6244,10 +6859,10 @@ This disease-associated gene is C6 (hgnc:1339). hgnc:1339 is a gene from the HUG
                         Gene: C7
 
 
-    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:1346</a>
+    <a href="https://bioregistry.io/hgnc:1346" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:1346</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is C7 (hgnc:1346). hgnc:1346 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6257,6 +6872,9 @@ This disease-associated gene is C7 (hgnc:1346). hgnc:1346 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6284,6 +6902,7 @@ This disease-associated gene is C7 (hgnc:1346). hgnc:1346 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6308,6 +6927,7 @@ This disease-associated gene is C7 (hgnc:1346). hgnc:1346 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6329,9 +6949,9 @@ This disease-associated gene is C7 (hgnc:1346). hgnc:1346 is a gene from the HUG
 
             </div>
 
-            <div class="item-box genetic-box anchor-target" id="genetic-c8-deficiency" data-dismech-node="C8 Deficiency" data-dismech-type="genetic">
+            <div class="item-box genetic-box anchor-target" id="genetic-c8-beta-chain-deficiency" data-dismech-node="C8 Beta Chain Deficiency" data-dismech-type="genetic">
                 <div class="item-name">
-                    C8 Deficiency
+                    C8 Beta Chain Deficiency
 
                 </div>
 
@@ -6345,10 +6965,10 @@ This disease-associated gene is C7 (hgnc:1346). hgnc:1346 is a gene from the HUG
                         Gene: C8B
 
 
-    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:1353</a>
+    <a href="https://bioregistry.io/hgnc:1353" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:1353</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is C8B (hgnc:1353). hgnc:1353 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6358,6 +6978,9 @@ This disease-associated gene is C8B (hgnc:1353). hgnc:1353 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6385,6 +7008,7 @@ This disease-associated gene is C8B (hgnc:1353). hgnc:1353 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6393,6 +7017,112 @@ This disease-associated gene is C8B (hgnc:1353). hgnc:1353 is a gene from the HU
 
 
                 <div class="evidence-explanation">Establishes C8 as one of the terminal components whose deficiency causes disseminated Neisseria infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-c8-alpha-chain-deficiency" data-dismech-node="C8 Alpha Chain Deficiency" data-dismech-type="genetic">
+                <div class="item-name">
+                    C8 Alpha Chain Deficiency
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: C8A
+
+
+    <a href="https://bioregistry.io/hgnc:1352" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:1352</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C8A (hgnc:1352). hgnc:1352 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9759902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9759902" target="_blank">PMID:9759902</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Deficiency of the alpha-gamma subunit of the eighth component of complement (C8alpha-gammaD) is frequently associated with recurrent neisserial infections, especially meningitis caused by Neisseria meningitidis."</div>
+
+
+                <div class="evidence-explanation">Establishes that the alpha-gamma form carries the same neisserial-infection phenotype as the rest of this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9759902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9759902" target="_blank">PMID:9759902</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"No mutations were detected in the C8gamma gene by our method. Our results indicate that the pathogenesis of C8alpha-gammaD might be caused by heterogeneous molecular defects in the C8alpha gene."</div>
+
+
+                <div class="evidence-explanation">Assigns the lesion to C8A rather than C8G, which is why this record binds C8A and no C8G record is created.</div>
 
 
 
@@ -6422,10 +7152,10 @@ This disease-associated gene is C8B (hgnc:1353). hgnc:1353 is a gene from the HU
                         Gene: C9
 
 
-    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:1358</a>
+    <a href="https://bioregistry.io/hgnc:1358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:1358</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is C9 (hgnc:1358). hgnc:1358 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6435,6 +7165,9 @@ This disease-associated gene is C9 (hgnc:1358). hgnc:1358 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6459,6 +7192,7 @@ This disease-associated gene is C9 (hgnc:1358). hgnc:1358 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6509,7 +7243,7 @@ This disease-associated gene is C9 (hgnc:1358). hgnc:1358 is a gene from the HUG
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">meningococcal vaccination<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">meningococcal vaccination<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is meningococcal vaccination, annotated with Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6545,6 +7279,9 @@ This treatment is meningococcal vaccination, annotated with Vaccination (NCIT:C1
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6555,6 +7292,9 @@ This treatment is meningococcal vaccination, annotated with Vaccination (NCIT:C1
 
 
     </div>
+
+
+
 
 
 
@@ -6576,11 +7316,11 @@ This treatment is meningococcal vaccination, annotated with Vaccination (NCIT:C1
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0005381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0005381</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Recurrent meningococcal disease (HP:0005381). HP:0005381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6607,6 +7347,7 @@ This treatment targets Recurrent meningococcal disease (HP:0005381). HP:0005381 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6628,6 +7369,7 @@ This treatment targets Recurrent meningococcal disease (HP:0005381). HP:0005381 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6659,7 +7401,7 @@ This treatment targets Recurrent meningococcal disease (HP:0005381). HP:0005381 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">antibacterial agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">antibacterial agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is antibacterial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6700,6 +7442,12 @@ This treatment is antibacterial agent therapy, annotated with Antibiotic Therapy
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Continuous antibiotic prophylaxis (commonly penicillin/amoxicillin, with macrolides such as azithromycin as alternatives) is used after diagnosis to reduce invasive infection risk. In the UK cohort 70% of patients were taking prophylactic antibiotics; a C7-deficient patient on azithromycin plus vaccination remained infection-free over 10 years.</div>
 
 
@@ -6721,6 +7469,7 @@ This treatment is antibacterial agent therapy, annotated with Antibiotic Therapy
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6752,7 +7501,7 @@ This treatment is antibacterial agent therapy, annotated with Antibiotic Therapy
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6793,6 +7542,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Because the disorder is autosomal recessive and often asymptomatic until first exposure, cascade screening of siblings and genetic counseling are central secondary-prevention strategies. In the UK cohort, 52% of patients were asymptomatic and diagnosed based on family history. Genetic testing is also required to distinguish primary terminal deficiency from secondary low C5 due to CFH/CFI regulatory defects.</div>
 
 
@@ -6817,6 +7572,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6838,6 +7594,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6868,6 +7625,165 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-ch50-total-classical-pathway-haemolytic-activity" data-dismech-node="Serum CH50 (total classical pathway haemolytic activity)" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Serum CH50 (total classical pathway haemolytic activity)
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31440263" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31440263" target="_blank">PMID:31440263</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Terminal pathway deﬁciency (TPD) was deﬁned by undetectable CH50 and AP50 activities (below 10% of normal values)."</div>
+
+
+                <div class="evidence-explanation">The operative laboratory definition of terminal pathway deficiency, including the numeric threshold.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31440263" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31440263" target="_blank">PMID:31440263</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TPD had undetectable CH50 and AP50, patients with sub-total deﬁciencies (SD) in C5, C6, or C7 had a low but detectable CH50 activity."</div>
+
+
+                <div class="evidence-explanation">Separates total from subtotal deficiency by residual CH50, which matters because a low-but-detectable result does not exclude the diagnosis. The quote begins mid-sentence because the PDF extraction splits the preceding word as &#34;tota l&#34;; it is cut before the corruption rather than repaired inside a quotation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-ap50-alternative-pathway-haemolytic-activity" data-dismech-node="Serum AP50 (alternative pathway haemolytic activity)" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Serum AP50 (alternative pathway haemolytic activity)
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31440263" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31440263" target="_blank">PMID:31440263</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Terminal pathway deﬁciency (TPD) was deﬁned by undetectable CH50 and AP50 activities (below 10% of normal values)."</div>
+
+
+                <div class="evidence-explanation">Establishes that AP50 is undetectable together with CH50, the paired result this record describes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32064578" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32064578" target="_blank">PMID:32064578</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"If multiple pathways are low, the deficiency likely lies in the shared terminal pathway."</div>
+
+
+                <div class="evidence-explanation">The consensus guideline states the localisation rule this record is built on: it is the simultaneous fall of both assays, not either one alone, that places the lesion in the terminal components the two pathways share. Graded OTHER because the source is expert-consensus guidance rather than a primary study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Diagnosis -->
@@ -6948,11 +7864,13 @@ mappings:
   mondo_mappings:
   # MONDO splits C8 deficiency by which chain of the C8 heterotrimer is lost --
   # type I (C8A/C8G, alpha-gamma) and type II (C8B, beta) -- and has no single
-  # &#34;complement component 8 deficiency&#34; class. The C8 Deficiency subtype below
-  # spans both chains, so binding it to either leaf alone would misstate its
-  # scope; both leaves are declared here instead. Both are direct MONDO children
-  # of this entry&#39;s own MONDO:0015700 anchor. C5/C6/C7/C9 are NOT repeated here:
-  # each has a single leaf class bound as has_subtypes[].subtype_term.
+  # &#34;complement component 8 deficiency&#34; class. Each leaf is now bound on its own
+  # has_subtypes[] child row (C8 Alpha-Gamma Deficiency, C8 Beta Deficiency),
+  # with its own gene; the parent &#34;C8 Deficiency&#34; row spans both and stays
+  # unbound. Both leaves are kept here as well, because both are direct MONDO
+  # children of this entry&#39;s own MONDO:0015700 anchor and are narrower than it
+  # whichever route they are reached by. C5/C6/C7/C9 are NOT repeated here: each
+  # has a single leaf class bound as has_subtypes[].subtype_term.
   - term:
       id: MONDO:0013422
       label: type I complement component 8 deficiency
@@ -7001,7 +7919,6 @@ classifications:
       evidence_source: OTHER
       snippet: &#34;Disseminated Neisseria infections result from terminal pathway defects (i.e., C5, C6, C7, C8, and C9).&#34;
       explanation: Defects of the terminal complement components C5-C9 place this disorder in the IUIS &#34;complement deficiencies&#34; table.
-
 inheritance:
 - name: Autosomal recessive inheritance
   description: &gt;-
@@ -7050,6 +7967,11 @@ has_subtypes:
     term:
       id: MONDO:0012295
       label: complement component 5 deficiency
+  genes:
+  - preferred_term: C5
+    term:
+      id: hgnc:1331
+      label: C5
   description: &gt;-
     Deficiency of complement C5 (gene C5, 9q33.2), the substrate cleaved by C5
     convertase to initiate the terminal pathway. Complete deficiency abolishes
@@ -7062,6 +7984,11 @@ has_subtypes:
     term:
       id: MONDO:0012908
       label: complement component 6 deficiency
+  genes:
+  - preferred_term: C6
+    term:
+      id: hgnc:1339
+      label: C6
   description: &gt;-
     Deficiency of complement C6 (gene C6, 5p13). Classified as complete (C6Q0)
     or subtotal (C6SD). A strong founder effect is recognized in people of
@@ -7073,6 +8000,11 @@ has_subtypes:
     term:
       id: MONDO:0012412
       label: complement component 7 deficiency
+  genes:
+  - preferred_term: C7
+    term:
+      id: hgnc:1346
+      label: C7
   description: &gt;-
     Deficiency of complement C7 (gene C7, 5p13), with a well-described founder
     mutation (p.Gly379Arg) in Moroccan-origin Israeli Jews.
@@ -7082,13 +8014,73 @@ has_subtypes:
     Deficiency of complement C8, which is a heterotrimer of alpha (C8A, 1p32),
     beta (C8B, 1p32), and gamma (C8G, 9q34) chains. Functional C8 deficiency
     most often results from C8B (beta-chain) loss, with alpha-gamma deficiency
-    described in other populations.
+    described in other populations. MONDO splits the concept by chain, so the
+    two chain-specific forms are declared as child rows below and each carries
+    its own gene; this row is the span over both.
+  genes:
+  - preferred_term: C8A
+    term:
+      id: hgnc:1352
+      label: C8A
+  - preferred_term: C8B
+    term:
+      id: hgnc:1353
+      label: C8B
+  children:
+  - C8 Alpha-Gamma Deficiency
+  - C8 Beta Deficiency
   review_notes: &gt;-
-    No subtype_term is bound here deliberately. MONDO has no single &#34;complement
-    component 8 deficiency&#34; class; it splits the concept by chain into
-    MONDO:0013422 (type I, C8A/C8G alpha-gamma) and MONDO:0013421 (type II, C8B
-    beta), and this subtype spans both. Both leaf classes are declared as
-    skos:narrowMatch entries in the top-level mappings block instead.
+    No subtype_term is bound on this row deliberately. MONDO has no single
+    &#34;complement component 8 deficiency&#34; class; it splits the concept by chain
+    into MONDO:0013422 (type I, C8A/C8G alpha-gamma) and MONDO:0013421 (type
+    II, C8B beta), and this row spans both. Binding either leaf here alone
+    would misstate its scope, so each leaf is bound on its own child row
+    instead. The two leaves remain declared as skos:narrowMatch entries in the
+    top-level mappings block as well, since they are narrower than this
+    entry&#39;s own MONDO:0015700 anchor whichever way they are reached.
+- name: C8 Alpha-Gamma Deficiency
+  display_name: Complement Component 8 Deficiency, Type I (C8A, alpha-gamma)
+  subtype_term:
+    preferred_term: type I complement component 8 deficiency
+    term:
+      id: MONDO:0013422
+      label: type I complement component 8 deficiency
+  description: &gt;-
+    The alpha-gamma form of C8 deficiency, caused by biallelic loss-of-function
+    variants in C8A. The gamma chain is not itself the lesion: in the two
+    unrelated Japanese subjects whose molecular basis was characterised, all
+    seven exons of C8G were screened and no variant was found, while both
+    carried C8A defects.
+  genes:
+  - preferred_term: C8A
+    term:
+      id: hgnc:1352
+      label: C8A
+  evidence:
+  - reference: PMID:9759902
+    reference_title: &#34;Genetic basis of human complement C8 alpha-gamma deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;No mutations were detected in the C8gamma gene by our method. Our results indicate that the pathogenesis of C8alpha-gammaD might be caused by heterogeneous molecular defects in the C8alpha gene.&#34;
+    explanation: &gt;-
+      The molecular result that assigns the alpha-gamma form of C8 deficiency to
+      C8A rather than to C8G, which is why this row binds C8A alone.
+- name: C8 Beta Deficiency
+  display_name: Complement Component 8 Deficiency, Type II (C8B, beta)
+  subtype_term:
+    preferred_term: type II complement component 8 deficiency
+    term:
+      id: MONDO:0013421
+      label: type II complement component 8 deficiency
+  description: &gt;-
+    The beta form of C8 deficiency, caused by biallelic loss-of-function
+    variants in C8B. This is the more commonly reported route to functional C8
+    deficiency.
+  genes:
+  - preferred_term: C8B
+    term:
+      id: hgnc:1353
+      label: C8B
 - name: C9 Deficiency
   display_name: Complement Component 9 (C9) Deficiency
   subtype_term:
@@ -7096,6 +8088,11 @@ has_subtypes:
     term:
       id: MONDO:0013445
       label: complement component 9 deficiency
+  genes:
+  - preferred_term: C9
+    term:
+      id: hgnc:1358
+      label: C9
   description: &gt;-
     Deficiency of complement C9 (gene C9, 5p14-p12), the polymerizing component
     of the MAC pore. A strong founder effect produces high prevalence in
@@ -7168,6 +8165,42 @@ pathophysiology:
     pore. Deficiency of any terminal component prevents MAC assembly, producing
     absent or markedly reduced classical (CH50) and alternative (AH50) pathway
     hemolytic activity.
+  genes:
+  - preferred_term: C5
+    term:
+      id: hgnc:1331
+      label: C5
+  - preferred_term: C6
+    term:
+      id: hgnc:1339
+      label: C6
+  - preferred_term: C7
+    term:
+      id: hgnc:1346
+      label: C7
+  - preferred_term: C8A
+    term:
+      id: hgnc:1352
+      label: C8A
+  - preferred_term: C8B
+    term:
+      id: hgnc:1353
+      label: C8B
+  - preferred_term: C9
+    term:
+      id: hgnc:1358
+      label: C9
+  notes: &gt;-
+    Each of these genes enters the assembly sequence at a different point - C5 as
+    the convertase substrate, C6 and C7 binding the resulting C5b, C8 next, and
+    C9 polymerising into the pore - and this node&#39;s description records which
+    step each occupies. They are nonetheless bound to one node rather than to six
+    per-component nodes, because the next step in this entry&#39;s pathograph is the
+    same whichever component is missing: no MAC pore forms, and serum loses
+    bactericidal activity against Neisseria. Splitting would produce six nodes
+    with one shared successor and no differentiating downstream claim. The one
+    place where the component does change the downstream picture is C5, whose
+    loss also abolishes C5a generation; that is stated in the C5 subtype row.
   biological_processes:
   - preferred_term: Activation of Membrane Attack Complex
     term:
@@ -7595,13 +8628,13 @@ genetic:
       Documents a novel C7 3&#39;UTR deletion causing mRNA instability and
       functional hemizygosity in combination with a coding variant.
 
-- name: C8 Deficiency
+- name: C8 Beta Chain Deficiency
   gene_term:
     preferred_term: C8B
     term:
       id: hgnc:1353
       label: C8B
-  subtype: C8 Deficiency
+  subtype: C8 Beta Deficiency
   inheritance:
   - name: Autosomal recessive
     inheritance_term:
@@ -7613,8 +8646,7 @@ genetic:
   features: &gt;-
     C8 is a heterotrimer of alpha (C8A, 1p32), beta (C8B, 1p32), and gamma
     (C8G, 9q34) chains; functional C8 deficiency most often reflects C8B
-    (beta-chain) loss, with C8A/C8G (alpha-gamma) deficiency in other
-    populations. Inheritance is autosomal recessive.
+    (beta-chain) loss. Inheritance is autosomal recessive.
   evidence:
   - reference: PMID:39294906
     reference_title: &#34;Immunodeficiency: Complement disorders.&#34;
@@ -7624,6 +8656,44 @@ genetic:
     explanation: &gt;-
       Establishes C8 as one of the terminal components whose deficiency causes
       disseminated Neisseria infection.
+
+- name: C8 Alpha Chain Deficiency
+  gene_term:
+    preferred_term: C8A
+    term:
+      id: hgnc:1352
+      label: C8A
+  subtype: C8 Alpha-Gamma Deficiency
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  relationship_type: CAUSATIVE
+  features: &gt;-
+    The alpha-gamma form of C8 deficiency (MONDO:0013422, type I). C8A was
+    previously named in this entry&#39;s prose as an alternative route to functional
+    C8 deficiency but was bound to no gene record, so it was invisible to any
+    machine reading of the entry even though it already appeared in the
+    pathophysiology node&#39;s `genes:` list. The molecular work that defines the
+    subtype screened both C8A and C8G and located the lesion in C8A, with two
+    distinct C8A defects - a splice-donor variant at the second intron and a
+    nonsense variant - across two unrelated subjects.
+  evidence:
+  - reference: PMID:9759902
+    reference_title: &#34;Genetic basis of human complement C8 alpha-gamma deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Deficiency of the alpha-gamma subunit of the eighth component of complement (C8alpha-gammaD) is frequently associated with recurrent neisserial infections, especially meningitis caused by Neisseria meningitidis.&#34;
+    explanation: Establishes that the alpha-gamma form carries the same neisserial-infection phenotype as the rest of this entry.
+  - reference: PMID:9759902
+    reference_title: &#34;Genetic basis of human complement C8 alpha-gamma deficiency.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;No mutations were detected in the C8gamma gene by our method. Our results indicate that the pathogenesis of C8alpha-gammaD might be caused by heterogeneous molecular defects in the C8alpha gene.&#34;
+    explanation: Assigns the lesion to C8A rather than C8G, which is why this record binds C8A and no C8G record is created.
 
 - name: C9 Deficiency
   gene_term:
@@ -7746,6 +8816,98 @@ treatments:
       Supports genetic testing to distinguish primary from secondary deficiency
       and the importance of sibling screening.
 
+biochemical:
+- name: Serum CH50 (total classical pathway haemolytic activity)
+  presence: DECREASED
+  notes: &gt;-
+    CH50 is the screening test that finds this disease. Because it measures
+    lysis — the whole classical cascade through to the membrane attack complex —
+    a terminal-component defect abolishes it even though every classical
+    component upstream of C5 is intact. That is the diagnostic signature of the
+    terminal arm and the reason CH50 is ordered after a first invasive
+    neisserial infection.
+
+    Two exceptions, and both matter at the bedside because each one lets a real
+    case slip past a normal-looking result. Subtotal deficiency of C5, C6 or C7
+    leaves a low but detectable CH50, as the cited cohort reports. And C9
+    deficiency is a partial exception in its own right: see the C9 subtype of
+    this entry, which records that some cases retain residual haemolytic
+    activity relative to the other terminal component defects, because C9 is
+    the last component to polymerise and C5b-8 has limited lytic capacity
+    without it. A detectable CH50 therefore does not exclude terminal
+    complement deficiency, and does not exclude C9 deficiency in particular.
+  evidence:
+  - reference: PMID:31440263
+    reference_title: &gt;-
+      Clinical and Genetic Spectrum of a Large Cohort With Total and Sub-total
+      Complement Deficiencies.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Terminal pathway deﬁciency (TPD) was deﬁned by undetectable CH50 and AP50
+      activities (below 10% of normal values).
+    explanation: &gt;-
+      The operative laboratory definition of terminal pathway deficiency,
+      including the numeric threshold.
+  - reference: PMID:31440263
+    reference_title: &gt;-
+      Clinical and Genetic Spectrum of a Large Cohort With Total and Sub-total
+      Complement Deficiencies.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      TPD had undetectable CH50 and AP50, patients with sub-total deﬁciencies
+      (SD) in C5, C6, or C7 had a low but detectable CH50 activity.
+    explanation: &gt;-
+      Separates total from subtotal deficiency by residual CH50, which matters
+      because a low-but-detectable result does not exclude the diagnosis. The
+      quote begins mid-sentence because the PDF extraction splits the preceding
+      word as &#34;tota l&#34;; it is cut before the corruption rather than repaired
+      inside a quotation.
+- name: Serum AP50 (alternative pathway haemolytic activity)
+  presence: DECREASED
+  notes: &gt;-
+    AP50 is abnormal alongside CH50 in terminal deficiency, and the pairing is
+    what localizes the lesion. The two assays share only the terminal
+    components, so simultaneous loss of both places the defect at or below C5,
+    whereas an isolated CH50 fall with preserved AP50 indicates an early
+    classical defect such as C2 deficiency.
+
+    Scope limit. The ESID guideline cited below notes that few standardized
+    complement tests are available beyond C3 and C4 levels, so a section built
+    on CH50 and AP50 covers the assays that localize the lesion rather than the
+    full diagnostic workup; component-level quantitation and genetic
+    confirmation follow, and are curated in this entry&#39;s `genetic:` section.
+  evidence:
+  - reference: PMID:31440263
+    reference_title: &gt;-
+      Clinical and Genetic Spectrum of a Large Cohort With Total and Sub-total
+      Complement Deficiencies.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Terminal pathway deﬁciency (TPD) was deﬁned by undetectable CH50 and AP50
+      activities (below 10% of normal values).
+    explanation: &gt;-
+      Establishes that AP50 is undetectable together with CH50, the paired
+      result this record describes.
+  - reference: PMID:32064578
+    reference_title: &gt;-
+      European Society for Immunodeficiencies (ESID) and European Reference
+      Network on Rare Primary Immunodeficiency, Autoinflammatory and Autoimmune
+      Diseases (ERN RITA) Complement Guideline: Deficiencies, Diagnosis, and
+      Management.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      If multiple pathways are low, the deficiency likely lies in the shared
+      terminal pathway.
+    explanation: &gt;-
+      The consensus guideline states the localisation rule this record is built
+      on: it is the simultaneous fall of both assays, not either one alone,
+      that places the lesion in the terminal components the two pathways share.
+      Graded OTHER because the source is expert-consensus guidance rather than
+      a primary study.
 notes: &gt;-
   Pharmacologic terminal complement inhibition (e.g., the C5 inhibitors
   eculizumab and ravulizumab) phenocopies terminal complement deficiency and
@@ -7819,6 +8981,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8655,7 +9819,7 @@ Not specifically reported for terminal complement deficiency modeling.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Late Complement Component Deficiency", "mondoId": "MONDO:0015700", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Late_Complement_Component_Deficiency", "yamlRevision": "251413041507"};
+        const OS_CONFIG = {"diseaseName": "Late Complement Component Deficiency", "mondoId": "MONDO:0015700", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Late_Complement_Component_Deficiency", "yamlRevision": "1f015be50dcc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

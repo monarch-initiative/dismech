@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Keutel%20Syndrome"
@@ -3997,7 +4065,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4298,6 +4366,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4400,6 +4469,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4474,6 +4544,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4508,6 +4579,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-matrix-gla-protein-loss-of-function" data-dismech-node="Matrix Gla Protein Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Matrix Gla Protein Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic MGP variants produce a non-functional matrix Gla protein. MGP is a 10-kD extracellular matrix protein of the Gla family - the family that also contains osteocalcin and the vitamin-K-dependent coagulation factors - whose glutamate residues are gamma-carboxylated using vitamin K as cofactor. It is the gamma-carboxyglutamate residues that give the mature protein its high affinity for calcium, phosphate, and hydroxyapatite, so a protein that is not properly made or not properly carboxylated cannot bind the mineral it is meant to control.</div>
 
@@ -4561,6 +4633,8 @@ This genetic context concerns MGP (hgnc:7060). hgnc:7060 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4573,6 +4647,9 @@ This genetic context concerns MGP (hgnc:7060). hgnc:7060 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline loss-of-function variants. The three variants in the original mapping study - a single-base deletion, a splice-acceptor change, and a missense change - all predict a non-functional protein, and parental consanguinity is common.</div>
 
@@ -4690,6 +4767,7 @@ This pathophysiological event involves negative regulation of biomineral tissue 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4711,6 +4789,7 @@ This pathophysiological event involves negative regulation of biomineral tissue 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4736,6 +4815,7 @@ This pathophysiological event involves negative regulation of biomineral tissue 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-active-inhibition-of-extracellular-matrix-calcification" data-dismech-node="Loss of Active Inhibition of Extracellular Matrix Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Active Inhibition of Extracellular Matrix Calcification</div>
+
 
                 <div class="item-desc">The central mechanistic claim of this disorder, and the one that generalized beyond it: extracellular matrix calcification in soft tissue is actively inhibited, not merely not induced. MGP is expressed by the two cell types that build an uncalcified matrix - vascular smooth muscle cells and chondrocytes - and those are exactly the tissues that mineralize when it is lost.</div>
 
@@ -4993,6 +5073,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5014,6 +5095,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5039,6 +5121,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-cartilage-calcification" data-dismech-node="Abnormal Cartilage Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Cartilage Calcification</div>
+
 
                 <div class="item-desc">Pathological mineralization of cartilage across multiple sites. In the airway it progresses to frank ossification of the tracheobronchial tree, and in the ear cartilage, biopsies have shown direct ossification without preceding tissue reaction - which is the histological reading of a lost inhibitor rather than an inflammatory or reactive process.</div>
 
@@ -5146,6 +5229,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5168,6 +5252,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-pulmonary-artery-stenosis" data-dismech-node="Peripheral Pulmonary Artery Stenosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Pulmonary Artery Stenosis</div>
+
 
                 <div class="item-desc">Multiple stenoses of the peripheral pulmonary arteries, present in almost all patients. They raise right ventricular afterload and can lead to pulmonary hypertension, tricuspid regurgitation, and right ventricular hypertrophy and dysfunction. This node, not the skeletal phenotype, determines the patient&#39;s prognosis.</div>
 
@@ -5221,6 +5306,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5266,7 +5352,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Cartilage Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcification of the laryngeal, tracheobronchial, auricular, nasal, and costal cartilages - the most characteristic finding of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100593\"}}, {\"id\": \"Brachytelephalangism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening and broadening of the first to fourth distal phalanges with punctate epiphyses, characteristically sparing the fifth phalanx, in about three quarters of patients. This is the feature that ties the syndrome to the chondrodysplasia punctata group.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006118\"}}, {\"id\": \"Calcification of the Auricular Cartilage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcification and direct ossification of the ear cartilage. It is named separately from the generic cartilage calcification because it is the site whose histology was actually examined - biopsies show ossification with no preceding tissue reaction - and because it is the anatomic basis of the conductive component of the hearing loss.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005103\"}}, {\"id\": \"Cardiac, airway, and audiologic surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because the pulmonary arterial and airway lesions can progress and set the prognosis, follow-up attends to upper respiratory tract symptoms, hearing, and the development of tracheal and pulmonary artery stenosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depressed Nasal Bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed nasal bridge with hypoplastic nasal alae, part of the midfacial pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005280\"}}, {\"id\": \"Epiphyseal Stippling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Punctate epiphyses accompanying the brachytelephalangism. This is the specific finding that connects Keutel syndrome to the chondrodysplasia punctata group and makes the ISDS placement more than an administrative one.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010655\"}}, {\"id\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central mechanistic claim of this disorder, and the one that generalized beyond it: extracellular matrix calcification in soft tissue is actively inhibited, not merely not induced. MGP is expressed by the two cell types that build an uncalcified matrix - vascular smooth muscle cells and chondrocytes - and those are exactly the tissues that mineralize when it is lost.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\", \"vascular smooth muscle cell\"], \"biological_processes\": [\"biomineral tissue development\", \"extracellular matrix organization\"], \"animal_models\": [{\"name\": \"Mgp-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Mgp knockout, homozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The knockout demonstrated that MGP loss is sufficient for spontaneous calcification of both arteries and cartilage, which is the mechanism the human disorder instantiates. Its explanatory role was not merely confirmatory: the mouse phenotype is what made MGP the compelling candidate in the human linkage interval.\"}]}}, {\"id\": \"Matrix Gla Protein Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic MGP variants produce a non-functional matrix Gla protein. MGP is a 10-kD extracellular matrix protein of the Gla family - the family that also contains osteocalcin and the vitamin-K-dependent coagulation factors - whose glutamate residues are gamma-carboxylated using vitamin K as cofactor. It is the gamma-carboxyglutamate residues that give the mature protein its high affinity for calcium, phosphate, and hydroxyapatite, so a protein that is not properly made or not properly carboxylated cannot bind the mineral it is meant to control.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"peptidyl-glutamic acid carboxylation\", \"negative regulation of biomineral tissue development\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic germline loss-of-function variants. The three variants in the original mapping study - a single-base deletion, a splice-acceptor change, and a missense change - all predict a non-functional protein, and parental consanguinity is common.\", \"gene_terms\": [{\"label\": \"MGP\", \"id\": \"hgnc:7060\"}]}}}, {\"id\": \"Mgp-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The knockout that established the mechanism before the human gene was known, and which is described in the review literature as a faithful model of the human syndrome. Null mice develop to term and then die within two months of arterial calcification leading to blood-vessel rupture, with inappropriate calcification of cartilage including the growth plate.\"}, {\"id\": \"Midface Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midfacial underdevelopment with depressed nasal bridge, hypoplastic nasal alae, sloping forehead, and receding chin.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Mixed Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild to severe, unilateral or bilateral hearing loss with both sensorineural and conductive components, the conductive element following ossification of the ear cartilage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000410\"}}, {\"id\": \"Peripheral Pulmonary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple stenoses of the peripheral pulmonary arteries, present in almost all patients and the determinant of prognosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004969\"}}, {\"id\": \"Pulmonary Arterial Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypertension arising from the fixed peripheral pulmonary arterial obstruction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002092\"}}, {\"id\": \"Sloping Forehead\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sloping forehead, listed among the consistent dysmorphic features.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000340\"}}, {\"id\": \"Symptomatic management of hypertension and respiratory complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying therapy exists. Available treatment is symptomatic, directed at the hypertension and the respiratory complications - which the 50-year review explicitly identifies as a consequence of the mechanism not being understood well enough to target.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tracheal Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcification progressing to ossification of the tracheobronchial tree, visible on plain chest radiography.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002787\"}}], \"edges\": [{\"source\": \"Matrix Gla Protein Loss of Function\", \"target\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without a functional mineral-binding Gla protein in the matrix, the brake on calcification is removed in the tissues that express it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Abnormal Cartilage Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage that should stay uncalcified mineralizes - larynx, tracheobronchial tree, ears, nose, and ribs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The vascular arm of the same lesion. Multiple peripheral pulmonary artery stenoses are found in almost all patients and are the finding that governs prognosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of MGP-mediated inhibition of mineralization in vascular smooth muscle, with mural calcification and segmental narrowing of the peripheral pulmonary arteries.\"]}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Midface Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Underdevelopment of the midface, with depressed nasal bridge, hypoplastic nasal alae, and sloping forehead. Nasal cartilage is among the cartilages affected, so the craniofacial phenotype is plausibly the same lesion in a different site, though the developmental route is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Depressed Nasal Bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The nasal component of the midfacial underdevelopment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Sloping Forehead\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The frontal component of the same craniofacial pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Brachytelephalangism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shortening and broadening of the first to fourth distal phalanges with punctate epiphyses, characteristically sparing the fifth. This is the feature that places the disorder in the chondrodysplasia punctata group.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Epiphyseal Stippling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Punctate epiphyses in the shortened distal phalanges - the chondrodysplasia punctata finding itself.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Cartilage Calcification\", \"target\": \"Tracheal Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcification and ossification of the tracheobronchial cartilage, visible on chest radiography.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification\", \"target\": \"Calcification of the Auricular Cartilage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct ossification of the ear cartilage, the site whose histology was examined.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification\", \"target\": \"Mixed Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss, mild to severe, unilateral or bilateral, and mixed in character - the conductive element following the ossified cartilage directly.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Direct ossification of auricular and middle-ear cartilage, giving both conductive and sensorineural components.\"]}, {\"source\": \"Peripheral Pulmonary Artery Stenosis\", \"target\": \"Pulmonary Arterial Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary hypertension with right-heart consequences follows from the fixed obstruction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fixed obstruction to pulmonary arterial flow with elevated pulmonary vascular resistance.\"]}, {\"source\": \"Symptomatic management of hypertension and respiratory complications\", \"target\": \"Pulmonary Arterial Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac, airway, and audiologic surveillance\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mgp-null mouse\", \"target\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The knockout demonstrated that MGP loss is sufficient for spontaneous calcification of both arteries and cartilage, which is the mechanism the human disorder instantiates. Its explanatory role was not merely confirmatory: the mouse phenotype is what made MGP the compelling candidate in the human linkage interval.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse phenotype is considerably more severe on the vascular side than the human disorder - null mice die within two months of vessel rupture, whereas Keutel patients generally have a good prognosis - so the model overstates the vascular lethality even while capturing the mechanism.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Cartilage Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcification of the laryngeal, tracheobronchial, auricular, nasal, and costal cartilages - the most characteristic finding of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100593\"}}, {\"id\": \"Brachytelephalangism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening and broadening of the first to fourth distal phalanges with punctate epiphyses, characteristically sparing the fifth phalanx, in about three quarters of patients. This is the feature that ties the syndrome to the chondrodysplasia punctata group.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006118\"}}, {\"id\": \"Calcification of the Auricular Cartilage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcification and direct ossification of the ear cartilage. It is named separately from the generic cartilage calcification because it is the site whose histology was actually examined - biopsies show ossification with no preceding tissue reaction - and because it is the anatomic basis of the conductive component of the hearing loss.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005103\"}}, {\"id\": \"Cardiac, airway, and audiologic surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because the pulmonary arterial and airway lesions can progress and set the prognosis, follow-up attends to upper respiratory tract symptoms, hearing, and the development of tracheal and pulmonary artery stenosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depressed Nasal Bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed nasal bridge with hypoplastic nasal alae, part of the midfacial pattern.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005280\"}}, {\"id\": \"Epiphyseal Stippling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Punctate epiphyses accompanying the brachytelephalangism. This is the specific finding that connects Keutel syndrome to the chondrodysplasia punctata group and makes the ISDS placement more than an administrative one.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010655\"}}, {\"id\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central mechanistic claim of this disorder, and the one that generalized beyond it: extracellular matrix calcification in soft tissue is actively inhibited, not merely not induced. MGP is expressed by the two cell types that build an uncalcified matrix - vascular smooth muscle cells and chondrocytes - and those are exactly the tissues that mineralize when it is lost.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"chondrocyte\", \"vascular smooth muscle cell\"], \"biological_processes\": [\"biomineral tissue development\", \"extracellular matrix organization\"], \"animal_models\": [{\"name\": \"Mgp-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Mgp knockout, homozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The knockout demonstrated that MGP loss is sufficient for spontaneous calcification of both arteries and cartilage, which is the mechanism the human disorder instantiates. Its explanatory role was not merely confirmatory: the mouse phenotype is what made MGP the compelling candidate in the human linkage interval.\"}]}}, {\"id\": \"MGP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MGP\"], \"gene_terms\": [{\"label\": \"MGP\", \"id\": \"hgnc:7060\"}], \"presence\": \"Present\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Matrix Gla Protein Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic MGP variants produce a non-functional matrix Gla protein. MGP is a 10-kD extracellular matrix protein of the Gla family - the family that also contains osteocalcin and the vitamin-K-dependent coagulation factors - whose glutamate residues are gamma-carboxylated using vitamin K as cofactor. It is the gamma-carboxyglutamate residues that give the mature protein its high affinity for calcium, phosphate, and hydroxyapatite, so a protein that is not properly made or not properly carboxylated cannot bind the mineral it is meant to control.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"peptidyl-glutamic acid carboxylation\", \"negative regulation of biomineral tissue development\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Biallelic germline loss-of-function variants. The three variants in the original mapping study - a single-base deletion, a splice-acceptor change, and a missense change - all predict a non-functional protein, and parental consanguinity is common.\", \"gene_terms\": [{\"label\": \"MGP\", \"id\": \"hgnc:7060\"}]}}}, {\"id\": \"Mgp-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The knockout that established the mechanism before the human gene was known, and which is described in the review literature as a faithful model of the human syndrome. Null mice develop to term and then die within two months of arterial calcification leading to blood-vessel rupture, with inappropriate calcification of cartilage including the growth plate.\"}, {\"id\": \"Midface Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midfacial underdevelopment with depressed nasal bridge, hypoplastic nasal alae, sloping forehead, and receding chin.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Mixed Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild to severe, unilateral or bilateral hearing loss with both sensorineural and conductive components, the conductive element following ossification of the ear cartilage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000410\"}}, {\"id\": \"Peripheral Pulmonary Artery Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple stenoses of the peripheral pulmonary arteries, present in almost all patients and the determinant of prognosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004969\"}}, {\"id\": \"Pulmonary Arterial Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypertension arising from the fixed peripheral pulmonary arterial obstruction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002092\"}}, {\"id\": \"Sloping Forehead\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sloping forehead, listed among the consistent dysmorphic features.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000340\"}}, {\"id\": \"Symptomatic management of hypertension and respiratory complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying therapy exists. Available treatment is symptomatic, directed at the hypertension and the respiratory complications - which the 50-year review explicitly identifies as a consequence of the mechanism not being understood well enough to target.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tracheal Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcification progressing to ossification of the tracheobronchial tree, visible on plain chest radiography.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002787\"}}], \"edges\": [{\"source\": \"Matrix Gla Protein Loss of Function\", \"target\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without a functional mineral-binding Gla protein in the matrix, the brake on calcification is removed in the tissues that express it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Abnormal Cartilage Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage that should stay uncalcified mineralizes - larynx, tracheobronchial tree, ears, nose, and ribs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The vascular arm of the same lesion. Multiple peripheral pulmonary artery stenoses are found in almost all patients and are the finding that governs prognosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of MGP-mediated inhibition of mineralization in vascular smooth muscle, with mural calcification and segmental narrowing of the peripheral pulmonary arteries.\"]}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Midface Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Underdevelopment of the midface, with depressed nasal bridge, hypoplastic nasal alae, and sloping forehead. Nasal cartilage is among the cartilages affected, so the craniofacial phenotype is plausibly the same lesion in a different site, though the developmental route is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Depressed Nasal Bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The nasal component of the midfacial underdevelopment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Sloping Forehead\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The frontal component of the same craniofacial pattern.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Brachytelephalangism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shortening and broadening of the first to fourth distal phalanges with punctate epiphyses, characteristically sparing the fifth. This is the feature that places the disorder in the chondrodysplasia punctata group.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"target\": \"Epiphyseal Stippling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Punctate epiphyses in the shortened distal phalanges - the chondrodysplasia punctata finding itself.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Cartilage Calcification\", \"target\": \"Tracheal Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcification and ossification of the tracheobronchial cartilage, visible on chest radiography.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification\", \"target\": \"Calcification of the Auricular Cartilage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct ossification of the ear cartilage, the site whose histology was examined.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Cartilage Calcification\", \"target\": \"Mixed Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss, mild to severe, unilateral or bilateral, and mixed in character - the conductive element following the ossified cartilage directly.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Direct ossification of auricular and middle-ear cartilage, giving both conductive and sensorineural components.\"]}, {\"source\": \"Peripheral Pulmonary Artery Stenosis\", \"target\": \"Pulmonary Arterial Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary hypertension with right-heart consequences follows from the fixed obstruction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fixed obstruction to pulmonary arterial flow with elevated pulmonary vascular resistance.\"]}, {\"source\": \"Symptomatic management of hypertension and respiratory complications\", \"target\": \"Pulmonary Arterial Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac, airway, and audiologic surveillance\", \"target\": \"Peripheral Pulmonary Artery Stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mgp-null mouse\", \"target\": \"Loss of Active Inhibition of Extracellular Matrix Calcification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The knockout demonstrated that MGP loss is sufficient for spontaneous calcification of both arteries and cartilage, which is the mechanism the human disorder instantiates. Its explanatory role was not merely confirmatory: the mouse phenotype is what made MGP the compelling candidate in the human linkage interval.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse phenotype is considerably more severe on the vascular side than the human disorder - null mice die within two months of vessel rupture, whereas Keutel patients generally have a good prognosis - so the model overstates the vascular lethality even while capturing the mechanism.\"}, {\"source\": \"MGP\", \"target\": \"Matrix Gla Protein Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5285,17 +5371,19 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5305,8 +5393,80 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-pulmonary-artery-stenosis" data-dismech-node="Peripheral Pulmonary Artery Stenosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Peripheral Pulmonary Artery Stenosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0004969</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral pulmonary artery stenosis (HP:0004969). HP:0004969 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9916809" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9916809" target="_blank">PMID:9916809</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"abnormal cartilage calcification, peripheral pulmonary stenosis and midfacial hypoplasia"</div>
+
+
+                <div class="evidence-explanation">Names peripheral pulmonary stenosis as a defining feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-arterial-hypertension" data-dismech-node="Pulmonary Arterial Hypertension" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5322,15 +5482,18 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002092</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002092</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5350,6 +5513,7 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5382,8 +5546,177 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-calcification-of-the-auricular-cartilage" data-dismech-node="Calcification of the Auricular Cartilage" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Calcification of the Auricular Cartilage
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005103</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Calcification of the auricular cartilage (HP:0005103). HP:0005103 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33996798" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33996798" target="_blank">PMID:33996798</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"abnormal cartilage calcification in the larynx, the respiratory tract, the ears, the nose and the ribs"</div>
+
+
+                <div class="evidence-explanation">Names the ears among the sites of abnormal cartilage calcification.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37252084" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37252084" target="_blank">PMID:37252084</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biopsies of ear cartilages have shown direct ossification without any tissue reaction or calcification, resulting in neurosensory and conductive hearing loss."</div>
+
+
+                <div class="evidence-explanation">Gives the histology of the ear-cartilage lesion and links it to the hearing loss.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mixed-hearing-impairment" data-dismech-node="Mixed Hearing Impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Mixed Hearing Impairment
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000410</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33996798" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33996798" target="_blank">PMID:33996798</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mild to severe unilateral or bilateral sensorineural, mixed hearing loss"</div>
+
+
+                <div class="evidence-explanation">States the hearing loss and its mixed character.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-otitis-media" data-dismech-node="Recurrent Otitis Media" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5399,15 +5732,18 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000403</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000403</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5427,6 +5763,7 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5459,7 +5796,7 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-midface-hypoplasia" data-dismech-node="Midface Hypoplasia" data-dismech-type="phenotype">
@@ -5478,15 +5815,18 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0011800</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011800</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5506,6 +5846,7 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5546,15 +5887,18 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0005280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0005280</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5574,6 +5918,7 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5600,18 +5945,9 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sloping-forehead" data-dismech-node="Sloping Forehead" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Global Developmental Delay
+                        Sloping Forehead
 
 
 
@@ -5623,33 +5959,18 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000340" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000340</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263), qualified as severity mild. HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Sloping forehead (HP:0000340). HP:0000340 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
-                    <div class="item-meta">
 
 
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Severity: MILD</span>
-
-
-
-
-                    </div>
 
 
 
@@ -5672,14 +5993,98 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as s
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"intellectual disability that ranges from borderline intelligence to mild developmental delay, short stature, and respiratory conditions including dyspnea, wheezing, cough, and infections"</div>
+                <div class="evidence-snippet">"dysmorphic facial abnormalities including sloping forehead, midface hypoplasia"</div>
 
 
-                <div class="evidence-explanation">States the range of intellectual involvement.</div>
+                <div class="evidence-explanation">Names the sloping forehead as a consistent facial finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-brachytelephalangism" data-dismech-node="Brachytelephalangism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Brachytelephalangism
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Shortening of all distal phalanges of the fingers</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006118" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0006118</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Shortening of all distal phalanges of the fingers (HP:0006118). HP:0006118 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33996798" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33996798" target="_blank">PMID:33996798</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"brachytelephalangism that, in around 75% of the cases, is characterized by shortening and broadening of the first to fourth distal phalanges (punctate epiphyses), with sparing of the fifth phalange"</div>
+
+
+                <div class="evidence-explanation">Gives the frequency, the digit pattern, and - importantly for the nosology placement - records punctate epiphyses.</div>
 
 
 
@@ -5700,85 +6105,8 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as s
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33996798" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33996798" target="_blank">PMID:33996798</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"mild developmental delay, short stature, and respiratory conditions"</div>
-
-
-                <div class="evidence-explanation">Lists short stature among the additional features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-cartilage-calcification" data-dismech-node="Abnormal Cartilage Calcification" data-dismech-type="phenotype">
@@ -5797,15 +6125,18 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100593</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100593</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Calcification of cartilage (HP:0100593). HP:0100593 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5825,6 +6156,7 @@ This clinical feature is Calcification of cartilage (HP:0100593). HP:0100593 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5865,15 +6197,18 @@ This clinical feature is Calcification of cartilage (HP:0100593). HP:0100593 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002787</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tracheal calcification (HP:0002787). HP:0002787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5893,6 +6228,7 @@ This clinical feature is Tracheal calcification (HP:0002787). HP:0002787 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5904,304 +6240,6 @@ This clinical feature is Tracheal calcification (HP:0002787). HP:0002787 is a ph
 
 
                 <div class="evidence-explanation">Documents the radiographic finding.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-calcification-of-the-auricular-cartilage" data-dismech-node="Calcification of the Auricular Cartilage" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Calcification of the Auricular Cartilage
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0005103</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Calcification of the auricular cartilage (HP:0005103). HP:0005103 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33996798" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33996798" target="_blank">PMID:33996798</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"abnormal cartilage calcification in the larynx, the respiratory tract, the ears, the nose and the ribs"</div>
-
-
-                <div class="evidence-explanation">Names the ears among the sites of abnormal cartilage calcification.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37252084" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37252084" target="_blank">PMID:37252084</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Biopsies of ear cartilages have shown direct ossification without any tissue reaction or calcification, resulting in neurosensory and conductive hearing loss."</div>
-
-
-                <div class="evidence-explanation">Gives the histology of the ear-cartilage lesion and links it to the hearing loss.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-pulmonary-artery-stenosis" data-dismech-node="Peripheral Pulmonary Artery Stenosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Peripheral Pulmonary Artery Stenosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004969</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral pulmonary artery stenosis (HP:0004969). HP:0004969 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:9916809" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9916809" target="_blank">PMID:9916809</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"abnormal cartilage calcification, peripheral pulmonary stenosis and midfacial hypoplasia"</div>
-
-
-                <div class="evidence-explanation">Names peripheral pulmonary stenosis as a defining feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sloping-forehead" data-dismech-node="Sloping Forehead" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sloping Forehead
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000340" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000340</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sloping forehead (HP:0000340). HP:0000340 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33996798" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33996798" target="_blank">PMID:33996798</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"dysmorphic facial abnormalities including sloping forehead, midface hypoplasia"</div>
-
-
-                <div class="evidence-explanation">Names the sloping forehead as a consistent facial finding.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-brachytelephalangism" data-dismech-node="Brachytelephalangism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Brachytelephalangism
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Shortening of all distal phalanges of the fingers</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006118" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0006118</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Shortening of all distal phalanges of the fingers (HP:0006118). HP:0006118 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33996798" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33996798" target="_blank">PMID:33996798</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"brachytelephalangism that, in around 75% of the cases, is characterized by shortening and broadening of the first to fourth distal phalanges (punctate epiphyses), with sparing of the fifth phalange"</div>
-
-
-                <div class="evidence-explanation">Gives the frequency, the digit pattern, and - importantly for the nosology placement - records punctate epiphyses.</div>
 
 
 
@@ -6231,15 +6269,18 @@ This clinical feature is Shortening of all distal phalanges of the fingers (HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0010655</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0010655</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epiphyseal stippling (HP:0010655). HP:0010655 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6259,6 +6300,7 @@ This clinical feature is Epiphyseal stippling (HP:0010655). HP:0010655 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6285,9 +6327,18 @@ This clinical feature is Epiphyseal stippling (HP:0010655). HP:0010655 is a phen
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mixed-hearing-impairment" data-dismech-node="Mixed Hearing Impairment" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Mixed Hearing Impairment
+                        Global Developmental Delay
 
 
 
@@ -6299,15 +6350,36 @@ This clinical feature is Epiphyseal stippling (HP:0010655). HP:0010655 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000410</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Global developmental delay (HP:0001263), qualified as severity mild. HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Severity: MILD</span>
+
+
+
+
+                    </div>
+
+
+
 
 
 
@@ -6330,14 +6402,96 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"mild to severe unilateral or bilateral sensorineural, mixed hearing loss"</div>
+                <div class="evidence-snippet">"intellectual disability that ranges from borderline intelligence to mild developmental delay, short stature, and respiratory conditions including dyspnea, wheezing, cough, and infections"</div>
 
 
-                <div class="evidence-explanation">States the hearing loss and its mixed character.</div>
+                <div class="evidence-explanation">States the range of intellectual involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short Stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33996798" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33996798" target="_blank">PMID:33996798</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mild developmental delay, short stature, and respiratory conditions"</div>
+
+
+                <div class="evidence-explanation">Lists short stature among the additional features.</div>
 
 
 
@@ -6425,6 +6579,9 @@ This disease-associated gene is MGP (hgnc:7060). hgnc:7060 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6439,6 +6596,7 @@ This disease-associated gene is MGP (hgnc:7060). hgnc:7060 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6463,6 +6621,7 @@ This disease-associated gene is MGP (hgnc:7060). hgnc:7060 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6549,6 +6708,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6559,6 +6721,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6608,6 +6773,7 @@ This treatment targets pulmonary arterial hypertension (HP:0002092). HP:0002092 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6675,6 +6841,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6685,6 +6854,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6734,6 +6906,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6796,6 +6969,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6898,6 +7072,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6963,6 +7138,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7013,6 +7189,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7060,6 +7237,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7136,6 +7314,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7186,6 +7365,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7290,6 +7470,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7439,6 +7620,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7498,6 +7680,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7537,6 +7720,7 @@ This treatment targets peripheral pulmonary artery stenosis (HP:0004969). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

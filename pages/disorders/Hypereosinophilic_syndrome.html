@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hypereosinophilic%20syndrome"
@@ -3969,7 +4037,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">21</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4199,6 +4267,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophil-subset-heterogeneity-and-tissue-specific-dysfunction" data-dismech-node="Eosinophil subset heterogeneity and tissue-specific dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Eosinophil subset heterogeneity and tissue-specific dysfunction</div>
 
+
                 <div class="item-desc">Resident eosinophils support tissue homeostasis and immune regulation, whereas inflammatory eosinophils are recruited during immune responses. Dysregulation of these functionally distinct subsets may help explain the heterogeneous tissue injury and treatment response seen across HES subtypes.</div>
 
 
@@ -4365,6 +4434,7 @@ This pathophysiological event involves immune response (GO:0006955). GO:0006955 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4386,6 +4456,7 @@ This pathophysiological event involves immune response (GO:0006955). GO:0006955 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4411,6 +4482,7 @@ This pathophysiological event involves immune response (GO:0006955). GO:0006955 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-kinase-driven-clonal-eosinophilopoiesis" data-dismech-node="Myeloid kinase-driven clonal eosinophilopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid kinase-driven clonal eosinophilopoiesis</div>
+
 
                 <div class="item-desc">A subset of HES is initiated by clonal myeloid lesions such as FIP1L1-PDGFRA rearrangement, which drive autonomous eosinophilopoiesis and define the primary myeloid end of the HES spectrum.</div>
 
@@ -4575,6 +4647,7 @@ This pathophysiological event involves positive regulation of granulocyte differ
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4597,6 +4670,7 @@ This pathophysiological event involves positive regulation of granulocyte differ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-t-cell-il-5-overproduction" data-dismech-node="Aberrant T-cell IL-5 overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant T-cell IL-5 overproduction</div>
+
 
                 <div class="item-desc">In lymphocytic HES, aberrant T-cell populations produce eosinophilopoietic cytokines, especially IL-5, which prolong eosinophil survival and expand the reactive eosinophil compartment.</div>
 
@@ -4791,6 +4865,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4813,6 +4888,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-eosinophil-expansion-in-blood-and-tissues" data-dismech-node="Persistent eosinophil expansion in blood and tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent eosinophil expansion in blood and tissues</div>
+
 
                 <div class="item-desc">Regardless of whether the upstream driver is clonal or dysimmune, HES is marked by sustained accumulation of eosinophils in the circulation and peripheral tissues, creating the substrate for organ injury.</div>
 
@@ -4950,6 +5026,9 @@ This pathophysiological event involves positive regulation of granulocyte differ
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4972,6 +5051,7 @@ This pathophysiological event involves positive regulation of granulocyte differ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-eosinophil-infiltration-and-degranulation" data-dismech-node="Tissue eosinophil infiltration and degranulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue eosinophil infiltration and degranulation</div>
+
 
                 <div class="item-desc">Activated eosinophils infiltrate organs and release cytotoxic granule proteins, amplifying local inflammation and directly injuring target tissues.</div>
 
@@ -5185,6 +5265,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5209,6 +5290,9 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5231,6 +5315,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-eosinophilic-injury" data-dismech-node="Cardiac eosinophilic injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac eosinophilic injury</div>
+
 
                 <div class="item-desc">Eosinophil-mediated tissue injury can extend to the heart, where chronic eosinophilic inflammation is surveilled for endomyocardial fibrosis, pericardial inflammation, and valvular damage.</div>
 
@@ -5373,6 +5458,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5395,6 +5481,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prothrombotic-eosinophil-activation" data-dismech-node="Prothrombotic eosinophil activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Prothrombotic eosinophil activation</div>
+
 
                 <div class="item-desc">Eosinophil granule proteins and protease systems can directly activate clotting pathways, inhibit endogenous anticoagulant mechanisms, and promote thromboembolic complications. This thromboinflammatory branch is clinically important because thrombosis is a frequent complication and can dominate long-term morbidity.</div>
 
@@ -5516,6 +5603,7 @@ This pathophysiological event involves blood coagulation (GO:0007596). GO:000759
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5537,6 +5625,7 @@ This pathophysiological event involves blood coagulation (GO:0007596). GO:000759
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5562,6 +5651,7 @@ This pathophysiological event involves blood coagulation (GO:0007596). GO:000759
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-eosinophilic-inflammation" data-dismech-node="Cutaneous eosinophilic inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous eosinophilic inflammation</div>
+
 
                 <div class="item-desc">Eosinophilic infiltration of the skin produces pruritic inflammatory lesions, most commonly urticarial and eczematous eruptions.</div>
 
@@ -5712,6 +5802,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5734,6 +5825,7 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gastrointestinal-eosinophilic-inflammation" data-dismech-node="Gastrointestinal eosinophilic inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Gastrointestinal eosinophilic inflammation</div>
+
 
                 <div class="item-desc">Eosinophilic injury in the digestive tract produces inflammatory gastrointestinal symptoms, including diarrhea.</div>
 
@@ -5855,6 +5947,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5877,6 +5970,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-eosinophilic-inflammation" data-dismech-node="Airway eosinophilic inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway eosinophilic inflammation</div>
+
 
                 <div class="item-desc">Eosinophilic airway inflammation contributes to asthma-like respiratory manifestations in clinically active HES.</div>
 
@@ -6019,6 +6113,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6064,7 +6159,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant T-cell IL-5 overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In lymphocytic HES, aberrant T-cell populations produce eosinophilopoietic cytokines, especially IL-5, which prolong eosinophil survival and expand the reactive eosinophil compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive helper T cell\", \"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"genes\": [\"IL5\"], \"gene_terms\": [{\"label\": \"IL5\", \"id\": \"hgnc:6016\"}]}}, {\"id\": \"Airway eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic airway inflammation contributes to asthma-like respiratory manifestations in clinically active HES.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lung\"]}}, {\"id\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Targeted monoclonal antibodies against the IL-5 axis are used for severe or relapsing disease and are especially relevant when eosinophilia remains corticosteroid-dependent or corticosteroid-refractory.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Monoclonal Antibody\"]}}, {\"id\": \"Asthma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002099\"}}, {\"id\": \"Cardiac eosinophilic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophil-mediated tissue injury can extend to the heart, where chronic eosinophilic inflammation is surveilled for endomyocardial fibrosis, pericardial inflammation, and valvular damage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"heart\"]}}, {\"id\": \"Corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic glucocorticoids remain first-line therapy for many patients because they rapidly suppress eosinophilia and clinical manifestations.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Cutaneous eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic infiltration of the skin produces pruritic inflammatory lesions, most commonly urticarial and eczematous eruptions.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Eczematoid dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000964\"}}, {\"id\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resident eosinophils support tissue homeostasis and immune regulation, whereas inflammatory eosinophils are recruited during immune responses. Dysregulation of these functionally distinct subsets may help explain the heterogeneous tissue injury and treatment response seen across HES subtypes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\", \"immune response\"]}}, {\"id\": \"Gastrointestinal eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic injury in the digestive tract produces inflammatory gastrointestinal symptoms, including diarrhea.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Imatinib for PDGFRA-rearranged HES\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tyrosine-kinase inhibition is particularly effective in patients with FIP1L1-PDGFRA-associated disease and is used as precision therapy for the clonal myeloid subset.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tyrosine kinase inhibitor\"]}}, {\"id\": \"Increased total eosinophil count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001880\"}}, {\"id\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of HES is initiated by clonal myeloid lesions such as FIP1L1-PDGFRA rearrangement, which drive autonomous eosinophilopoiesis and define the primary myeloid end of the HES spectrum.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"positive regulation of granulocyte differentiation\"], \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}]}}, {\"id\": \"PDGFRA rearrangement-associated HES\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}], \"association\": \"Rearrangement-associated clonal driver\"}}, {\"id\": \"Pericarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001701\"}}, {\"id\": \"Persistent eosinophil expansion in blood and tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regardless of whether the upstream driver is clonal or dysimmune, HES is marked by sustained accumulation of eosinophils in the circulation and peripheral tissues, creating the substrate for organ injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"positive regulation of granulocyte differentiation\"]}}, {\"id\": \"Prothrombotic eosinophil activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophil granule proteins and protease systems can directly activate clotting pathways, inhibit endogenous anticoagulant mechanisms, and promote thromboembolic complications. This thromboinflammatory branch is clinically important because thrombosis is a frequent complication and can dominate long-term morbidity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Thromboembolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001907\"}}, {\"id\": \"Tissue eosinophil infiltration and degranulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated eosinophils infiltrate organs and release cytotoxic granule proteins, amplifying local inflammation and directly injuring target tissues.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"eosinophil chemotaxis\", \"inflammatory response\"], \"locations\": [\"lung\", \"skin of body\"]}}, {\"id\": \"Urticaria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clonal myeloid lesions can expand pathologic eosinophil subsets.\"}, {\"source\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"target\": \"Aberrant T-cell IL-5 overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated T-cell cytokine signaling can expand inflammatory eosinophils.\"}, {\"source\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multiple HES drivers converge on persistent pathologic eosinophil accumulation.\"}, {\"source\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clonal eosinophilopoiesis sustains pathologic eosinophil burden.\"}, {\"source\": \"Aberrant T-cell IL-5 overproduction\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-5-rich cytokine signaling amplifies eosinophil burden.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained eosinophil expansion produces the defining laboratory phenotype.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Tissue eosinophil infiltration and degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded eosinophils enter tissues and initiate local injury.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Prothrombotic eosinophil activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded activated eosinophils also perturb coagulation pathways.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Cutaneous eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin infiltration produces eczema-like and urticarial inflammation.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Gastrointestinal eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal infiltration produces inflammatory digestive symptoms.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Airway eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway infiltration promotes asthma-like respiratory disease.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Cardiac eosinophilic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophilic tissue injury can also involve the heart and pericardium.\"}, {\"source\": \"Cardiac eosinophilic injury\", \"target\": \"Pericarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac eosinophilic inflammation can involve the pericardium.\"}, {\"source\": \"Prothrombotic eosinophil activation\", \"target\": \"Thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophil-driven hypercoagulability produces clinically important thrombosis.\"}, {\"source\": \"Cutaneous eosinophilic inflammation\", \"target\": \"Urticaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous eosinophilic inflammation can manifest as urticaria.\"}, {\"source\": \"Cutaneous eosinophilic inflammation\", \"target\": \"Eczematoid dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous eosinophilic inflammation can manifest as eczema-like dermatitis.\"}, {\"source\": \"Gastrointestinal eosinophilic inflammation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal eosinophilic inflammation can manifest as diarrhea.\"}, {\"source\": \"Airway eosinophilic inflammation\", \"target\": \"Asthma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway eosinophilic inflammation can manifest as asthma.\"}, {\"source\": \"Corticosteroid therapy\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Imatinib for PDGFRA-rearranged HES\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"target\": \"Aberrant T-cell IL-5 overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PDGFRA rearrangement-associated HES\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant T-cell IL-5 overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In lymphocytic HES, aberrant T-cell populations produce eosinophilopoietic cytokines, especially IL-5, which prolong eosinophil survival and expand the reactive eosinophil compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive helper T cell\", \"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"genes\": [\"IL5\"], \"gene_terms\": [{\"label\": \"IL5\", \"id\": \"hgnc:6016\"}]}}, {\"id\": \"Absolute eosinophil count\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C188680\", \"term_label\": \"Absolute Eosinophil Count\", \"readouts\": [{\"target\": \"Persistent eosinophil expansion in blood and tissues\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The blood count is the accessible half of this node. It measures the circulating compartment; the tissue burden the node also names is not visible to it, so a count inside the reference interval does not exclude tissue hypereosinophilia.\"}]}}, {\"id\": \"Airway eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic airway inflammation contributes to asthma-like respiratory manifestations in clinically active HES.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lung\"]}}, {\"id\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Targeted monoclonal antibodies against the IL-5 axis are used for severe or relapsing disease and are especially relevant when eosinophilia remains corticosteroid-dependent or corticosteroid-refractory.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Monoclonal Antibody\"]}}, {\"id\": \"Asthma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002099\"}}, {\"id\": \"Cardiac eosinophilic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophil-mediated tissue injury can extend to the heart, where chronic eosinophilic inflammation is surveilled for endomyocardial fibrosis, pericardial inflammation, and valvular damage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"heart\"]}}, {\"id\": \"Corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic glucocorticoids remain first-line therapy for many patients because they rapidly suppress eosinophilia and clinical manifestations.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Cutaneous eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic infiltration of the skin produces pruritic inflammatory lesions, most commonly urticarial and eczematous eruptions.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002014\"}}, {\"id\": \"Eczematoid dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000964\"}}, {\"id\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resident eosinophils support tissue homeostasis and immune regulation, whereas inflammatory eosinophils are recruited during immune responses. Dysregulation of these functionally distinct subsets may help explain the heterogeneous tissue injury and treatment response seen across HES subtypes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\", \"immune response\"]}}, {\"id\": \"Gastrointestinal eosinophilic inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophilic injury in the digestive tract produces inflammatory gastrointestinal symptoms, including diarrhea.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Imatinib for PDGFRA-rearranged HES\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tyrosine-kinase inhibition is particularly effective in patients with FIP1L1-PDGFRA-associated disease and is used as precision therapy for the clonal myeloid subset.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tyrosine kinase inhibitor\"]}}, {\"id\": \"Increased total eosinophil count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001880\"}}, {\"id\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of HES is initiated by clonal myeloid lesions such as FIP1L1-PDGFRA rearrangement, which drive autonomous eosinophilopoiesis and define the primary myeloid end of the HES spectrum.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"positive regulation of granulocyte differentiation\"], \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}]}}, {\"id\": \"PDGFRA rearrangement-associated HES\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}], \"association\": \"Rearrangement-associated clonal driver\"}}, {\"id\": \"Pericarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001701\"}}, {\"id\": \"Persistent eosinophil expansion in blood and tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regardless of whether the upstream driver is clonal or dysimmune, HES is marked by sustained accumulation of eosinophils in the circulation and peripheral tissues, creating the substrate for organ injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"positive regulation of granulocyte differentiation\"]}}, {\"id\": \"Prothrombotic eosinophil activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Eosinophil granule proteins and protease systems can directly activate clotting pathways, inhibit endogenous anticoagulant mechanisms, and promote thromboembolic complications. This thromboinflammatory branch is clinically important because thrombosis is a frequent complication and can dominate long-term morbidity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Thromboembolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001907\"}}, {\"id\": \"Tissue eosinophil infiltration and degranulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated eosinophils infiltrate organs and release cytotoxic granule proteins, amplifying local inflammation and directly injuring target tissues.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"eosinophil\"], \"biological_processes\": [\"eosinophil chemotaxis\", \"inflammatory response\"], \"locations\": [\"lung\", \"skin of body\"]}}, {\"id\": \"Urticaria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clonal myeloid lesions can expand pathologic eosinophil subsets.\"}, {\"source\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"target\": \"Aberrant T-cell IL-5 overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated T-cell cytokine signaling can expand inflammatory eosinophils.\"}, {\"source\": \"Eosinophil subset heterogeneity and tissue-specific dysfunction\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multiple HES drivers converge on persistent pathologic eosinophil accumulation.\"}, {\"source\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clonal eosinophilopoiesis sustains pathologic eosinophil burden.\"}, {\"source\": \"Aberrant T-cell IL-5 overproduction\", \"target\": \"Persistent eosinophil expansion in blood and tissues\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-5-rich cytokine signaling amplifies eosinophil burden.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained eosinophil expansion produces the defining laboratory phenotype.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Tissue eosinophil infiltration and degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded eosinophils enter tissues and initiate local injury.\"}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Prothrombotic eosinophil activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded activated eosinophils also perturb coagulation pathways.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Cutaneous eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin infiltration produces eczema-like and urticarial inflammation.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Gastrointestinal eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal infiltration produces inflammatory digestive symptoms.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Airway eosinophilic inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway infiltration promotes asthma-like respiratory disease.\"}, {\"source\": \"Tissue eosinophil infiltration and degranulation\", \"target\": \"Cardiac eosinophilic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophilic tissue injury can also involve the heart and pericardium.\"}, {\"source\": \"Cardiac eosinophilic injury\", \"target\": \"Pericarditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac eosinophilic inflammation can involve the pericardium.\"}, {\"source\": \"Prothrombotic eosinophil activation\", \"target\": \"Thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophil-driven hypercoagulability produces clinically important thrombosis.\"}, {\"source\": \"Cutaneous eosinophilic inflammation\", \"target\": \"Urticaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous eosinophilic inflammation can manifest as urticaria.\"}, {\"source\": \"Cutaneous eosinophilic inflammation\", \"target\": \"Eczematoid dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous eosinophilic inflammation can manifest as eczema-like dermatitis.\"}, {\"source\": \"Gastrointestinal eosinophilic inflammation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal eosinophilic inflammation can manifest as diarrhea.\"}, {\"source\": \"Airway eosinophilic inflammation\", \"target\": \"Asthma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway eosinophilic inflammation can manifest as asthma.\"}, {\"source\": \"Corticosteroid therapy\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Imatinib for PDGFRA-rearranged HES\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"target\": \"Aberrant T-cell IL-5 overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-IL-5 or anti-IL-5R biologic therapy\", \"target\": \"Increased total eosinophil count\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Persistent eosinophil expansion in blood and tissues\", \"target\": \"Absolute eosinophil count\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The blood count is the accessible half of this node. It measures the circulating compartment; the tissue burden the node also names is not visible to it, so a count inside the reference interval does not exclude tissue hypereosinophilia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PDGFRA rearrangement-associated HES\", \"target\": \"Myeloid kinase-driven clonal eosinophilopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6089,9 +6184,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6132,6 +6225,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6147,6 +6243,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6200,6 +6299,9 @@ This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6214,6 +6316,7 @@ This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6277,6 +6380,9 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6291,6 +6397,7 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6344,6 +6451,9 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Cardiac involvement in HES can include pericardial inflammation and other eosinophil-mediated intracardiac injury, prompting echocardiographic surveillance.</div>
 
 
@@ -6363,6 +6473,7 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6426,6 +6537,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6440,6 +6554,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6472,7 +6587,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-eczematoid-dermatitis" data-dismech-node="Eczematoid dermatitis" data-dismech-type="phenotype">
@@ -6503,6 +6618,9 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6517,6 +6635,7 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6542,15 +6661,6 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-asthma" data-dismech-node="Asthma" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6580,6 +6690,9 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6594,6 +6707,7 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6692,6 +6806,9 @@ This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6706,6 +6823,7 @@ This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6818,6 +6936,12 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Systemic glucocorticoids remain first-line therapy for many patients because they rapidly suppress eosinophilia and clinical manifestations.</div>
 
 
@@ -6864,6 +6988,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6885,6 +7010,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6978,6 +7104,12 @@ This treatment uses tyrosine kinase inhibitor (NCIT:C1967). NCIT:C1967 is a ther
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Tyrosine-kinase inhibition is particularly effective in patients with FIP1L1-PDGFRA-associated disease and is used as precision therapy for the clonal myeloid subset.</div>
 
 
@@ -7017,6 +7149,7 @@ This treatment uses tyrosine kinase inhibitor (NCIT:C1967). NCIT:C1967 is a ther
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7110,6 +7243,12 @@ This treatment uses Monoclonal Antibody (NCIT:C20401). NCIT:C20401 is a therapeu
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Targeted monoclonal antibodies against the IL-5 axis are used for severe or relapsing disease and are especially relevant when eosinophilia remains corticosteroid-dependent or corticosteroid-refractory.</div>
 
 
@@ -7174,6 +7313,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7195,6 +7335,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7225,6 +7366,316 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
         <!-- Biochemical Markers -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-absolute-eosinophil-count" data-dismech-node="Absolute eosinophil count" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Absolute eosinophil count
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+
+                </div>
+
+                <div class="item-desc">Context: The measurement the syndrome is defined by. A blood eosinophil count at or above 1,500 cells/uL, persisting and unexplained by a secondary cause, is what separates this syndrome from the far commoner reactive eosinophilias, and the same count is what treatment is titrated against.</div>
+
+
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Persistent eosinophil expansion in blood and tissues</span>
+
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+
+
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+
+
+                        <div class="readout-interpretation">The blood count is the accessible half of this node. It measures the circulating compartment; the tissue burden the node also names is not visible to it, so a count inside the reference interval does not exclude tissue hypereosinophilia.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19910029" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19910029" target="_blank">PMID:19910029</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hypereosinophilic syndrome (HES) is a heterogeneous group of rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x 10(9)/L, absence of a secondary cause, and evidence of eosinophil-associated pathology."</div>
+
+
+                <div class="evidence-explanation">States the count, its persistence, and the exclusion of secondary causes as what defines the syndrome, which is the claim this readout makes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+                <div class="reference-ranges">
+                    <div class="reference-ranges-title">Reference Ranges</div>
+
+                    <div class="reference-range">
+
+                        <a href="https://loinc.org/26449-9" target="_blank" rel="noopener" class="readout-target">Eosinophils [#/volume] in Blood</a>
+
+                        <span class="reference-range-interval">
+
+                            50–500 cells/uL
+
+                        </span>
+
+                        <span class="reference-range-meta">(adults)</span>
+
+
+                        <div class="reference-range-bands">
+
+
+
+
+
+
+
+                            <span class="severity-pill severity-other">
+                                Below 500 cells/uL
+
+                                (–500 cells/uL)
+
+
+                            </span>
+
+
+
+
+
+
+
+                            <span class="severity-pill severity-moderate">
+                                500 to 1499 cells/uL
+
+                                (500–1500 cells/uL)
+
+
+                                <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;" title="Mapped HP phenotype">→ Increased total eosinophil count</a>
+
+                            </span>
+
+
+
+
+
+
+
+                            <span class="severity-pill severity-moderate">
+                                1500 cells/uL or greater
+
+                                (1500– cells/uL)
+
+
+                                <a href="http://purl.obolibrary.org/obo/HP_0032061" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;" title="Mapped HP phenotype">→ Severely increased total eosinophil count</a>
+
+                            </span>
+
+                        </div>
+
+
+                        <div class="reference-range-band-interp"><strong>Below 500 cells/uL:</strong> At or below the reference interval&#39;s upper limit. Results below the interval&#39;s 50 cells/uL floor fall here too, and are deliberately not graded LOW: no cited source addresses eosinopenia, and in treated disease a near-zero count is the therapeutic goal rather than an abnormality. On treatment this band is also the target: hematologic remission is defined as a count below 0.5 x 10^9/L, so a result here in a treated patient reports response rather than absence of disease.</div>
+
+
+
+                        <div class="reference-range-band-interp"><strong>500 to 1499 cells/uL:</strong> Eosinophilia by the ICOG-EO classification, but below the hypereosinophilia threshold this syndrome is defined by. A count in this band is common and mostly reactive; on its own it does not support the diagnosis.</div>
+
+
+
+                        <div class="reference-range-band-interp"><strong>1500 cells/uL or greater:</strong> Hypereosinophilia. This is the diagnostic threshold, not a severity grade: a single count here is not sufficient, since the definition requires persistence and the exclusion of a secondary cause before the syndrome is diagnosed.</div>
+
+
+
+
+                        <div class="reference-range-meta">A genuine laboratory reference interval, and worth distinguishing from the therapy-stratification bands on the Asthma blood eosinophil record, which asserts no interval at all: here a source states the normal range directly. The bands below are the diagnostic tiers of the eosinophilic-disorder classification, not severity grades. Because the sources define eosinophilia as at or above 0.5 x 10^9/L, a result of exactly 500 cells/uL falls in the eosinophilia band rather than inside this interval.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39056762" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39056762" target="_blank">PMID:39056762</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Peripheral blood absolute eosinophil count (AEC) normal value ranges between 0.05 and 0.5 × 109/L, while reference values for mature eosinophils in bone marrow aspirates are between 1% and 6% [1,6,7,8]."</div>
+
+
+                <div class="evidence-explanation">States the adult laboratory reference interval this record carries, as 0.05 to 0.5 x 10^9/L.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38611061" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38611061" target="_blank">PMID:38611061</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A circulating eosinophil count of ≥0.5 × 109/L is defined as eosinophilia."</div>
+
+
+                <div class="evidence-explanation">An independent source for the 500 cells/uL boundary, above which a count is eosinophilia rather than normal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39056762" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39056762" target="_blank">PMID:39056762</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"According to the classification of eosinophilic disorders proposed in 2011 by the International Cooperative Working Group on Eosinophil Disorders (ICOG-EO) and revised in 2022, blood eosinophilia is defined by an AEC above 0.5 × 109/L, while hypereosinophilia (HE) necessitates an AEC of ≥1.5 ×..."</div>
+
+
+                <div class="evidence-explanation">The source of both band boundaries: eosinophilia above 0.5 x 10^9/L, hypereosinophilia at or above 1.5 x 10^9/L.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39056762" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39056762" target="_blank">PMID:39056762</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the case of severe organ damage, a further goal is to achieve hematologic remission (blood eosinophil count &lt; 0.5 × 109/L) to avoid relapse."</div>
+
+
+                <div class="evidence-explanation">Establishes the same count as the treatment target, which is why the normal band carries a monitoring reading as well as a diagnostic one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Diagnosis -->
@@ -7301,6 +7752,9 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7387,6 +7841,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7477,6 +7932,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7561,6 +8017,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7679,6 +8136,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7756,6 +8214,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7829,6 +8288,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7928,6 +8388,7 @@ This treatment targets Increased total eosinophil count (HP:0001880). HP:0001880
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8015,6 +8476,7 @@ This clinical trial targets Increased total eosinophil count (HP:0001880). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8087,6 +8549,7 @@ This clinical trial targets Increased total eosinophil count (HP:0001880). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8329,6 +8792,7 @@ pathophysiology:
     reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &gt;-
       BACKGROUND: Hypereosinophilic syndrome (HES) is a heterogeneous group of
       rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x
@@ -8388,6 +8852,7 @@ pathophysiology:
     reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &gt;-
       BACKGROUND: Hypereosinophilic syndrome (HES) is a heterogeneous group of
       rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x
@@ -8599,6 +9064,7 @@ phenotypes:
     reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &gt;-
       BACKGROUND: Hypereosinophilic syndrome (HES) is a heterogeneous group of
       rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x
@@ -8728,7 +9194,128 @@ phenotypes:
       Supports pericarditis as a clinically important cardiac manifestation
       considered during HES evaluation, while keeping the claim cautious
       because the cited case had no confirmed cardiac involvement.
-biochemical: []
+biochemical:
+- name: Absolute eosinophil count
+  presence: INCREASED
+  context: &gt;-
+    The measurement the syndrome is defined by. A blood eosinophil count at or above
+    1,500 cells/uL, persisting and unexplained by a secondary cause, is what separates
+    this syndrome from the far commoner reactive eosinophilias, and the same count is
+    what treatment is titrated against.
+  notes: &gt;-
+    The cited sources state these boundaries as 0.05, 0.5 and 1.5 x 10^9/L. This record
+    converts them to cells/uL, multiplying by 1,000, so the values sit on the same scale
+    as the other blood eosinophil records in this knowledge base; each snippet keeps its
+    source&#39;s own form. The Idiopathic_Hypereosinophilic_Syndrome entry carries the same
+    measurement for the idiopathic subtype, where the count must also survive an
+    exclusion workup before the label applies.
+  biomarker_term:
+    preferred_term: absolute blood eosinophil count
+    term:
+      id: NCIT:C188680
+      label: Absolute Eosinophil Count
+  readouts:
+  - target: Persistent eosinophil expansion in blood and tissues
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      The blood count is the accessible half of this node. It measures the circulating
+      compartment; the tissue burden the node also names is not visible to it, so a
+      count inside the reference interval does not exclude tissue hypereosinophilia.
+    evidence:
+    - reference: PMID:19910029
+      reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: BACKGROUND
+      snippet: &#34;Hypereosinophilic syndrome (HES) is a heterogeneous group of rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x 10(9)/L, absence of a secondary cause, and evidence of eosinophil-associated pathology.&#34;
+      explanation: &#34;States the count, its persistence, and the exclusion of secondary causes as what defines the syndrome, which is the claim this readout makes.&#34;
+  reference_ranges:
+  - loinc_term:
+      id: LOINC:26449-9
+      label: Eosinophils [#/volume] in Blood
+    lower_bound: 50
+    upper_bound: 500
+    unit: cells/uL
+    population: adults
+    notes: &gt;-
+      A genuine laboratory reference interval, and worth distinguishing from the
+      therapy-stratification bands on the Asthma blood eosinophil record, which asserts
+      no interval at all: here a source states the normal range directly. The bands below
+      are the diagnostic tiers of the eosinophilic-disorder classification, not severity
+      grades. Because the sources define eosinophilia as at or above 0.5 x 10^9/L, a
+      result of exactly 500 cells/uL falls in the eosinophilia band rather than inside
+      this interval.
+    evidence:
+    - reference: PMID:39056762
+      reference_title: &#34;Managing Patients with Hypereosinophilic Syndrome: A Statement from the Italian Society of Allergy, Asthma, and Clinical Immunology (SIAAIC).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;Peripheral blood absolute eosinophil count (AEC) normal value ranges between 0.05 and 0.5 × 109/L, while reference values for mature eosinophils in bone marrow aspirates are between 1% and 6% [1,6,7,8].&#34;
+      explanation: &#34;States the adult laboratory reference interval this record carries, as 0.05 to 0.5 x 10^9/L.&#34;
+    - reference: PMID:38611061
+      reference_title: &#34;Clinical and Therapeutic Intervention of Hypereosinophilia in the Era of Molecular Diagnosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &#34;A circulating eosinophil count of ≥0.5 × 109/L is defined as eosinophilia.&#34;
+      explanation: &#34;An independent source for the 500 cells/uL boundary, above which a count is eosinophilia rather than normal.&#34;
+    interpretation_bands:
+    - name: Below 500 cells/uL
+      upper_bound: 500
+      unit: cells/uL
+      abnormal_flag: NORMAL
+      interpretation: &gt;-
+        At or below the reference interval&#39;s upper limit. Results below the interval&#39;s
+        50 cells/uL floor fall here too, and are deliberately not graded LOW: no cited
+        source addresses eosinopenia, and in treated disease a near-zero count is the
+        therapeutic goal rather than an abnormality. On treatment this band is also the
+        target: hematologic remission is defined as a count below 0.5 x 10^9/L, so a
+        result here in a treated patient reports response rather than absence of disease.
+    - name: 500 to 1499 cells/uL
+      lower_bound: 500
+      upper_bound: 1500
+      unit: cells/uL
+      abnormal_flag: HIGH
+      phenotype_term:
+        preferred_term: Increased total eosinophil count
+        term:
+          id: HP:0001880
+          label: Increased total eosinophil count
+      interpretation: &gt;-
+        Eosinophilia by the ICOG-EO classification, but below the hypereosinophilia
+        threshold this syndrome is defined by. A count in this band is common and mostly
+        reactive; on its own it does not support the diagnosis.
+    - name: 1500 cells/uL or greater
+      lower_bound: 1500
+      unit: cells/uL
+      abnormal_flag: HIGH
+      phenotype_term:
+        preferred_term: Severely increased total eosinophil count
+        term:
+          id: HP:0032061
+          label: Severely increased total eosinophil count
+      interpretation: &gt;-
+        Hypereosinophilia. This is the diagnostic threshold, not a severity grade: a single
+        count here is not sufficient, since the definition requires persistence and the
+        exclusion of a secondary cause before the syndrome is diagnosed.
+  evidence:
+  - reference: PMID:39056762
+    reference_title: &#34;Managing Patients with Hypereosinophilic Syndrome: A Statement from the Italian Society of Allergy, Asthma, and Clinical Immunology (SIAAIC).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;According to the classification of eosinophilic disorders proposed in 2011 by the International Cooperative Working Group on Eosinophil Disorders (ICOG-EO) and revised in 2022, blood eosinophilia is defined by an AEC above 0.5 × 109/L, while hypereosinophilia (HE) necessitates an AEC of ≥1.5 × 109/L [1,6].&#34;
+    explanation: &#34;The source of both band boundaries: eosinophilia above 0.5 x 10^9/L, hypereosinophilia at or above 1.5 x 10^9/L.&#34;
+  - reference: PMID:39056762
+    reference_title: &#34;Managing Patients with Hypereosinophilic Syndrome: A Statement from the Italian Society of Allergy, Asthma, and Clinical Immunology (SIAAIC).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;In the case of severe organ damage, a further goal is to achieve hematologic remission (blood eosinophil count &lt; 0.5 × 109/L) to avoid relapse.&#34;
+    explanation: &#34;Establishes the same count as the treatment target, which is why the normal band carries a monitoring reading as well as a diagnostic one.&#34;
 genetic:
 - name: PDGFRA rearrangement-associated HES
   gene_term:
@@ -8904,6 +9491,7 @@ diagnosis:
     reference_title: &#34;Hypereosinophilic syndrome: a multicenter, retrospective analysis of clinical characteristics and response to therapy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &gt;-
       BACKGROUND: Hypereosinophilic syndrome (HES) is a heterogeneous group of
       rare disorders defined by persistent blood eosinophilia &gt; or =1.5 x
@@ -9200,6 +9788,8 @@ references: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9620,7 +10210,7 @@ references: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypereosinophilic syndrome", "mondoId": "MONDO:0015691", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypereosinophilic_syndrome", "yamlRevision": "052c14dc4c47"};
+        const OS_CONFIG = {"diseaseName": "Hypereosinophilic syndrome", "mondoId": "MONDO:0015691", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypereosinophilic_syndrome", "yamlRevision": "56425c1073b3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

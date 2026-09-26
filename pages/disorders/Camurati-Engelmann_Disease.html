@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4207,6 +4275,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"This pedigree demonstrates the autosomal dominant inheritance pattern, remarkable variation in expressivity, and reduced penetrance."</div>
@@ -4226,6 +4295,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4273,6 +4343,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-tgf-beta-1-activation" data-dismech-node="Constitutive TGF-beta 1 Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive TGF-beta 1 Activation</div>
+
 
                 <div class="item-desc">Mutations in TGFB1 affect the latency-associated peptide (LAP) region, disrupting the non-covalent association between LAP and mature TGF-beta 1. This leads to premature or excessive release of active TGF-beta 1 from its latent complex, resulting in increased osteoblast activity and cortical bone thickening in the diaphyses.
 </div>
@@ -4493,6 +4564,7 @@ This pathophysiological event involves Osteoblast Differentiation (GO:0001649). 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"these mutations disrupt the association of beta1-LAP and TGF-beta1 and the subsequent release of the mature TGF-beta1"</div>
@@ -4512,6 +4584,7 @@ This pathophysiological event involves Osteoblast Differentiation (GO:0001649). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4539,6 +4612,7 @@ This pathophysiological event involves Osteoblast Differentiation (GO:0001649). 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4561,6 +4635,7 @@ This pathophysiological event involves Osteoblast Differentiation (GO:0001649). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rho-gtpase-mediated-osteoclast-activation" data-dismech-node="Rho GTPase-Mediated Osteoclast Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Rho GTPase-Mediated Osteoclast Activation</div>
+
 
                 <div class="item-desc">Aberrant TGF-beta 1 signaling activates non-canonical Rho GTPase pathways in osteoclast-lineage cells. This increases osteoclastogenesis, migration, bone resorption, and cytoskeletal remodeling, providing a disease-specific branch from TGFB1 activation to high-turnover cortical sclerosis.
 </div>
@@ -4743,6 +4818,7 @@ This pathophysiological event involves bone resorption (GO:0045453). GO:0045453 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4764,6 +4840,7 @@ This pathophysiological event involves bone resorption (GO:0045453). GO:0045453 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4789,6 +4866,7 @@ This pathophysiological event involves bone resorption (GO:0045453). GO:0045453 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-bone-remodeling-balance" data-dismech-node="Impaired Bone Remodeling Balance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Bone Remodeling Balance</div>
+
 
                 <div class="item-desc">Excessive TGF-beta 1 signaling shifts the balance between bone formation and resorption toward increased periosteal and endosteal new bone formation. The resulting cortical thickening narrows the medullary cavity of long bones, contributing to marrow failure and pain.
 </div>
@@ -5081,6 +5159,7 @@ This pathophysiological event occurs in Medullary cavity of long bone (UBERON:00
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Camurati-Engelmann disease (CED, MIM 131300) is an autosomal dominant, progressive diaphyseal dysplasia characterized by hyperosteosis and sclerosis of the diaphyses of long bones."</div>
@@ -5100,6 +5179,7 @@ This pathophysiological event occurs in Medullary cavity of long bone (UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5175,15 +5255,13 @@ This pathophysiological event occurs in Medullary cavity of long bone (UBERON:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5226,6 +5304,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5240,6 +5321,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5305,6 +5387,9 @@ This clinical feature is Exophthalmos, annotated with Proptosis (HP:0000520). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5319,6 +5404,7 @@ This clinical feature is Exophthalmos, annotated with Proptosis (HP:0000520). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5384,6 +5470,9 @@ This clinical feature is Cranial hyperostosis (HP:0004437). HP:0004437 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5398,6 +5487,7 @@ This clinical feature is Cranial hyperostosis (HP:0004437). HP:0004437 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5461,6 +5551,9 @@ This clinical feature is Minimal subcutaneous fat (HP:0003717). HP:0003717 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5475,6 +5568,7 @@ This clinical feature is Minimal subcutaneous fat (HP:0003717). HP:0003717 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5505,7 +5599,7 @@ This clinical feature is Minimal subcutaneous fat (HP:0003717). HP:0003717 is a 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-diaphyseal-dysplasia" data-dismech-node="Diaphyseal Dysplasia" data-dismech-type="phenotype">
@@ -5536,6 +5630,9 @@ This clinical feature is Diaphyseal dysplasia (HP:0100252). HP:0100252 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5553,12 +5650,87 @@ This clinical feature is Diaphyseal dysplasia (HP:0100252). HP:0100252 is a phen
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Radiological symptoms were not fully penetrant, with 94% of the patients showing the typical long bone involvement."</div>
 
 
                 <div class="evidence-explanation">In 100 molecularly confirmed CED patients from 24 families, 94% showed characteristic long bone diaphyseal involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stenosis-of-the-medullary-cavity" data-dismech-node="Stenosis of the Medullary Cavity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Stenosis of the Medullary Cavity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Stenosis of the medullary cavity of the long bones</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100254</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stenosis of the medullary cavity of the long bones (HP:0100254). HP:0100254 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1159/000479859" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000479859" target="_blank">DOI:10.1159/000479859</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cortical thickening of the diaphyses of the long bones with narrowing of the medullary cavity are associated with bone pain, waddling gait, muscular weakness, easy fatigability, and a marfanoid body habitus."</div>
+
+
+                <div class="evidence-explanation">The abstract directly supports medullary-cavity narrowing as part of the CED long-bone phenotype.</div>
 
 
 
@@ -5597,15 +5769,18 @@ This clinical feature is Diaphyseal dysplasia (HP:0100252). HP:0100252 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001324</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5625,6 +5800,7 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5672,15 +5848,18 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002515</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002515</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5700,6 +5879,7 @@ This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5740,15 +5920,18 @@ This clinical feature is Waddling gait (HP:0002515). HP:0002515 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001293" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001293</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001293" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001293</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cranial nerve compression (HP:0001293). HP:0001293 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5771,6 +5954,7 @@ This clinical feature is Cranial nerve compression (HP:0001293). HP:0001293 is a
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Cranial involvement, which occurs in 61% of patients, can be severe, entrapping cranial nerves or causing increased intracranial pressure."</div>
@@ -5790,6 +5974,7 @@ This clinical feature is Cranial nerve compression (HP:0001293). HP:0001293 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5828,15 +6013,18 @@ This clinical feature is Cranial nerve compression (HP:0001293). HP:0001293 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002516</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002516</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased intracranial pressure (HP:0002516). HP:0002516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5856,6 +6044,7 @@ This clinical feature is Increased intracranial pressure (HP:0002516). HP:000251
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5905,15 +6094,18 @@ This clinical feature is Increased intracranial pressure (HP:0002516). HP:000251
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0009763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0009763</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limb pain (HP:0009763). HP:0009763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5933,6 +6125,7 @@ This clinical feature is Limb pain (HP:0009763). HP:0009763 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5958,91 +6151,13 @@ This clinical feature is Limb pain (HP:0009763). HP:0009763 is a phenotype from 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Symptomatic relatives presented with lower limb pain and weakness."</div>
 
 
                 <div class="evidence-explanation">Four-generation pedigree confirms lower limb pain as a presenting feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-stenosis-of-the-medullary-cavity" data-dismech-node="Stenosis of the Medullary Cavity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Stenosis of the Medullary Cavity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Stenosis of the medullary cavity of the long bones</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100254</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Stenosis of the medullary cavity of the long bones (HP:0100254). HP:0100254 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1159/000479859" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1159/000479859" target="_blank">DOI:10.1159/000479859</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cortical thickening of the diaphyses of the long bones with narrowing of the medullary cavity are associated with bone pain, waddling gait, muscular weakness, easy fatigability, and a marfanoid body habitus."</div>
-
-
-                <div class="evidence-explanation">The abstract directly supports medullary-cavity narrowing as part of the CED long-bone phenotype.</div>
 
 
 
@@ -6108,6 +6223,9 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6122,6 +6240,7 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6147,6 +6266,7 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"this region contains the gene encoding transforming growth factor-beta 1 (TGFB1), an important mediator of bone remodelling, we evaluated TGFB1 as a candidate gene for causing CED."</div>
@@ -6166,6 +6286,7 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6200,6 +6321,12 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The most common mutation, located in the LAP domain.
 </div>
 
@@ -6225,6 +6352,12 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">LAP domain mutation disrupting beta1-LAP and TGF-beta1 association.
 </div>
 
@@ -6248,6 +6381,12 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
         C225R
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">LAP domain mutation causing premature TGF-beta 1 activation.
@@ -6370,6 +6509,9 @@ This treatment uses prednisone (NCIT:C770). NCIT:C770 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6380,6 +6522,9 @@ This treatment uses prednisone (NCIT:C770). NCIT:C770 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -6450,6 +6595,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6474,6 +6620,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6495,6 +6642,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6601,6 +6749,9 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6611,6 +6762,9 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -6664,6 +6818,7 @@ This treatment targets Limb pain (HP:0009763). HP:0009763 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6688,6 +6843,7 @@ This treatment targets Limb pain (HP:0009763). HP:0009763 is a phenotype from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"losartan treatment led to the complete elimination of the previously severe and incapacitating pain, with an increased ability to walk and perform physical activities."</div>
@@ -6707,6 +6863,7 @@ This treatment targets Limb pain (HP:0009763). HP:0009763 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6793,6 +6950,9 @@ This treatment uses zoledronic acid (CHEBI:46557). CHEBI:46557 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6803,6 +6963,9 @@ This treatment uses zoledronic acid (CHEBI:46557). CHEBI:46557 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -6873,6 +7036,7 @@ This treatment targets Stenosis of the medullary cavity of the long bones (HP:01
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6894,6 +7058,7 @@ This treatment targets Stenosis of the medullary cavity of the long bones (HP:01
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6966,6 +7131,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Pain management with NSAIDs and analgesics for symptomatic relief.
 </div>
 
@@ -7010,6 +7181,7 @@ This treatment targets Limb pain (HP:0009763). HP:0009763 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7077,6 +7249,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7087,6 +7262,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -7154,6 +7332,7 @@ This treatment targets Waddling gait (HP:0002515). HP:0002515 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7226,6 +7405,12 @@ This treatment is audiologist evaluation, annotated with Audiometric Test (NCIT:
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Annual audiology and otolaryngology care monitor and manage hearing loss; myringotomy may help conductive hearing loss from serous otitis.
 </div>
 
@@ -7273,6 +7458,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7294,6 +7480,7 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7353,6 +7540,12 @@ This treatment is ophthalmologist evaluation, annotated with Eye Examination (NC
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7430,6 +7623,7 @@ This treatment targets Increased intracranial pressure (HP:0002516). HP:0002516 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7499,6 +7693,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Monitor musculoskeletal disease activity, corticosteroid-related bone density risk, blood pressure during targeted therapy, and annual CBC for marrow consequences of medullary-cavity narrowing.
 </div>
 
@@ -7546,6 +7746,7 @@ This treatment targets Stenosis of the medullary cavity of the long bones (HP:01
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7567,6 +7768,7 @@ This treatment targets Stenosis of the medullary cavity of the long bones (HP:01
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7675,6 +7877,7 @@ This treatment targets Stenosis of the medullary cavity of the long bones (HP:01
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7762,6 +7965,7 @@ This treatment targets Stenosis of the medullary cavity of the long bones (HP:01
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7835,6 +8039,7 @@ This treatment targets Stenosis of the medullary cavity of the long bones (HP:01
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9127,6 +9332,81 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Camurati-Engelmann Disease (Changes required)</strong> · 2026-05-30T02:34:47Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Camurati-Engelmann_Disease/2026-05-30T023447Z-github-review-3388.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3388
+Issue state: OPEN
+Issue created: 2026-05-30T02:34:47Z
+Issue updated: 2026-05-30T02:44:13Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Camurati-Engelmann Disease**
+- Entry: `kb/disorders/Camurati-Engelmann_Disease.yaml`
+- Selection basis: #2 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: this review assumes schema, ontology-term, and reference validation pass; findings below are biological/clinical/content issues.
+
+## Findings
+
+1. **GeneReviews exists but is not tagged or consumed.** The current entry has no top-level `GeneReviews` tag. NCBI Bookshelf has a current GeneReviews article for **Camurati-Engelmann Disease** (PMID:20301335; updated 2023-08-31). Under the review rubric, this should be a mandatory baseline reference for a Mendelian entry. Source: https://www.ncbi.nlm.nih.gov/books/NBK1156/
+
+2. **Diagnosis and surveillance are clinically under-modeled.** The YAML has phenotypes and treatments but no `diagnosis:` section. CED is radiographically defined by progressive bilateral diaphyseal cortical thickening/sclerosis, with clinically important skull-base involvement, cranial nerve compression, hearing/vision complications, intracranial-pressure complications, and variable expressivity/incomplete penetrance. A curator should add diagnostic/radiographic evaluation and monitoring content rather than leaving these implications implicit in phenotype text.
+
+3. **Pathophysiology is directionally correct but too compressed for the research artifact.** The YAML has `Constitutive TGF-beta 1 Activation` and `Impaired Bone Remodeling Balance`. The Falcon research artifact surfaced a more specific chain: TGFB1 LAP-region variants weaken latent-complex restraint -&gt; increased active TGF-beta1 -&gt; canonical SMAD2/3-SMAD4 signaling and non-canonical Rho/MAPK/integrin pathways -&gt; altered osteoblast, osteoclast, and osteocyte coupling -&gt; high-turnover cortical thickening, medullary narrowing, and skull-base hyperostosis. Several of those are central, disease-specific mechanisms and should be represented as atomic nodes where evidence supports them.
+
+4. **Treatment evidence needs clearer separation of established symptomatic care versus case-based/mechanism-based pharmacotherapy.** Corticosteroids and losartan are listed, and this is clinically plausible, but a curator should verify that each evidence snippet supports the specific claimed treatment effect and not merely the molecular mechanism or phenotype. The research artifact also surfaced antiresorptive/zoledronic-acid reports as treatment leads; these should be evaluated for inclusion or explicitly left out as lower-evidence case-based therapy.
+
+5. **Ontology specificity could improve for cell types and anatomy.** The YAML includes osteoblasts and osteoclasts but omits osteocytes, even though the reviewed research frames CED as abnormal bone-cell coupling. The key anatomy is not just generic diaphysis: skull base and medullary cavity narrowing are clinically important because they explain cranial neuropathy, hearing/vision complications, and marrow/pressure symptoms.
+
+## Research-artifact cross-check
+
+Checked:
+- `research/Camurati-Engelmann_Disease-deep-research-cyberian-codex.md`
+- `research/Camurati-Engelmann_Disease-deep-research-cyberian-codex.md.citations.md`
+- `research/Camurati-Engelmann_Disease-deep-research-falcon.md`
+- `research/Camurati-Engelmann_Disease-deep-research-falcon.md.citations.md`
+
+The YAML consumes the core TGFB1/LAP/latent TGF-beta mechanism and the major clinical features from PMID:15894597. It under-consumes the newer mechanistic synthesis in the Falcon artifact: canonical SMAD signaling, non-canonical Rho/MAPK effects on osteoclast migration/cytoskeletal remodeling, osteoblast maturation/mineralization imbalance, osteocyte involvement, age-dependent activity/attenuation, and skull-base/medullary anatomic consequences.
+
+## Content-completeness checklist
+
+- **Phenotypes:** Mostly adequate for classic long-bone pain/gait/weakness/skull/hearing features, but cranial complications and intracranial-pressure/vision consequences should be checked against GeneReviews.
+- **Subtype / lumping-splitting:** Adequate as a unified TGFB1-associated CED entry; no separate subtype requirement identified from reviewed sources.
+- **Pathophysiology:** Gaps noted. Split the broad remodeling node into more specific TGFB1 activation, SMAD signaling, non-canonical Rho/MAPK/integrin osteoclast effects, osteoblast maturation/mineralization imbalance, and skull-base/diaphyseal consequences where supported.
+- **Treatments / clinical trials:** Gaps noted. Corticosteroids and losartan need claim-evidence verification; zoledronic acid/antiresorptive reports should be evaluated as lower-evidence treatment leads.
+- **Genetics:** Mostly adequate: autosomal dominant TGFB1 variants, variable expressivity, and reduced penetrance are present.
+- **Diagnostics / biomarkers:** Missing. Add radiographic diagnostic criteria and monitoring/surveillance content.
+- **References:** Blocking baseline gap: GeneReviews should be fetched/tagged if the YAML is updated.
+- **Overall consumption:** Good core entry, but the GeneReviews and deep-research mechanisms were under-consumed enough to require curation changes.
+
+## Suggested remediation
+
+Add/tag GeneReviews; add a diagnosis/surveillance section; decompose pathophysiology into TGFB1 activation, SMAD and Rho/MAPK branches, osteoblast/osteoclast/osteocyte coupling, and anatomic consequences; and re-check treatment evidence for corticosteroids, losartan, and possible antiresorptive therapy.
+
+## Sources used for this review
+
+- GeneReviews, Camurati-Engelmann Disease: https://www.ncbi.nlm.nih.gov/books/NBK1156/
+- PMID:20301335: https://pubmed.ncbi.nlm.nih.gov/20301335/
+- PMID:15894597: https://pubmed.ncbi.nlm.nih.gov/15894597/
+- PMID:11278244: https://pubmed.ncbi.nlm.nih.gov/11278244/
+- PMID:30721323: https://pubmed.ncbi.nlm.nih.gov/30721323/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4248,6 +4316,7 @@ Two naming traps are worth knowing. &#34;Kenny-Caffey syndrome type 1&#34; (OMIM
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4315,6 +4384,7 @@ Two naming traps are worth knowing. &#34;Kenny-Caffey syndrome type 1&#34; (OMIM
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4535,6 +4605,7 @@ This subtype is caused by variation in FAM111A (hgnc:24725). hgnc:24725 is a gen
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypermorphic-fam111a-protease-variant" data-dismech-node="Hypermorphic FAM111A Protease Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypermorphic FAM111A Protease Variant</div>
 
+
                 <div class="item-desc">A missense variant in a restricted region of the FAM111A trypsin-like peptidase domain increases the protein&#39;s activity. The evidence that this is a graded rather than binary effect is what ties the whole spectrum together: a recombinant Y414C protein is more active than wild type but less active than the dominant KCS2 mutants, and it causes disease only when homozygous.</div>
 
 
@@ -4594,6 +4665,8 @@ This pathophysiological event involves FAM111A (hgnc:24725). hgnc:24725 is a gen
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4607,6 +4680,9 @@ This pathophysiological event involves FAM111A (hgnc:24725). hgnc:24725 is a gen
         <span class="tag tag-classification">functional_impact_category: HYPERMORPHIC</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Missense variants confined to a few residues of the peptidase domain, producing variable degrees of activation. The degree of activation, rather than the identity of the gene, is what sets dominant KCS2 against recessive KCS2 against OCS.</div>
 
@@ -4692,6 +4768,7 @@ This pathophysiological event involves serine-type endopeptidase activity (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4713,6 +4790,7 @@ This pathophysiological event involves serine-type endopeptidase activity (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4738,6 +4816,7 @@ This pathophysiological event involves serine-type endopeptidase activity (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peptidase-dependent-single-stranded-dna-accumulation" data-dismech-node="Peptidase-Dependent Single-Stranded DNA Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Peptidase-Dependent Single-Stranded DNA Accumulation</div>
+
 
                 <div class="item-desc">The first cellular step downstream of the hypermorphic protease. FAM111A is a replisome-associated protein that supports efficient activation of DNA replication origins; when it is present in excess, the same activity produces extensive single-stranded DNA. Three dependencies pin this to protease action during replication rather than to a structural role: the ssDNA requires S-phase entry, it requires FAM111A peptidase activity, and it does not require PCNA binding. What is still missing is the substrate - the repertoire of FAM111A substrates has not been identified - so nothing yet explains why parathyroid and skeletal progenitors are the tissues that fail.</div>
 
@@ -4827,6 +4906,7 @@ This pathophysiological event involves abnormal DNA replication initiation (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4848,6 +4928,7 @@ This pathophysiological event involves abnormal DNA replication initiation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4875,6 +4956,7 @@ This pathophysiological event involves abnormal DNA replication initiation (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4897,6 +4979,7 @@ This pathophysiological event involves abnormal DNA replication initiation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-damage-accumulation-and-progenitor-cell-death" data-dismech-node="DNA Damage Accumulation and Progenitor Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA Damage Accumulation and Progenitor Cell Death</div>
+
 
                 <div class="item-desc">The cellular endpoint: cells expressing unrestrained FAM111A, wild type or patient mutant alike, accumulate DNA damage and die, and only when the peptidase domain is intact. That the same phenotype follows from overexpressing the normal protein is the clearest statement that these are gain-of-function alleles - the disease is too much of a normal activity, not the loss of one.</div>
 
@@ -5058,6 +5141,7 @@ This pathophysiological event involves increased cellular response to DNA damage
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5080,6 +5164,7 @@ This pathophysiological event involves increased cellular response to DNA damage
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-parathyroid-hormone-production-and-calcium-homeostasis" data-dismech-node="Impaired Parathyroid Hormone Production and Calcium Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Parathyroid Hormone Production and Calcium Homeostasis</div>
+
 
                 <div class="item-desc">Primary hypoparathyroidism with hypocalcemia and hyperphosphatemia occurs in both KCS and OCS. The connection to the protease is asserted rather than explained: FAM111A&#39;s native function is unknown, and the discovery paper reaches only as far as saying the gene &#34;appears to be crucial to a pathway&#34; governing PTH production.</div>
 
@@ -5260,6 +5345,7 @@ This pathophysiological event occurs in parathyroid gland (UBERON:0001132). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5281,6 +5367,7 @@ This pathophysiological event occurs in parathyroid gland (UBERON:0001132). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5306,6 +5393,7 @@ This pathophysiological event occurs in parathyroid gland (UBERON:0001132). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skeletal-development-and-cortical-modelling" data-dismech-node="Impaired Skeletal Development and Cortical Modelling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Skeletal Development and Cortical Modelling</div>
+
 
                 <div class="item-desc">Small, dense, gracile bones with thickened cortices and stenosis of the medullary cavity - a modelling defect rather than a mineralization defect, and the finding that unifies the radiographic picture across the spectrum. In OCS this extends to failure of skull ossification and thin ribs.</div>
 
@@ -5531,6 +5619,7 @@ This pathophysiological event involves abnormal osteoblast differentiation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5595,29 +5684,120 @@ This pathophysiological event involves abnormal osteoblast differentiation (GO:0
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Limbs<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(10)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Respiratory<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Growth<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-splenic-hypoplasia-or-aplasia" data-dismech-node="Splenic hypoplasia or aplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Splenic hypoplasia or aplasia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypoplastic spleen</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0006270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Splenic hypo/aplasia, annotated with Hypoplastic spleen (HP:0006270). HP:0006270 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35205306" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35205306" target="_blank">PMID:35205306</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a severe, usually lethal condition characterized by gracile bones with thin diaphyses, a cloverleaf-shaped skull and splenic hypo/aplasia"</div>
+
+
+                <div class="evidence-explanation">Splenic hypo/aplasia is named as one of the three defining OCS features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
@@ -5640,15 +5820,18 @@ This pathophysiological event involves abnormal osteoblast differentiation (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000829</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000829</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoparathyroidism (HP:0000829). HP:0000829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5668,6 +5851,7 @@ This clinical feature is Hypoparathyroidism (HP:0000829). HP:0000829 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5696,7 +5880,7 @@ This clinical feature is Hypoparathyroidism (HP:0000829). HP:0000829 is a phenot
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
@@ -5719,15 +5903,18 @@ This clinical feature is Hypoparathyroidism (HP:0000829). HP:0000829 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000540</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5747,6 +5934,7 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5789,15 +5977,18 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5817,6 +6008,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5845,18 +6037,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">4</span>
+                    Genitourinary
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-relative-macrocephaly" data-dismech-node="Relative macrocephaly" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Relative macrocephaly
+                        Nephrocalcinosis
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -5868,15 +6060,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000121</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5899,6 +6094,90 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"abdominal ultrasound to assess for nephrocalcinosis and/or nephrolithiasis annually while on treatment"</div>
+
+
+                <div class="evidence-explanation">Establishes nephrocalcinosis as an expected, surveilled risk of therapy; PARTIAL because the source prescribes surveillance rather than reporting a frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">6</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-relative-macrocephaly" data-dismech-node="Relative macrocephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Relative macrocephaly
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004482</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5907,6 +6186,82 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
                 <div class="evidence-explanation">Listed by GeneReviews among the KCS features. Note that OCS has microcephaly instead - the two subtypes diverge on this point.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-large-anterior-fontanel-with-delayed-closure" data-dismech-node="Large anterior fontanel with delayed closure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Large anterior fontanel with delayed closure
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Wide anterior fontanel</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wide anterior fontanel (HP:0000260). HP:0000260 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"relative macrocephaly, large anterior fontanel with delayed closure, characteristic facial features"</div>
+
+
+                <div class="evidence-explanation">Listed by GeneReviews among the KCS features.</div>
 
 
 
@@ -5938,15 +6293,18 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5969,6 +6327,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5977,6 +6336,80 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                 <div class="evidence-explanation">Microcephaly in OCS, against relative macrocephaly in KCS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-skull-ossification" data-dismech-node="Decreased skull ossification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased skull ossification
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004331" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004331</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased skull ossification (HP:0004331). HP:0004331 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characteristic facial features, decreased skull ossification, slender long bones with cortical thickening"</div>
+
+
+                <div class="evidence-explanation">GeneReviews records decreased skull ossification as an OCS feature.</div>
 
 
 
@@ -6010,15 +6443,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000164</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000164</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6038,6 +6474,7 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6080,15 +6517,18 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000670</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000670</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dental caries, annotated with Carious teeth (HP:0000670). HP:0000670 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6108,6 +6548,7 @@ This clinical feature is Dental caries, annotated with Carious teeth (HP:0000670
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6136,623 +6577,12 @@ This clinical feature is Dental caries, annotated with Carious teeth (HP:0000670
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypocalcemia" data-dismech-node="Hypocalcemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypocalcemia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002901</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Primary hypoparathyroidism with hypocalcemia and hyperphosphatemia can occur in individuals with KCS and OCS."</div>
-
-
-                <div class="evidence-explanation">The biochemical consequence of the hypoparathyroidism.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperphosphatemia" data-dismech-node="Hyperphosphatemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperphosphatemia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002905</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperphosphatemia (HP:0002905). HP:0002905 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Primary hypoparathyroidism with hypocalcemia and hyperphosphatemia can occur in individuals with KCS and OCS."</div>
-
-
-                <div class="evidence-explanation">Recorded by GeneReviews alongside hypocalcemia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-perinatal-fractures" data-dismech-node="Perinatal fractures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Perinatal fractures
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Recurrent fractures</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002757</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"thin ribs with thoracic and pulmonary hypoplasia leading to respiratory insufficiency. Perinatal fractures may occur."</div>
-
-
-                <div class="evidence-explanation">GeneReviews records fractures as possible rather than expected, supporting OCCASIONAL.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
+                    Limbs
+                    <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizures
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizures and spasms, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38591167" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38591167" target="_blank">PMID:38591167</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Data analysis showed that short stature, hypoparathyroidism and hypocalcemia, ocular and dental defects, skeletal features including cortical thickening and medullary stenosis of tubular bones, and seizures/spasms were present in more than 70% of the reported KCS2 cases."</div>
-
-
-                <div class="evidence-explanation">A literature-wide review of 46 genetically confirmed patients placing seizures/spasms above 70%.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary hypoplasia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002089</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"thin ribs with thoracic and pulmonary hypoplasia leading to respiratory insufficiency"</div>
-
-
-                <div class="evidence-explanation">GeneReviews links the chest-wall hypoplasia to respiratory insufficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intrauterine-growth-deficiency" data-dismech-node="Intrauterine growth deficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intrauterine growth deficiency
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Intrauterine growth retardation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001511</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"OCS is characterized by intrauterine growth deficiency, microcephaly, characteristic facial features, decreased skull ossification"</div>
-
-
-                <div class="evidence-explanation">Prenatal onset is one of the features that separates OCS from KCS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">10</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-proportionate-short-stature" data-dismech-node="Proportionate short stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Proportionate short stature
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Proportionate short stature (HP:0003508). HP:0003508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"KCS is characterized by proportionate short stature (typically postnatal onset), relative macrocephaly, large anterior fontanel with delayed closure"</div>
-
-
-                <div class="evidence-explanation">GeneReviews defines the KCS growth phenotype and notes its postnatal onset, which distinguishes it from OCS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-large-anterior-fontanel-with-delayed-closure" data-dismech-node="Large anterior fontanel with delayed closure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Large anterior fontanel with delayed closure
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Wide anterior fontanel</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000260</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Wide anterior fontanel (HP:0000260). HP:0000260 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"relative macrocephaly, large anterior fontanel with delayed closure, characteristic facial features"</div>
-
-
-                <div class="evidence-explanation">Listed by GeneReviews among the KCS features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cortical-thickening-of-the-long-bones" data-dismech-node="Cortical thickening of the long bones" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6772,15 +6602,18 @@ This clinical feature is Wide anterior fontanel (HP:0000260). HP:0000260 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005791" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0005791</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005791" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0005791</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cortical thickening of long bone diaphyses (HP:0005791). HP:0005791 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6800,6 +6633,7 @@ This clinical feature is Cortical thickening of long bone diaphyses (HP:0005791)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6844,15 +6678,18 @@ This clinical feature is Cortical thickening of long bone diaphyses (HP:0005791)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100254</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100254</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stenosis of the medullary cavity of the long bones (HP:0100254). HP:0100254 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6872,6 +6709,7 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6898,11 +6736,20 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-skull-ossification" data-dismech-node="Decreased skull ossification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased skull ossification
+            </details>
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypocalcemia" data-dismech-node="Hypocalcemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypocalcemia
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -6914,15 +6761,18 @@ This clinical feature is Stenosis of the medullary cavity of the long bones (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004331" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004331</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002901</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased skull ossification (HP:0004331). HP:0004331 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6945,14 +6795,15 @@ This clinical feature is Decreased skull ossification (HP:0004331). HP:0004331 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"characteristic facial features, decreased skull ossification, slender long bones with cortical thickening"</div>
+                <div class="evidence-snippet">"Primary hypoparathyroidism with hypocalcemia and hyperphosphatemia can occur in individuals with KCS and OCS."</div>
 
 
-                <div class="evidence-explanation">GeneReviews records decreased skull ossification as an OCS feature.</div>
+                <div class="evidence-explanation">The biochemical consequence of the hypoparathyroidism.</div>
 
 
 
@@ -6967,6 +6818,89 @@ This clinical feature is Decreased skull ossification (HP:0004331). HP:0004331 i
 
 
                 </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperphosphatemia" data-dismech-node="Hyperphosphatemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperphosphatemia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002905</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperphosphatemia (HP:0002905). HP:0002905 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary hypoparathyroidism with hypocalcemia and hyperphosphatemia can occur in individuals with KCS and OCS."</div>
+
+
+                <div class="evidence-explanation">Recorded by GeneReviews alongside hypocalcemia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-thin-ribs-with-thoracic-hypoplasia" data-dismech-node="Thin ribs with thoracic hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6984,15 +6918,18 @@ This clinical feature is Decreased skull ossification (HP:0004331). HP:0004331 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000883" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000883</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000883" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000883</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thin ribs (HP:0000883). HP:0000883 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7022,6 +6959,7 @@ This clinical feature is Thin ribs (HP:0000883). HP:0000883 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7045,11 +6983,11 @@ This clinical feature is Thin ribs (HP:0000883). HP:0000883 is a phenotype from 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-splenic-hypoplasia-or-aplasia" data-dismech-node="Splenic hypoplasia or aplasia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-perinatal-fractures" data-dismech-node="Perinatal fractures" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Splenic hypoplasia or aplasia
+                        Perinatal fractures
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -7058,20 +6996,23 @@ This clinical feature is Thin ribs (HP:0000883). HP:0000883 is a phenotype from 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Hypoplastic spleen</span>
+                        <span class="phenotype-term-label">Recurrent fractures</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0006270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002757</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Splenic hypo/aplasia, annotated with Hypoplastic spleen (HP:0006270). HP:0006270 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7083,10 +7024,10 @@ This clinical feature is Splenic hypo/aplasia, annotated with Hypoplastic spleen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35205306" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35205306" target="_blank">PMID:35205306</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
                     </span>
 
 
@@ -7094,14 +7035,15 @@ This clinical feature is Splenic hypo/aplasia, annotated with Hypoplastic spleen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"a severe, usually lethal condition characterized by gracile bones with thin diaphyses, a cloverleaf-shaped skull and splenic hypo/aplasia"</div>
+                <div class="evidence-snippet">"thin ribs with thoracic and pulmonary hypoplasia leading to respiratory insufficiency. Perinatal fractures may occur."</div>
 
 
-                <div class="evidence-explanation">Splenic hypo/aplasia is named as one of the three defining OCS features.</div>
+                <div class="evidence-explanation">GeneReviews records fractures as possible rather than expected, supporting OCCASIONAL.</div>
 
 
 
@@ -7133,15 +7075,18 @@ This clinical feature is Splenic hypo/aplasia, annotated with Hypoplastic spleen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002514</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002514</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7161,6 +7106,7 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7187,11 +7133,20 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nephrocalcinosis
+            </details>
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizures
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -7203,15 +7158,101 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Seizures and spasms, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38591167" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38591167" target="_blank">PMID:38591167</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Data analysis showed that short stature, hypoparathyroidism and hypocalcemia, ocular and dental defects, skeletal features including cortical thickening and medullary stenosis of tubular bones, and seizures/spasms were present in more than 70% of the reported KCS2 cases."</div>
+
+
+                <div class="evidence-explanation">A literature-wide review of 46 genetically confirmed patients placing seizures/spasms above 70%.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary hypoplasia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002089</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -7234,14 +7275,15 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"abdominal ultrasound to assess for nephrocalcinosis and/or nephrolithiasis annually while on treatment"</div>
+                <div class="evidence-snippet">"thin ribs with thoracic and pulmonary hypoplasia leading to respiratory insufficiency"</div>
 
 
-                <div class="evidence-explanation">Establishes nephrocalcinosis as an expected, surveilled risk of therapy; PARTIAL because the source prescribes surveillance rather than reporting a frequency.</div>
+                <div class="evidence-explanation">GeneReviews links the chest-wall hypoplasia to respiratory insufficiency.</div>
 
 
 
@@ -7257,6 +7299,174 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-11">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proportionate-short-stature" data-dismech-node="Proportionate short stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Proportionate short stature
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proportionate short stature (HP:0003508). HP:0003508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"KCS is characterized by proportionate short stature (typically postnatal onset), relative macrocephaly, large anterior fontanel with delayed closure"</div>
+
+
+                <div class="evidence-explanation">GeneReviews defines the KCS growth phenotype and notes its postnatal onset, which distinguishes it from OCS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intrauterine-growth-deficiency" data-dismech-node="Intrauterine growth deficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intrauterine growth deficiency
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Intrauterine growth retardation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001511</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37023242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37023242" target="_blank">PMID:37023242</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OCS is characterized by intrauterine growth deficiency, microcephaly, characteristic facial features, decreased skull ossification"</div>
+
+
+                <div class="evidence-explanation">Prenatal onset is one of the features that separates OCS from KCS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-12">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-growth-hormone-deficiency" data-dismech-node="Growth hormone deficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Growth hormone deficiency
@@ -7265,6 +7475,9 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
                     </div>
+
+
+
 
 
 
@@ -7284,6 +7497,7 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7384,6 +7598,9 @@ This disease-associated gene is FAM111A (hgnc:24725). hgnc:24725 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (7 references)
@@ -7398,6 +7615,7 @@ This disease-associated gene is FAM111A (hgnc:24725). hgnc:24725 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7425,6 +7643,7 @@ This disease-associated gene is FAM111A (hgnc:24725). hgnc:24725 is a gene from 
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -7446,6 +7665,7 @@ This disease-associated gene is FAM111A (hgnc:24725). hgnc:24725 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7482,6 +7702,12 @@ This disease-associated gene is FAM111A (hgnc:24725). hgnc:24725 is a gene from 
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The dominant hotspot allele. Heterozygous, usually de novo, and recurrent in unrelated KCS2 patients across independent reports. It lies outside the trypsin-like peptidase domain, in the C-terminal region, and enhances rather than compromises FAM111A autocleavage activity.</div>
@@ -7535,6 +7761,7 @@ This disease-associated gene is FAM111A (hgnc:24725). hgnc:24725 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7566,6 +7793,12 @@ This disease-associated gene is FAM111A (hgnc:24725). hgnc:24725 is a gene from 
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A recessive, weakly activating allele. Homozygotes have KCS2; the heterozygous relatives are asymptomatic. The paired allele c.1240T&gt;A p.(Tyr414Asn) at the same residue causes the lethal OCS phenotype when homozygous.</div>
@@ -7616,6 +7849,7 @@ This disease-associated gene is FAM111A (hgnc:24725). hgnc:24725 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7706,6 +7940,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7716,6 +7953,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7768,6 +8008,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7789,6 +8030,7 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7855,6 +8097,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7865,6 +8110,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7914,6 +8162,7 @@ This treatment targets Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7981,6 +8230,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7991,6 +8243,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -8018,6 +8273,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8084,6 +8340,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8094,6 +8353,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8121,6 +8383,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8231,6 +8494,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8252,6 +8516,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8344,6 +8609,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8365,6 +8631,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8571,6 +8838,7 @@ This is a model of the wrong lesion, and its negative result is the point. Human
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8610,6 +8878,7 @@ This is a model of the wrong lesion, and its negative result is the point. Human
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8689,6 +8958,7 @@ This is a model of the wrong lesion, and its negative result is the point. Human
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8728,6 +8998,7 @@ This is a model of the wrong lesion, and its negative result is the point. Human
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -10249,6 +10520,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Add peptidase-dependent cell-death node from the 2023 origin-activation study</strong> · 2026-08-27T04:56:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/FAM111A-Related_Skeletal_Dysplasia/2026-08-27T045630Z-claude-code-796fbf.yaml">View source</a></p>
+                        <p class="research-review-text">The deep-research report for this disorder completed after the entry was first written from primary literature, and surfaced a 2023 mechanism paper the initial PubMed searches had missed: PMID:37793778, which shows FAM111A supports replication origin activation and that unrestrained expression of wild type or patient mutants causes DNA damage and cell death only when the peptidase domain is intact. Added as a new pathophysiology node between the hypermorphic-variant trigger and the two organ-level consequences, so the chain is no longer variant-to-phenotype with nothing in between. The KNOWLEDGE_GAP rationale was narrowed accordingly: it previously said everything between the variant and the clinical picture was a gap, which is now too strong. What remains open is the substrate repertoire and the tissue selectivity, and the entry cites the paper&#39;s own statement that substrates have yet to be identified. Report checks: NEC preflight PASS with FAM111A dominant at 67 mentions; reference validation 25/25 resolved, 2/2 quotes verified, 0 off topic. Validation after the edit: just validate-disorders passes, 34/34 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

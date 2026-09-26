@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4308,6 +4376,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4329,6 +4398,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4401,6 +4471,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4482,6 +4553,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4546,6 +4618,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4605,6 +4678,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4672,6 +4746,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4693,6 +4768,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4758,6 +4834,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4782,6 +4859,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4803,6 +4881,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4868,6 +4947,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4889,6 +4969,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4954,6 +5035,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4975,6 +5057,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5042,6 +5125,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5063,6 +5147,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5173,6 +5258,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5197,6 +5283,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5218,6 +5305,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5397,6 +5485,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5461,6 +5550,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5564,6 +5654,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5588,6 +5679,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5609,6 +5701,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5693,6 +5786,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5714,6 +5808,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5850,6 +5945,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5928,6 +6024,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6012,6 +6109,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6033,6 +6131,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6070,6 +6169,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trisomy-21-and-gata1-truncation-generate-gata1s" data-dismech-node="Trisomy 21 and GATA1 Truncation Generate GATA1s" data-dismech-type="pathophysiology">
                 <div class="item-name">Trisomy 21 and GATA1 Truncation Generate GATA1s</div>
+
 
                 <div class="item-desc">In the usual Down syndrome-associated sequence, an acquired GATA1 mutation introduces a premature stop in the N-terminal activation domain. Full-length GATA1 is lost while a shorter downstream-initiated GATA1s protein is retained. The trisomy-21 fetal hematopoietic context and GATA1s cooperate to establish the precursor clone.</div>
 
@@ -6239,6 +6339,7 @@ This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6261,6 +6362,7 @@ This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gata1s-driven-transient-abnormal-myelopoiesis" data-dismech-node="GATA1s-Driven Transient Abnormal Myelopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">GATA1s-Driven Transient Abnormal Myelopoiesis</div>
+
 
                 <div class="item-desc">TAM is a neonatal clonal myeloid proliferation restricted to infants with trisomy 21 and GATA1s. It often resolves spontaneously and is not itself AMKL, but it is the recognized precursor from which a subset of ML-DS cases later emerge.</div>
 
@@ -6342,6 +6444,7 @@ This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6363,6 +6466,7 @@ This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6388,6 +6492,7 @@ This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stag2-loss-enhances-immature-megakaryopoiesis-in-a-trisomy-21-gata1s-ipsc-model" data-dismech-node="STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model" data-dismech-type="pathophysiology">
                 <div class="item-name">STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model</div>
+
 
                 <div class="item-desc">In gene-targeted trisomy-21/GATA1-mutant iPSCs, STAG2 loss enhanced production of an immature megakaryocytic population relative to GATA1 mutation alone. This is one progression model; it does not establish that STAG2 loss alone converts TAM into overt ML-DS or AMKL in vivo.</div>
 
@@ -6520,6 +6625,7 @@ This pathophysiological event involves STAG2 (hgnc:11355). hgnc:11355 is a gene 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6542,6 +6648,7 @@ This pathophysiological event involves STAG2 (hgnc:11355). hgnc:11355 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rbm15-mrtfa-fusion-deregulates-rbpj-transcription" data-dismech-node="RBM15::MRTFA Fusion Deregulates RBPJ Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">RBM15::MRTFA Fusion Deregulates RBPJ Transcription</div>
+
 
                 <div class="item-desc">The t(1;22) fusion joins RBM15 to MRTFA (formerly MKL1). In a knock-in mouse model the fusion deregulates RBPJ-mediated canonical Notch transcription and abnormal fetal megakaryopoiesis; cooperation with activating MPL is required for short-latency model disease.</div>
 
@@ -6687,6 +6794,8 @@ This pathophysiological event involves MRTFA (hgnc:14334). hgnc:14334 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -6695,6 +6804,9 @@ This pathophysiological event involves MRTFA (hgnc:14334). hgnc:14334 is a gene 
 
 
     </div>
+
+
+
 
 
 
@@ -6753,6 +6865,7 @@ This pathophysiological event involves MRTFA (hgnc:14334). hgnc:14334 is a gene 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6775,6 +6888,7 @@ This pathophysiological event involves MRTFA (hgnc:14334). hgnc:14334 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cbfa2t3-glis2-induces-bmp-signaling-and-progenitor-self-renewal" data-dismech-node="CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal" data-dismech-type="pathophysiology">
                 <div class="item-name">CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal</div>
+
 
                 <div class="item-desc">The cryptic inv(16)(p13.3q24.3) CBFA2T3::GLIS2 fusion increases BMP signaling and self-renewal in experimental hematopoietic progenitors. Human transcriptomic studies also associate the fusion with Hippo, TGF-beta, and Hedgehog pathway dysregulation, but those associations are not modeled here as individually proven causal edges.</div>
 
@@ -7004,6 +7118,7 @@ This pathophysiological event involves increased stem cell population maintenanc
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7026,6 +7141,7 @@ This pathophysiological event involves increased stem cell population maintenanc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nup98-kdm5a-sustains-progenitor-capacity-and-maturation-arrest" data-dismech-node="NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest</div>
+
 
                 <div class="item-desc">NUP98::KDM5A is a potent driver of maturation arrest and long-term proliferative/progenitor capacity in engineered human hematopoietic cells. Model systems also show JAK-STAT upregulation and drug sensitivity, but these preclinical dependencies are not established clinical treatments.</div>
 
@@ -7200,6 +7316,7 @@ This pathophysiological event involves KDM5A (hgnc:9886). hgnc:9886 is a gene fr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7222,6 +7339,7 @@ This pathophysiological event involves KDM5A (hgnc:9886). hgnc:9886 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kmt2a-and-nup98-rearranged-hoxa-program" data-dismech-node="KMT2A- and NUP98-Rearranged HOXA Program" data-dismech-type="pathophysiology">
                 <div class="item-name">KMT2A- and NUP98-Rearranged HOXA Program</div>
+
 
                 <div class="item-desc">KMT2A (historically MLL) and NUP98 fusions define distinct pediatric subgroups but converge at the level of HOXA-cluster upregulation. This node models the shared transcriptional program without treating KMT2A as a cooperating lesion of another fusion subgroup.</div>
 
@@ -7367,6 +7485,8 @@ This pathophysiological event involves NUP98 (hgnc:8068). hgnc:8068 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -7375,6 +7495,9 @@ This pathophysiological event involves NUP98 (hgnc:8068). hgnc:8068 is a gene fr
 
 
     </div>
+
+
+
 
 
 
@@ -7433,6 +7556,7 @@ This pathophysiological event involves NUP98 (hgnc:8068). hgnc:8068 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7455,6 +7579,7 @@ This pathophysiological event involves NUP98 (hgnc:8068). hgnc:8068 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hox-rearrangement-and-mpl-jak-stat-cooperation" data-dismech-node="HOX Rearrangement and MPL/JAK-STAT Cooperation" data-dismech-type="pathophysiology">
                 <div class="item-name">HOX Rearrangement and MPL/JAK-STAT Cooperation</div>
+
 
                 <div class="item-desc">HOX-rearranged pediatric AMKL is enriched for activating MPL mutations. Experimental co-expression of a HOX rearrangement and mutant MPL produces a cytokine-independent growth advantage with phosphorylated JAK2 and STAT5, supporting subgroup-specific signaling cooperation.</div>
 
@@ -7561,6 +7686,8 @@ This pathophysiological event involves MPL (hgnc:7217). hgnc:7217 is a gene from
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -7569,6 +7696,9 @@ This pathophysiological event involves MPL (hgnc:7217). hgnc:7217 is a gene from
 
 
     </div>
+
+
+
 
 
 
@@ -7627,6 +7757,7 @@ This pathophysiological event involves MPL (hgnc:7217). hgnc:7217 is a gene from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7648,6 +7779,7 @@ This pathophysiological event involves MPL (hgnc:7217). hgnc:7217 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7673,6 +7805,7 @@ This pathophysiological event involves MPL (hgnc:7217). hgnc:7217 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-ds-gata1-mutation-cooperates-with-chromosome-21-gain" data-dismech-node="Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain</div>
+
 
                 <div class="item-desc">A non-DS pediatric subgroup carries somatic GATA1 truncation without constitutional trisomy 21. Most reported cases had acquired amplification of the Down syndrome critical region and a transcriptional profile closely resembling DS-AMKL.</div>
 
@@ -7791,6 +7924,7 @@ This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7813,6 +7947,7 @@ This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adult-adverse-genomic-landscape-and-therapy-resistance" data-dismech-node="Adult Adverse Genomic Landscape and Therapy Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Adult Adverse Genomic Landscape and Therapy Resistance</div>
+
 
                 <div class="item-desc">Adult AMKL cohorts show adverse cytogenetics, frequent chromosome 1q aberrations, and recurrent mutations unlike the pediatric fusion spectrum. These observations are clinically associated with low remission rates and short survival; which lesions are causal for megakaryoblastic differentiation remains unresolved.</div>
 
@@ -8050,6 +8185,7 @@ This pathophysiological event involves RUNX1 (hgnc:10471). hgnc:10471 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8072,6 +8208,7 @@ This pathophysiological event involves RUNX1 (hgnc:10471). hgnc:10471 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immature-megakaryocytic-leukemic-state" data-dismech-node="Immature Megakaryocytic Leukemic State" data-dismech-type="pathophysiology">
                 <div class="item-name">Immature Megakaryocytic Leukemic State</div>
+
 
                 <div class="item-desc">AMKL is defined by an acute leukemic blast population with megakaryocytic differentiation. The cells can retain multilineage potential; available human evidence does not establish one universal maturation block or require assignment to a fully committed megakaryocyte-erythroid progenitor.</div>
 
@@ -8241,6 +8378,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8262,6 +8400,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8287,6 +8426,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pdgf-associated-marrow-fibrosis" data-dismech-node="PDGF-Associated Marrow Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">PDGF-Associated Marrow Fibrosis</div>
+
 
                 <div class="item-desc">AMKL marrow commonly shows reticulin fibrosis. In a clinicopathologic series, PDGF-BB staining in megakaryoblasts and some fibroblasts tracked with the presence of fibrosis, supporting a growth-factor-associated stromal response while leaving additional mediators unresolved.</div>
 
@@ -8395,6 +8535,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8417,6 +8558,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extramedullary-leukemic-infiltration" data-dismech-node="Extramedullary Leukemic Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Extramedullary Leukemic Infiltration</div>
+
 
                 <div class="item-desc">Leukemic megakaryoblasts may form cohesive infiltrates in liver, lymph node, and other tissues. This is particularly well documented in infant t(1;22) AMKL and can resemble a nonhematopoietic small-round-cell tumor.</div>
 
@@ -8467,6 +8609,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8529,6 +8672,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8575,6 +8719,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8639,11 +8784,9 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8653,7 +8796,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anemia" data-dismech-node="Anemia" data-dismech-type="phenotype">
@@ -8684,6 +8827,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8698,6 +8844,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8722,6 +8869,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8776,6 +8924,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8790,6 +8941,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8817,6 +8969,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8825,6 +8978,80 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                 <div class="evidence-explanation">Four of six infants with t(1;22) AMKL were thrombocytopenic.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myelofibrosis" data-dismech-node="Myelofibrosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Myelofibrosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011974</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myelofibrosis (HP:0011974). HP:0011974 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12749007" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749007" target="_blank">PMID:12749007</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"75% of the patients studied showed this complication at the time of diagnosis."</div>
+
+
+                <div class="evidence-explanation">The frequency band is tied to this prospective pediatric cohort rather than generalized to every subtype.</div>
 
 
 
@@ -8863,15 +9090,18 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001433</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8894,6 +9124,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8902,85 +9133,6 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
                 <div class="evidence-explanation">All six infants in this molecularly defined series had hepatosplenomegaly; no categorical prevalence is extrapolated from that small cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myelofibrosis" data-dismech-node="Myelofibrosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myelofibrosis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0011974</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Myelofibrosis (HP:0011974). HP:0011974 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12749007" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12749007" target="_blank">PMID:12749007</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"75% of the patients studied showed this complication at the time of diagnosis."</div>
-
-
-                <div class="evidence-explanation">The frequency band is tied to this prospective pediatric cohort rather than generalized to every subtype.</div>
 
 
 
@@ -9072,6 +9224,9 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -9086,6 +9241,7 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9113,6 +9269,7 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9134,6 +9291,7 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9197,6 +9355,9 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9211,6 +9372,7 @@ This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9272,6 +9434,9 @@ This disease-associated gene is RBM15 (hgnc:14959). hgnc:14959 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9286,6 +9451,7 @@ This disease-associated gene is RBM15 (hgnc:14959). hgnc:14959 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9347,6 +9513,9 @@ This disease-associated gene is MRTFA (hgnc:14334). hgnc:14334 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9361,6 +9530,7 @@ This disease-associated gene is MRTFA (hgnc:14334). hgnc:14334 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9422,6 +9592,9 @@ This disease-associated gene is CBFA2T3 (hgnc:1537). hgnc:1537 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9436,6 +9609,7 @@ This disease-associated gene is CBFA2T3 (hgnc:1537). hgnc:1537 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9497,6 +9671,9 @@ This disease-associated gene is GLIS2 (hgnc:29450). hgnc:29450 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9511,6 +9688,7 @@ This disease-associated gene is GLIS2 (hgnc:29450). hgnc:29450 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9572,6 +9750,9 @@ This disease-associated gene is NUP98 (hgnc:8068). hgnc:8068 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9586,6 +9767,7 @@ This disease-associated gene is NUP98 (hgnc:8068). hgnc:8068 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9647,6 +9829,9 @@ This disease-associated gene is KDM5A (hgnc:9886). hgnc:9886 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9661,6 +9846,7 @@ This disease-associated gene is KDM5A (hgnc:9886). hgnc:9886 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9722,6 +9908,9 @@ This disease-associated gene is KMT2A (hgnc:7132). hgnc:7132 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9736,6 +9925,7 @@ This disease-associated gene is KMT2A (hgnc:7132). hgnc:7132 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9797,6 +9987,9 @@ This disease-associated gene is MPL (hgnc:7217). hgnc:7217 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9811,6 +10004,7 @@ This disease-associated gene is MPL (hgnc:7217). hgnc:7217 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9835,6 +10029,7 @@ This disease-associated gene is MPL (hgnc:7217). hgnc:7217 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9896,6 +10091,9 @@ This disease-associated gene is STAG2 (hgnc:11355). hgnc:11355 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9910,6 +10108,7 @@ This disease-associated gene is STAG2 (hgnc:11355). hgnc:11355 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9934,6 +10133,7 @@ This disease-associated gene is STAG2 (hgnc:11355). hgnc:11355 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9995,6 +10195,9 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10009,6 +10212,7 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10070,6 +10274,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10084,6 +10291,7 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10145,6 +10353,9 @@ This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10159,6 +10370,7 @@ This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10220,6 +10432,9 @@ This disease-associated gene is PTPN11 (hgnc:9644). hgnc:9644 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10234,6 +10449,7 @@ This disease-associated gene is PTPN11 (hgnc:9644). hgnc:9644 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10295,6 +10511,9 @@ This disease-associated gene is RUNX1 (hgnc:10471). hgnc:10471 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10309,6 +10528,7 @@ This disease-associated gene is RUNX1 (hgnc:10471). hgnc:10471 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10441,6 +10661,12 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Children with ML-DS are treated with reduced-intensity AML regimens tailored to their high cytotoxic-drug susceptibility. In ML-DS 2006, reducing cumulative etoposide, reducing intrathecal prophylaxis, and omitting maintenance preserved excellent survival relative to the historical reduced-intensity control. This evidence supports a specific tested regimen, not arbitrary further deintensification, and applies to the ML-DS trial population rather than a morphology-stratified DS-AMKL subset.</div>
 
 
@@ -10471,6 +10697,7 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10517,6 +10744,7 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10541,6 +10769,7 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10562,6 +10791,7 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10638,6 +10868,12 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Pediatric non-DS AMKL is treated with intensive multi-agent AML therapy. Survival improved substantially between AML-BFM 98 and AML-BFM 04, but molecular subgroup and early response remain important risk variables.</div>
 
 
@@ -10668,6 +10904,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10714,6 +10951,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10738,6 +10976,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10759,6 +10998,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10830,6 +11070,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10840,6 +11083,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
     </div>
+
+
+
 
 
 
@@ -10876,6 +11122,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10922,6 +11169,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10946,6 +11194,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10967,6 +11216,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11043,6 +11293,12 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Fit adults may receive intensive AML chemotherapy, but dedicated AMKL data show low complete-remission rates and very short survival. This is a treatment option with limited effectiveness rather than a favorable evidence-based expectation.</div>
 
 
@@ -11073,6 +11329,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11116,6 +11373,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11185,6 +11443,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11195,6 +11456,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
     </div>
+
+
+
 
 
 
@@ -11231,6 +11495,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11277,6 +11542,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11298,6 +11564,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11342,6 +11609,12 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Error-corrected next-generation sequencing of the leukemia-associated GATA1 mutation can monitor molecular residual disease in ML-DS. In ML-DS 2018, positivity was associated with increased relapse risk; this evidence does not establish generic flow-cytometric or fusion-based MRD monitoring for all AMKL subtypes.</div>
 
 
@@ -11363,6 +11636,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11473,6 +11747,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11562,6 +11837,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11586,6 +11862,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11607,6 +11884,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11699,6 +11977,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11723,6 +12002,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11744,6 +12024,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11836,6 +12117,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11860,6 +12142,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11881,6 +12164,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11949,6 +12233,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11999,6 +12284,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12020,6 +12306,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12075,6 +12362,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12096,6 +12384,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12149,6 +12438,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12170,6 +12460,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12281,6 +12572,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12351,6 +12643,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12426,6 +12719,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12489,6 +12783,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12558,6 +12853,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12621,6 +12917,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12767,6 +13064,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12788,6 +13086,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12844,6 +13143,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12868,6 +13168,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12889,6 +13190,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13034,6 +13336,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13082,6 +13385,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13127,6 +13431,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13185,6 +13490,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13225,6 +13531,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13355,6 +13662,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13400,6 +13708,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13458,6 +13767,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13498,6 +13808,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13628,6 +13939,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13683,6 +13995,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13723,6 +14036,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13959,6 +14273,7 @@ This experimental model concerns MPL (hgnc:7217). hgnc:7217 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13980,6 +14295,7 @@ This experimental model concerns MPL (hgnc:7217). hgnc:7217 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14060,6 +14376,7 @@ This experimental model concerns MPL (hgnc:7217). hgnc:7217 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14232,6 +14549,7 @@ This experimental model concerns KDM5A (hgnc:9886). hgnc:9886 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -14398,6 +14716,7 @@ This experimental model concerns GLIS2 (hgnc:29450). hgnc:29450 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17621,6 +17940,18 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">The earlier fallback research artifact records provider failures and manual fallback notes rather than a completed deep-research report. This review was rebuilt from fetched source records and independently audited for science, ontology/schema structure, exact evidence support, clinical trials, and model systems. Diagnostic assay entries formerly placed under biochemical were moved to diagnosis; TAM therapy was removed from root AMKL treatments because TAM is a distinct precursor condition.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

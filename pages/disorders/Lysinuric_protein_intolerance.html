@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4035,6 +4103,105 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 IEI classification (Tangye et al., PMID:35748970), Table 4 &#34;Diseases of immune dysregulation&#34;, section 1 &#34;Familial Hemophagocytic Lymphohistiocytosis (FHL syndromes)&#34; — the &#34;SLC7A7 deficiency&#34; row (AR, OMIM 222700). LPI is primarily a metabolic amino-acid-transport disorder; its IUIS membership rests on the macrophage phenotype the table cites for this row — a hyper-inflammatory response of macrophages (with normal NK cell function) and alveolar proteinosis — which is why IUIS files it with the FHL group rather than the metabolic nosologies.">immune dysregulation</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
         <div class="card" id="mappings">
@@ -4153,6 +4320,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4174,6 +4342,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4226,6 +4395,7 @@ being unaffected and not a carrier."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc7a7-loss-of-function" data-dismech-node="SLC7A7 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">SLC7A7 Loss of Function</div>
+
 
                 <div class="item-desc">Biallelic SLC7A7 pathogenic variants abolish function of y+LAT-1, the catalytic light-chain subunit that, together with the 4F2hc heavy chain, mediates y+L system cationic amino acid transport. This is the initiating molecular lesion in LPI.</div>
 
@@ -4381,6 +4551,7 @@ This pathophysiological event involves basolateral plasma membrane (GO:0016323).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4402,6 +4573,7 @@ This pathophysiological event involves basolateral plasma membrane (GO:0016323).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4427,6 +4599,7 @@ This pathophysiological event involves basolateral plasma membrane (GO:0016323).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-cationic-amino-acid-transport" data-dismech-node="Defective Cationic Amino Acid Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Cationic Amino Acid Transport</div>
+
 
                 <div class="item-desc">Impaired basolateral transport of the dibasic amino acids lysine, arginine, and ornithine at the intestinal and renal proximal tubular epithelium causes massive urinary loss of cationic amino acids and reduced intestinal absorption, producing systemic depletion despite dibasic aminoaciduria.</div>
 
@@ -4609,6 +4782,7 @@ This pathophysiological event occurs in kidney epithelium (UBERON:0004819). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4631,6 +4805,7 @@ This pathophysiological event occurs in kidney epithelium (UBERON:0004819). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-urea-cycle-substrate-deficiency" data-dismech-node="Urea Cycle Substrate Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Urea Cycle Substrate Deficiency</div>
+
 
                 <div class="item-desc">Depletion of the urea-cycle intermediates arginine and ornithine impairs hepatic ammonia detoxification, functionally producing a urea-cycle defect that manifests as protein-triggered hyperammonemia.</div>
 
@@ -4743,6 +4918,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4765,6 +4941,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postprandial-hyperammonemic-decompensation" data-dismech-node="Postprandial Hyperammonemic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Postprandial Hyperammonemic Decompensation</div>
+
 
                 <div class="item-desc">Ingestion of protein in the setting of urea-cycle substrate deficiency causes acute hyperammonemia, the intoxication-type metabolic decompensation shared with the urea-cycle disorders, presenting with vomiting, stupor, and coma.</div>
 
@@ -4826,6 +5003,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4848,6 +5026,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-macrophage-dysfunction-and-pulmonary-alveolar-proteinosis" data-dismech-node="Alveolar Macrophage Dysfunction and Pulmonary Alveolar Proteinosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Macrophage Dysfunction and Pulmonary Alveolar Proteinosis</div>
+
 
                 <div class="item-desc">LPI is complicated by pulmonary alveolar proteinosis (PAP), attributed to disturbed function and activity of alveolar macrophages that fail to clear surfactant, leading to intraalveolar phospholipid-proteinaceous accumulation and progressive respiratory insufficiency.</div>
 
@@ -4960,6 +5139,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4981,6 +5161,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5006,6 +5187,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-involvement" data-dismech-node="Renal Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Involvement</div>
+
 
                 <div class="item-desc">Progressive glomerular and proximal tubular disease, including immune complex-mediated glomerulonephritis, is a recognized renal complication of LPI that can progress to chronic kidney disease.</div>
 
@@ -5080,6 +5262,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5102,6 +5285,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematologic-and-immune-dysregulation" data-dismech-node="Hematologic and Immune Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematologic and Immune Dysregulation</div>
+
 
                 <div class="item-desc">LPI is associated with normochromic or hypochromic anemia, leukopenia, and thrombocytopenia, with erythroblastophagocytosis and a presentation resembling hemophagocytic lymphohistiocytosis/macrophage activation syndrome.</div>
 
@@ -5171,6 +5355,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5193,6 +5378,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-and-growth-involvement" data-dismech-node="Skeletal and Growth Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal and Growth Involvement</div>
+
 
                 <div class="item-desc">Chronic amino acid deficiency and metabolic disease contribute to failure to thrive, poor growth, and osteoporosis.</div>
 
@@ -5251,6 +5437,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5332,9 +5519,9 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5375,6 +5562,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5389,6 +5579,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5445,6 +5636,9 @@ This clinical feature is Leukopenia, annotated with Decreased total leukocyte co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5459,6 +5653,7 @@ This clinical feature is Leukopenia, annotated with Decreased total leukocyte co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5514,6 +5709,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5528,6 +5726,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5591,6 +5790,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5605,6 +5807,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5686,6 +5889,9 @@ This clinical feature is Vomiting (HP:0002013), qualified as temporality recurre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5700,6 +5906,7 @@ This clinical feature is Vomiting (HP:0002013), qualified as temporality recurre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5772,6 +5979,9 @@ This clinical feature is Diarrhea (HP:0002014), qualified as temporality recurre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5786,6 +5996,7 @@ This clinical feature is Diarrhea (HP:0002014), qualified as temporality recurre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5867,6 +6078,9 @@ This clinical feature is Chronic kidney disease (HP:0012622), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5881,6 +6095,7 @@ This clinical feature is Chronic kidney disease (HP:0012622), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5962,6 +6177,9 @@ This clinical feature is Hyperammonemia (HP:0001987), qualified as temporality r
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5976,6 +6194,7 @@ This clinical feature is Hyperammonemia (HP:0001987), qualified as temporality r
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6030,6 +6249,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6044,6 +6266,7 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6099,6 +6322,9 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6113,6 +6339,7 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6177,6 +6404,9 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6191,6 +6421,7 @@ This clinical feature is Muscular hypotonia, annotated with Hypotonia (HP:000125
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6245,6 +6476,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6259,6 +6493,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6340,6 +6575,9 @@ This clinical feature is Coma (HP:0001259), qualified as temporality acute. HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6354,6 +6592,7 @@ This clinical feature is Coma (HP:0001259), qualified as temporality acute. HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6385,6 +6624,107 @@ This clinical feature is Coma (HP:0001259), qualified as temporality acute. HP:0
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-alveolar-proteinosis" data-dismech-node="Pulmonary alveolar proteinosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary alveolar proteinosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Intraalveolar phospholipid accumulation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0006517</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalveolar phospholipid accumulation (HP:0006517), qualified as course progressive. HP:0006517 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8163273" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8163273" target="_blank">PMID:8163273</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition to pulmonary hemorrhages, three of the patients had pulmonary alveolar proteinosis and one had cholesterol granulomas."</div>
+
+
+                <div class="evidence-explanation">Autopsy documentation of PAP in LPI patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">2</span>
                 </summary>
@@ -6403,15 +6743,18 @@ This clinical feature is Coma (HP:0001259), qualified as temporality acute. HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6431,6 +6774,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6471,15 +6815,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6502,6 +6849,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6511,103 +6859,6 @@ poor growth"</div>
 
 
                 <div class="evidence-explanation">GeneReviews documents poor growth as a later LPI feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-alveolar-proteinosis" data-dismech-node="Pulmonary alveolar proteinosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary alveolar proteinosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Intraalveolar phospholipid accumulation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0006517</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalveolar phospholipid accumulation (HP:0006517), qualified as course progressive. HP:0006517 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:8163273" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8163273" target="_blank">PMID:8163273</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition to pulmonary hemorrhages, three of the patients had pulmonary alveolar proteinosis and one had cholesterol granulomas."</div>
-
-
-                <div class="evidence-explanation">Autopsy documentation of PAP in LPI patients.</div>
 
 
 
@@ -6695,6 +6946,9 @@ This disease-associated gene is SLC7A7 (hgnc:11065). hgnc:11065 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6709,6 +6963,7 @@ This disease-associated gene is SLC7A7 (hgnc:11065). hgnc:11065 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6795,6 +7050,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6805,6 +7063,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -6832,6 +7093,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6925,6 +7187,12 @@ This treatment uses L-citrulline (CHEBI:16349). CHEBI:16349 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oral L-citrulline replenishes urea-cycle intermediates (regenerating arginine and ornithine) to support ammonia detoxification without a cationic amino acid transport requirement.</div>
 
 
@@ -6946,6 +7214,7 @@ This treatment uses L-citrulline (CHEBI:16349). CHEBI:16349 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7017,6 +7286,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Acute hyperammonemic crises are managed with intravenous arginine chloride and nitrogen-scavenger drugs (sodium benzoate, sodium phenylacetate) with reduction of nitrogen intake and carbohydrate-based energy provision.</div>
 
 
@@ -7038,6 +7313,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7110,6 +7386,12 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Whole-lung lavage removes accumulated intraalveolar material to improve respiratory function in patients with LPI-associated pulmonary alveolar proteinosis.</div>
 
 
@@ -7131,6 +7413,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7202,6 +7485,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Inhaled recombinant human GM-CSF (sargramostim) can induce resolution of LPI-associated PAP by augmenting alveolar macrophage number and activity.</div>
 
 
@@ -7223,6 +7512,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7302,6 +7592,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7323,6 +7614,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7396,6 +7688,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7501,6 +7794,29 @@ mappings:
     mapping_predicate: skos:exactMatch
     mapping_source: MONDO
     mapping_justification: MONDO exact match for OMIM:222700 and Orphanet:470.
+classifications:
+  iuis_category:
+    classification_value: immune dysregulation
+    notes: &gt;-
+      IUIS 2022 IEI classification (Tangye et al., PMID:35748970), Table 4
+      &#34;Diseases of immune dysregulation&#34;, section 1 &#34;Familial Hemophagocytic
+      Lymphohistiocytosis (FHL syndromes)&#34; — the &#34;SLC7A7 deficiency&#34; row (AR,
+      OMIM 222700). LPI is primarily a metabolic amino-acid-transport
+      disorder; its IUIS membership rests on the macrophage phenotype the
+      table cites for this row — a hyper-inflammatory response of macrophages
+      (with normal NK cell function) and alveolar proteinosis — which is why
+      IUIS files it with the FHL group rather than the metabolic nosologies.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;SLC7A7 deficiency SLC7A7 AR 222700&#34;
+      explanation: &gt;-
+        The quoted Table 4 row (FHL section) lists SLC7A7 deficiency —
+        lysinuric protein intolerance — with its gene, inheritance and OMIM
+        number, establishing its membership in the IUIS &#34;diseases of immune
+        dysregulation&#34; category.
 references:
 - reference: PMID:20301535
   title: &#34;Lysinuric Protein Intolerance.&#34;
@@ -8383,7 +8699,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Lysinuric protein intolerance", "mondoId": "MONDO:0009109", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lysinuric_protein_intolerance", "yamlRevision": "ff17f137d24f"};
+        const OS_CONFIG = {"diseaseName": "Lysinuric protein intolerance", "mondoId": "MONDO:0009109", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lysinuric_protein_intolerance", "yamlRevision": "4971d303965d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

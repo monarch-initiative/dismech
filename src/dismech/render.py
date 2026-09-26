@@ -18,7 +18,7 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from dismech import hierarchy_cache, kb_cache
+from dismech import hierarchy_cache, kb_cache, oak_db
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
@@ -26,7 +26,10 @@ from dismech.entity_refs import (
     canonical_kind,
     section_items,
 )
-from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
+from dismech.export.browser_export import (
+    HPO_CATEGORY_CACHE_PATH,
+    HPO_TOP_LEVEL_CATEGORIES,
+)
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
     animal_model_label,
@@ -107,10 +110,18 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # disorder.html.j2 and module.html.j2 render these chips and a drifting map
     # would describe the same treatment differently on the two pages.
     env.globals["treatment_platform_label"] = treatment_platform_label
+    # Hover text for the `quote_role` badge, read from the enum's own
+    # `description` in the schema (#10262). Sourced there rather than written
+    # into the template so the vocabulary and its prose stay in one place, the
+    # same rule `module_categories` follows.
+    env.globals["quote_role_tooltip"] = quote_role_tooltip
     return env
 
 
-_HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
+# Resolved from the package location rather than the working directory, and
+# shared with `browser_export`, which writes it. The exporter now reads it back
+# as its seed, so writer and both readers agree on one path.
+_HPO_CATEGORY_CACHE_PATH = HPO_CATEGORY_CACHE_PATH
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
     "surrogate_endpoints/fda_surrogate_endpoints.yaml"
 )
@@ -2336,6 +2347,67 @@ def collect_literature_summaries(
     return results
 
 
+def collect_research_reviews(
+    disorder: dict,
+    slugs: list[str],
+    research_root: Path,
+    history_root: Path,
+) -> list[dict]:
+    """Expose existing research commentary without assigning a review verdict.
+
+    Free-text notes have no structured report link, so include only notes that
+    explicitly mention deep research or a report filename. Separate syntheses
+    have a stable filename convention and already have their own HTML pages.
+    """
+    research_mention = re.compile(
+        r"(?i:deep[-\s]+research)"
+        # Keep DR uppercase (not Dr. Smith) and require research context:
+        # a bare word boundary also matches HLA-DR and 'DQ rather than DR'.
+        r"|(?<![\w-])DR[-\s]+(?:report|provider|tool|run|artifact|section|content"
+        r"|prose|citation|provenance|suggested|proposed|sourced|surfaced"
+        r"|summary|summaries|bibliography|query|queries)s?\b"
+    )
+    reviews = []
+    for field, title in (
+        ("review_notes", "Record review notes"),
+        ("notes", "Record notes"),
+    ):
+        text = disorder.get(field)
+        if text and research_mention.search(text):
+            reviews.append({"title": title, "text": text})
+    for slug in dict.fromkeys(slugs):
+        for suffix in ("yaml", "md"):
+            path = research_root / f"{slug}-research-synthesis.{suffix}"
+            if path.is_file():
+                reviews.append(
+                    {
+                        "title": "Cross-provider assessment",
+                        "href": (
+                            f"../research/{_synthesis_output_name(slug)}"
+                            if suffix == "yaml"
+                            else _github_blob_url(Path("research") / path.name)
+                        ),
+                    }
+                )
+                break  # Prefer the structured synthesis when both formats exist.
+        for path in sorted((history_root / slug).glob("*.yaml"), reverse=True):
+            data = safe_load_path(path) or {}
+            for event in data.get("events") or []:
+                details = event.get("details") or ""
+                if research_mention.search(details):
+                    reviews.append(
+                        {
+                            "title": event.get("summary") or "Curation history notes",
+                            "text": details,
+                            "date": (data.get("session") or {}).get("timestamp"),
+                            "href": _github_blob_url(
+                                Path("history") / history_root.name / slug / path.name
+                            ),
+                        }
+                    )
+    return reviews
+
+
 def _github_blob_url(relative_path: Path) -> str:
     """Return the post-merge GitHub page for a repository-relative file."""
     return (
@@ -2583,6 +2655,16 @@ def render_disorder(
             phenotype_groups=phenotype_groups,
             report_sections=report_sections,
             literature_sections=literature_sections,
+            research_reviews=collect_research_reviews(
+                disorder,
+                [file_stem, disorder_slug],
+                research_root,
+                _resolve_nearby_dir(
+                    yaml_path.parent, f"history/{yaml_path.parent.name}"
+                ),
+            )
+            if literature_sections
+            else [],
             hypothesis_research_links=hypothesis_research_links,
             hypothesis_research_count=hypothesis_research_count,
             research_root_rel=research_root_rel,
@@ -4074,9 +4156,35 @@ def _mondo_term(term_id: str, label: str | None = None) -> dict:
     }
 
 
+MONDO_ADAPTER = "sqlite:obo:mondo"
+
+
+@cache
+def _mondo_adapter():
+    """The MONDO adapter, but only when its build is already on disk.
+
+    `get_adapter("sqlite:obo:mondo")` does not fail on a machine without the
+    build — semsql fetches it, 588 MB uncompressed, with no error and no log
+    line. So the three MONDO call sites below silently downloaded it on any
+    runner that rendered a grouping, the fast test lane included (issue #11299).
+
+    `local_build_present` is the guard #11251 established for exactly this: "did
+    the adapter open?" answers whether the machine has network access, never
+    whether the build was there. The callers already degrade on `None`, so an
+    absent build takes a path they have rather than a new one.
+
+    Page generation needs the real thing and fetches it deliberately
+    (`just fetch-ontology-dbs mondo`) rather than tripping a lazy download
+    mid-render.
+    """
+    if not oak_db.local_build_present(MONDO_ADAPTER):
+        return None
+    return _get_oak_adapter(MONDO_ADAPTER)
+
+
 @lru_cache(maxsize=256)
 def _cached_mondo_descendants(term_id: str) -> tuple[str, ...]:
-    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    adapter = _mondo_adapter()
     if adapter is None:
         return ()
     try:
@@ -4095,7 +4203,7 @@ def _cached_mondo_descendants(term_id: str) -> tuple[str, ...]:
 
 @lru_cache(maxsize=2048)
 def _cached_mondo_label(term_id: str) -> str:
-    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    adapter = _mondo_adapter()
     if adapter is None:
         return term_id
     try:
@@ -4115,9 +4223,22 @@ def _exact_mondo_descendant_terms(
     if not root_ids:
         return {}, set(), set(), None
 
-    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    adapter = _mondo_adapter()
     if adapter is None:
-        return {}, set(), set(), "MONDO descendant lookup unavailable."
+        # The exact roots come from the grouping's own YAML, so they stay in
+        # scope: only their descendants needed MONDO. Dropping them too (as this
+        # branch used to) emptied the scope set and collapsed the coverage
+        # figure to "not assessed" for a grouping whose coverage is computable
+        # from the file alone. The failure branch below already kept them.
+        return (
+            {},
+            set(root_ids),
+            set(),
+            (
+                "MONDO descendant lookup unavailable: no local mondo.db build. "
+                "Coverage counts the mapped exact-match terms only."
+            ),
+        )
 
     descendant_terms: dict[str, dict] = {}
     exact_scope_ids: set[str] = set(root_ids)
@@ -5747,6 +5868,31 @@ def _classification_slot_to_enum(
         if range_name in assignment_to_enum:
             mapping[slot_name] = assignment_to_enum[range_name]
     return mapping
+
+
+_QUOTE_ROLE_PREAMBLE = "Where this quote sits in the cited paper's argument. "
+
+
+@cache
+def _quote_role_descriptions() -> dict[str, str]:
+    """QuoteRoleEnum value -> its schema `description`, for badge hover text."""
+    values = ((_load_schema().get("enums") or {}).get("QuoteRoleEnum") or {}).get(
+        "permissible_values"
+    ) or {}
+    return {
+        key: " ".join(str((meta or {}).get("description") or "").split())
+        for key, meta in values.items()
+    }
+
+
+def quote_role_tooltip(value: str | None) -> str:
+    """Hover text for a `quote_role` badge; the bare value if the enum is absent."""
+    if not value:
+        return ""
+    description = _quote_role_descriptions().get(value)
+    if not description:
+        return str(value)
+    return _QUOTE_ROLE_PREAMBLE + description
 
 
 def _find_enum_for_value(value: str, enums: dict) -> str | None:

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4146,6 +4214,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4208,6 +4277,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4229,6 +4299,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4296,6 +4367,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4357,6 +4429,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4422,6 +4495,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4481,6 +4555,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4577,6 +4652,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4611,6 +4687,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inhalation-and-alveolar-deposition-of-airborne-aspergillus-conidia" data-dismech-node="Inhalation and Alveolar Deposition of Airborne Aspergillus Conidia" data-dismech-type="pathophysiology">
                 <div class="item-name">Inhalation and Alveolar Deposition of Airborne Aspergillus Conidia</div>
+
 
                 <div class="item-desc">Aspergillus conidia are small enough to bypass mucociliary clearance and reach the distal airway and alveolus. Everybody inhales them daily; this node is therefore the shared entry point of every clinical form and is by itself insufficient for disease. What happens next is decided by the host.</div>
 
@@ -4717,6 +4794,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4739,6 +4817,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-macrophage-dectin-1-recognition-of-aspergillus" data-dismech-node="Alveolar Macrophage Dectin-1 Recognition of Aspergillus" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Macrophage Dectin-1 Recognition of Aspergillus</div>
+
 
                 <div class="item-desc">Resident alveolar macrophages recognise beta-1,3-glucan exposed on the surface of swollen conidia and early germlings through dectin-1. Recognition tracks the fungal morphotype rather than the organism as such, and it drives the proinflammatory cytokine and chemokine output that recruits neutrophils.</div>
 
@@ -4845,6 +4924,7 @@ This pathophysiological event involves defense response to fungus (GO:0050832). 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4866,6 +4946,7 @@ This pathophysiological event involves defense response to fungus (GO:0050832). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4891,6 +4972,7 @@ This pathophysiological event involves defense response to fungus (GO:0050832). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidase-independent-neutrophil-killing-of-conidia" data-dismech-node="Oxidase-Independent Neutrophil Killing of Conidia" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidase-Independent Neutrophil Killing of Conidia</div>
+
 
                 <div class="item-desc">Neutrophils recognise ungerminated conidia through integrin CD11b/CD18 — not dectin-1 — and kill them intracellularly by a PI3K-dependent route that does not require the oxidative burst. This is the arm that survives in chronic granulomatous disease and is lost in neutropenia, which is why the two defects behave differently.</div>
 
@@ -4997,6 +5079,7 @@ This pathophysiological event involves neutrophil-mediated killing of Aspergillu
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5019,6 +5102,7 @@ This pathophysiological event involves neutrophil-mediated killing of Aspergillu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nadph-oxidase-dependent-neutrophil-killing-of-hyphae" data-dismech-node="NADPH Oxidase-Dependent Neutrophil Killing of Hyphae" data-dismech-type="pathophysiology">
                 <div class="item-name">NADPH Oxidase-Dependent Neutrophil Killing of Hyphae</div>
+
 
                 <div class="item-desc">Hyphae are too large to phagocytose, so neutrophils kill them extracellularly: antibody opsonisation, Fc-gamma receptor recognition, and Syk/PI3K/PKC signalling to the NADPH oxidase and myeloperoxidase. This is the arm lost in chronic granulomatous disease, and it is why CGD patients control conidia but not established hyphal growth. NET formation is induced by A. fumigatus but did not contribute to killing in this work.</div>
 
@@ -5155,6 +5239,7 @@ This pathophysiological event involves respiratory burst (GO:0045730). GO:004573
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5176,6 +5261,7 @@ This pathophysiological event involves respiratory burst (GO:0045730). GO:004573
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5201,6 +5287,7 @@ This pathophysiological event involves respiratory burst (GO:0045730). GO:004573
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-phagocyte-clearance-of-aspergillus" data-dismech-node="Failure of Phagocyte Clearance of Aspergillus" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Phagocyte Clearance of Aspergillus</div>
+
 
                 <div class="item-desc">The branch point of the whole entry. Prolonged chemotherapy-induced neutropenia removes the effector cell; corticosteroids and calcineurin inhibitors impair macrophage and neutrophil function while the cells are still present; chronic granulomatous disease removes the NADPH oxidase-dependent anti-hyphal mechanism specifically; and severe influenza or COVID-19 produces a comparable functional defect in hosts with no classical EORTC/MSG host factor at all. Whatever the cause, ungated conidia germinate.</div>
 
@@ -5326,6 +5413,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5347,6 +5435,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5372,6 +5461,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gliotoxin-mediated-suppression-of-host-phagocyte-function" data-dismech-node="Gliotoxin-Mediated Suppression of Host Phagocyte Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Gliotoxin-Mediated Suppression of Host Phagocyte Function</div>
+
 
                 <div class="item-desc">A. fumigatus secretes gliotoxin, an epipolythiodioxopiperazine mycotoxin with immunosuppressive activity that has long been implicated in assisting tissue penetration. This node is deliberately modelled as a contributory fungal-side input to phagocyte failure rather than as a sufficient cause: the direct virulence evidence is from an invertebrate infection model, and human disease is dominated by the host-side defects modelled upstream.</div>
 
@@ -5425,6 +5515,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5446,6 +5537,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5471,6 +5563,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-conidial-germination-and-hyphal-tissue-invasion" data-dismech-node="Conidial Germination and Hyphal Tissue Invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Conidial Germination and Hyphal Tissue Invasion</div>
+
 
                 <div class="item-desc">Surviving conidia swell, germinate and extend filamentous hyphae that penetrate alveolar epithelium and lung parenchyma. This is the step that separates the tissue-invasive forms from the allergic and saprophytic ones, which never reach it.</div>
 
@@ -5617,6 +5710,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5639,6 +5733,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angioinvasion-and-thrombotic-tissue-infarction" data-dismech-node="Angioinvasion and Thrombotic Tissue Infarction" data-dismech-type="pathophysiology">
                 <div class="item-name">Angioinvasion and Thrombotic Tissue Infarction</div>
+
 
                 <div class="item-desc">Hyphae penetrate the endothelial lining, damage endothelial cells and induce tissue factor expression. The sourced steps here are the endothelial damage and the procoagulant induction; the thrombosis and ischaemic infarction usually described as following from them are the accepted clinical reading of the nodular, halo-sign and air-crescent radiology, not something the cited in-vitro work measured.</div>
 
@@ -5764,6 +5859,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5786,6 +5882,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haematogenous-dissemination-to-extrapulmonary-sites" data-dismech-node="Haematogenous Dissemination to Extrapulmonary Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Haematogenous Dissemination to Extrapulmonary Sites</div>
+
 
                 <div class="item-desc">Blood-borne hyphal fragments adhere to and cross the luminal endothelial surface at distant sites, establishing cerebral, cutaneous, ocular, cardiac and visceral foci. This route is specific to the severely immunocompromised host.</div>
 
@@ -5824,6 +5921,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5846,6 +5944,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-saprophytic-cavity-colonisation-and-fungal-ball-formation" data-dismech-node="Saprophytic Cavity Colonisation and Fungal Ball Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Saprophytic Cavity Colonisation and Fungal Ball Formation</div>
+
 
                 <div class="item-desc">In a pre-existing pulmonary cavity — most often post-tuberculous — hyphae, mucus and cellular debris accumulate into a mobile fungal ball without invading the cavity wall. Symptoms are minor or absent until bleeding from the hypertrophied bronchial vessels around the cavity produces haemoptysis.</div>
 
@@ -5920,6 +6019,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5942,6 +6042,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-cavitary-lung-destruction-and-fibrosis" data-dismech-node="Chronic Cavitary Lung Destruction and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Cavitary Lung Destruction and Fibrosis</div>
+
 
                 <div class="item-desc">Over months to years, one or more pulmonary cavities expand and coalesce with surrounding pleural thickening and a vigorous Aspergillus antibody response; untreated, this progresses to the fibrosing form with irreversible loss of lung volume. The host here is immunocompetent enough to contain the organism but not to clear it.</div>
 
@@ -6001,6 +6102,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6023,6 +6125,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th2-sensitisation-and-ige-mediated-hypersensitivity-to-aspergillus-antigens" data-dismech-node="Th2 Sensitisation and IgE-Mediated Hypersensitivity to Aspergillus Antigens" data-dismech-type="pathophysiology">
                 <div class="item-name">Th2 Sensitisation and IgE-Mediated Hypersensitivity to Aspergillus Antigens</div>
+
 
                 <div class="item-desc">In a genetically predisposed atopic or cystic-fibrosis airway, germinating conidia release antigen that drives a Th2 CD4-positive T-cell response, IgE class switching and a large rise in total and Aspergillus-specific IgE. The organism is never cleared and never invades; the disease is the response to it. This is the mechanism that makes ABPA a member of the aspergillosis spectrum despite sharing none of the invasive branch&#39;s tissue pathology.</div>
 
@@ -6182,6 +6285,7 @@ This pathophysiological event involves increased isotype switching to IgE isotyp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6204,6 +6308,7 @@ This pathophysiological event involves increased isotype switching to IgE isotyp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophilic-airway-inflammation-and-mucus-plugging" data-dismech-node="Eosinophilic Airway Inflammation and Mucus Plugging" data-dismech-type="pathophysiology">
                 <div class="item-name">Eosinophilic Airway Inflammation and Mucus Plugging</div>
+
 
                 <div class="item-desc">Eosinophil-rich inflammation with tenacious, hyphae-containing mucus plugs that occlude segmental bronchi, giving the fleeting pulmonary infiltrates and poorly controlled asthma of ABPA.</div>
 
@@ -6312,6 +6417,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6334,6 +6440,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bronchiectasis-and-fixed-airway-damage" data-dismech-node="Bronchiectasis and Fixed Airway Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Bronchiectasis and Fixed Airway Damage</div>
+
 
                 <div class="item-desc">Irreversible central bronchial dilatation, the endpoint that makes early recognition of ABPA worthwhile: it is the manifestation that antifungal and corticosteroid therapy aim to prevent rather than to reverse.</div>
 
@@ -6393,6 +6500,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6415,6 +6523,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fungal-ergosterol-biosynthesis-via-cyp51-sterol-14-alpha-demethylase" data-dismech-node="Fungal Ergosterol Biosynthesis via Cyp51 Sterol 14-alpha-Demethylase" data-dismech-type="pathophysiology">
                 <div class="item-name">Fungal Ergosterol Biosynthesis via Cyp51 Sterol 14-alpha-Demethylase</div>
+
 
                 <div class="item-desc">Aspergillus membrane ergosterol is made by a pathway whose rate-limiting demethylation step is catalysed by the cytochrome P450 lanosterol 14-alpha-demethylase encoded by cyp51A and cyp51B. Triazoles bind heme iron at this enzyme, so ergosterol is depleted and toxic 14-alpha-methylsterols accumulate. This node is intentionally target-only: it describes the normal fungal biosynthetic activity that azole therapy inhibits, not a step that causes disease.</div>
 
@@ -6536,6 +6645,7 @@ This pathophysiological event involves sterol 14-alpha-demethylase activity, ann
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6557,6 +6667,7 @@ This pathophysiological event involves sterol 14-alpha-demethylase activity, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6582,6 +6693,7 @@ This pathophysiological event involves sterol 14-alpha-demethylase activity, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ergosterol-enriched-aspergillus-plasma-membrane" data-dismech-node="Ergosterol-Enriched Aspergillus Plasma Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Ergosterol-Enriched Aspergillus Plasma Membrane</div>
+
 
                 <div class="item-desc">Ergosterol is the fungal-specific end-product sterol of the pathway and the principal sterol of the Aspergillus plasma membrane, where it maintains fluidity, integrity and the function of membrane-embedded proteins. It is the target of the polyenes, which bind and extract it rather than inhibiting its synthesis — which is why a cyp51A target-site substitution does not by itself confer polyene cross-resistance. This node is the bridge between the two drug-target branches and the growth the disease depends on.</div>
 
@@ -6669,6 +6781,7 @@ This pathophysiological event involves ergosterol metabolic process (GO:0008204)
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6691,6 +6804,7 @@ This pathophysiological event involves ergosterol metabolic process (GO:0008204)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-environmental-cyp51a-mediated-azole-resistance" data-dismech-node="Environmental cyp51A-Mediated Azole Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Environmental cyp51A-Mediated Azole Resistance</div>
+
 
                 <div class="item-desc">Agricultural azole fungicides share the Cyp51 target with clinical triazoles, so field application selects pan-azole-resistant A. fumigatus in the environment rather than in the treated patient. The dominant genotype is TR34/L98H — a 34-bp tandem repeat in the cyp51A promoter driving overexpression, plus a leucine-to-histidine substitution at codon 98 — with TR46/Y121F/T289A the second common allele. Because selection happens outside the host, azole-naive patients can present with resistant disease, and the resistant genotypes have spread across Europe from a common ancestor.</div>
 
@@ -6786,6 +6900,7 @@ This pathophysiological event involves sterol 14-alpha-demethylase activity, ann
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6807,6 +6922,7 @@ This pathophysiological event involves sterol 14-alpha-demethylase activity, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6834,6 +6950,7 @@ This pathophysiological event involves sterol 14-alpha-demethylase activity, ann
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6856,6 +6973,7 @@ This pathophysiological event involves sterol 14-alpha-demethylase activity, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aspergillus-beta-1-3-glucan-synthesis-by-fks-glucan-synthase" data-dismech-node="Aspergillus beta-1,3-Glucan Synthesis by Fks Glucan Synthase" data-dismech-type="pathophysiology">
                 <div class="item-name">Aspergillus beta-1,3-Glucan Synthesis by Fks Glucan Synthase</div>
+
 
                 <div class="item-desc">The Aspergillus plasma-membrane glucan-synthase complex polymerises beta-1,3-glucan, an essential structural polymer of the fungal cell wall and the target of the echinocandins. In Aspergillus the echinocandins are fungistatic rather than fungicidal — they cause hyphal tip lysis but not death of the organism — which is why they are a salvage and combination option here and a first-line option in candidiasis. As in the module, this node is target-only and does not assert that normal wall synthesis causes the intervention-conditional wall failure that follows inhibition.</div>
 
@@ -6977,6 +7095,7 @@ This pathophysiological event involves 1,3-beta-D-Glucan Synthase Activity (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6998,6 +7117,7 @@ This pathophysiological event involves 1,3-beta-D-Glucan Synthase Activity (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7023,6 +7143,7 @@ This pathophysiological event involves 1,3-beta-D-Glucan Synthase Activity (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aspergillus-cell-wall-integrity-and-viability" data-dismech-node="Aspergillus Cell-Wall Integrity and Viability" data-dismech-type="pathophysiology">
                 <div class="item-name">Aspergillus Cell-Wall Integrity and Viability</div>
+
 
                 <div class="item-desc">The beta-1,3-glucan-rich wall cross-links chitin and mannoproteins into the load-bearing hyphal wall that lets Aspergillus extend through tissue. It is also the surface the host reads: the same beta-glucan is the ligand dectin-1 recognises on swollen conidia and germlings, so the wall is simultaneously the drug target and the immune epitope.</div>
 
@@ -7110,6 +7231,7 @@ This pathophysiological event involves fungal-type cell wall organization (GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7132,6 +7254,7 @@ This pathophysiological event involves fungal-type cell wall organization (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aspergillus-intrinsic-fluconazole-resistance" data-dismech-node="Aspergillus Intrinsic Fluconazole Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Aspergillus Intrinsic Fluconazole Resistance</div>
+
 
                 <div class="item-desc">Aspergillus species are intrinsically resistant to fluconazole, so identifying the organism as Aspergillus excludes that agent before any susceptibility result and mandates a mould-active triazole (voriconazole, isavuconazole, posaconazole, itraconazole) or amphotericin B. This lineage-determined exclusion is deliberately kept separate from the acquired environmental cyp51A resistance modelled above: one is fixed by taxonomy and gates empiric therapy, the other is isolate-dependent and requires susceptibility testing to detect.</div>
 
@@ -7185,6 +7308,7 @@ This pathophysiological event involves fungal-type cell wall organization (GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7207,6 +7331,7 @@ This pathophysiological event involves fungal-type cell wall organization (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-resistance-gated-narrowing-of-antifungal-options" data-dismech-node="Resistance-Gated Narrowing of Antifungal Options" data-dismech-type="pathophysiology">
                 <div class="item-name">Resistance-Gated Narrowing of Antifungal Options</div>
+
 
                 <div class="item-desc">The shared consequence of the two resistance arms is a smaller set of viable agents. The fixed lineage-level exclusion constrains empiric therapy from the moment the organism is identified; the acquired environmental cyp51A alleles remove agents only once susceptibility testing detects them. Convergence here does not assert that either arm causes the other. The clinical cost is measurable: in a haematology cohort, 12-week mortality among non-ICU patients was 54.4% with voriconazole-resistant invasive aspergillosis against 30.7% with susceptible disease.</div>
 
@@ -7260,6 +7385,7 @@ This pathophysiological event involves fungal-type cell wall organization (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7281,6 +7407,7 @@ This pathophysiological event involves fungal-type cell wall organization (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7340,6 +7467,7 @@ This pathophysiological event involves fungal-type cell wall organization (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7406,15 +7534,13 @@ This pathophysiological event involves fungal-type cell wall organization (GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7457,6 +7583,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7471,6 +7600,7 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7495,6 +7625,7 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7527,7 +7658,7 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pneumonia" data-dismech-node="Pneumonia" data-dismech-type="phenotype">
@@ -7576,6 +7707,9 @@ This clinical feature is Pneumonia (HP:0002090), qualified as temporality acute.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7590,6 +7724,7 @@ This clinical feature is Pneumonia (HP:0002090), qualified as temporality acute.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7617,6 +7752,7 @@ This clinical feature is Pneumonia (HP:0002090), qualified as temporality acute.
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7641,6 +7777,7 @@ This clinical feature is Pneumonia (HP:0002090), qualified as temporality acute.
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7649,6 +7786,78 @@ This clinical feature is Pneumonia (HP:0002090), qualified as temporality acute.
 
 
                 <div class="evidence-explanation">In a 368-patient chronic granulomatous disease registry pneumonia was the commonest infection and Aspergillus its commonest cause, which is direct human evidence that pneumonia is the dominant tissue presentation of invasive aspergillosis in a susceptible host.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-poorly-controlled-asthma" data-dismech-node="Poorly Controlled Asthma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Poorly Controlled Asthma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002099</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23889240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23889240" target="_blank">PMID:23889240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Allergic bronchopulmonary aspergillosis (ABPA) is an immunological pulmonary disorder caused by hypersensitivity to Aspergillus fumigatus, manifesting with poorly controlled asthma"</div>
+
+
+                <div class="evidence-explanation">Names poorly controlled asthma as the presenting manifestation of ABPA. Evidence source is OTHER because this is a review.</div>
 
 
 
@@ -7687,15 +7896,18 @@ This clinical feature is Pneumonia (HP:0002090), qualified as temporality acute.
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7715,6 +7927,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7742,6 +7955,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7763,6 +7977,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7797,7 +8012,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hemoptysis" data-dismech-node="Hemoptysis" data-dismech-type="phenotype">
@@ -7814,15 +8029,18 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002105</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002105</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7845,6 +8063,7 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7853,6 +8072,96 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
 
 
                 <div class="evidence-explanation">Records haemoptysis as a management problem in chronic pulmonary aspergillosis and as a marker of treatment failure. Evidence source is OTHER because this is a guideline review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-cavity" data-dismech-node="Pulmonary Cavity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary Cavity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0033655</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary cavity (HP:0033655), qualified as temporality chronic. HP:0033655 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26699723" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26699723" target="_blank">PMID:26699723</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of CPA requires a combination of characteristics: one or more cavities with or without a fungal ball present or nodules on thoracic imaging"</div>
+
+
+                <div class="evidence-explanation">The cavity is the first required diagnostic characteristic in the guideline criteria. Evidence source is OTHER because this is a guideline review.</div>
 
 
 
@@ -7882,15 +8191,18 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002113</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary infiltrates (HP:0002113). HP:0002113 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7910,6 +8222,7 @@ This clinical feature is Pulmonary infiltrates (HP:0002113). HP:0002113 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7950,10 +8263,10 @@ This clinical feature is Pulmonary infiltrates (HP:0002113). HP:0002113 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiectasis (HP:0002110), qualified as course progressive. HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7982,6 +8295,9 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7996,6 +8312,7 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8036,15 +8353,18 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8064,6 +8384,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8088,6 +8409,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8128,10 +8450,10 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0012735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0012735</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cough (HP:0012735), qualified as temporality chronic. HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8160,6 +8482,9 @@ This clinical feature is Cough (HP:0012735), qualified as temporality chronic. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8174,6 +8499,7 @@ This clinical feature is Cough (HP:0012735), qualified as temporality chronic. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8223,10 +8549,10 @@ This clinical feature is Cough (HP:0012735), qualified as temporality chronic. H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824), qualified as course progressive. HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8255,6 +8581,9 @@ This clinical feature is Weight loss (HP:0001824), qualified as course progressi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8272,6 +8601,7 @@ This clinical feature is Weight loss (HP:0001824), qualified as course progressi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8280,169 +8610,6 @@ This clinical feature is Weight loss (HP:0001824), qualified as course progressi
 
 
                 <div class="evidence-explanation">Names weight loss as one of the three defining presenting symptoms of chronic pulmonary aspergillosis. Evidence source is OTHER because this is a review.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-cavity" data-dismech-node="Pulmonary Cavity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary Cavity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0033655</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary cavity (HP:0033655), qualified as temporality chronic. HP:0033655 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26699723" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26699723" target="_blank">PMID:26699723</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The diagnosis of CPA requires a combination of characteristics: one or more cavities with or without a fungal ball present or nodules on thoracic imaging"</div>
-
-
-                <div class="evidence-explanation">The cavity is the first required diagnostic characteristic in the guideline criteria. Evidence source is OTHER because this is a guideline review.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-poorly-controlled-asthma" data-dismech-node="Poorly Controlled Asthma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Poorly Controlled Asthma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002099</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23889240" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23889240" target="_blank">PMID:23889240</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Allergic bronchopulmonary aspergillosis (ABPA) is an immunological pulmonary disorder caused by hypersensitivity to Aspergillus fumigatus, manifesting with poorly controlled asthma"</div>
-
-
-                <div class="evidence-explanation">Names poorly controlled asthma as the presenting manifestation of ABPA. Evidence source is OTHER because this is a review.</div>
 
 
 
@@ -8530,6 +8697,9 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8544,6 +8714,7 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8568,6 +8739,7 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8625,6 +8797,9 @@ This disease-associated gene is TLR4 (hgnc:11850). hgnc:11850 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8639,6 +8814,7 @@ This disease-associated gene is TLR4 (hgnc:11850). hgnc:11850 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8663,6 +8839,7 @@ This disease-associated gene is TLR4 (hgnc:11850). hgnc:11850 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8720,6 +8897,9 @@ This disease-associated gene is CARD9 (hgnc:16391). hgnc:16391 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8734,6 +8914,7 @@ This disease-associated gene is CARD9 (hgnc:16391). hgnc:16391 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8758,6 +8939,7 @@ This disease-associated gene is CARD9 (hgnc:16391). hgnc:16391 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8865,6 +9047,9 @@ This treatment uses voriconazole (CHEBI:10023). CHEBI:10023 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8875,6 +9060,9 @@ This treatment uses voriconazole (CHEBI:10023). CHEBI:10023 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -8923,6 +9111,7 @@ This treatment uses voriconazole (CHEBI:10023). CHEBI:10023 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8944,6 +9133,7 @@ This treatment uses voriconazole (CHEBI:10023). CHEBI:10023 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9032,6 +9222,9 @@ This treatment uses isavuconazole (CHEBI:85979). CHEBI:85979 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9042,6 +9235,9 @@ This treatment uses isavuconazole (CHEBI:85979). CHEBI:85979 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -9090,6 +9286,7 @@ This treatment uses isavuconazole (CHEBI:85979). CHEBI:85979 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9111,6 +9308,7 @@ This treatment uses isavuconazole (CHEBI:85979). CHEBI:85979 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9199,6 +9397,9 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9209,6 +9410,9 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9257,6 +9461,7 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9278,6 +9483,7 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9366,6 +9572,9 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9376,6 +9585,9 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9424,6 +9636,7 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9445,6 +9658,7 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9533,6 +9747,9 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9543,6 +9760,9 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9591,6 +9811,7 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9612,6 +9833,7 @@ This treatment uses omalizumab (NCIT:C29299). NCIT:C29299 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9700,6 +9922,9 @@ This treatment uses caspofungin (CHEBI:474180). CHEBI:474180 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9710,6 +9935,9 @@ This treatment uses caspofungin (CHEBI:474180). CHEBI:474180 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -9758,6 +9986,7 @@ This treatment uses caspofungin (CHEBI:474180). CHEBI:474180 is a therapeutic ag
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9779,6 +10008,7 @@ This treatment uses caspofungin (CHEBI:474180). CHEBI:474180 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9867,6 +10097,9 @@ This treatment uses amphotericin B (CHEBI:2682). CHEBI:2682 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9877,6 +10110,9 @@ This treatment uses amphotericin B (CHEBI:2682). CHEBI:2682 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9925,6 +10161,7 @@ This treatment uses amphotericin B (CHEBI:2682). CHEBI:2682 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9949,6 +10186,7 @@ This treatment uses amphotericin B (CHEBI:2682). CHEBI:2682 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9970,6 +10208,7 @@ This treatment uses amphotericin B (CHEBI:2682). CHEBI:2682 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10060,6 +10299,9 @@ This treatment uses posaconazole (CHEBI:64355). CHEBI:64355 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10070,6 +10312,9 @@ This treatment uses posaconazole (CHEBI:64355). CHEBI:64355 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -10118,6 +10363,7 @@ This treatment uses posaconazole (CHEBI:64355). CHEBI:64355 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10139,6 +10385,7 @@ This treatment uses posaconazole (CHEBI:64355). CHEBI:64355 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10205,6 +10452,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10215,6 +10465,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10260,6 +10513,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10348,6 +10602,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10358,6 +10615,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -10407,6 +10667,7 @@ This treatment targets Hemoptysis (HP:0002105). HP:0002105 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10473,6 +10734,9 @@ This treatment is Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10483,6 +10747,9 @@ This treatment is Embolization Therapy (NCIT:C15230). NCIT:C15230 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -10532,6 +10799,7 @@ This treatment targets Hemoptysis (HP:0002105). HP:0002105 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10620,6 +10888,7 @@ This environmental factor is exposure to airborne Aspergillus conidia, annotated
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10668,6 +10937,7 @@ This environmental factor is exposure to airborne Aspergillus conidia, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10748,6 +11018,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10796,6 +11067,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10853,6 +11125,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10874,6 +11147,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10925,6 +11199,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10993,6 +11268,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11014,6 +11290,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11066,6 +11343,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11112,6 +11390,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11216,6 +11495,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11237,6 +11517,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11329,6 +11610,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11350,6 +11632,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11440,6 +11723,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11461,6 +11745,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11553,6 +11838,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11574,6 +11860,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11661,6 +11948,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11780,14 +12068,15 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The most typical computed tomographic (CT) findings are nodules with or without the halo sign or the air crescent sign."</div>
+                <div class="evidence-snippet">"Invasive pulmonary aspergillosis (IPA) is the most common fungal pulmonary infection in severely immunocompromised patients. ... The diagnosis of IPA is based on clinical, radiological, and mycological data. Clinical signs have a low specificity. The most typical computed tomographic (CT)..."</div>
 
 
-                <div class="evidence-explanation">Names the two signs and identifies them as the typical CT appearance of invasive pulmonary aspergillosis. Evidence source is OTHER because this is a review.</div>
+                <div class="evidence-explanation">Restores invasive pulmonary aspergillosis and the combined clinical/radiological/mycological diagnostic context before the CT signs. This avoids presenting CT morphology as sufficient on its own and does not supply the separate temporal or histopathologic interpretation. Evidence source is OTHER because this is a review.</div>
 
 
 
@@ -11917,6 +12206,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11983,6 +12273,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12034,6 +12325,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12112,6 +12404,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12169,6 +12462,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12230,6 +12524,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12330,6 +12625,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12385,6 +12681,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12445,6 +12742,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12466,6 +12764,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12553,6 +12852,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12621,6 +12921,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12642,6 +12943,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12698,6 +13000,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12719,6 +13022,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12775,6 +13079,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12796,6 +13101,7 @@ This environmental factor is exposure to corticosteroid (ECTO:0000173). ECTO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14682,12 +14988,16 @@ imaging_findings:
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
-      The most typical computed tomographic (CT) findings are nodules with or
-      without the halo sign or the air crescent sign.
+      Invasive pulmonary aspergillosis (IPA) is the most common fungal pulmonary infection in
+      severely immunocompromised patients. ... The diagnosis of IPA is based on clinical,
+      radiological, and mycological data. Clinical signs have a low specificity. The most typical
+      computed tomographic (CT) findings are nodules with or without the halo sign or the air
+      crescent sign.
     explanation: &gt;-
-      Names the two signs and identifies them as the typical CT appearance of
-      invasive pulmonary aspergillosis. Evidence source is OTHER because this is
-      a review.
+      Restores invasive pulmonary aspergillosis and the combined clinical/radiological/mycological
+      diagnostic context before the CT signs. This avoids presenting CT morphology as sufficient on
+      its own and does not supply the separate temporal or histopathologic interpretation. Evidence
+      source is OTHER because this is a review.
 - name: Pulmonary cavity with intracavitary fungal ball on chest CT
   modality: CT
   subtype: Chronic Pulmonary
@@ -15814,6 +16124,29 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Aspergillosis (MONDO:0005657)</strong> · 2026-08-28T22:46:54Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Aspergillosis/2026-08-28T224654Z-claude-code-7a3aa8.yaml">View source</a></p>
+                        <p class="research-review-text">Curated aspergillosis as a root Disease with has_subtypes (Invasive, Chronic Pulmonary, Aspergilloma, ABPA, Aspergillus Bronchitis, Disseminated), following the CURATE_ROOT_WITH_SUBTYPES guidance in issue #9041.
+
+Concept decision, recorded in the entry notes: a single conserved pathograph -- inhalation of ubiquitous conidia, then a phagocyte gate whose state sets the clinical branch -- rather than a union of mechanistically distinct diseases, so a kb/groupings/ Grouping was rejected. MONDO has no term for chronic cavitary/fibrosing pulmonary aspergillosis or for Aspergillus bronchitis, and no general disseminated-aspergillosis term, so those three subtypes carry no subtype_term and each says why in its description.
+
+Deep research: falcon (Edison), research/Aspergillosis-deep-research-falcon.md. 7/7 references resolved, confabulation rate 0.0; needs_review is true only for three label-variant terms (HP:0001880, HP:0003212, CL:0000623), all of which were bound to their canonical HP/CL labels here. just preflight-dr returned SKIP because MONDO records no causal gene for MONDO:0005657, so the gene-identity Named Entity Confusion check could not discriminate; the manual synonym preflight was done instead (git grep over origin/main for MONDO:0005657 and for aspergillosis found no existing entry). The report cites its sources by internal Edison keys rather than PMIDs and says so explicitly, so it was used as a lead source only: every evidence item in this entry cites a separately searched, fetched and cached PMID.
+
+Pathograph: 17 nodes -- conidial inhalation; dectin-1 alveolar-macrophage recognition together with the two distinct neutrophil killing mechanisms (oxidase-independent against conidia, NADPH oxidase-dependent against hyphae); phagocyte-clearance failure as the explicit branch point; gliotoxin; hyphal tissue invasion; angioinvasion and thrombotic infarction; haematogenous dissemination; saprophytic cavity colonisation; chronic cavitary destruction and fibrosis; and the Th2/IgE, eosinophilic-inflammation, bronchiectasis arm. Four therapy-facing nodes: Cyp51 ergosterol biosynthesis, environmental cyp51A TR34/L98H resistance, Fks glucan synthase, and intrinsic fluconazole resistance. Conforms to fungal_cell_wall_glucan_synthesis_inhibition (two nodes) and antifungal_intrinsic_resistance_gating (one node); this is the third consumer of the first module and the second of the second.
+
+Deliberate omissions. NCIT has no clinical-action term for bronchial artery embolisation, so that intervention lives inside the tranexamic acid treatment entry rather than as a separately bound procedure. ECTO has no term for exposure to Aspergillus, fungi or airborne spores, so the conidial exposure is bound to the general ECTO:3000000 (exposure to organism); the severe-influenza/COVID-19 predisposition carries no exposure_term at all because it is an infectious comorbidity, not an environmental exposure. NCIT:C2322 (Corticosteroid) was tried as a therapeutic_agent on the ABPA corticosteroid entry and removed: it is not in the ChemicalEntityTerm dynamic enum, so CHEBI:8378 prednisolone carries that binding alone. No datasets block: no Aspergillus-specific accession was verified, and an unverified accession is worse than none.
+
+Validation run and passed: just validate (schema + terms), just count-verified-snippets (83/83), just check-duplicate-keys, just check-entity-refs, just check-folded-hyphens, just check-snippet-length, just check-title-snippets, just check-snippet-grading, just check-environmental-evidence, and just validate-disorders as the final batched gate (schema, terms and references all clean, 83/83 snippets).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -16847,7 +17180,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aspergillosis", "mondoId": "MONDO:0005657", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aspergillosis", "yamlRevision": "cd878a0f3d84"};
+        const OS_CONFIG = {"diseaseName": "Aspergillosis", "mondoId": "MONDO:0005657", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aspergillosis", "yamlRevision": "371e64fbd12c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

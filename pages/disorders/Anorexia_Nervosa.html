@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4128,6 +4196,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4217,6 +4286,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4276,6 +4346,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4386,6 +4457,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4472,6 +4544,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4566,6 +4639,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4587,6 +4661,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4655,6 +4730,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4692,6 +4768,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-metabo-psychiatric-susceptibility" data-dismech-node="Polygenic Metabo-Psychiatric Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic Metabo-Psychiatric Susceptibility</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Common germline variation contributes distributed susceptibility across psychiatric and metabolic trait domains. The node does not assert a single causal gene or a known molecular route to AN.</div>
 
@@ -4767,6 +4850,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4789,6 +4873,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-restrictive-eating-psychopathology" data-dismech-node="Restrictive-Eating Psychopathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Restrictive-Eating Psychopathology</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Fear of weight gain, disturbance in body-weight or shape experience, and persistent weight-gain-interfering behavior motivate restriction. This clinical state is established; its upstream molecular and circuit causes remain incompletely resolved.</div>
 
@@ -4922,6 +5013,7 @@ This pathophysiological event involves abnormal feeding behavior (GO:0007631). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4944,6 +5036,13 @@ This pathophysiological event involves abnormal feeding behavior (GO:0007631). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-energy-restriction" data-dismech-node="Sustained Energy Restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Energy Restriction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Persistent caloric restriction creates negative energy balance; in the binge-eating/purging presentation, vomiting or other compensatory behaviors can add fluid and electrolyte losses.</div>
 
@@ -5043,6 +5142,7 @@ This pathophysiological event involves decreased feeding behavior (GO:0007631). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5065,6 +5165,13 @@ This pathophysiological event involves decreased feeding behavior (GO:0007631). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-low-weight-and-malnutrition" data-dismech-node="Low Weight and Malnutrition" data-dismech-type="pathophysiology">
                 <div class="item-name">Low Weight and Malnutrition</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The low-energy state is the established proximal driver of many endocrine, cardiovascular, gastrointestinal, skeletal, and brain-state consequences. It should not be mistaken for evidence that those downstream changes caused the initial psychiatric syndrome.</div>
 
@@ -5180,6 +5287,7 @@ This pathophysiological event involves decreased feeding behavior (GO:0007631). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5202,6 +5310,13 @@ This pathophysiological event involves decreased feeding behavior (GO:0007631). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-starvation-adaptation-endocrine-response" data-dismech-node="Starvation-Adaptation Endocrine Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Starvation-Adaptation Endocrine Response</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Chronic low energy alters hypothalamic-pituitary-gonadal, growth-hormone, adrenal, thyroid, leptin, ghrelin, and related endocrine axes. Many changes are adaptive to starvation, not validated diagnostic biomarkers.</div>
 
@@ -5403,6 +5518,7 @@ This pathophysiological event involves abnormal hormone-mediated signaling pathw
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5425,6 +5541,13 @@ This pathophysiological event involves abnormal hormone-mediated signaling pathw
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypogonadotropic-hypogonadism" data-dismech-node="Hypogonadotropic Hypogonadism" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypogonadotropic Hypogonadism</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Energy-deficit-associated hypothalamic-pituitary suppression reduces gonadal hormones. Amenorrhea is an important manifestation in some postmenarchal patients but is not required for a modern AN diagnosis.</div>
 
@@ -5499,6 +5622,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5521,6 +5645,13 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-integrity-loss" data-dismech-node="Skeletal Integrity Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Integrity Loss</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Low body mass, low fat and lean mass, amenorrhea, and endocrine adaptation reduce bone mineral density and increase later osteoporosis and fracture risk.</div>
 
@@ -5595,6 +5726,7 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5617,6 +5749,13 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiovascular-adaptation-and-instability" data-dismech-node="Cardiovascular Adaptation and Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiovascular Adaptation and Instability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Weight loss, autonomic adaptation, reduced cardiac mass, and electrolyte disturbances contribute to bradycardia, conduction disturbance, and arrhythmia risk. Not every patient has the same cardiovascular phenotype.</div>
 
@@ -5699,6 +5838,7 @@ This pathophysiological event occurs in cardiovascular system (UBERON:0004535). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5721,6 +5861,13 @@ This pathophysiological event occurs in cardiovascular system (UBERON:0004535). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-electrolyte-and-volume-disturbance" data-dismech-node="Electrolyte and Volume Disturbance" data-dismech-type="pathophysiology">
                 <div class="item-name">Electrolyte and Volume Disturbance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Restriction, purging, polydipsia, and renal adaptation can produce electrolyte and volume abnormalities. These are severity- and behavior-dependent complications rather than universal diagnostic signs.</div>
 
@@ -5790,6 +5937,7 @@ This pathophysiological event occurs in cardiovascular system (UBERON:0004535). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5812,6 +5960,13 @@ This pathophysiological event occurs in cardiovascular system (UBERON:0004535). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gastrointestinal-dysmotility" data-dismech-node="Gastrointestinal Dysmotility" data-dismech-type="pathophysiology">
                 <div class="item-name">Gastrointestinal Dysmotility</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Delayed gastric emptying and constipation occur in both AN presentations and can make nutritional rehabilitation uncomfortable; most changes improve with restoration of normal intake and body weight.</div>
 
@@ -5886,6 +6041,7 @@ This pathophysiological event occurs in gastrointestinal tract, annotated with a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5908,6 +6064,13 @@ This pathophysiological event occurs in gastrointestinal tract, annotated with a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-undernutrition-associated-brain-structural-changes" data-dismech-node="Undernutrition-Associated Brain Structural Changes" data-dismech-type="pathophysiology">
                 <div class="item-name">Undernutrition-Associated Brain Structural Changes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Acute AN is associated with widespread reductions in cortical thickness and subcortical volume. Their relationship to low BMI and attenuation after partial weight restoration make them important state markers but not proof of a primary neural cause.</div>
 
@@ -6001,6 +6164,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6023,6 +6187,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-and-microbiome-correlates" data-dismech-node="Immune and Microbiome Correlates" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune and Microbiome Correlates</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Cytokine and microbiome changes have been measured longitudinally in adolescents with AN. They remain correlates: this node has no causal downstream edge to depression, weight loss, or other phenotypes.</div>
 
@@ -6133,6 +6304,7 @@ This pathophysiological event involves abnormal cytokine-mediated signaling path
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6155,6 +6327,13 @@ This pathophysiological event involves abnormal cytokine-mediated signaling path
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoleptinemia" data-dismech-node="Hypoleptinemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoleptinemia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Low circulating leptin — the state — arising from loss of adipose (leptin-secreting) tissue during energy restriction. Hypoleptinemia is a core endocrine feature of the acute starved state, is the afferent signal for adaptation to starvation, and is the mechanistic target of recombinant-leptin (metreleptin) substitution. It arises from the upstream low-weight/malnutrition state modeled elsewhere in this graph.</div>
 
@@ -6310,6 +6489,7 @@ This pathophysiological event involves decreased Leptin-mediated signaling pathw
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6355,7 +6535,7 @@ This pathophysiological event involves decreased Leptin-mediated signaling pathw
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Eating Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent restriction and other behavior that interferes with weight gain are core diagnostic manifestations. Fear of weight gain and body-image disturbance are retained in the clinical description because the available HPO term is broader than the full psychiatric construct.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100738\"}}, {\"id\": \"Amenorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypothalamic amenorrhea can occur in postmenarchal patients with AN. It is a consequence of energy-deficit-associated reproductive-axis suppression and is not required for diagnosis; it does not apply to all sexes or life stages.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000141\"}}, {\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arrhythmias are potentially serious complications of AN, mediated through cardiac structural, conduction, autonomic, and electrolyte pathways.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Bradycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bradycardia is common in medically unstable, recently weight-losing adolescents and may prompt hospitalization; the cohort estimate below is specific to hospitalized adolescents and is not a population frequency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001662\"}}, {\"id\": \"Cardiovascular Adaptation and Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Weight loss, autonomic adaptation, reduced cardiac mass, and electrolyte disturbances contribute to bradycardia, conduction disturbance, and arrhythmia risk. Not every patient has the same cardiovascular phenotype.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cardiovascular system\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation and delayed gastric emptying occur in both AN presentations, often improve with nutritional recovery, and may complicate refeeding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depression is a frequent and clinically important psychiatric comorbidity; cross-sectional association does not establish directionality.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Eating-disorder-focused cognitive behavioral therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Eating-disorder-focused CBT is one of several recommended psychotherapies. Selection depends on age, illness duration, comorbidity, prior treatment, and patient preference; it is not presented as uniformly superior.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Electrolyte and Volume Disturbance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Restriction, purging, polydipsia, and renal adaptation can produce electrolyte and volume abnormalities. These are severity- and behavior-dependent complications rather than universal diagnostic signs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Excessive Physical Activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Physical hyperactivity, motor restlessness, and a driven urge to exercise are common in acute AN and correlate inversely with serum leptin; they are modeled here as a leptin-linked behavioral manifestation (see the leptin_hyperactivity mechanistic hypothesis). HP:0000752 (Hyperactivity) is the closest available HPO term but is anchored to ADHD-type motor/attentional hyperactivity; the preferred_term carries the AN-specific compulsive, starvation-driven-exercise nuance the ontology class does not yet capture.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000752\"}}, {\"id\": \"Family-based treatment for youth\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Family-based treatment with parental oversight of eating has the strongest comparative evidence in youth with AN. The age context is essential and the result should not be generalized to all adults or severe enduring illness.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Gastrointestinal Dysmotility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delayed gastric emptying and constipation occur in both AN presentations and can make nutritional rehabilitation uncomfortable; most changes improve with restoration of normal intake and body weight.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"gastrointestinal tract\"]}}, {\"id\": \"Hypogonadotropic Hypogonadism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy-deficit-associated hypothalamic-pituitary suppression reduces gonadal hormones. Amenorrhea is an important manifestation in some postmenarchal patients but is not required for a modern AN diagnosis.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hypothalamus\"]}}, {\"id\": \"Hypokalemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypokalemia can occur, particularly with purging or other fluid-loss behaviors, but is not universal across AN presentations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002900\"}}, {\"id\": \"Hypoleptinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte (leptin-secreting)\"], \"presence\": \"DECREASED\", \"specificity\": \"Low for AN as a stand-alone diagnostic marker (reflects low fat mass generally); high as an index of the acute starvation-adaptation state.\", \"term_id\": \"NCIT:C46081\", \"term_label\": \"Leptin\", \"readouts\": [{\"target\": \"Hypoleptinemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Low serum leptin is a direct readout of the Hypoleptinemia mechanism node and indexes the severity of the starvation-adaptation state; it partially normalizes with weight restoration and is the pharmacodynamic target of metreleptin substitution.\"}]}}, {\"id\": \"Hyponatremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyponatremia can occur through water-loading behavior, reduced intake, or altered volume regulation and requires context-specific interpretation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002902\"}}, {\"id\": \"Inpatient medical and psychiatric stabilization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hospital-level supportive care is indicated for serious medical or psychiatric complications such as severe bradycardia or suicidality. Admission decisions are individualized; this entry does not define bedside thresholds.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Low Body Weight and Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Significantly low body weight is a defining state. Recent weight loss can carry medical risk even before an extremely low absolute weight is reached.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004325\"}}, {\"id\": \"Low Weight and Malnutrition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The low-energy state is the established proximal driver of many endocrine, cardiovascular, gastrointestinal, skeletal, and brain-state consequences. It should not be mistaken for evidence that those downstream changes caused the initial psychiatric syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metreleptin (recombinant human leptin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metreleptin, a recombinant human leptin analogue, has been used off-label in small uncontrolled case series of severely ill, hyperactive patients with AN, with reports of rapid improvement in depression, eating-disorder cognitions, weight phobia, and hyperactivity. It is a mechanism-directed substitution for the hypoleptinemia of AN. It is NOT approved for AN (metreleptin is approved only for generalized lipodystrophy); the evidence is uncontrolled and the authors uniformly call for randomized placebo-controlled trials.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"metreleptin\"]}}, {\"id\": \"Nutritional rehabilitation and monitored weight restoration\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional support and gradual, monitored weight restoration address the low-energy state and medical complications. Refeeding intensity and electrolyte monitoring must be individualized because severely malnourished patients can decompensate during refeeding; DisMech does not prescribe a patient-level protocol.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Olanzapine adjunct for weight gain\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Olanzapine may be considered as an adjunct for weight gain in selected patients. Evidence is moderate, it is not a stand-alone treatment, and broad psychopharmacotherapy efficacy in AN has not been established.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"olanzapine\"]}}, {\"id\": \"Polygenic Metabo-Psychiatric Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common germline variation contributes distributed susceptibility across psychiatric and metabolic trait domains. The node does not assert a single causal gene or a known molecular route to AN.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density is a major long-term complication, especially in women with low body mass, altered body composition, and amenorrhea; the evidence base cited here is predominantly female.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Restrictive-Eating Psychopathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fear of weight gain, disturbance in body-weight or shape experience, and persistent weight-gain-interfering behavior motivate restriction. This clinical state is established; its upstream molecular and circuit causes remain incompletely resolved.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of appetite\", \"feeding behavior\"]}}, {\"id\": \"Skeletal Integrity Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Low body mass, low fat and lean mass, amenorrhea, and endocrine adaptation reduce bone mineral density and increase later osteoporosis and fracture risk.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"bone tissue\"]}}, {\"id\": \"Starvation-Adaptation Endocrine Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic low energy alters hypothalamic-pituitary-gonadal, growth-hormone, adrenal, thyroid, leptin, ghrelin, and related endocrine axes. Many changes are adaptive to starvation, not validated diagnostic biomarkers.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endocrine cell\"], \"biological_processes\": [\"response to starvation\", \"energy homeostasis\", \"hormone-mediated signaling pathway\"]}}, {\"id\": \"Sustained Energy Restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent caloric restriction creates negative energy balance; in the binge-eating/purging presentation, vomiting or other compensatory behaviors can add fluid and electrolyte losses.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"feeding behavior\"]}}, {\"id\": \"Undernutrition-Associated Brain Structural Changes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute AN is associated with widespread reductions in cortical thickness and subcortical volume. Their relationship to low BMI and attenuation after partial weight restoration make them important state markers but not proof of a primary neural cause.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}], \"edges\": [{\"source\": \"Polygenic Metabo-Psychiatric Susceptibility\", \"target\": \"Restrictive-Eating Psychopathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polygenic liability is placed upstream of the diagnostic psychopathology, but the intervening developmental, molecular, and neural mechanisms are unresolved.\", \"hypothesis_groups\": [\"metabo_psychiatric_liability\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Restrictive-Eating Psychopathology\", \"target\": \"Abnormal Eating Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fear of weight gain, body-image disturbance, and persistent weight-gain-interfering behavior are expressed clinically as restrictive eating and related abnormal eating behavior.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Restrictive-Eating Psychopathology\", \"target\": \"Sustained Energy Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AN psychopathology motivates severe dietary restriction and other weight-loss behavior.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sustained Energy Restriction\", \"target\": \"Low Weight and Malnutrition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained energy restriction reduces body mass and produces chronic undernutrition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sustained Energy Restriction\", \"target\": \"Electrolyte and Volume Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrolyte and volume abnormalities are context dependent and are not universal; purging and water-loading behaviors can substantially modify risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Purging, polydipsia, reduced intake, and renal adaptation\"]}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Low Body Weight and Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malnourished low-energy state is expressed clinically as decreased body weight, often following substantial or rapid weight loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Hypoleptinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adipose tissue and reduced energy intake lower the adipocyte-derived hormone leptin, producing the hypoleptinemia that signals the starved state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Starvation-Adaptation Endocrine Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic starvation elicits adaptive and maladaptive changes across gonadal, growth-hormone, adrenal, thyroid, and appetite-hormone axes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypothalamic-pituitary axis adaptation to chronic energy deficit\"]}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Cardiovascular Adaptation and Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recent and rapid weight loss contributes to bradycardia and broader cardiovascular instability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autonomic adaptation, reduced cardiac mass, and electrolyte disturbance\"]}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Gastrointestinal Dysmotility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered eating and malnutrition produce delayed gastric emptying and constipation that can complicate refeeding.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Malnutrition-associated autonomic and motility changes\"]}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Undernutrition-Associated Brain Structural Changes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A substantial component of widespread brain structural differences is associated with acute undernutrition and is smaller after partial weight restoration.\", \"hypothesis_groups\": [\"neural_state_trait_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Acute undernutrition and lower body mass index\"]}, {\"source\": \"Starvation-Adaptation Endocrine Response\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothalamic-pituitary dysfunction suppresses gonadal hormone signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Starvation-Adaptation Endocrine Response\", \"target\": \"Skeletal Integrity Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Starvation-related endocrine changes and altered body composition impair bone accrual and maintenance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low gonadal steroids, growth-hormone resistance, hypercortisolemia, and low body mass\"]}, {\"source\": \"Hypogonadotropic Hypogonadism\", \"target\": \"Amenorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppression of reproductive endocrine signaling can result in hypothalamic amenorrhea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced hypothalamic-pituitary-gonadal signaling and low gonadal steroids\"]}, {\"source\": \"Skeletal Integrity Loss\", \"target\": \"Reduced Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired bone integrity is measured clinically as reduced bone mineral density across total body, spine, hip, and femur sites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular Adaptation and Instability\", \"target\": \"Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recent and rapid weight loss is strongly associated with severe bradycardia in hospitalized adolescents.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular Adaptation and Instability\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AN can confer arrhythmia risk through several cardiac and electrolyte pathways.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Myocardial structural change, conduction disturbance, and electrolyte imbalance\"]}, {\"source\": \"Electrolyte and Volume Disturbance\", \"target\": \"Hypokalemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Potassium depletion can occur, particularly with purging behaviors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Electrolyte and Volume Disturbance\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sodium disturbance can occur through reduced intake, volume regulation, or excessive water intake.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Electrolyte and Volume Disturbance\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrolyte imbalance can amplify arrhythmia risk, especially in medically unstable or purging presentations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Electrolyte-sensitive cardiac conduction disturbance\"]}, {\"source\": \"Gastrointestinal Dysmotility\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal dysmotility manifests clinically as constipation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypoleptinemia\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoleptinemia removes a permissive signal for the reproductive axis, contributing to hypothalamic hypogonadism and amenorrhea; this is the leptin-specific mediator of the broader endocrine starvation response.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of leptin\u0027s permissive signal for hypothalamic GnRH / HPG-axis activity\"]}, {\"source\": \"Hypoleptinemia\", \"target\": \"Excessive Physical Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low leptin is hypothesized to drive starvation-induced hyperactivity; the causal step is established in the ABA rodent model (via VTA STAT3 signaling) but only correlational (inverted-U) in humans, so this edge is carried under an emerging hypothesis rather than as an established human mechanism.\", \"hypothesis_groups\": [\"leptin_hyperactivity\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Leptin signal transduction via STAT3 in ventral tegmental area (VTA) dopaminergic neurons (demonstrated in the activity-based anorexia model)\"]}, {\"source\": \"Nutritional rehabilitation and monitored weight restoration\", \"target\": \"Low Weight and Malnutrition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional rehabilitation and monitored weight restoration\", \"target\": \"Low Body Weight and Weight Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Family-based treatment for youth\", \"target\": \"Restrictive-Eating Psychopathology\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Family-based treatment for youth\", \"target\": \"Abnormal Eating Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Family-based treatment for youth\", \"target\": \"Low Body Weight and Weight Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Eating-disorder-focused cognitive behavioral therapy\", \"target\": \"Abnormal Eating Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Olanzapine adjunct for weight gain\", \"target\": \"Low Body Weight and Weight Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Inpatient medical and psychiatric stabilization\", \"target\": \"Bradycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Inpatient medical and psychiatric stabilization\", \"target\": \"Arrhythmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Metreleptin (recombinant human leptin)\", \"target\": \"Hypoleptinemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metreleptin (recombinant human leptin)\", \"target\": \"Excessive Physical Activity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Metreleptin (recombinant human leptin)\", \"target\": \"Depression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hypoleptinemia\", \"target\": \"Hypoleptinemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low serum leptin is a direct readout of the Hypoleptinemia mechanism node and indexes the severity of the starvation-adaptation state; it partially normalizes with weight restoration and is the pharmacodynamic target of metreleptin substitution.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Eating Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent restriction and other behavior that interferes with weight gain are core diagnostic manifestations. Fear of weight gain and body-image disturbance are retained in the clinical description because the available HPO term is broader than the full psychiatric construct.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100738\"}}, {\"id\": \"Amenorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypothalamic amenorrhea can occur in postmenarchal patients with AN. It is a consequence of energy-deficit-associated reproductive-axis suppression and is not required for diagnosis; it does not apply to all sexes or life stages.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000141\"}}, {\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arrhythmias are potentially serious complications of AN, mediated through cardiac structural, conduction, autonomic, and electrolyte pathways.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Bradycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bradycardia is common in medically unstable, recently weight-losing adolescents and may prompt hospitalization; the cohort estimate below is specific to hospitalized adolescents and is not a population frequency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001662\"}}, {\"id\": \"Cardiovascular Adaptation and Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Weight loss, autonomic adaptation, reduced cardiac mass, and electrolyte disturbances contribute to bradycardia, conduction disturbance, and arrhythmia risk. Not every patient has the same cardiovascular phenotype.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cardiovascular system\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation and delayed gastric emptying occur in both AN presentations, often improve with nutritional recovery, and may complicate refeeding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depression is a frequent and clinically important psychiatric comorbidity; cross-sectional association does not establish directionality.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Eating-disorder-focused cognitive behavioral therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Eating-disorder-focused CBT is one of several recommended psychotherapies. Selection depends on age, illness duration, comorbidity, prior treatment, and patient preference; it is not presented as uniformly superior.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Electrolyte and Volume Disturbance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Restriction, purging, polydipsia, and renal adaptation can produce electrolyte and volume abnormalities. These are severity- and behavior-dependent complications rather than universal diagnostic signs.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Excessive Physical Activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Physical hyperactivity, motor restlessness, and a driven urge to exercise are common in acute AN and correlate inversely with serum leptin; they are modeled here as a leptin-linked behavioral manifestation (see the leptin_hyperactivity mechanistic hypothesis). HP:0000752 (Hyperactivity) is the closest available HPO term but is anchored to ADHD-type motor/attentional hyperactivity; the preferred_term carries the AN-specific compulsive, starvation-driven-exercise nuance the ontology class does not yet capture.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000752\"}}, {\"id\": \"Family-based treatment for youth\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Family-based treatment with parental oversight of eating has the strongest comparative evidence in youth with AN. The age context is essential and the result should not be generalized to all adults or severe enduring illness.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Gastrointestinal Dysmotility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delayed gastric emptying and constipation occur in both AN presentations and can make nutritional rehabilitation uncomfortable; most changes improve with restoration of normal intake and body weight.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"gastrointestinal tract\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypogonadotropic Hypogonadism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy-deficit-associated hypothalamic-pituitary suppression reduces gonadal hormones. Amenorrhea is an important manifestation in some postmenarchal patients but is not required for a modern AN diagnosis.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hypothalamus\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypokalemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypokalemia can occur, particularly with purging or other fluid-loss behaviors, but is not universal across AN presentations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002900\"}}, {\"id\": \"Hypoleptinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Adipocyte (leptin-secreting)\"], \"presence\": \"DECREASED\", \"specificity\": \"Low for AN as a stand-alone diagnostic marker (reflects low fat mass generally); high as an index of the acute starvation-adaptation state.\", \"term_id\": \"NCIT:C46081\", \"term_label\": \"Leptin\", \"readouts\": [{\"target\": \"Hypoleptinemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Low serum leptin is a direct readout of the Hypoleptinemia mechanism node and indexes the severity of the starvation-adaptation state; it partially normalizes with weight restoration and is the pharmacodynamic target of metreleptin substitution.\"}]}}, {\"id\": \"Hyponatremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyponatremia can occur through water-loading behavior, reduced intake, or altered volume regulation and requires context-specific interpretation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002902\"}}, {\"id\": \"Inpatient medical and psychiatric stabilization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hospital-level supportive care is indicated for serious medical or psychiatric complications such as severe bradycardia or suicidality. Admission decisions are individualized; this entry does not define bedside thresholds.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Low Body Weight and Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Significantly low body weight is a defining state. Recent weight loss can carry medical risk even before an extremely low absolute weight is reached.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004325\"}}, {\"id\": \"Low Weight and Malnutrition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The low-energy state is the established proximal driver of many endocrine, cardiovascular, gastrointestinal, skeletal, and brain-state consequences. It should not be mistaken for evidence that those downstream changes caused the initial psychiatric syndrome.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Metreleptin (recombinant human leptin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metreleptin, a recombinant human leptin analogue, has been used off-label in small uncontrolled case series of severely ill, hyperactive patients with AN, with reports of rapid improvement in depression, eating-disorder cognitions, weight phobia, and hyperactivity. It is a mechanism-directed substitution for the hypoleptinemia of AN. It is NOT approved for AN (metreleptin is approved only for generalized lipodystrophy); the evidence is uncontrolled and the authors uniformly call for randomized placebo-controlled trials.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"metreleptin\"]}}, {\"id\": \"Nutritional rehabilitation and monitored weight restoration\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Nutritional support and gradual, monitored weight restoration address the low-energy state and medical complications. Refeeding intensity and electrolyte monitoring must be individualized because severely malnourished patients can decompensate during refeeding; DisMech does not prescribe a patient-level protocol.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Olanzapine adjunct for weight gain\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Olanzapine may be considered as an adjunct for weight gain in selected patients. Evidence is moderate, it is not a stand-alone treatment, and broad psychopharmacotherapy efficacy in AN has not been established.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"olanzapine\"]}}, {\"id\": \"Polygenic Metabo-Psychiatric Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common germline variation contributes distributed susceptibility across psychiatric and metabolic trait domains. The node does not assert a single causal gene or a known molecular route to AN.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density is a major long-term complication, especially in women with low body mass, altered body composition, and amenorrhea; the evidence base cited here is predominantly female.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Restrictive-Eating Psychopathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fear of weight gain, disturbance in body-weight or shape experience, and persistent weight-gain-interfering behavior motivate restriction. This clinical state is established; its upstream molecular and circuit causes remain incompletely resolved.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of appetite\", \"feeding behavior\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Skeletal Integrity Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Low body mass, low fat and lean mass, amenorrhea, and endocrine adaptation reduce bone mineral density and increase later osteoporosis and fracture risk.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"bone tissue\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Starvation-Adaptation Endocrine Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic low energy alters hypothalamic-pituitary-gonadal, growth-hormone, adrenal, thyroid, leptin, ghrelin, and related endocrine axes. Many changes are adaptive to starvation, not validated diagnostic biomarkers.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endocrine cell\"], \"biological_processes\": [\"response to starvation\", \"energy homeostasis\", \"hormone-mediated signaling pathway\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Sustained Energy Restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent caloric restriction creates negative energy balance; in the binge-eating/purging presentation, vomiting or other compensatory behaviors can add fluid and electrolyte losses.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"feeding behavior\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Undernutrition-Associated Brain Structural Changes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute AN is associated with widespread reductions in cortical thickness and subcortical volume. Their relationship to low BMI and attenuation after partial weight restoration make them important state markers but not proof of a primary neural cause.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Polygenic Metabo-Psychiatric Susceptibility\", \"target\": \"Restrictive-Eating Psychopathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polygenic liability is placed upstream of the diagnostic psychopathology, but the intervening developmental, molecular, and neural mechanisms are unresolved.\", \"hypothesis_groups\": [\"metabo_psychiatric_liability\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Restrictive-Eating Psychopathology\", \"target\": \"Abnormal Eating Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fear of weight gain, body-image disturbance, and persistent weight-gain-interfering behavior are expressed clinically as restrictive eating and related abnormal eating behavior.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Restrictive-Eating Psychopathology\", \"target\": \"Sustained Energy Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AN psychopathology motivates severe dietary restriction and other weight-loss behavior.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sustained Energy Restriction\", \"target\": \"Low Weight and Malnutrition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained energy restriction reduces body mass and produces chronic undernutrition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sustained Energy Restriction\", \"target\": \"Electrolyte and Volume Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrolyte and volume abnormalities are context dependent and are not universal; purging and water-loading behaviors can substantially modify risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Purging, polydipsia, reduced intake, and renal adaptation\"]}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Low Body Weight and Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malnourished low-energy state is expressed clinically as decreased body weight, often following substantial or rapid weight loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Hypoleptinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of adipose tissue and reduced energy intake lower the adipocyte-derived hormone leptin, producing the hypoleptinemia that signals the starved state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Starvation-Adaptation Endocrine Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic starvation elicits adaptive and maladaptive changes across gonadal, growth-hormone, adrenal, thyroid, and appetite-hormone axes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypothalamic-pituitary axis adaptation to chronic energy deficit\"]}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Cardiovascular Adaptation and Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recent and rapid weight loss contributes to bradycardia and broader cardiovascular instability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autonomic adaptation, reduced cardiac mass, and electrolyte disturbance\"]}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Gastrointestinal Dysmotility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered eating and malnutrition produce delayed gastric emptying and constipation that can complicate refeeding.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Malnutrition-associated autonomic and motility changes\"]}, {\"source\": \"Low Weight and Malnutrition\", \"target\": \"Undernutrition-Associated Brain Structural Changes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A substantial component of widespread brain structural differences is associated with acute undernutrition and is smaller after partial weight restoration.\", \"hypothesis_groups\": [\"neural_state_trait_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Acute undernutrition and lower body mass index\"]}, {\"source\": \"Starvation-Adaptation Endocrine Response\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothalamic-pituitary dysfunction suppresses gonadal hormone signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Starvation-Adaptation Endocrine Response\", \"target\": \"Skeletal Integrity Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Starvation-related endocrine changes and altered body composition impair bone accrual and maintenance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Low gonadal steroids, growth-hormone resistance, hypercortisolemia, and low body mass\"]}, {\"source\": \"Hypogonadotropic Hypogonadism\", \"target\": \"Amenorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppression of reproductive endocrine signaling can result in hypothalamic amenorrhea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced hypothalamic-pituitary-gonadal signaling and low gonadal steroids\"]}, {\"source\": \"Skeletal Integrity Loss\", \"target\": \"Reduced Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired bone integrity is measured clinically as reduced bone mineral density across total body, spine, hip, and femur sites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular Adaptation and Instability\", \"target\": \"Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recent and rapid weight loss is strongly associated with severe bradycardia in hospitalized adolescents.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular Adaptation and Instability\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AN can confer arrhythmia risk through several cardiac and electrolyte pathways.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Myocardial structural change, conduction disturbance, and electrolyte imbalance\"]}, {\"source\": \"Electrolyte and Volume Disturbance\", \"target\": \"Hypokalemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Potassium depletion can occur, particularly with purging behaviors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Electrolyte and Volume Disturbance\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sodium disturbance can occur through reduced intake, volume regulation, or excessive water intake.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Electrolyte and Volume Disturbance\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrolyte imbalance can amplify arrhythmia risk, especially in medically unstable or purging presentations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Electrolyte-sensitive cardiac conduction disturbance\"]}, {\"source\": \"Gastrointestinal Dysmotility\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal dysmotility manifests clinically as constipation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypoleptinemia\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoleptinemia removes a permissive signal for the reproductive axis, contributing to hypothalamic hypogonadism and amenorrhea; this is the leptin-specific mediator of the broader endocrine starvation response.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of leptin\u0027s permissive signal for hypothalamic GnRH / HPG-axis activity\"]}, {\"source\": \"Hypoleptinemia\", \"target\": \"Excessive Physical Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low leptin is hypothesized to drive starvation-induced hyperactivity; the causal step is established in the ABA rodent model (via VTA STAT3 signaling) but only correlational (inverted-U) in humans, so this edge is carried under an emerging hypothesis rather than as an established human mechanism.\", \"hypothesis_groups\": [\"leptin_hyperactivity\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Leptin signal transduction via STAT3 in ventral tegmental area (VTA) dopaminergic neurons (demonstrated in the activity-based anorexia model)\"]}, {\"source\": \"Nutritional rehabilitation and monitored weight restoration\", \"target\": \"Low Weight and Malnutrition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional rehabilitation and monitored weight restoration\", \"target\": \"Low Body Weight and Weight Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Family-based treatment for youth\", \"target\": \"Restrictive-Eating Psychopathology\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Family-based treatment for youth\", \"target\": \"Abnormal Eating Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Family-based treatment for youth\", \"target\": \"Low Body Weight and Weight Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Eating-disorder-focused cognitive behavioral therapy\", \"target\": \"Abnormal Eating Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Olanzapine adjunct for weight gain\", \"target\": \"Low Body Weight and Weight Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Inpatient medical and psychiatric stabilization\", \"target\": \"Bradycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Inpatient medical and psychiatric stabilization\", \"target\": \"Arrhythmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Metreleptin (recombinant human leptin)\", \"target\": \"Hypoleptinemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metreleptin (recombinant human leptin)\", \"target\": \"Excessive Physical Activity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Metreleptin (recombinant human leptin)\", \"target\": \"Depression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hypoleptinemia\", \"target\": \"Hypoleptinemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low serum leptin is a direct readout of the Hypoleptinemia mechanism node and indexes the severity of the starvation-adaptation state; it partially normalizes with weight restoration and is the pharmacodynamic target of metreleptin substitution.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6384,11 +6564,9 @@ This pathophysiological event involves decreased Leptin-mediated signaling pathw
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6429,6 +6607,9 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6443,6 +6624,7 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6497,6 +6679,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6511,6 +6696,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6574,6 +6760,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6588,6 +6777,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6651,6 +6841,9 @@ This clinical feature is Hypothalamic amenorrhea in postmenarchal patients, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6665,6 +6858,7 @@ This clinical feature is Hypothalamic amenorrhea in postmenarchal patients, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6728,6 +6922,9 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6742,6 +6939,7 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6796,6 +6994,9 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6810,6 +7011,7 @@ This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6873,6 +7075,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6887,6 +7092,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6919,7 +7125,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-eating-behavior" data-dismech-node="Abnormal Eating Behavior" data-dismech-type="phenotype">
@@ -6950,6 +7156,9 @@ This clinical feature is Restrictive eating and weight-gain-interfering behavior
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6964,6 +7173,7 @@ This clinical feature is Restrictive eating and weight-gain-interfering behavior
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7018,6 +7228,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7032,6 +7245,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7086,6 +7300,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7103,6 +7320,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7111,6 +7329,78 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                 <div class="evidence-explanation">The review provides an AN-specific lifetime depression estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-obsessive-compulsive-trait" data-dismech-node="Obsessive-Compulsive Trait" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Obsessive-Compulsive Trait
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0008770</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obsessive-compulsive trait (HP:0008770). HP:0008770 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s00115-025-01820-y" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00115-025-01820-y" target="_blank">DOI:10.1007/s00115-025-01820-y</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is frequently associated with other psychiatric disorders, such as depression, anxiety and obsessive-compulsive disorders as well as numerous physical complications."</div>
+
+
+                <div class="evidence-explanation">The update supports obsessive-compulsive comorbidity but does not quantify the broader trait in all patients, so support is partial.</div>
 
 
 
@@ -7142,15 +7432,18 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000752</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000752</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Excessive physical activity / motor restlessness, annotated with Hyperactivity (HP:0000752). HP:0000752 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7170,6 +7463,7 @@ This clinical feature is Excessive physical activity / motor restlessness, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7221,15 +7515,18 @@ This clinical feature is Excessive physical activity / motor restlessness, annot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004325</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004325</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Significantly low body weight and weight loss, annotated with Decreased body weight (HP:0004325). HP:0004325 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7252,6 +7549,7 @@ This clinical feature is Significantly low body weight and weight loss, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7260,83 +7558,6 @@ This clinical feature is Significantly low body weight and weight loss, annotate
 
 
                 <div class="evidence-explanation">Hospitalized adolescent data document clinically consequential recent weight loss in AN.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-obsessive-compulsive-trait" data-dismech-node="Obsessive-Compulsive Trait" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Obsessive-Compulsive Trait
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0008770</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Obsessive-compulsive trait (HP:0008770). HP:0008770 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s00115-025-01820-y" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1007/s00115-025-01820-y" target="_blank">DOI:10.1007/s00115-025-01820-y</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It is frequently associated with other psychiatric disorders, such as depression, anxiety and obsessive-compulsive disorders as well as numerous physical complications."</div>
-
-
-                <div class="evidence-explanation">The update supports obsessive-compulsive comorbidity but does not quantify the broader trait in all patients, so support is partial.</div>
 
 
 
@@ -7412,6 +7633,9 @@ This clinical feature is Obsessive-compulsive trait (HP:0008770). HP:0008770 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7426,6 +7650,7 @@ This clinical feature is Obsessive-compulsive trait (HP:0008770). HP:0008770 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7514,6 +7739,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7524,6 +7752,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -7560,6 +7791,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7628,6 +7860,7 @@ This treatment targets Decreased body weight (HP:0004325). HP:0004325 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7693,6 +7926,9 @@ This treatment is Family Therapy (NCIT:C93347). NCIT:C93347 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7703,6 +7939,9 @@ This treatment is Family Therapy (NCIT:C93347). NCIT:C93347 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -7739,6 +7978,7 @@ This treatment is Family Therapy (NCIT:C93347). NCIT:C93347 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7824,6 +8064,7 @@ This treatment targets Decreased body weight (HP:0004325). HP:0004325 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7890,6 +8131,9 @@ This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a cli
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7900,6 +8144,9 @@ This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a cli
 
 
     </div>
+
+
+
 
 
 
@@ -7949,6 +8196,7 @@ This treatment targets Abnormal eating behavior (HP:0100738). HP:0100738 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8039,6 +8287,9 @@ This treatment uses olanzapine (CHEBI:7735). CHEBI:7735 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8049,6 +8300,9 @@ This treatment uses olanzapine (CHEBI:7735). CHEBI:7735 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -8098,6 +8352,7 @@ This treatment targets Decreased body weight (HP:0004325). HP:0004325 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8167,6 +8422,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8177,6 +8435,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8243,6 +8504,7 @@ This treatment targets Arrhythmia (HP:0011675). HP:0011675 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8333,6 +8595,9 @@ This treatment uses metreleptin (NCIT:C170171). NCIT:C170171 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8343,6 +8608,9 @@ This treatment uses metreleptin (NCIT:C170171). NCIT:C170171 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -8379,6 +8647,7 @@ This treatment uses metreleptin (NCIT:C170171). NCIT:C170171 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8464,6 +8733,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8488,6 +8758,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8509,6 +8780,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8608,6 +8880,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8629,6 +8902,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8678,6 +8952,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8780,6 +9055,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8864,6 +9140,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8954,6 +9231,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9041,6 +9319,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9106,6 +9385,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9153,6 +9433,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9229,6 +9510,7 @@ This treatment targets Depression (HP:0000716). HP:0000716 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9285,6 +9567,7 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9352,6 +9635,7 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9430,6 +9714,7 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9488,6 +9773,7 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9586,6 +9872,7 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9631,6 +9918,7 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9715,6 +10003,7 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9760,6 +10049,7 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9846,6 +10136,7 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9894,11 +10185,12 @@ lence is 0.62% among females and 0.04% among males"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The study population included 2081 patients with AN and 20 810 matched controls, for a total of 22 891 participants (mean [SD] age, 24.9 [9.9] years; 91.3% female)."</div>
+                <div class="evidence-snippet">"The study population included 2081 patients with AN and 20 810 matched controls, for a total of 22 891 participants"</div>
 
 
                 <div class="evidence-explanation">The cohort composition supports the recorded sample count and population context.</div>
@@ -9978,6 +10270,7 @@ This clinical trial targets Depression (HP:0000716). HP:0000716 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12053,9 +12346,8 @@ datasets:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      The study population included 2081 patients with AN and 20 810 matched
-      controls, for a total of 22 891 participants (mean [SD] age, 24.9 [9.9]
-      years; 91.3% female).
+      The study population included 2081 patients with AN and 20 810 matched controls, for a total
+      of 22 891 participants
     explanation: &gt;-
       The cohort composition supports the recorded sample count and population
       context.
@@ -12101,6 +12393,18 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Anorexia_Nervosa-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13617,7 +13921,7 @@ OUTCOMES (without adequate treatment)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Anorexia Nervosa", "mondoId": "MONDO:0005351", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anorexia_Nervosa", "yamlRevision": "7d1c420ed048"};
+        const OS_CONFIG = {"diseaseName": "Anorexia Nervosa", "mondoId": "MONDO:0005351", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anorexia_Nervosa", "yamlRevision": "ad0dcf6ea78d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4205,6 +4273,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4229,6 +4298,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4250,6 +4320,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4344,6 +4415,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4403,6 +4475,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4630,6 +4703,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phox2b-polyalanine-expansion-or-frameshift-mutation" data-dismech-node="PHOX2B Polyalanine Expansion or Frameshift Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">PHOX2B Polyalanine Expansion or Frameshift Mutation</div>
 
+
                 <div class="item-desc">The trigger. PHOX2B encodes a paired-like homeobox transcription factor that is a master regulator of visceral reflex circuit development. Heterozygous de novo mutation causes the disorder, and the mutation class is unusual: most are expansions of 5-9 alanines within a normal 20-residue polyalanine tract, probably arising by non-homologous recombination rather than by point mutation. The expansion length predicts phenotype severity closely enough that genotype guides clinical anticipation, which is why testing is diagnostic rather than confirmatory. A minority carry non-polyalanine repeat mutations - frameshift and missense - which produce more severe disease and a higher risk of the neural-crest tumour complications.</div>
 
 
@@ -4690,6 +4764,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4711,6 +4786,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4738,6 +4814,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4760,6 +4837,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-development-of-retrotrapezoid-nucleus-chemoreceptor-neurons" data-dismech-node="Failed Development of Retrotrapezoid Nucleus Chemoreceptor Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Development of Retrotrapezoid Nucleus Chemoreceptor Neurons</div>
+
 
                 <div class="item-desc">The mechanistically decisive step, and the reason this disorder is so informative about normal physiology. In mice carrying the commonest CCHS-causing mutation, the retrotrapezoid nucleus / parafacial respiratory group is severely depleted, and NO OTHER neuronal loss can be identified - an extraordinarily selective lesion for a transcription factor expressed throughout the visceral reflex circuitry. Those neurons are necessary for central chemoreception and for generating a normal respiratory rhythm at birth. The selectivity is itself unexplained: why this particular population should be uniquely vulnerable to mutant PHOX2B remains unknown, and it is the central open question of the disorder&#39;s cell biology.</div>
 
@@ -4872,6 +4950,7 @@ This pathophysiological event occurs in retrotrapezoid nucleus (UBERON:0009918).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4893,6 +4972,7 @@ This pathophysiological event occurs in retrotrapezoid nucleus (UBERON:0009918).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4920,6 +5000,7 @@ This pathophysiological event occurs in retrotrapezoid nucleus (UBERON:0009918).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4942,6 +5023,7 @@ This pathophysiological event occurs in retrotrapezoid nucleus (UBERON:0009918).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-central-chemoreflex-response-to-hypercapnia-and-hypoxaemia" data-dismech-node="Loss of Central Chemoreflex Response to Hypercapnia and Hypoxaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Central Chemoreflex Response to Hypercapnia and Hypoxaemia</div>
+
 
                 <div class="item-desc">The central, disorder-defining physiological abnormality: rising arterial carbon dioxide and falling oxygen fail to produce the corrective increase in ventilation that they produce in everyone else. The defect is in the sensing and reflex limb, not in the effector - the lungs, chest wall, and respiratory muscles are normal and can be driven perfectly well, which is why mechanical ventilation works and why the disorder is compatible with normal life expectancy given adequate support. Patients characteristically do not experience dyspnoea during hypoventilation, because the sensation of air hunger depends on the same chemoreceptive input that is missing - a feature that makes the condition dangerous rather than merely limiting.</div>
 
@@ -5067,6 +5149,7 @@ This pathophysiological event involves decreased chemoreflex response to carbon 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5088,6 +5171,7 @@ This pathophysiological event involves decreased chemoreflex response to carbon 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5113,6 +5197,7 @@ This pathophysiological event involves decreased chemoreflex response to carbon 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-dependent-alveolar-hypoventilation" data-dismech-node="Sleep-Dependent Alveolar Hypoventilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep-Dependent Alveolar Hypoventilation</div>
+
 
                 <div class="item-desc">The state dependence is the disorder&#39;s clinical signature and follows directly from how breathing is controlled. Wakefulness supplies a behavioural and cortical drive to breathe that is independent of chemoreception; sleep withdraws it, leaving the automatic chemoreflex loop alone in charge. Where that loop is absent, sleep produces progressive hypoventilation with hypercapnia and hypoxaemia, most severely in non-REM sleep, when chemoreceptive control normally dominates most completely. Severe cases hypoventilate when awake as well. Untreated, the consequence is cor pulmonale, hypoxic neurological injury, and death - the historical natural history that gave the disorder its Ondine&#39;s-curse name.</div>
 
@@ -5234,6 +5319,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5255,6 +5341,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5280,6 +5367,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalised-autonomic-dysregulation-and-neural-crest-complications" data-dismech-node="Generalised Autonomic Dysregulation and Neural Crest Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalised Autonomic Dysregulation and Neural Crest Complications</div>
+
 
                 <div class="item-desc">A parallel arm arising directly from PHOX2B&#39;s broader role, and the reason this is a syndrome rather than a respiratory disease. Autonomic dysregulation affects multiple organ systems - cardiac rhythm with prolonged sinus pauses, thermoregulation, pupillary responses, oesophageal motility, sweating. Two neural-crest complications carry particular weight because they are genotype-linked and require active surveillance: Hirschsprung disease from failed enteric neural crest colonisation, and neuroblastic tumours (ganglioneuroma, neuroblastoma) from the sympathoadrenal lineage. The cardiac arm is the one that kills without warning, which is why 72-hour Holter monitoring is recommended as routine surveillance rather than as investigation of symptoms.</div>
 
@@ -5333,6 +5421,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5354,6 +5443,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5381,6 +5471,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5403,6 +5494,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventilator-dependence-and-neurocognitive-risk" data-dismech-node="Ventilator Dependence and Neurocognitive Risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventilator Dependence and Neurocognitive Risk</div>
+
 
                 <div class="item-desc">The clinical endpoint. There is no therapy for the chemoreceptive lesion, so management is lifelong mechanical support of ventilation during sleep - positive-pressure ventilation via tracheostomy or mask, or bilateral phrenic nerve pacing for daytime support in those who also hypoventilate awake. The principal modifiable outcome is neurocognitive, and it depends on the adequacy of ventilation across all states and activities, which is why guideline management centres on repeated physiological assessment during every sleep stage and activity level rather than on a single titration.</div>
 
@@ -5441,6 +5533,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5462,6 +5555,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5529,9 +5623,13 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Respiratory<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5540,15 +5638,13 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
+                    Cardiovascular
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-central-hypoventilation" data-dismech-node="Central Hypoventilation" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autonomic-cardiac-dysregulation" data-dismech-node="Autonomic Cardiac Dysregulation" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Central Hypoventilation
-
-                        <span class="phenotype-freq">OBLIGATE</span>
+                        Autonomic Cardiac Dysregulation
 
 
 
@@ -5557,18 +5653,23 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Decreased heart rate variability</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0007110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031861" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0031861</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Central hypoventilation (HP:0007110). HP:0007110 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Decreased heart rate variability (HP:0031861). HP:0031861 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5588,6 +5689,175 @@ This clinical feature is Central hypoventilation (HP:0007110). HP:0007110 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"evaluation of ANS dysregulation across all organ systems affected by the ANS"</div>
+
+
+                <div class="evidence-explanation">Supports systematic autonomic dysregulation as a curated feature requiring evaluation; no frequency band is asserted, as the statement does not quantify the cardiac arm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hirschsprung-disease" data-dismech-node="Hirschsprung Disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hirschsprung Disease
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Aganglionic megacolon</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aganglionic megacolon (HP:0002251). HP:0002251 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12640453" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12640453" target="_blank">PMID:12640453</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This core phenotype is associated with lower-penetrance anomalies of the autonomic nervous system (ANS) including Hirschsprung disease"</div>
+
+
+                <div class="evidence-explanation">The source describes these as lower-penetrance anomalies relative to the obligate respiratory core, which maps to the OCCASIONAL band; no exact percentage is quoted, so a tighter band is not asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-central-hypoventilation" data-dismech-node="Central Hypoventilation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Central Hypoventilation
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0007110</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central hypoventilation (HP:0007110). HP:0007110 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20208042" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20208042" target="_blank">PMID:20208042</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5614,15 +5884,6 @@ This clinical feature is Central hypoventilation (HP:0007110). HP:0007110 is a p
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nocturnal-hypoventilation" data-dismech-node="Nocturnal Hypoventilation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nocturnal Hypoventilation
@@ -5639,10 +5900,10 @@ This clinical feature is Central hypoventilation (HP:0007110). HP:0007110 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002877</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002877</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nocturnal hypoventilation (HP:0002877), qualified as temporality nocturnal. HP:0002877 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5671,6 +5932,9 @@ This clinical feature is Nocturnal hypoventilation (HP:0002877), qualified as te
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5685,6 +5949,7 @@ This clinical feature is Nocturnal hypoventilation (HP:0002877), qualified as te
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5711,77 +5976,14 @@ This clinical feature is Nocturnal hypoventilation (HP:0002877), qualified as te
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hirschsprung-disease" data-dismech-node="Hirschsprung Disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hirschsprung Disease
+            </details>
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Aganglionic megacolon</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002251</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aganglionic megacolon (HP:0002251). HP:0002251 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12640453" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12640453" target="_blank">PMID:12640453</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This core phenotype is associated with lower-penetrance anomalies of the autonomic nervous system (ANS) including Hirschsprung disease"</div>
-
-
-                <div class="evidence-explanation">The source describes these as lower-penetrance anomalies relative to the obligate respiratory core, which maps to the OCCASIONAL band; no exact percentage is quoted, so a tighter band is not asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">1</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-neuroblastic-tumour" data-dismech-node="Neuroblastic Tumour" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5801,15 +6003,18 @@ This clinical feature is Aganglionic megacolon (HP:0002251). HP:0002251 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0004376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0004376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neuroblastic tumor (HP:0004376). HP:0004376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5832,6 +6037,7 @@ This clinical feature is Neuroblastic tumor (HP:0004376). HP:0004376 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5840,76 +6046,6 @@ This clinical feature is Neuroblastic tumor (HP:0004376). HP:0004376 is a phenot
 
 
                 <div class="evidence-explanation">Named among the lower-penetrance associated anomalies, supporting the OCCASIONAL band on the same basis as Hirschsprung disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autonomic-cardiac-dysregulation" data-dismech-node="Autonomic Cardiac Dysregulation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autonomic Cardiac Dysregulation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased heart rate variability</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031861" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031861</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased heart rate variability (HP:0031861). HP:0031861 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20208042" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20208042" target="_blank">PMID:20208042</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"evaluation of ANS dysregulation across all organ systems affected by the ANS"</div>
-
-
-                <div class="evidence-explanation">Supports systematic autonomic dysregulation as a curated feature requiring evaluation; no frequency band is asserted, as the statement does not quantify the cardiac arm.</div>
 
 
 
@@ -5997,6 +6133,9 @@ This disease-associated gene is PHOX2B (hgnc:9143). hgnc:9143 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6011,6 +6150,7 @@ This disease-associated gene is PHOX2B (hgnc:9143). hgnc:9143 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6035,6 +6175,7 @@ This disease-associated gene is PHOX2B (hgnc:9143). hgnc:9143 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6120,6 +6261,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6130,6 +6274,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -6175,6 +6322,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6241,6 +6389,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6251,6 +6402,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -6296,6 +6450,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,6 +6517,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6372,6 +6530,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -6417,6 +6578,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6483,6 +6645,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6493,6 +6658,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6538,6 +6706,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6626,6 +6795,7 @@ This environmental factor is exposure to sedative (ECTO:9001748). ECTO:9001748 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6674,6 +6844,7 @@ This environmental factor is exposure to sedative (ECTO:9001748). ECTO:9001748 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6756,6 +6927,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6804,6 +6976,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6863,6 +7036,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6911,6 +7085,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6987,6 +7162,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7008,6 +7184,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7065,6 +7242,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7086,6 +7264,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7140,6 +7319,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7214,6 +7394,7 @@ This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

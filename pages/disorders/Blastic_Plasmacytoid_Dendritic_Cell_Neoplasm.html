@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4321,6 +4389,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epigenetic-regulator-loss-in-a-hematopoietic-progenitor" data-dismech-node="Epigenetic Regulator Loss in a Hematopoietic Progenitor" data-dismech-type="pathophysiology">
                 <div class="item-name">Epigenetic Regulator Loss in a Hematopoietic Progenitor</div>
 
+
                 <div class="item-desc">Loss-of-function mutations in DNA- and chromatin-modifying genes — most consistently TET2, often biallelic, together with the canonical ASXL1 c.1934dupG frameshift — arise in a hematopoietic progenitor and behave as founder events. The same variants are recoverable from a preceding or concurrent myeloid neoplasm in the same patient, which places the lesion upstream of pDC commitment rather than inside the pDC compartment.</div>
 
 
@@ -4463,6 +4532,7 @@ This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4484,6 +4554,7 @@ This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4511,6 +4582,7 @@ This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4535,6 +4607,7 @@ This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-hematopoiesis-of-the-mutant-progenitor" data-dismech-node="Clonal Hematopoiesis of the Mutant Progenitor" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Hematopoiesis of the Mutant Progenitor</div>
+
 
                 <div class="item-desc">The mutant progenitor expands as a premalignant clone in the bone marrow, still capable of normal differentiation. This is the state shared with the antecedent myeloid neoplasms that a fifth of BPDCN patients also carry, and it is the substrate the later lesions act on rather than the disease itself.</div>
 
@@ -4588,6 +4661,7 @@ This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4610,6 +4684,7 @@ This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdkn2a-and-cdkn2b-deletion-at-9p21-3" data-dismech-node="CDKN2A and CDKN2B Deletion at 9p21.3" data-dismech-type="pathophysiology">
                 <div class="item-name">CDKN2A and CDKN2B Deletion at 9p21.3</div>
+
 
                 <div class="item-desc">Recurrent copy-number loss at 9p21.3 removes the CDKN2A/CDKN2B cell-cycle inhibitors, and the same broad deletions take out neighbouring tumour suppressors including CDKN1B and RB1. Unlike most of the recurrent lesions here it is a deletion rather than a point mutation.</div>
 
@@ -4745,6 +4820,7 @@ This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4767,6 +4843,7 @@ This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myc-rearrangement-at-8q24" data-dismech-node="MYC Rearrangement at 8q24" data-dismech-type="pathophysiology">
                 <div class="item-name">MYC Rearrangement at 8q24</div>
+
 
                 <div class="item-desc">Rearrangement of the MYC locus, most often partnered with 6p21 (RUNX2) rather than an immunoglobulin locus, driving MYC overexpression. Reported frequencies differ substantially by cohort and ascertainment - 12% in one single-institution karyotype series, about a third in a cytogenetics review - and the rearranged cases are associated with an immunoblastoid cytomorphology.</div>
 
@@ -4863,6 +4940,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4884,6 +4962,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4909,6 +4988,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glucocorticoid-resistance" data-dismech-node="Glucocorticoid Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Glucocorticoid Resistance</div>
+
 
                 <div class="item-desc">Reduced glucocorticoid-receptor dosage renders the clone corticoresistant. This is the functional consequence the NR3C1 deletion was characterized by, and it matters clinically because corticosteroids are otherwise a standard component of the lymphoma- and ALL-type regimens used here.</div>
 
@@ -4947,6 +5027,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4969,6 +5050,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphoid-organ-infiltration" data-dismech-node="Lymphoid Organ Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphoid Organ Infiltration</div>
+
 
                 <div class="item-desc">Infiltration of lymph nodes and spleen. In the SEER population-based series lymph node was the most frequently recorded primary site, which makes this a major compartment rather than an afterthought to the cutaneous and marrow disease.</div>
 
@@ -5028,6 +5110,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5049,6 +5132,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5074,6 +5158,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zrsr2-loss-of-function-splicing-defect" data-dismech-node="ZRSR2 Loss-of-Function Splicing Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">ZRSR2 Loss-of-Function Splicing Defect</div>
+
 
                 <div class="item-desc">ZRSR2, an X-linked minor-spliceosome component, is recurrently inactivated in BPDCN and almost exclusively in males. The resulting intron retention prevents pDCs from upregulating IRF7 after inflammatory stimulation, so the cells neither activate nor undergo the apoptosis that normally follows activation. This is the best-supported mechanistic account of the disease&#39;s approximately 3:1 male predominance.</div>
 
@@ -5208,6 +5293,7 @@ This pathophysiological event involves decreased RNA splicing (GO:0008380). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5230,6 +5316,7 @@ This pathophysiological event involves decreased RNA splicing (GO:0008380). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ikzf1-structural-inactivation" data-dismech-node="IKZF1 Structural Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">IKZF1 Structural Inactivation</div>
+
 
                 <div class="item-desc">IKZF1, which encodes the transcription factor required for plasmacytoid dendritic cell precursor differentiation, is focally inactivated by recurrent structural rearrangements. Whole-genome sequencing found this to be the disease&#39;s most characteristic structural lesion, and the transcriptome carries the corresponding loss-of-IKZF1 target-gene signature together with the cell-adhesion program that IKZF1 deficiency de-represses.</div>
 
@@ -5332,6 +5419,7 @@ This pathophysiological event involves IKZF1 (hgnc:13176). hgnc:13176 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5354,6 +5442,7 @@ This pathophysiological event involves IKZF1 (hgnc:13176). hgnc:13176 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myb-rearrangement" data-dismech-node="MYB Rearrangement" data-dismech-type="pathophysiology">
                 <div class="item-name">MYB Rearrangement</div>
+
 
                 <div class="item-desc">Rearrangements fusing the MYB N-terminus to a partner C-terminus are markedly enriched in BPDCN relative to other blood cancers and are sometimes the only detectable somatic lesion. Chromatin profiling shows the fusion protein redirects MYB away from dendritic-cell lineage genes and onto G2/M cell-cycle control genes, converting a differentiation factor into a proliferation driver.</div>
 
@@ -5456,6 +5545,7 @@ This pathophysiological event involves MYB (hgnc:7545). hgnc:7545 is a gene from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5478,6 +5568,7 @@ This pathophysiological event involves MYB (hgnc:7545). hgnc:7545 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasmacytoid-dendritic-cell-differentiation-block" data-dismech-node="Plasmacytoid Dendritic Cell Differentiation Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasmacytoid Dendritic Cell Differentiation Block</div>
+
 
                 <div class="item-desc">The convergent consequence of the upstream lesions is arrest of the pDC differentiation program, producing an immature blast population that nevertheless retains defining pDC identity (CD123, TCF4, TCL1, CD303, CD304). It is this retained identity, not the block itself, that makes the lineage&#39;s own master regulators exploitable as therapeutic targets.</div>
 
@@ -5623,6 +5714,7 @@ This pathophysiological event involves decreased plasmacytoid dendritic cell dif
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5644,6 +5736,7 @@ This pathophysiological event involves decreased plasmacytoid dendritic cell dif
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5669,6 +5762,7 @@ This pathophysiological event involves decreased plasmacytoid dendritic cell dif
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tcf4-dependent-super-enhancer-network-addiction" data-dismech-node="TCF4-Dependent Super-Enhancer Network Addiction" data-dismech-type="pathophysiology">
                 <div class="item-name">TCF4-Dependent Super-Enhancer Network Addiction</div>
+
 
                 <div class="item-desc">TCF4 (E2-2), the master transcription factor of normal pDC development, is retained by the malignant clone and establishes BPDCN-specific super-enhancers that recruit BRD4. RNAi knockdown of TCF4 collapses the BPDCN-specific expression program and triggers apoptosis, and BET inhibitors reproduce that effect pharmacologically — so this is a genuine oncogenic addiction rather than a lineage marker.</div>
 
@@ -5863,6 +5957,7 @@ This pathophysiological event involves TCF4 transcription factor activity at BPD
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5884,6 +5979,7 @@ This pathophysiological event involves TCF4 transcription factor activity at BPD
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5909,6 +6005,7 @@ This pathophysiological event involves TCF4 transcription factor activity at BPD
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd123-overexpression-on-malignant-pdc-blasts" data-dismech-node="CD123 Overexpression on Malignant pDC Blasts" data-dismech-type="pathophysiology">
                 <div class="item-name">CD123 Overexpression on Malignant pDC Blasts</div>
+
 
                 <div class="item-desc">The malignant blasts express interleukin-3 receptor subunit alpha (IL3RA, CD123) at high density. It is both the diagnostic anchor and the address that every approved and investigational targeted agent in this disease is written to. Note what is *not* claimed here: tagraxofusp works by receptor-mediated delivery of a toxin payload, not by blocking IL-3 signalling, and nothing curated in this entry establishes that CD123 signalling itself drives survival.</div>
 
@@ -6003,6 +6100,7 @@ This pathophysiological event involves IL3RA (hgnc:6012). hgnc:6012 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6025,6 +6123,7 @@ This pathophysiological event involves IL3RA (hgnc:6012). hgnc:6012 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoptosis-resistance-in-the-pdc-compartment" data-dismech-node="Apoptosis Resistance in the pDC Compartment" data-dismech-type="pathophysiology">
                 <div class="item-name">Apoptosis Resistance in the pDC Compartment</div>
+
 
                 <div class="item-desc">Malignant pDCs escape apoptosis by two independently demonstrated routes: loss of the activation-coupled apoptotic response that follows ZRSR2 inactivation, and dependence on the antiapoptotic protein BCL2. BH3 profiling of primary patient cells shows the BCL2 dependence is uniform rather than confined to a genetic subgroup, which is why it does not have a companion biomarker.</div>
 
@@ -6177,6 +6276,7 @@ This pathophysiological event involves increased negative regulation of apoptoti
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6198,6 +6298,7 @@ This pathophysiological event involves increased negative regulation of apoptoti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6223,6 +6324,7 @@ This pathophysiological event involves increased negative regulation of apoptoti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-g2-m-cell-cycle-gene-regulation" data-dismech-node="Aberrant G2/M Cell Cycle Gene Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant G2/M Cell Cycle Gene Regulation</div>
+
 
                 <div class="item-desc">MYB fusion proteins bind G2/M cell-cycle control loci with greater magnitude than wild-type MYB, driving the corresponding expression changes.</div>
 
@@ -6312,6 +6414,7 @@ This pathophysiological event involves increased G2/M transition of mitotic cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6334,6 +6437,7 @@ This pathophysiological event involves increased G2/M transition of mitotic cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nr3c1-haploinsufficiency" data-dismech-node="NR3C1 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">NR3C1 Haploinsufficiency</div>
+
 
                 <div class="item-desc">Monoallelic deletion of NR3C1 at 5q31, encoding the glucocorticoid receptor, occurs in roughly a quarter of cases without accompanying point mutations, lowering receptor expression. It marks a subgroup with markedly inferior survival and provides a mechanistic account of intrinsic corticosteroid resistance.</div>
 
@@ -6438,6 +6542,7 @@ This pathophysiological event involves NR3C1 (hgnc:7978). hgnc:7978 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6459,6 +6564,7 @@ This pathophysiological event involves NR3C1 (hgnc:7978). hgnc:7978 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6484,6 +6590,7 @@ This pathophysiological event involves NR3C1 (hgnc:7978). hgnc:7978 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uv-selected-survival-of-tet2-mutant-pdc-precursors-in-sun-exposed-skin" data-dismech-node="UV-Selected Survival of TET2-Mutant pDC Precursors in Sun-Exposed Skin" data-dismech-type="pathophysiology">
                 <div class="item-name">UV-Selected Survival of TET2-Mutant pDC Precursors in Sun-Exposed Skin</div>
+
 
                 <div class="item-desc">Phylogenomic reconstruction places ultraviolet damage *before* the alterations associated with malignant transformation in at least some tumours - the source says UV damage &#34;can precede&#34; them, and BPDCN skin tumours appear first at sun-exposed anatomical sites carrying clonally expanded UV mutational signatures. The selection mechanism is lineage-specific: Tet2 loss of function confers resistance to UV-induced cell death in plasmacytoid but not conventional dendritic cells. The founder lesion therefore does more than permit transformation — it determines *where* the premalignant clone survives, which is why the disease presents in skin.</div>
 
@@ -6580,6 +6687,7 @@ This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene f
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6601,6 +6709,7 @@ This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6626,6 +6735,7 @@ This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-cell-adhesion-program" data-dismech-node="Aberrant Cell Adhesion Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Cell Adhesion Program</div>
+
 
                 <div class="item-desc">Transcriptome analysis shows upregulation of cell-cell and cell-matrix interaction programs, the expected consequence of IKZF1 deficiency. This is the closest thing the literature currently offers to a mechanism for the disease&#39;s characteristic tissue tropism, and it remains an association rather than a demonstrated cause of skin homing.</div>
 
@@ -6717,6 +6827,7 @@ This pathophysiological event involves increased cell adhesion (GO:0007155). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6739,6 +6850,7 @@ This pathophysiological event involves increased cell adhesion (GO:0007155). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-expansion-of-pdc-lineage-blasts" data-dismech-node="Clonal Expansion of pDC-Lineage Blasts" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Expansion of pDC-Lineage Blasts</div>
+
 
                 <div class="item-desc">The differentiation-arrested, apoptosis-resistant clone expands, and this expanded population is what subsequently distributes to skin, marrow, blood, lymph nodes and the leptomeninges.</div>
 
@@ -6894,6 +7006,7 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6916,6 +7029,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-infiltration-by-malignant-pdc-blasts" data-dismech-node="Cutaneous Infiltration by Malignant pDC Blasts" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Infiltration by Malignant pDC Blasts</div>
+
 
                 <div class="item-desc">Blasts infiltrate the dermis and extend into subcutaneous fat, producing the disseminated erythematous to bluish-livid plaques and nodules that are the presenting sign in the great majority of patients. Cutaneous involvement characteristically precedes marrow and nodal dissemination.</div>
 
@@ -6975,6 +7089,7 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6996,6 +7111,7 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7021,6 +7137,7 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-and-leukemic-dissemination" data-dismech-node="Bone Marrow and Leukemic Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow and Leukemic Dissemination</div>
+
 
                 <div class="item-desc">Marrow infiltration and circulating blasts follow, displacing normal haematopoiesis.</div>
 
@@ -7093,6 +7210,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7115,6 +7233,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-marrow-failure-cytopenias" data-dismech-node="Marrow Failure Cytopenias" data-dismech-type="pathophysiology">
                 <div class="item-name">Marrow Failure Cytopenias</div>
+
 
                 <div class="item-desc">Replacement of normal marrow produces anaemia, thrombocytopenia and neutropenia, with the attendant risks of infection and bleeding.</div>
 
@@ -7174,6 +7293,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7196,6 +7316,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-infiltration" data-dismech-node="Central Nervous System Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Nervous System Infiltration</div>
+
 
                 <div class="item-desc">Leptomeningeal involvement is characteristically occult: patients are usually neurologically asymptomatic, so it is missed unless cerebrospinal fluid is examined deliberately, and it most often becomes apparent at relapse. That combination - clinically silent, and therefore not ruled out by a normal neurological examination - is why CNS assessment and treatment are handled as a mandatory part of first-line management rather than as a reaction to symptoms. A frequently quoted figure of roughly 30% occult involvement at diagnosis is not curated here: it traces to a source this session did not fetch.</div>
 
@@ -7255,6 +7376,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7277,6 +7399,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diphthamide-pathway-silencing" data-dismech-node="Diphthamide Pathway Silencing" data-dismech-type="pathophysiology">
                 <div class="item-name">Diphthamide Pathway Silencing</div>
+
 
                 <div class="item-desc">Acquired resistance to tagraxofusp does not run through loss of the target. CD123 is retained; what the cell loses is the diphthamide biosynthesis pathway, silenced by DNA methylation, and diphthamide is the modified histidine residue the diphtheria-toxin moiety needs in order to ADP-ribosylate elongation factor 2. The drug still binds and still enters - it simply has nothing to act on. This is why a hypomethylating agent, which restores the pathway, is a rational partner rather than merely an additive cytotoxic.</div>
 
@@ -7315,6 +7438,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7337,6 +7461,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-t-cell-exhaustion-in-the-marrow-microenvironment" data-dismech-node="T Cell Exhaustion in the Marrow Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">T Cell Exhaustion in the Marrow Microenvironment</div>
+
 
                 <div class="item-desc">Single-cell profiling of BPDCN marrow shows T cells with an upregulated interferon-alpha response, downregulated TNF-alpha signalling, and exhaustion that scales with clonotype expansion — an immunosuppressive niche around a tumour that is itself made of professional interferon-producing immune cells.</div>
 
@@ -7409,6 +7534,7 @@ This pathophysiological event involves CD8-positive T cell, annotated with CD8-p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7430,6 +7556,7 @@ This pathophysiological event involves CD8-positive T cell, annotated with CD8-p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7492,6 +7619,7 @@ This pathophysiological event involves CD8-positive T cell, annotated with CD8-p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7513,6 +7641,7 @@ This pathophysiological event involves CD8-positive T cell, annotated with CD8-p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7560,6 +7689,7 @@ This pathophysiological event involves CD8-positive T cell, annotated with CD8-p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7630,11 +7760,11 @@ This pathophysiological event involves CD8-positive T cell, annotated with CD8-p
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7675,6 +7805,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7689,6 +7822,7 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7747,6 +7881,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-neutropenia" data-dismech-node="Neutropenia" data-dismech-type="phenotype">
@@ -7774,6 +7911,9 @@ This clinical feature is Decreased total neutrophil count (HP:0001875). HP:00018
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7824,6 +7964,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7838,6 +7981,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7892,6 +8036,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7906,6 +8053,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7971,6 +8119,9 @@ This clinical feature is violaceous cutaneous plaques and nodules, annotated wit
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7997,6 +8148,7 @@ This clinical feature is violaceous cutaneous plaques and nodules, annotated wit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8018,6 +8170,7 @@ This clinical feature is violaceous cutaneous plaques and nodules, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8076,11 +8229,97 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
+
+
+
                 </div>
 
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-central-nervous-system-involvement" data-dismech-node="Central Nervous System Involvement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Central Nervous System Involvement
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal cerebrospinal fluid morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002921" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002921</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal cerebrospinal fluid morphology (HP:0002921). HP:0002921 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38334635" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38334635" target="_blank">PMID:38334635</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CNS involvement typically emerges during relapse, yet clinical trials often exclude such cases, limiting our understanding of its development and treatment."</div>
+
+
+                <div class="evidence-explanation">Supports CNS disease as a recognized and under-studied relapse compartment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -8101,15 +8340,18 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0030166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0030166</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8129,6 +8371,7 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8157,7 +8400,7 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -8178,15 +8421,18 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8209,6 +8455,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8217,85 +8464,6 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                 <div class="evidence-explanation">Documents the weight loss in the same BPDCN patient, again quoted in the source language.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-central-nervous-system-involvement" data-dismech-node="Central Nervous System Involvement" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Central Nervous System Involvement
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal cerebrospinal fluid morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002921" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002921</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal cerebrospinal fluid morphology (HP:0002921). HP:0002921 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38334635" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38334635" target="_blank">PMID:38334635</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"CNS involvement typically emerges during relapse, yet clinical trials often exclude such cases, limiting our understanding of its development and treatment."</div>
-
-
-                <div class="evidence-explanation">Supports CNS disease as a recognized and under-studied relapse compartment.</div>
 
 
 
@@ -8385,6 +8553,9 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8399,6 +8570,7 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8423,6 +8595,7 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8482,6 +8655,9 @@ This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8496,6 +8672,7 @@ This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8555,6 +8732,9 @@ This disease-associated gene is ZRSR2 (hgnc:23019). hgnc:23019 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8569,6 +8749,7 @@ This disease-associated gene is ZRSR2 (hgnc:23019). hgnc:23019 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8628,6 +8809,9 @@ This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8642,6 +8826,7 @@ This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8701,6 +8886,9 @@ This disease-associated gene is MYB (hgnc:7545). hgnc:7545 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8715,6 +8903,7 @@ This disease-associated gene is MYB (hgnc:7545). hgnc:7545 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8774,6 +8963,9 @@ This disease-associated gene is NR3C1 (hgnc:7978). hgnc:7978 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8788,6 +8980,7 @@ This disease-associated gene is NR3C1 (hgnc:7978). hgnc:7978 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8812,6 +9005,7 @@ This disease-associated gene is NR3C1 (hgnc:7978). hgnc:7978 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8871,6 +9065,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8885,6 +9082,7 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8944,6 +9142,9 @@ This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8958,6 +9159,7 @@ This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8982,6 +9184,7 @@ This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9089,6 +9292,9 @@ This treatment uses tagraxofusp, annotated with Tagraxofusp-erzs (NCIT:C64769). 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9099,6 +9305,9 @@ This treatment uses tagraxofusp, annotated with Tagraxofusp-erzs (NCIT:C64769). 
 
 
     </div>
+
+
+
 
 
 
@@ -9135,6 +9344,7 @@ This treatment uses tagraxofusp, annotated with Tagraxofusp-erzs (NCIT:C64769). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9181,6 +9391,7 @@ This treatment uses tagraxofusp, annotated with Tagraxofusp-erzs (NCIT:C64769). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9202,6 +9413,7 @@ This treatment uses tagraxofusp, annotated with Tagraxofusp-erzs (NCIT:C64769). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9290,6 +9502,9 @@ This treatment uses venetoclax (CHEBI:133021). CHEBI:133021 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9300,6 +9515,9 @@ This treatment uses venetoclax (CHEBI:133021). CHEBI:133021 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9336,6 +9554,7 @@ This treatment uses venetoclax (CHEBI:133021). CHEBI:133021 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9379,6 +9598,7 @@ This treatment uses venetoclax (CHEBI:133021). CHEBI:133021 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9446,6 +9666,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9456,6 +9679,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -9517,6 +9743,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9541,6 +9768,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9562,6 +9790,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9669,6 +9898,9 @@ This treatment uses cytarabine (CHEBI:28680). CHEBI:28680 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9679,6 +9911,9 @@ This treatment uses cytarabine (CHEBI:28680). CHEBI:28680 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9727,6 +9962,7 @@ This treatment uses cytarabine (CHEBI:28680). CHEBI:28680 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9748,6 +9984,7 @@ This treatment uses cytarabine (CHEBI:28680). CHEBI:28680 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9814,6 +10051,9 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9824,6 +10064,9 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -9872,6 +10115,7 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9896,6 +10140,7 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9917,6 +10162,7 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10005,6 +10251,9 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10015,6 +10264,9 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -10051,6 +10303,7 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10148,6 +10401,9 @@ This treatment uses all-trans retinoic acid, annotated with all-trans-retinoic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10158,6 +10414,9 @@ This treatment uses all-trans retinoic acid, annotated with all-trans-retinoic a
 
 
     </div>
+
+
+
 
 
 
@@ -10203,6 +10462,7 @@ This treatment uses all-trans retinoic acid, annotated with all-trans-retinoic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10269,6 +10529,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10279,6 +10542,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10315,6 +10581,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10361,6 +10628,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10382,6 +10650,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10449,6 +10718,9 @@ This treatment is CD123-directed chimeric antigen receptor cell therapy, annotat
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10459,6 +10731,9 @@ This treatment is CD123-directed chimeric antigen receptor cell therapy, annotat
 
 
     </div>
+
+
+
 
 
 
@@ -10507,6 +10782,7 @@ This treatment is CD123-directed chimeric antigen receptor cell therapy, annotat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10531,6 +10807,7 @@ This treatment is CD123-directed chimeric antigen receptor cell therapy, annotat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10552,6 +10829,7 @@ This treatment is CD123-directed chimeric antigen receptor cell therapy, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10643,6 +10921,9 @@ This treatment uses pivekimab sunirine (IMGN632), annotated with Pivekimab Sunir
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10653,6 +10934,9 @@ This treatment uses pivekimab sunirine (IMGN632), annotated with Pivekimab Sunir
 
 
     </div>
+
+
+
 
 
 
@@ -10701,6 +10985,7 @@ This treatment uses pivekimab sunirine (IMGN632), annotated with Pivekimab Sunir
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10722,6 +11007,7 @@ This treatment uses pivekimab sunirine (IMGN632), annotated with Pivekimab Sunir
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10810,6 +11096,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10858,6 +11145,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10934,6 +11222,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10988,6 +11277,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11039,6 +11329,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11107,6 +11398,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11128,6 +11420,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11181,6 +11474,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11202,6 +11496,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11273,6 +11568,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11334,6 +11630,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11355,6 +11652,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11407,6 +11705,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11428,6 +11727,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11480,6 +11780,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11501,6 +11802,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11583,6 +11885,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11656,6 +11959,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11894,6 +12198,7 @@ This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). E
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12017,6 +12322,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12148,6 +12454,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12257,6 +12564,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14510,6 +14818,262 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (4)</summary>
+
+                    <div>
+                        <p><strong>Move curation provenance out of a rendered description slot</strong> · 2026-09-06T21:44:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Blastic_Plasmacytoid_Dendritic_Cell_Neoplasm/2026-09-06T214407Z-claude-code-3be559.yaml">View source</a></p>
+                        <p class="research-review-text">Third re-review approved with one non-blocking placement suggestion. Taken.
+
+The disclaimer added last round about the unsupported CDKN2A/B prognostic
+claim was written into the 9p21.3 pathophysiology node&#39;s `description`.
+That slot renders as disease biology on the disorder page, so a reader
+would have found a sentence about which deep-research report said what
+sitting inside a mechanism description. Moved to the node&#39;s `notes`, which
+is where curation provenance belongs, and the `description` now carries
+only the biology.
+
+The content is unchanged and was correct either way; this is purely which
+slot it lives in. Worth recording because the underlying distinction is
+easy to get wrong: `description` is read by someone learning the disease,
+`notes` by someone auditing the curation, and provenance in the first slot
+is noise to its audience.
+
+VALIDATION
+- `just validate`: schema, term and reference validation all passed,
+  110/110 snippets verified.
+- entity-ref, causal-target, duplicate-key and enum-value checks: all OK.
+- No cache changes; no evidence changed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Round 2 reviewer suggestions: remove an unsupported prognostic claim</strong> · 2026-09-06T21:34:15Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Blastic_Plasmacytoid_Dendritic_Cell_Neoplasm/2026-09-06T213415Z-claude-code-8bd96a.yaml">View source</a></p>
+                        <p class="research-review-text">The re-review re-approved and left two optional suggestions. Both taken.
+
+AN UNSUPPORTED CLAIM REMOVED
+The reviewer noticed that the new CDKN2A/CDKN2B `genetic` record carried
+&#34;biallelic loss carries adverse prognosis&#34; in `frequency` while its only
+evidence item establishes recurrence. Checking that, the same claim was
+also in the pathophysiology node description (&#34;among the few cytogenetic
+findings with a reported adverse prognostic effect&#34;), and no cached source
+in this entry supports either. A grep across `references_cache/` returned
+the claim only from other diseases&#39; caches - acute lymphoblastic leukemia,
+mesothelioma, Fanconi anemia - not from any BPDCN source.
+
+The claim traces to the deep-research report, which states it at review
+level without a quotable primary abstract. Both occurrences are now
+removed, and both locations say where the assertion comes from and that
+this entry does not make it. The `genetic` record&#39;s `notes` records the
+removal explicitly rather than letting the softened text look like it was
+always that way.
+
+This is the third instance of the same defect class in this entry across
+the session: prose asserting more than the cited evidence carries. The
+first was an explanation claiming one quote established both recurrence
+and prognosis; the second was the notes paragraph wrongly calling the
+diphthamide mechanism unverified. All three were found by review rather
+than by validation, because no gate checks prose against evidence.
+
+ONTOLOGY
+The CAR treatment is named &#34;CD123-Directed CAR-T and CAR-NK Cell Therapy&#34;
+and its description covers both platforms, but it was bound to
+NCIT:C126102 Chimeric Antigen Receptor T-Cell Therapy, which names only
+one. Rebound to NCIT:C70601 Cellular Therapy, which is platform-neutral,
+already cached, and enum-valid. The reviewer rated this low priority
+because all three cited items are CAR-T trials, but the mismatch between a
+treatment&#39;s own name and its binding is the same internal-inconsistency
+shape as the CDKN2B gene binding fixed in the previous round.
+
+VALIDATION
+- `just validate-disorders`: passed, 110/110 snippets verified.
+- `just validate`: schema, term and reference validation all passed.
+- entity-ref, causal-target, duplicate-key, enum-value, qualifier-term and
+  term-cache-integrity checks: all OK.
+- whole-KB snippet, folded-hyphen and environmental gates: no new
+  violations, no baseline touched.
+- No cache rows added or removed: NCIT:C70601 was already cached from
+  another entry, and no evidence changed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Apply reviewer suggestions on PR #11270: Blastic Plasmacytoid Dendritic Cell Neoplasm</strong> · 2026-09-06T21:18:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Blastic_Plasmacytoid_Dendritic_Cell_Neoplasm/2026-09-06T211803Z-claude-code-55d1ff.yaml">View source</a></p>
+                        <p class="research-review-text">PR #11270 was approved with no blocking findings and eight non-blocking
+suggestions. Six were taken, one was taken in part, one was declined.
+Bundled into a single push because main runs dismiss_stale_reviews, so a
+push costs a full re-review cycle whatever its size.
+
+TAKEN
+- The 9p21.3 node was named &#34;CDKN2A and CDKN2B Deletion&#34; and described the
+  loss of both, but `genes` bound only CDKN2A. Added hgnc:1788.
+- Added `genetic` entries for the CDKN2A/CDKN2B deletion and for MYC. The
+  reviewer&#39;s point was an internal inconsistency rather than a scope
+  boundary: the NR3C1 deletion was already in `genetic`, so excluding the
+  other copy-number lesions was arbitrary. `gene_term` is single-valued, so
+  the CDKN2A/B entry carries CDKN2A and says so in `notes`.
+- Curated MYC 8q24 rearrangement rather than deferring it with a note. Two
+  new references: PMID:29407586 (5 of 41, 12%, in a single-institution
+  series) and PMID:32336417 (about a third, most often partnered with 6p21
+  RUNX2, associated with immunoblastoid cytomorphology). Both estimates are
+  recorded rather than averaged, and the entry states that the ~40% figure
+  the deep-research report gave is supported by neither primary source.
+- Rebound two treatments off generic Pharmacotherapy: the CAR-T entry to
+  NCIT:C126102 Chimeric Antigen Receptor T-Cell Therapy, the antibody entry
+  to NCIT:C15262 Immunotherapy, with NCIT:C184834 Pivekimab Sunirine added
+  as its therapeutic_agent so IMGN632 is machine-queryable rather than
+  only named in prose.
+- Added `target_mechanisms` to allogeneic HCT and intensive induction
+  chemotherapy. These are the two interventions with the largest survival
+  effect and were the only treatments not joining the pathograph. The
+  allograft link is the interesting one: it targets both the expanded
+  clone and the premalignant progenitor node, because unlike every
+  pharmacological agent here it can remove the founder clone itself.
+
+TAKEN IN PART
+- The reviewer noted that the evidence on Marrow Failure Cytopenias is
+  indirect (it establishes marrow involvement as a survival risk factor,
+  not that cytopenias occur) and load-bearing for three phenotypes that
+  carry none of their own. Correct. No cohort reporting anaemia,
+  thrombocytopenia and neutropenia frequencies in BPDCN was found in this
+  session, so instead of manufacturing support the explanation now states
+  exactly what the quote does and does not establish, and the Anemia
+  phenotype was given its own evidence from the German-language case
+  report. Thrombocytopenia and Neutropenia remain uncited; that is the
+  honest state.
+
+DECLINED
+- Adding a downstream edge from Glucocorticoid Resistance. There is no
+  treatment-response node for it to point at, and inventing one to avoid a
+  terminal leaf would assert a relationship no source supports. Terminal
+  leaves are legitimate in this graph: Marrow Failure Cytopenias, CNS
+  Infiltration and T Cell Exhaustion are all terminal for the same reason.
+  Reported on the PR rather than silently skipped.
+
+NOT ACTED ON
+- The reviewer noted that cache/ncit/terms.csv still carries a row for the
+  superseded NCIT:C39273 binding and said it should not be hand-cleaned.
+  Agreed and left alone: those files are derived, and hand-editing them is
+  forbidden by CLAUDE.md.
+
+VALIDATION
+- `just validate-disorders`: passed, 110/110 snippets verified (was 104).
+- `just validate`: schema, term and reference validation all passed.
+- entity-ref, causal-target, duplicate-key, qualifier-term and enum-value
+  checks: all OK. 24 pathophysiology nodes, no orphans.
+- whole-KB title-snippet, snippet-grading, snippet-length, folded-hyphen
+  and environmental-evidence gates: no new violations, no baseline touched.
+- cache/ diff is two added rows, zero deletions.
+- Every reference_title in this round was derived programmatically from
+  references_cache frontmatter, not typed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Blastic Plasmacytoid Dendritic Cell Neoplasm</strong> · 2026-09-06T20:24:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Blastic_Plasmacytoid_Dendritic_Cell_Neoplasm/2026-09-06T202453Z-claude-code-33585d.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of kb/disorders/Blastic_Plasmacytoid_Dendritic_Cell_Neoplasm.yaml,
+curating MONDO:0019467 under its current clinical name rather than the
+WHO-2001-era MONDO label &#34;CD4+/CD56+ hematodermic neoplasm&#34;. Claimed via
+issue #11265; stubs/CD4_CD56_Hematodermic_Neoplasm.yaml deleted in the
+same change.
+
+DEEP RESEARCH
+One provider was used, as requested: `claude_code`
+(research/Blastic_Plasmacytoid_Dendritic_Cell_Neoplasm-deep-research-claude_code.md,
+18 web searches over 22 turns, 44 citations, models
+claude-haiku-4-5-20251001 + claude-sonnet-5). No fallback was needed. The
+report was generated before the recipes emitted validation frontmatter, so
+both `just validate-research-reference` and `just validate-research-terms`
+were run against it and their sections committed with the report.
+
+Reference validation: 28/28 resolved, 0 unresolved, 0 off topic.
+Term validation: 25/28 resolved, 0 unresolved, 2 obsolete, 1 mislabelled.
+The mislabelled one mattered - the report offered HP:0031969 for &#34;Skin
+nodule&#34;, which HPO calls *Reduced blood urea nitrogen*. It was not bound;
+HP:0200036 (Skin nodule) is used instead. The two obsolete GO terms it
+suggested (GO:0016575, GO:0006306) were likewise not bound.
+
+WHAT WAS CURATED
+Sixteen pathophysiology nodes wired as a causal chain rather than a list:
+founder epigenetic-regulator loss (TET2/ASXL1) in a marrow progenitor -&gt;
+pDC differentiation block (with ZRSR2, IKZF1 and MYB lesions entering as
+parallel upstream inputs) -&gt; TCF4/BRD4 super-enhancer addiction -&gt; CD123
+overexpression and BCL2-dependent apoptosis resistance -&gt; clonal expansion
+-&gt; cutaneous, marrow/leukemic and CNS compartments. Ten phenotypes, six
+genetic drivers, two histopathology findings, three diagnostic modalities,
+seven treatments (tagraxofusp, venetoclax, alloHCT, intrathecal CNS
+prophylaxis, BET inhibition, CD123-directed cellular/bispecific agents),
+prevalence, three epidemiology records, two progression phases, the
+pivotal trial NCT02113982, two experimental models, one animal model, one
+environmental exposure and two discussions.
+
+A FINDING THE REPORT DID NOT SURFACE
+`just discover-datasets` returned geo:GSE227690, whose GEO summary is the
+abstract of PMID:37286599 (Nature 2023) - a paper the deep-research report
+never cited. It settles a question the entry had initially recorded as
+open: BPDCN arises from clonal premalignant precursors in the *bone
+marrow*; skin tumours appear first at sun-exposed sites carrying clonally
+expanded UV mutational signatures; UV damage precedes the transformation
+events; and Tet2 loss confers UV-death resistance in plasmacytoid but not
+conventional dendritic cells. That produced a new pathophysiology node
+(UV-Selected Survival of TET2-Mutant pDC Precursors in Sun-Exposed Skin),
+an `environmental:` entry bound to ECTO:0000006 with a PREDISPOSES
+mechanism link, and a rewritten cutaneous-tropism KNOWLEDGE_GAP that now
+contrasts the UV account against the IKZF1-adhesion account instead of
+calling both untested.
+
+JUDGMENT CALLS
+- C1/C2 transcriptomic subgroups (PMID:35788129) were NOT curated as
+  has_subtypes. They are one cohort&#39;s hierarchical clustering with no
+  established therapeutic or diagnostic consequence; promoting them would
+  assert a stability the source does not claim. Recorded in `notes`.
+- Two disagreeing survival estimates are both curated, as separate
+  `progression` phases: 12-24 months median OS from institutional/trial
+  series versus 43.9% five-year OS from SEER (PMID:37251924, mean age 53.7
+  vs a seventh-decade median elsewhere). The cohorts differ in
+  ascertainment and treatment era; averaging them would manufacture a
+  number neither source supports.
+- tagraxofusp is recorded as therapeutic_modality PROTEIN_REPLACEMENT
+  because that is the only TherapeuticModalityEnum value covering a
+  recombinant protein therapeutic. It is a fusion toxin, not a
+  replacement. Flagged in `notes` as a vocabulary gap, not a claim.
+- geo:GSE261411 was offered by dataset discovery and deliberately declined:
+  it profiles K562, a CML comparator line from the same publication, not
+  BPDCN material. Recorded in the geo:GSE261534 `notes`.
+- GATA2-deficiency predisposition, diphthamide-pathway methylation and
+  TXNRD1 as tagraxofusp-resistance mechanisms, and a candidate PLD4
+  biomarker were all in the report and all left out: the GATA2 material is
+  about GATA2 deficiency rather than BPDCN, and the resistance/biomarker
+  claims trace to sources this session did not verify.
+
+GENEREVIEWS
+Searched and absent, as expected for a somatic clonal neoplasm. PubMed
+`blastic plasmacytoid dendritic cell neoplasm GeneReviews[All Fields]`
+returned 0 records. No baseline to cross-reference.
+
+VALIDATION
+- `just validate-disorders &lt;file&gt;` (the batched pre-PR gate CI runs):
+  passed, 77/77 snippets verified.
+- `just validate`: schema, term and reference validation all passed.
+- `just verify-datasets`: 4/4 geo accessions resolved; GEO_*.md committed.
+- `just check-entity-refs`, `check-causal-targets`, `check-duplicate-keys`,
+  `check-qualifier-terms`, `check-enum-values`: all OK on this file.
+- `just check-folded-hyphens`, `check-snippet-length`, `check-title-snippets`,
+  `check-snippet-grading`, `check-environmental-evidence`: no new
+  violations whole-KB; no baseline was modified.
+- `just check-term-cache-integrity`: OK. cache/ diff is 10 added rows,
+  zero deletions, no reordering.
+- `just check-not4curation`: no bound term carries a do-not-annotate marker.
+- `just compliance`: 81.4%. All 77 `reference_title` values were derived
+  programmatically from the frontmatter of the cached reference files, not
+  typed from memory.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
