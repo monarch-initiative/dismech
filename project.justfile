@@ -2779,6 +2779,8 @@ validate-research-terms +args:
 # Verdicts: PASS / WARN (contamination or OMIM mismatch) / FAIL (wrong entity —
 # discard the report, do not cherry-pick) / SKIP (MONDO records no causal gene).
 # Exits non-zero on FAIL, or on WARN too with --strict.
+# Needs the local MONDO build (`just fetch-ontology-dbs mondo`); exits 2 rather
+# than downloading it when absent (#12687). --no-hgnc also avoids the HGNC build.
 # Examples:
 #   just preflight-dr research/Marfan_Syndrome-deep-research-falcon.md MONDO:0007947
 #   just preflight-dr research/Foo-deep-research-falcon.md MONDO:0014572 --strict
@@ -3787,6 +3789,16 @@ phenopacket-eval paths="tests/phenoagent/data/phenopackets":
 [positional-arguments]
 jev-audit *args:
     uv run python -m dismech.classifier.audit "$@"
+
+# Preview new issues from the latest published Jev queue; no API inference.
+[positional-arguments]
+plan-eval-issues n="5":
+    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1"
+
+# Create up to N issues, skipping diseases with an open or closed intake issue.
+[positional-arguments]
+enqueue-eval-issues n="5":
+    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1" --apply
 
 # Inventory every assertion without paid API calls.
 [positional-arguments]
