@@ -3,28 +3,28 @@
 from pathlib import Path
 
 from dismech.clinical_trial_status import (
-    CuratedTrial,
     PHASE_MAP,
     STATUS_MAP,
+    AuditReport,
+    CuratedTrial,
+    _resolve_nct_id,
     audit_trials,
     fetch_live_studies,
     iter_curated_trials,
     render_markdown,
     render_text,
-    AuditReport,
-    _resolve_nct_id,
 )
 
 
 def _trial(**kwargs):
-    base = dict(
-        path="kb/disorders/Example.yaml",
-        index=0,
-        nct_id="NCT00000001",
-        name="NCT00000001",
-        status="RECRUITING",
-        phase="PHASE_II",
-    )
+    base = {
+        "path": "kb/disorders/Example.yaml",
+        "index": 0,
+        "nct_id": "NCT00000001",
+        "name": "NCT00000001",
+        "status": "RECRUITING",
+        "phase": "PHASE_II",
+    }
     base.update(kwargs)
     return CuratedTrial(**base)
 
@@ -224,6 +224,28 @@ def test_fetch_live_studies_batches_requests():
     fetch_live_studies(ids, batch_size=100, rate_limit_delay=0, session=FakeSession())
 
     assert [len(c) for c in calls] == [100, 100, 50]
+
+
+def test_fetch_live_studies_clamps_batch_size_to_api_page_limit():
+    """The v2 API returns at most 1000 studies per page; larger batches lose ids."""
+    calls = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"studies": []}
+
+    class FakeSession:
+        def get(self, url, params=None, timeout=None):
+            calls.append((len(params["filter.ids"].split(",")), params["pageSize"]))
+            return FakeResponse()
+
+    ids = [f"NCT{i:08d}" for i in range(1500)]
+    fetch_live_studies(ids, batch_size=1500, rate_limit_delay=0, session=FakeSession())
+
+    assert calls == [(1000, 1000), (500, 1000)]
 
 
 def test_fetch_live_studies_parses_registry_payload():

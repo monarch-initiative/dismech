@@ -35,9 +35,10 @@ import logging
 import re
 import sys
 import time
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any
 
 from dismech.yaml_io import safe_load
 
@@ -47,6 +48,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 DEFAULT_KB_GLOBS = ("kb/disorders/*.yaml", "kb/modules/*.yaml", "kb/comorbidities/*.yaml")
 
 CLINICALTRIALS_BATCH_URL = "https://clinicaltrials.gov/api/v2/studies"
+CLINICALTRIALS_MAX_PAGE_SIZE = 1000
 
 # Bioregistry standard: NCT followed by 8 digits.
 NCT_ID_RE = re.compile(r"\bNCT\d{8}\b", re.IGNORECASE)
@@ -185,9 +187,15 @@ def fetch_live_studies(
     Returns a mapping of NCT id -> ``{"status", "phases", "last_update"}``; ids the
     registry does not return are simply absent from the mapping.
     """
-    import requests  # imported lazily so offline unit tests need not install it
+    # The v2 API caps pageSize at 1000 and paginates the rest behind
+    # nextPageToken; a larger batch would silently lose ids, which would then be
+    # reported as not_found. Clamp rather than paginate: one id per result row.
+    batch_size = max(1, min(batch_size, CLINICALTRIALS_MAX_PAGE_SIZE))
 
-    session = session or requests.Session()
+    if session is None:
+        import requests  # imported lazily so offline unit tests need not install it
+
+        session = requests.Session()
     live: dict[str, dict[str, Any]] = {}
 
     for start in range(0, len(nct_ids), batch_size):
