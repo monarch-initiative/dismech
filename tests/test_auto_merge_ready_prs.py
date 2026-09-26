@@ -1648,16 +1648,23 @@ def test_cache_rows_added_keys_by_file_and_curie(monkeypatch):
 
 
 def test_cache_rows_added_ignores_headers_and_non_cache_paths(monkeypatch):
-    """The CSV header re-appears as an addition when a cache file is created."""
+    """The CSV header re-appears as an addition when a cache file is created.
+
+    A bare-CURIE enum row is identical bytes in both PRs, so git merges it
+    cleanly and it must not hold anything back; the timestamped terms.csv row
+    written alongside it is what conflicts.
+    """
     payload = _files(
         ("cache/hgnc/terms.csv", "curie,label,retrieved_at"),
+        ("cache/bookshelf/genereviews.csv", "pmid,nbk,retired,pubdate,title"),
         ("cache/enums/exposureterm.csv", "ECTO:0080000"),
+        ("cache/ecto/terms.csv", "ECTO:0080000,exposure to arsenic,2026-08-16"),
         ("kb/disorders/Asthma.yaml", "name: Asthma"),
         ("references_cache/PMID_1.md", "some text"),
     )
     monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: payload)
     claim = auto_merge.cache_rows_added("o/r", 7)
-    assert claim.keys == frozenset({"cache/enums/exposureterm.csv:ECTO:0080000"})
+    assert claim.keys == frozenset({"cache/ecto/terms.csv:ECTO:0080000"})
 
 
 def test_cache_rows_added_fails_open(monkeypatch):
@@ -1736,6 +1743,34 @@ def test_queue_mode_enqueues_prs_touching_disjoint_rows(monkeypatch, tmp_path):
     )
     assert code == 0
     assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41, 42]
+
+
+def test_dry_run_reports_the_same_conflict_hold_as_the_real_sweep(
+    monkeypatch, tmp_path
+):
+    """`just auto-merge-preview` must show the hold, not a would-enqueue.
+
+    The hold leaves no trace on the PR page, so the preview is the only place a
+    curator can see it before it fires. A dry run that looked the rows up but
+    never claimed them would report both writers as enqueued.
+    """
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    shared = _files(("cache/hgnc/terms.csv", "hgnc:10006,RHAG,2026-08-16"))
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed,
+        queue_payload=ACTIVE_QUEUE, extra_args=["--dry-run"],
+        files_payloads={41: shared, 42: shared},
+    )
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "already claimed by #41" in summary
 
 
 def test_no_conflict_batching_flag_restores_the_old_behavior(

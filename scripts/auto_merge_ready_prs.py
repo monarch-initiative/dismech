@@ -793,13 +793,17 @@ class RowClaim:
 def cache_rows_added(repo: str, number: int) -> RowClaim:
     """Read the term-cache rows one PR adds.
 
-    One REST call per candidate that has already cleared every other gate, so
-    the cost is bounded by ``--max-enqueue-per-run`` rather than by the number
-    of open PRs. Only added lines in ``cache/*/*.csv`` are considered; the
-    CURIE is the first comma-separated field, which is the sort key of both
-    cache shapes (``curie,label,retrieved_at`` for term caches, a bare CURIE
-    per line for the enum membership caches).
+    One REST call per candidate that has cleared the eligibility and ejection
+    gates. Held PRs and dry runs do not consume ``--max-enqueue-per-run``, so
+    the call count is bounded by those candidates rather than by the enqueue
+    budget. Only added lines in ``cache/*/*.csv`` are considered; the
+    CURIE is the first comma-separated field, the sort key of the term caches
+    (``curie,label,retrieved_at``). Bare-CURIE enum membership rows are
+    skipped: identical additions do not conflict, and a term binding that adds
+    one also adds a timestamped ``terms.csv`` row, which does.
     """
+    # The jq path filter keeps the payload small; CACHE_CSV_PATH below is the
+    # authoritative check and must stay in step with it.
     jq = (
         '.[] | select(.filename | test("^cache/[^/]+/[^/]+\\\\.csv$")) '
         '| .filename as $f | (.patch // "") | split("\\n")[] '
@@ -825,9 +829,16 @@ def cache_rows_added(repo: str, number: int) -> RowClaim:
         if not added or not CACHE_CSV_PATH.match(path):
             continue
         row = added[1:].strip()  # drop the leading '+'
-        curie = row.split(",", 1)[0].strip()
-        # The header line re-appears as an addition when a file is created.
-        if not curie or curie == "curie":
+        curie, sep, _rest = row.partition(",")
+        curie = curie.strip()
+        # An enum membership row is a bare CURIE with no timestamp, so two PRs
+        # adding the same one add identical bytes and git merges them cleanly.
+        # Only multi-field rows (``curie,label,retrieved_at``) can conflict.
+        if not sep:
+            continue
+        # A header line (``curie,...`` or ``pmid,...``) re-appears as an
+        # addition when a file is created; a real key is a CURIE.
+        if ":" not in curie:
             continue
         keys.add(f"{path}:{curie}")
     return RowClaim(frozenset(keys))
@@ -1245,6 +1256,11 @@ def main(argv: list[str] | None = None) -> int:
         # same reason: a PR held back this run must not be marked ready, then
         # skipped, then re-drafted. Queue mode only -- direct mode merges one
         # PR per run, so there is no batch for two writers to share.
+        #
+        # Cost: one files lookup per candidate reaching this point. A held PR
+        # pays for its lookup without consuming the --max-enqueue-per-run
+        # budget, and dry runs ignore that budget entirely, so the bound is the
+        # number of candidates that clear the earlier gates, not the budget.
         claim = RowClaim(frozenset())
         if queue_state.active and args.conflict_batching:
             claim = cache_rows_added(args.repo, number)
@@ -1331,6 +1347,12 @@ def main(argv: list[str] | None = None) -> int:
                     }
                 )
                 if queue_state.active:
+                    # Claim as the real sweep would after a successful enqueue,
+                    # so the preview reports the same conflict holds. This is
+                    # the only window onto a hold that leaves no trace on the
+                    # PR page.
+                    for key in claim.keys:
+                        claimed_rows.setdefault(key, number)
                     continue
                 print("STOP  one-merge safety limit reached")
                 break

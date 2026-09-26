@@ -3942,6 +3942,17 @@ review, or assignee: its only trace is a `SKIP` line in the run summary naming
 the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
 and this paragraph are the only places it is recorded.
 
+**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
+added by a PR enqueued earlier in the *same* sweep is skipped, because the two
+would conflict in the queue and the second would be ejected. Only multi-field
+rows (`curie,label,retrieved_at`) count — a bare-CURIE enum row is identical
+bytes in both PRs and merges cleanly. The hold is within-run and queue-mode
+only, clears itself on the next sweep, and is disabled by
+`--no-conflict-batching`. Like the ejection hold, its only trace is a `SKIP`
+line in the run summary, which names the PR holding the contended row;
+`just auto-merge-preview` reports it too.
+
 Immediately before each action, the controller re-reads every PR guard and pins
 the merge request to that verified head SHA. When a required merge queue is
 active, a run enqueues up to 50 eligible PRs and GitHub serializes their merges;
