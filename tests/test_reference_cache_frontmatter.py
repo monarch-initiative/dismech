@@ -343,6 +343,7 @@ def test_non_pmid_cache_is_not_subject_to_metadata_check(tmp_path: Path):
 
 
 @pytest.mark.skipif(not CACHE_DIR.is_dir(), reason="references_cache/ not present")
+@pytest.mark.ci_step_twin("dismech.reference_cache_frontmatter references_cache")
 def test_existing_repo_caches_match_frontmatter_contract():
     findings = scan_cache_dir(CACHE_DIR)
     assert findings == [], "\n".join(f.format() for f in findings)
