@@ -53740,7 +53740,14 @@ window.searchData = [
     "frequencies": [],
     "genes": [
       "SCN5A loss-of-function variants",
-      "SCN3B variants"
+      "SCN3B variants",
+      "GPD1L variants",
+      "CACNA1C variants",
+      "CACNB2 variants",
+      "SCN1B variants",
+      "KCNE3 variants",
+      "HCN4 variants",
+      "KCND3 variants"
     ],
     "treatments": [
       "Implantable cardioverter-defibrillator placement",
@@ -53753,7 +53760,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Brugada_syndrome.html",
     "num_phenotypes": 5,
     "num_pathophysiology": 6,
-    "num_genes": 2,
+    "num_genes": 9,
     "num_treatments": 3,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "6"
@@ -72652,7 +72659,7 @@ window.searchData = [
   },
   {
     "name": "Chemotherapy-Induced Diarrhea",
-    "disease_id": "MONDO:0001673",
+    "disease_id": null,
     "category": "Complex",
     "parents": [
       "Gastrointestinal Disease",
@@ -72663,6 +72670,7 @@ window.searchData = [
     "subtypes": [],
     "description": "Chemotherapy-induced diarrhea is a treatment-related gastrointestinal toxicity caused by antineoplastic agents, especially fluoropyrimidines and irinotecan, that injure the rapidly renewing intestinal mucosa. The syndrome reflects epithelial and crypt injury, barrier dysfunction, mucosal inflammation, dysbiosis, and impaired absorptive function, and can lead to treatment delay, dose reduction, hospitalization, and infectious complications when severe.",
     "pathophysiology": [
+      "Host pharmacogenetic variation in cytotoxic drug inactivation",
       "Cytotoxic chemotherapy exposure and intestinal drug delivery",
       "Crypt stem/progenitor apoptosis and epithelial injury",
       "MLCK/actomyosin-mediated tight-junction remodeling",
@@ -72682,6 +72690,7 @@ window.searchData = [
       "CL:0000584"
     ],
     "biological_processes": [
+      "xenobiotic catabolic process",
       "apoptotic process",
       "tight junction assembly",
       "xenobiotic metabolic process",
@@ -72725,11 +72734,11 @@ window.searchData = [
     "source_file": "Chemotherapy_Induced_Diarrhea.yaml",
     "page_url": "../pages/disorders/Chemotherapy-Induced_Diarrhea.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "38",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Chemotherapy-Induced Nausea and Vomiting",
@@ -87904,7 +87913,7 @@ window.searchData = [
   },
   {
     "name": "Congenital Insensitivity to Pain",
-    "disease_id": "MONDO:0015364",
+    "disease_id": "MONDO:1060232",
     "category": "Mendelian",
     "parents": [],
     "creation_date": "2026-04-16T19:22:23Z",
@@ -87914,9 +87923,10 @@ window.searchData = [
       "HSAN V",
       "SCN9A AR-CIP",
       "HSAN VII",
-      "HSAN VIII"
+      "HSAN VIII",
+      "Marsili type"
     ],
-    "description": "Congenital insensitivity to pain (CIP) is curated here as a phenotype-grouping and navigation entry for rare Mendelian disorders with lifelong absence of protective pain perception from birth. The grouped disorders fall into two broad mechanism classes: developmental nociceptor disorders involving PRDM12 and the NGF-TRKA axis, and nociceptor channelopathies involving SCN9A and SCN11A. This page intentionally captures only the shared phenotype frame, high-value distinguishing features, and a minimal connected pathograph rather than asserting a single fully unified disease mechanism.",
+    "description": "Congenital insensitivity to pain (CIP) is curated here as a phenotype-grouping and navigation entry for rare Mendelian disorders with lifelong absence of protective pain perception from birth. The grouped disorders fall into three broad mechanism classes: developmental nociceptor disorders involving PRDM12 and the NGF-TRKA axis, nociceptor channelopathies involving SCN9A and SCN11A, and transcriptional deregulation within surviving nociceptors in the autosomal dominant ZFHX2 (Marsili) type, where there is no peripheral neuropathy at all. This page intentionally captures only the shared phenotype frame, high-value distinguishing features, and a minimal connected pathograph rather than asserting a single fully unified disease mechanism.",
     "pathophysiology": [
       "Impaired nociceptor specification",
       "NGF-TRKA trophic signaling failure",
@@ -87927,11 +87937,13 @@ window.searchData = [
       "Impaired nociceptor excitability",
       "Impaired NGF-TRKA-dependent macrophage killing",
       "Staphylococcus aureus infection susceptibility",
-      "Loss of protective pain perception"
+      "Loss of protective pain perception",
+      "ZFHX2-dependent transcriptional programme deregulation in nociceptors"
     ],
     "cell_types": [
       "Nociceptor",
-      "Macrophage"
+      "Macrophage",
+      "nociceptor"
     ],
     "cell_type_ids": [
       "CL:0000198",
@@ -87944,7 +87956,8 @@ window.searchData = [
       "regulation of membrane potential",
       "membrane depolarization",
       "phagocytosis",
-      "sensory perception of pain"
+      "sensory perception of pain",
+      "regulation of gene expression"
     ],
     "phenotypes": [
       "Pain insensitivity",
@@ -87981,7 +87994,7 @@ window.searchData = [
       "SCN9A",
       "SCN11A",
       "PRDM12",
-      "RETREG1"
+      "ZFHX2"
     ],
     "treatments": [],
     "environmental": [],
@@ -87989,10 +88002,10 @@ window.searchData = [
     "source_file": "Congenital_Insensitivity_to_Pain.yaml",
     "page_url": "../pages/disorders/Congenital_Insensitivity_to_Pain.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 6,
     "num_treatments": 0,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "6"
   },
   {
@@ -176827,25 +176840,39 @@ window.searchData = [
     "subtypes": [
       "DI-CMTB",
       "DI-CMTC",
+      "DI-CMTD",
+      "DI-CMTE",
       "DI-CMTF",
-      "RI-CMTB"
+      "DI-CMTG",
+      "RI-CMTA",
+      "RI-CMTB",
+      "RI-CMTC",
+      "RI-CMTD"
     ],
-    "description": "Intermediate Charcot-Marie-Tooth disease (intermediate CMT / CMTi) is the compartment of Charcot-Marie-Tooth disease that sits electrophysiologically and pathologically between the demyelinating (CMT1) and axonal (CMT2) compartments. It is defined by upper-limb motor nerve conduction velocities in an intermediate range (classically ~25\u201345 m/s, overlapping the CMT1 and CMT2 cut-offs) and by nerve pathology that combines features of both demyelination and axonal degeneration \u2014 sometimes varying between affected members of a single family. Intermediate CMT is not a trivial category: in a 1,515-patient specialist cohort it comprised 13.5% of all CMT presentations, more than the axonal-optic and HNPP groups combined. It occurs in dominant-intermediate (DI-CMT) and recessive-intermediate (RI-CMT) forms. The dominant-intermediate subtypes include DI-CMTB (DNM2 / dynamin-2, a membrane-remodelling large GTPase), DI-CMTC (YARS1 / tyrosyl-tRNA synthetase), and DI-CMTF (GNB4 / G-protein beta-4); the aminoacyl-tRNA-synthetase mechanism recurs in the recessive-intermediate form RI-CMTB (KARS1 / lysyl-tRNA synthetase). Several intermediate-CMT genes are pleiotropic \u2014 DNM2, for example, also causes centronuclear myopathy. Whatever the gene, the subtypes converge on the shared CMT terminal node \u2014 combined demyelination and length-dependent axonal degeneration \u2014 producing the uniform clinical picture of distal weakness, wasting, sensory loss, foot deformity, and depressed reflexes.",
+    "description": "Intermediate Charcot-Marie-Tooth disease (intermediate CMT / CMTi) is the compartment of Charcot-Marie-Tooth disease that sits electrophysiologically and pathologically between the demyelinating (CMT1) and axonal (CMT2) compartments. It is defined by upper-limb motor nerve conduction velocities in an intermediate range (classically ~25\u201345 m/s, overlapping the CMT1 and CMT2 cut-offs) and by nerve pathology that combines features of both demyelination and axonal degeneration \u2014 sometimes varying between affected members of a single family. Intermediate CMT is not a trivial category: in a 1,515-patient specialist cohort it comprised 13.5% of all CMT presentations (205 patients), the third largest group in that cohort after CMT1 (41.0%) and CMT2 (19.4%). It occurs in dominant-intermediate (DI-CMT) and recessive-intermediate (RI-CMT) forms. The dominant-intermediate subtypes include DI-CMTB (DNM2 / dynamin-2, a membrane-remodelling large GTPase), DI-CMTC (YARS1 / tyrosyl-tRNA synthetase), DI-CMTD (MPZ / myelin protein zero), DI-CMTE (INF2 / inverted formin 2, with focal segmental glomerulosclerosis), DI-CMTF (GNB4 / G-protein beta-4) and DI-CMTG (NEFL / neurofilament light chain); the recessive-intermediate subtypes are RI-CMTA (GDAP1), RI-CMTB (KARS1 / lysyl-tRNA synthetase, so the aminoacyl-tRNA-synthetase mechanism recurs recessively), RI-CMTC (PLEKHG5) and RI-CMTD (COX6A1, which is simultaneously a mitochondrial complex IV disorder). Several intermediate-CMT genes are pleiotropic \u2014 DNM2, for example, also causes centronuclear myopathy \u2014 and MPZ, NEFL and GDAP1 each carry allelic series that cross the compartment boundary, producing demyelinating or axonal CMT with other alleles. Whatever the gene, the subtypes converge on the shared CMT terminal node \u2014 combined demyelination and length-dependent axonal degeneration \u2014 producing the uniform clinical picture of distal weakness, wasting, sensory loss, foot deformity, and depressed reflexes.",
     "pathophysiology": [
       "DNM2 Membrane Remodeling Defect",
       "Aminoacyl-tRNA Synthetase Dysfunction",
       "GNB4 G-Protein Signaling Defect",
+      "MPZ Compact-Myelin Structural Defect",
+      "GDAP1 Loss of Axonal and Schwann-Cell Integrity",
+      "PLEKHG5 Deficiency in Peripheral Nerve Neurons and Glia",
       "Combined Demyelinating and Axonal Degeneration"
     ],
     "cell_types": [
       "Schwann cell",
       "Motor neuron",
-      "Sensory neuron"
+      "Sensory neuron",
+      "peripheral nerve axon-bearing neuron",
+      "peripheral nervous system neuron",
+      "peripheral nervous system glial cell"
     ],
     "cell_type_ids": [
       "CL:0002573",
       "CL:0000100",
-      "CL:0000101"
+      "CL:0000101",
+      "CL:2000032",
+      "CL:0000125"
     ],
     "biological_processes": [
       "Endocytosis",
@@ -176882,7 +176909,10 @@ window.searchData = [
       "DNM2",
       "YARS1",
       "GNB4",
-      "KARS1"
+      "KARS1",
+      "MPZ",
+      "GDAP1",
+      "PLEKHG5"
     ],
     "treatments": [
       "Physical and Occupational Therapy",
@@ -176894,10 +176924,10 @@ window.searchData = [
     "source_file": "Intermediate_Charcot-Marie-Tooth_Disease.yaml",
     "page_url": "../pages/disorders/Intermediate_Charcot-Marie-Tooth_Disease.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 4,
-    "num_genes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 7,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "3"
   },
   {
@@ -216875,9 +216905,12 @@ window.searchData = [
     ],
     "creation_date": "2026-04-13T22:47:36Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Monosomy 2q22"
+    ],
     "description": "Mowat-Wilson syndrome is a rare ZEB2-related neurodevelopmental disorder characterized by distinctive craniofacial features, global developmental delay, intellectual disability, epilepsy, and frequent multisystem congenital anomalies including Hirschsprung disease and congenital heart defects. The disorder is usually caused by de novo heterozygous loss-of-function variants in ZEB2.",
     "pathophysiology": [
+      "2q22 contiguous-gene deletion removing ZEB2",
       "ZEB2 haploinsufficiency",
       "Abnormal neurodevelopment",
       "Abnormal enteric nervous system development",
@@ -216931,7 +216964,8 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "ZEB2"
+      "ZEB2",
+      "ZEB2 whole-gene deletion at 2q22"
     ],
     "treatments": [
       "Anti-seizure pharmacotherapy",
@@ -216942,11 +216976,11 @@ window.searchData = [
     "source_file": "Mowat-Wilson_syndrome.yaml",
     "page_url": "../pages/disorders/Mowat-Wilson_syndrome.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 4,
-    "num_genes": 1,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Moyamoya Disease",
@@ -324982,6 +325016,117 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "WFS1-Related Disorder",
+    "disease_id": "MONDO:0700293",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Hearing Loss",
+      "Monogenic Diabetes",
+      "Neurodegenerative Disease"
+    ],
+    "creation_date": "2026-09-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Classic WFS1-SD",
+      "DFNA6/14/38",
+      "Wolfram-like Syndrome",
+      "Neonatal Diabetes-Deafness-Cataract"
+    ],
+    "description": "WFS1-related disorder is the whole allelic series of one gene. WFS1 encodes wolframin, a multipass endoplasmic-reticulum membrane glycoprotein that holds endoplasmic-reticulum calcium stores, restrains the unfolded protein response, and maintains mitochondria-associated endoplasmic reticulum membranes. GeneReviews divides the series in two: classic WFS1 spectrum disorder, the recessive DIDMOAD neurodegeneration, and nonclassic WFS1 spectrum disorder, a set of milder dominant phenotypes caused by a single heterozygous variant.\nThe split is not a severity gradient, it is an allele-type distinction. Classic disease needs two inactivating alleles and is a loss of function. A heterozygous carrier of a truncating WFS1 allele generally hears normally, so haploinsufficiency does not produce the dominant disease. Every variant unambiguously associated with dominant disease is instead a missense change or a small in-frame deletion in exon 8, the last and largest exon, which codes for the transmembrane and C-terminal domains. The favoured reading is that these non-inactivating alleles interfere with the wild-type protein they are co-expressed with, with a toxic gain of function as the stated alternative; neither has been settled.\nThe dominant arm is clinically heterogeneous in a way the gene alone does not predict. Some alleles give isolated low-frequency sensorineural hearing loss at 2 kHz and below (DFNA6/14/38) that worsens for decades without reaching profound deafness. Others give Wolfram-like syndrome, which adds optic atrophy and adult-onset diabetes to the hearing loss. The recurrent allele p.A684V cuts across both: it was the commonest allele in the series that defined dominant optic atrophy with hearing loss, and in the largest audiological series it gave severe-to-profound congenital hearing loss with optic atrophy in only two of eleven assessed patients and diabetes in none. A third group of de novo missense alleles, which aggregate and induce robust endoplasmic reticulum stress in vitro, cause neonatal or infancy-onset diabetes with congenital deafness, cataracts and hypotonia.\nTwo things the field cannot yet explain are worth stating plainly, because they are the shape of the open problem rather than gaps in this entry. Nobody knows why some exon 8 missense alleles give syndromic and others non-syndromic disease. And nobody knows why the non-syndromic form spares the high frequencies that the syndromic forms damage: wolframin is expressed without a basal-to-apical gradient along the cochlea, so the audiogram shape is not explained by where the protein is.",
+    "pathophysiology": [
+      "Heterozygous Non-Inactivating WFS1 Variant in Exon 8",
+      "Mutant Wolframin Interference with Wild-Type Wolframin",
+      "Mutant Wolframin Aggregation and Endoplasmic Reticulum Stress",
+      "Reduced Steady-State Wolframin Level",
+      "Loss of Endoplasmic Reticulum Calcium Homeostasis and MAM Integrity",
+      "Mitochondrial Dysfunction with Deregulated Autophagy and Mitophagy",
+      "Impaired Inner Ear Ion Homeostasis",
+      "Pancreatic Beta-Cell Failure",
+      "Retinal Ganglion Cell and Optic Nerve Degeneration",
+      "Lens Fibre Opacification"
+    ],
+    "cell_types": [
+      "pancreatic beta cell",
+      "retinal ganglion cell",
+      "lens fiber cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000169",
+      "CL:0000740",
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum unfolded protein response",
+      "response to endoplasmic reticulum stress",
+      "endoplasmic reticulum calcium ion homeostasis",
+      "autophagy",
+      "mitophagy",
+      "glucose homeostasis"
+    ],
+    "phenotypes": [
+      "Low-frequency sensorineural hearing loss",
+      "Progressive sensorineural hearing impairment",
+      "Congenital severe-to-profound sensorineural hearing impairment",
+      "Optic atrophy",
+      "Diabetes mellitus",
+      "Neonatal insulin-dependent diabetes mellitus",
+      "Profound congenital deafness",
+      "Congenital cataract",
+      "Hypotonia",
+      "Tinnitus"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Ophthalmic",
+      "Endocrine",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0008542",
+      "HP:0000408",
+      "HP:0008527",
+      "HP:0000648",
+      "HP:0000819",
+      "HP:0000857",
+      "HP:0011476",
+      "HP:0000519",
+      "HP:0001252",
+      "HP:0000360"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "WFS1"
+    ],
+    "treatments": [
+      "Cochlear implantation",
+      "Multidisciplinary supportive care",
+      "Preconception and pregnancy glycaemic management",
+      "Genetic counseling and testing of at-risk relatives"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "WFS1-Related_Disorder.yaml",
+    "page_url": "../pages/disorders/WFS1-Related_Disorder.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "WHIM Syndrome 1",
     "disease_id": "MONDO:8000006",
     "category": "Mendelian",
@@ -332884,17 +333029,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3156,
-  "total_subtypes": 4037,
-  "total_disorders_and_subtypes": 7193,
-  "total_unique_evidence_sources": 45738,
-  "total_unique_publications": 42987,
+  "total_disorder_pages": 3157,
+  "total_subtypes": 4049,
+  "total_disorders_and_subtypes": 7206,
+  "total_unique_evidence_sources": 45764,
+  "total_unique_publications": 43009,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 285,
-  "total_pathographs": 3151,
-  "total_unique_pathological_events": 19844,
+  "total_pathographs": 3152,
+  "total_unique_pathological_events": 19859,
   "total_modules": 178,
-  "total_research_reports": 3264,
+  "total_research_reports": 3266,
   "total_classifications": 20,
   "total_comorbidities": 47,
   "total_groupings": 105
