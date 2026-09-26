@@ -2050,6 +2050,14 @@ export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
 
+# Maximal KGX export: the whole KB (disorders, modules, comorbidities,
+# groupings) as one graph with entry-local pathograph nodes promoted to
+# first-class KG nodes (dismech:<stem>#<node> ids). Experimental; see the
+# module docstring for the koza join / report follow-on commands.
+[group('Export')]
+export-kgx-maximal out_dir="output/maximal_kgx":
+    uv run python -m dismech.export.maximal_kgx_export -o {{out_dir}}
+
 # Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
 [group('Export')]
 export-hpoa:
