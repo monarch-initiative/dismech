@@ -83,6 +83,10 @@ disease:
 just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
 ```
 
+It reads the local MONDO build and exits 2 when that is absent rather than
+downloading it (about 1.3 GB on disk); run `just fetch-ontology-dbs mondo` once
+first. `--no-hgnc` also keeps it off the HGNC build.
+
 Interpret the result as follows:
 
 - `PASS`: proceed to normal source, snippet, and term verification.

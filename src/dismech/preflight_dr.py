@@ -351,6 +351,42 @@ def _symbol_like(value: str) -> bool:
     return bool(match) and value.upper() not in NON_GENE_TOKENS
 
 
+MONDO_ADAPTER = "sqlite:obo:mondo"
+
+
+class MondoBuildUnavailable(RuntimeError):
+    """The local ``mondo.db`` build is absent, so the preflight cannot run.
+
+    Raised instead of opening the adapter, because opening it does not fail on a
+    missing build: semsql downloads ``mondo.db`` (232 MB compressed, 1.3 GB on
+    disk) with no prompt (#12687). Nor is an empty :class:`MondoRecord` an
+    acceptable answer, since it reads as "MONDO records no causal gene" and
+    turns into a ``SKIP`` verdict.
+    """
+
+
+def open_mondo_adapter():
+    """Open the local MONDO build, refusing to download it.
+
+    The build is fetched deliberately with ``just fetch-ontology-dbs mondo``.
+    ``conf/oak_config.yaml`` routes MONDO to ``ols:mondo`` for term validation,
+    but this check needs the ``RO:0004003`` causal-gene edges and OMIM xrefs,
+    which it reads from the local build.
+    """
+    from dismech.oak_db import local_build_path, local_build_present
+
+    if not local_build_present(MONDO_ADAPTER):
+        raise MondoBuildUnavailable(
+            f"the local MONDO build is not present at {local_build_path('mondo')}. "
+            "preflight-dr reads the MONDO causal gene and OMIM xrefs from it and "
+            "will not download it implicitly (about 1.3 GB on disk). Fetch it "
+            "with `just fetch-ontology-dbs mondo`, then re-run."
+        )
+    from oaklib import get_adapter
+
+    return get_adapter(MONDO_ADAPTER)
+
+
 def fetch_mondo_record(
     mondo_id: str, adapter=None, hgnc_adapter=None, *, use_hgnc: bool = True
 ) -> MondoRecord:
@@ -371,11 +407,13 @@ def fetch_mondo_record(
     ``use_hgnc=False`` keeps the whole function offline: HGNC is never opened,
     so ``--no-hgnc`` really is an offline mode rather than only a swap of the
     token lexicon.
+
+    With no ``adapter`` given, the local MONDO build must already be on disk:
+    :class:`MondoBuildUnavailable` is raised rather than letting semsql
+    download it (see :func:`open_mondo_adapter`).
     """
     if adapter is None:
-        from oaklib import get_adapter
-
-        adapter = get_adapter("sqlite:obo:mondo")
+        adapter = open_mondo_adapter()
 
     errors: list[str] = []
 
@@ -906,6 +944,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_hgnc and args.require_hgnc:
         parser.error("--no-hgnc and --require-hgnc are mutually exclusive")
 
+    # Open MONDO first: without it there is no verdict to give, and failing
+    # here also stops the HGNC lexicon below from fetching its own build for a
+    # run that cannot finish.
+    try:
+        mondo_adapter = open_mondo_adapter()
+    except MondoBuildUnavailable as exc:
+        parser.exit(2, f"error: {exc}\n")
+
     if args.no_hgnc:
         lexicon = HeuristicLexicon()
     else:
@@ -917,6 +963,7 @@ def main(argv: list[str] | None = None) -> int:
     result = preflight(
         args.report,
         mondo,
+        adapter=mondo_adapter,
         lexicon=lexicon,
         min_signal=args.min_signal,
         rival_ratio=args.rival_ratio,
