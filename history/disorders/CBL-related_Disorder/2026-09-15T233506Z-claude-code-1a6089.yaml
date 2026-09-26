@@ -1,0 +1,106 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: CBL-related_Disorder
+  path: kb/disorders/CBL-related_Disorder.yaml
+session:
+  id: 2026-09-15T233506Z-claude-code-1a6089
+  timestamp: '2026-09-15T23:35:06Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/7940
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - treatments
+  - discussions
+  - prevalence
+  - phenotypes
+  - pathophysiology
+  summary: 'Review round on PR 7940: retire PARTIAL, fix a claim/evidence mismatch,
+    correct a prevalence measure'
+  details: |
+    Review round on PR #7940.
+
+    1. Retired `supports: PARTIAL` on four evidence items. `main` has removed
+       PARTIAL from EvidenceItemSupportEnum (SUPPORT / REFUTE / NO_EVIDENCE
+       only) while this branch's older schema still permits it, so the entry
+       validated locally but would have broken `main` on merge. Three of the
+       four are "supports the claim through an inference step" and became
+       `supports: SUPPORT`: the HSCT treatment item (the abstract reports the
+       relapse burden; the inference is that this motivates reserving
+       transplantation for progressive disease), the teratoma 11q23 CN-LOH
+       knowledge-gap item (three teratomas from one patient, proposing rather
+       than establishing germ-cell predisposition), and the aggregate
+       genotype-phenotype item (characterises the phenotype only in aggregate,
+       from which the per-individual-prediction gap follows). CLAUDE.md's
+       mapping table pairs these with `directness: INDIRECT`, but this branch's
+       schema has no `directness` slot on EvidenceItem — it exists only on
+       `main`, and adding it here fails `just validate` outright. The inference
+       step is therefore stated in each `explanation` instead; `directness:
+       INDIRECT` should be added to these three items once the branch sits on
+       `main`'s schema.
+
+    2. The fourth PARTIAL item, on treatment `Cerebral Revascularization
+       Surgery`, was a claim/evidence mismatch rather than an indirect support:
+       its snippet is a recommendation to screen CBL in early-onset moyamoya,
+       which is a diagnostic claim and not evidence about surgical
+       revascularization. The evidence item was deleted and the screening clause
+       removed from the treatment description. Nothing was lost — that exact
+       snippet and claim are already curated under
+       `differential_diagnoses#Moyamoya disease`, both as an evidence item and
+       as a `distinguishing_features` line. A `notes` field on the treatment
+       records why it now carries no evidence and where the screening
+       recommendation lives. No `diagnosis:` section was added; that is a
+       curator-scale change, not a review-round fix.
+
+    3. `prevalence[1].measure_type` was `PERIOD_PREVALENCE`, which is wrong: 27
+       of 159 JMML samples is a cross-sectional proportion of a mutational
+       screening case series, with no observation window and no population
+       denominator. It is a per-gene case fraction (the structurally correct
+       home is `Genetic.case_fractions` on the JMML side), and no
+       PrevalenceMeasureEnum value describes that, so it is now `UNKNOWN` with
+       the reasoning recorded in the record's `notes`. `prevalence_class` stays
+       `UNKNOWN` there deliberately: a magnitude band beside an UNKNOWN measure
+       would read as a disease prevalence, which this figure is not. The record
+       was labelled rather than restructured, per the review instruction.
+
+    4. `prevalence[0].prevalence_class` `UNKNOWN` -> `ULTRA_RARE`. 25 published
+       cases, `measure_type: CASES_IN_LITERATURE`, and no `rate_per_100000`
+       populated — exactly the pairing the enum's own description names. Not
+       applied to `prevalence[1]`, where the ~17% figure is neither ultra-rare
+       nor a disease prevalence.
+
+    5. Added a `Bilateral Ptosis` phenotype (category Craniofacial) bound to
+       `HP:0001488`. The entry quoted "bilateral ptosis" twice (under
+       Intellectual Disability and Lymphedema) without ever curating the
+       feature. The snippet is the same already-cached, already-cited
+       PMID:24458550 sentence, reused verbatim and graded HUMAN_CLINICAL to
+       match its other two uses. `HP:0001488` and its label "Bilateral ptosis"
+       were verified by an OLS lookup, not written from memory; no new PMID was
+       consumed and no cache file was created or touched.
+
+    6. Phenotype `Moyamoya Angiopathy` recategorised `Neurologic` -> `Vascular`,
+       matching `Vasculitis` in the same entry, the shared `Cerebral and
+       Systemic Vasculopathy` pathophysiology node both hang off, and the
+       closest KB precedent (CHOPS_Syndrome categorises its moyamoya phenotype
+       as Vascular).
+
+    7. Softened the `Developmental RASopathy Phenotype` description clause that
+       said "cafe-au-lait macules" to say what the cited series actually
+       reports, hyperpigmented skin lesions with no lesion morphology
+       specified. No new term was bound, since no source for the morphology was
+       available.
+
+    Validation: `just validate`, `just validate-terms`,
+    `just count-verified-snippets` (55/55 verified), `just check-duplicate-keys`,
+    `just check-entity-refs` and `just validate-history-all` all pass. `grep -c
+    PARTIAL` on the entry returns 0.
