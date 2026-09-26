@@ -91,6 +91,40 @@ a time limit cause a nonzero exit **after reports are written**. Authentication
 failure stops new requests while retaining cache hits and recording remaining
 pairs as unassessed. No KB files are changed.
 
+## Queue reviews for the curation agent
+
+The `Jev Recuration Issues` workflow reads the latest overall queue on
+dismech-evals `main` and opens up to five issues each Tuesday. Manual dispatch
+can preview or create up to 25 issues. Its schedule follows the repository's
+cron profiles, including the `off` switch.
+
+```sh
+just plan-eval-issues 5       # Preview; no GitHub writes or model calls
+just enqueue-eval-issues 5    # Create the issues
+```
+
+Issues carry `curation` and `jev-recuration`, so the existing ai4c-agent
+curation scanner can pick them up. Their titles use the disease filename,
+for example `Jev evidence review: Asthma.yaml`. A small HTML comment in the
+body preserves that identity if the title is edited. Every run lists both
+open and closed labelled issues through GitHub's paginated issues API;
+previously queued diseases are skipped. Reopen the existing issue when a
+second review is wanted. Keep its `jev-recuration` label.
+
+The intake accepts delayed or incomplete evaluation results. It skips files
+that are no longer in the current KB and asks the agent to compare the saved
+findings with current content before editing. It does not require matching
+revisions. Issues link to the current YAML, dashboard and full assessment
+history, with a few example findings. Jev's flags request review; they do not
+instruct the agent to make a change where the content is already correct.
+
+Only the latest published overall top-25 queue is considered. If fewer than
+N entries remain after duplicate and missing-file checks, fewer issues are
+created. An empty queue creates none; a failed download or GitHub read fails
+the job before any issues are created. Reruns after a partial publication
+skip issues already created. No separate claim-disease workflow or local
+curation-state files are used.
+
 ## Assessment history lives in dismech-evals
 
 The public [dismech-evals repository](https://github.com/monarch-initiative/dismech-evals)

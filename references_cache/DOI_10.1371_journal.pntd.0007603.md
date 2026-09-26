@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1371/journal.pntd.0007603
+extractor_version: 1
 title: Association of APOL1 renal disease risk alleles with Trypanosoma brucei rhodesiense infection outcomes in the northern part of Malawi
 authors:
 - Kelita Kamoto
@@ -27,6 +28,7 @@ full_text_url: "https://journals.plos.org/plosntds/article/file?id=10.1371/journ
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1371_journal.pntd.0007603.pdf
+full_text_access_type: open
 ---
 
 # Association of APOL1 renal disease risk alleles with Trypanosoma brucei rhodesiense infection outcomes in the northern part of Malawi
