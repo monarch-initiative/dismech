@@ -8,29 +8,21 @@
 # constraint (issues #7514 and #11921).
 unknown_prefix_severity: ERROR
 
-# serve_stale_html_full_text: serve a cached `full_text_html` entry as evidence
-# even when it predates the extractor stamps, instead of withholding it.
+# trust_cached_entries: use a references_cache/ entry as it is on disk, and never
+# re-fetch it because an extractor stamp is missing or old.
 #
-# Upstream withholds it by default, and that default is right in general: a
-# pre-stamp HTML entry might be a publisher landing page rather than the article,
-# and the guard assumes a re-fetch can repair it. Here it cannot. PMC answers a
-# Python HTTP client with a bot-check interstitial carried on an HTTP 200 --
-# regardless of User-Agent, including curl's own -- so for a PMC-only article
-# every repair route the fetcher has is closed, and the guard withholds text
-# that nothing can recover.
+# This cache is committed and reviewed, which inverts the usual trade: a re-fetch
+# is not an improvement, it is a risk. Three separate failures were the same
+# re-fetch seen from different angles -- an unstamped full_text_html entry
+# withheld (#12672), PMC's bot-check page cached and its <title> compared against
+# a curated title (#12867), and 64 bodies shortened so that snippets which had
+# verified began failing in a PR about something else (#12879). None of them can
+# happen if the fetch does not happen.
 #
-# What that cost: 1,654 committed cache files lack the stamp, and about 294 of
-# them have at least one snippet that is not in the abstract. Those failed in the
-# merge queue, on files the pull request never touched, after its own CI lane had
-# passed and a reviewer had approved (dismech#12672, and #12637 lost curated
-# phenotypes to it).
-#
-# Turning this on is defensible *here* specifically because this cache is
-# committed and reviewed: a landing page stored as full text is a content bug to
-# fix in a PR, not a reason to withhold every pre-stamp entry. It affects serving
-# only -- never whether an entry may be overwritten -- and the entry stays
-# un-stamped, so a later run that can reach the source still repairs it.
-serve_stale_html_full_text: true
+# The trade is deliberate: an imperfect cached entry stays imperfect. Fixing one
+# is a content change made on purpose -- `just fetch-reference <ID>` still
+# rebuilds it -- not something re-decided on every validation run.
+trust_cached_entries: true
 
 # literal_bracket_patterns: regexes matched against the text *inside* square
 # brackets. Content matching any of them is kept as literal source text; content

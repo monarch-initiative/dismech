@@ -1,5 +1,7 @@
 ---
 reference_id: DOI:10.2147/rrtm.s34399
+extractor_version: 1
+absent_content_version: 1
 title: Monitoring the use of nifurtimox-eflornithine combination therapy (NECT) in the treatment of second stage gambiense human African trypanosomiasis
 authors:
 - Jose Franco

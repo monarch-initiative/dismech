@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1371/journal.pntd.0012111
+extractor_version: 1
 title: "The elimination of human African trypanosomiasis: Monitoring progress towards the 2021–2030 WHO road map targets"
 authors:
 - Jose R. Franco
@@ -15,12 +16,14 @@ journal: PLOS Neglected Tropical Diseases
 year: '2024'
 doi: 10.1371/journal.pntd.0012111
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://journals.plos.org/plosntds/article/file?id=10.1371/journal.pntd.0012111&type=printable"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1371_journal.pntd.0012111.pdf
+full_text_access_type: open
 ---
 
 # The elimination of human African trypanosomiasis: Monitoring progress towards the 2021–2030 WHO road map targets
