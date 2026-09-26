@@ -3029,40 +3029,98 @@ enums:
   EnvironmentalEffectEnum:
     name: EnvironmentalEffectEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/EnvironmentalEffectEnum
-    description: How an environmental factor or exposure acts on a pathophysiology
-      mechanism node. The environmental analogue of TreatmentEffectEnum, used to keep
-      causative, aggravating, and protective exposures visually and semantically distinct
-      in the pathograph.
+    description: How an environmental factor or exposure acts on its subject. The
+      environmental analogue of TreatmentEffectEnum, used to keep causative, aggravating,
+      and protective exposures visually and semantically distinct in the pathograph.
+    comments:
+    - Used at two scopes, and the value means the same thing at both. On EnvironmentalMechanismTarget.environmental_effect
+      the subject is one pathophysiology or phenotype node; on Environmental.disease_effect
+      it is the disease as a whole. An exposure may legitimately carry a different
+      value at each scope -- one that PROTECTS_AGAINST a mechanism while it PREDISPOSES
+      to the disease is a real pattern, not a contradiction.
+    - Direction only. How strongly the exposure determines the outcome is Environmental.causal_role,
+      a separate axis.
     from_schema: https://w3id.org/monarch-initiative/dismech
     permissible_values:
       TRIGGERS:
         text: TRIGGERS
-        description: The exposure initiates the mechanism, which would not otherwise
-          occur in its absence (e.g., inorganic arsenic ingestion initiating systemic
-          arsenic exposure; allergen contact initiating sensitization).
+        description: The exposure initiates the mechanism or disease, which would
+          not otherwise occur in its absence (e.g., inorganic arsenic ingestion initiating
+          systemic arsenic exposure; allergen contact initiating sensitization; gluten
+          ingestion initiating coeliac enteropathy).
         title: Triggers
       EXACERBATES:
         text: EXACERBATES
-        description: The exposure worsens or amplifies a mechanism that is already
-          present or can arise independently (e.g., tobacco smoke amplifying airway
-          inflammation).
+        description: The exposure worsens or amplifies a mechanism or disease that
+          is already present or can arise independently (e.g., tobacco smoke amplifying
+          airway inflammation).
         title: Exacerbates
       PREDISPOSES:
         text: PREDISPOSES
-        description: The exposure increases susceptibility to the mechanism without
-          being sufficient to produce it (e.g., a risk-factor exposure that requires
-          additional genetic or environmental hits).
+        description: The exposure increases susceptibility to the mechanism or disease
+          without being sufficient to produce it (e.g., a risk-factor exposure that
+          requires additional genetic or environmental hits).
         title: Predisposes
       PROTECTS_AGAINST:
         text: PROTECTS_AGAINST
         description: The exposure reduces the occurrence or severity of the mechanism
-          (e.g., early-life microbial exposure and allergic sensitization).
+          or disease (e.g., early-life microbial exposure and allergic sensitization).
         title: Protects against
       MODULATES:
         text: MODULATES
-        description: The exposure alters the mechanism without a clear unidirectional
-          effect, or the direction is context dependent.
+        description: The exposure alters the mechanism or disease without a clear
+          unidirectional effect, or the direction is context dependent.
         title: Modulates
+  EnvironmentalCausalRoleEnum:
+    name: EnvironmentalCausalRoleEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/EnvironmentalCausalRoleEnum
+    description: How strongly an environmental exposure determines the disease, as
+      distinct from which way it acts. Pairs with Environmental.disease_effect, which
+      carries the direction.
+    comments:
+    - 'PROPOSED, not yet ratified -- see issue #11112. The value set borrows epidemiological
+      framing and may be heavier than the KB needs; settle it before populating at
+      scale, since narrowing an enum later is the merge-shaped failure recorded in
+      issue #10061.'
+    - ASSOCIATED_ONLY is a first-class answer, not a placeholder. Most curated exposures
+      rest on observational cohort evidence that establishes a risk association and
+      never reaches a mechanism, and recording that honestly is better than either
+      inflating it or leaving the exposure unlinked.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      NECESSARY:
+        text: NECESSARY
+        description: The disease does not occur without this exposure, though the
+          exposure alone is not sufficient (e.g., gluten in coeliac disease; grass
+          pea overconsumption in neurolathyrism).
+        title: Necessary cause
+      SUFFICIENT:
+        text: SUFFICIENT
+        description: The exposure alone produces the disease in a susceptible host,
+          without requiring a further hit (e.g., a high enough acute dose of a poison).
+        title: Sufficient cause
+      COMPONENT_CAUSE:
+        text: COMPONENT_CAUSE
+        description: The exposure is one required member of a set of causes that together
+          produce the disease; neither necessary nor sufficient on its own.
+        title: Component cause
+      RISK_FACTOR:
+        text: RISK_FACTOR
+        description: The exposure raises or lowers disease incidence in populations,
+          with a causal reading supported but no claim about necessity or sufficiency
+          (e.g., alcohol and breast carcinoma).
+        title: Risk factor
+      MODIFIER:
+        text: MODIFIER
+        description: The exposure alters the course, severity, or expression of disease
+          that is already established, rather than its occurrence.
+        title: Modifier
+      ASSOCIATED_ONLY:
+        text: ASSOCIATED_ONLY
+        description: A reported statistical association whose causal status is unsettled
+          or unevidenced in the cited source. Use when the evidence measures co-occurrence
+          or incidence and the entry makes no causal claim beyond it.
+        title: Associated only
   ImagingModalityEnum:
     name: ImagingModalityEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ImagingModalityEnum
@@ -11055,6 +11113,40 @@ slots:
     - Environmental
     - Transmission
     range: string
+  disease_effect:
+    name: disease_effect
+    definition_uri: https://w3id.org/monarch-initiative/dismech/disease_effect
+    description: How this exposure acts on the disease as a whole, as opposed to on
+      any one mechanism node.
+    comments:
+    - Independent of influences_mechanisms. An exposure may carry a disease_effect
+      with no mechanism links at all -- that is the normal shape when the evidence
+      is a population risk estimate that never names a node.
+    - Where both are present they are separate assertions and need not agree; see
+      the EnvironmentalEffectEnum comments.
+    - Supported by the entry's own evidence block, which already holds the disease-level
+      claim in curated entries.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:disease_effect
+    owner: Environmental
+    domain_of:
+    - Environmental
+    range: EnvironmentalEffectEnum
+  causal_role:
+    name: causal_role
+    definition_uri: https://w3id.org/monarch-initiative/dismech/causal_role
+    description: How strongly this exposure determines the disease. The strength axis
+      paired with disease_effect, which carries the direction.
+    comments:
+    - Answers "is this an environmental determinant" separately from "which way does
+      it act". An exposure can be PREDISPOSES + RISK_FACTOR (alcohol and breast carcinoma)
+      or TRIGGERS + NECESSARY (gluten and coeliac disease).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:causal_role
+    owner: Environmental
+    domain_of:
+    - Environmental
+    range: EnvironmentalCausalRoleEnum
   parents:
     name: parents
     definition_uri: https://w3id.org/monarch-initiative/dismech/parents
@@ -17712,6 +17804,30 @@ slots:
     is_usage_slot: true
     usage_slot_name: context
     range: string
+  Environmental_effect:
+    name: Environmental_effect
+    definition_uri: https://w3id.org/monarch-initiative/dismech/effect
+    description: Free-text summary of what the exposure does. Superseded by the structured
+      pair disease_effect (direction) and causal_role (strength).
+    deprecated: 'Prefer disease_effect and causal_role. Retained for the 285 entries
+      that already populate it, ~64 of which carry enum-shaped values (HARMFUL, TRIGGERS,
+      RISK_FACTOR, CAUSATIVE, EXACERBATES) written into a string slot because no controlled
+      vocabulary existed at this scope. Deprecated on Environmental only: ExperimentalPerturbation
+      and Transmission share the effect slot and have no structured replacement. See
+      issue #11112.'
+    examples:
+    - value: Potential trigger for flare-ups
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: effect
+    domain: Environmental
+    slot_uri: dismech:effect
+    alias: effect
+    owner: Environmental
+    domain_of:
+    - Environmental
+    is_usage_slot: true
+    usage_slot_name: effect
+    range: string
   Disease_name:
     name: Disease_name
     definition_uri: https://w3id.org/monarch-initiative/dismech/name
@@ -21387,6 +21503,10 @@ classes:
     name: Environmental
     definition_uri: https://w3id.org/monarch-initiative/dismech/Environmental
     description: An environmental factor, exposure, or context relevant to disease
+    comments:
+    - Carries claims at two independent scopes. disease_effect + causal_role state
+      how the exposure acts on the disease; influences_mechanisms states how it acts
+      on named mechanism nodes. Either may be present without the other.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - name
@@ -21396,7 +21516,9 @@ classes:
     - description
     - chemicals
     - synonyms
-    - effect
+    - Environmental_effect
+    - disease_effect
+    - causal_role
     - examples
     - review_notes
     - exposure_term
@@ -21404,6 +21526,17 @@ classes:
     - food_source
     - influences_mechanisms
     - exposure_classifications
+    slot_usage:
+      effect:
+        name: effect
+        description: Free-text summary of what the exposure does. Superseded by the
+          structured pair disease_effect (direction) and causal_role (strength).
+        deprecated: 'Prefer disease_effect and causal_role. Retained for the 285 entries
+          that already populate it, ~64 of which carry enum-shaped values (HARMFUL,
+          TRIGGERS, RISK_FACTOR, CAUSATIVE, EXACERBATES) written into a string slot
+          because no controlled vocabulary existed at this scope. Deprecated on Environmental
+          only: ExperimentalPerturbation and Transmission share the effect slot and
+          have no structured replacement. See issue #11112.'
     class_uri: dismech:Environmental
   Disease:
     name: Disease
@@ -22866,6 +22999,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 351418
+source_file_size: 356827
 generation_date: '2025-01-01T00:00:00'
 
