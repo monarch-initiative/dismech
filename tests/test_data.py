@@ -391,6 +391,47 @@ def check_evidence_items_have_references(filepath, data=None):
     assert not all_errors, f"Evidence errors in {Path(filepath).name}: {all_errors}"
 
 
+def check_orpha_evidence_is_graded_other(filepath, data=None):
+    """An ORPHA-referenced evidence item may only be graded ``OTHER``.
+
+    ``evidence_source`` classifies the study the cited publication reports. An
+    Orphanet record is not a study: it is a curated database entry, the same
+    shape as the ``ICTRP:`` registration documents and ``NCIT:`` predicate rows
+    that CLAUDE.md already grades ``OTHER``. Grading one ``HUMAN_CLINICAL`` (or
+    ``IN_VITRO``, or ``MODEL_ORGANISM``) asserts that Orphanet ran the study it
+    is summarising.
+
+    This is a *conditional* invariant: ``evidence_source`` is optional, and
+    1,154 ORPHA items across the KB carry none. Absent means nobody has graded
+    the item, which is a different state from grading it wrongly, so only items
+    that carry the slot are checked.
+
+    Nothing else in the stack catches this. ``OTHER`` is a valid enum value and
+    no validator cross-checks ``evidence_source`` against the reference prefix,
+    which is how a regex-based sweep in dismech#7050 silently relabelled 1,099
+    PMID- and 23 DOI-referenced primary-literature items to ``OTHER`` without a
+    single gate going red.
+    """
+    data = _document(filepath, data)
+
+    errors = []
+    for path, evidence_list in _iter_evidence_lists(data):
+        for i, item in enumerate(evidence_list):
+            if not isinstance(item, dict):
+                continue
+            reference = item.get("reference")
+            if not isinstance(reference, str) or not reference.startswith("ORPHA:"):
+                continue
+            source = item.get("evidence_source")
+            if source is not None and source != "OTHER":
+                errors.append(
+                    f"{path}[{i}]: {reference} is graded {source}; an Orphanet "
+                    f"record is a database entry, not a study, so it takes OTHER"
+                )
+
+    assert not errors, f"ORPHA evidence_source errors in {Path(filepath).name}: {errors}"
+
+
 def test_schema_validity(validator):
     """Test that the schema itself is valid LinkML."""
     # If we got here without errors, schema is valid
@@ -2321,6 +2362,7 @@ DISORDER_CHECKS = (
     check_environmental_mechanism_targets,
     check_subtypes_have_disease_term,
     check_dataset_accession_prefix_and_shape,
+    check_orpha_evidence_is_graded_other,
 )
 # Modules use the Disease class and carry the same model sections, so these
 # span kb/disorders/ and kb/modules/.
