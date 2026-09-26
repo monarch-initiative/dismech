@@ -41921,7 +41921,7 @@ window.searchData = [
   },
   {
     "name": "BBSome-related retinitis pigmentosa",
-    "disease_id": "MONDO:0019200",
+    "disease_id": null,
     "category": "Mendelian",
     "parents": [
       "Ciliopathy",
@@ -41929,8 +41929,14 @@ window.searchData = [
     ],
     "creation_date": "2026-06-14T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "BBSome-related retinitis pigmentosa is a mechanism-anchored class of autosomal recessive, predominantly isolated rod-cone dystrophy caused by biallelic variants in genes encoding the BBSome or its membrane-recruiting GTPase. The supported loci in this entry are ARL6/BBS3 (RP55), TTC8/BBS8 (RP51), BBS1, BBS2, and BBS9. Retina-restricted splice isoforms, hypomorphic alleles, and other mild allelic combinations can reduce BBSome function enough to disturb photoreceptor-cilium cargo and outer-segment homeostasis while producing few or no extra-ocular Bardet-Biedl manifestations at ascertainment. Rod dysfunction, nyctalopia, and peripheral field loss generally precede central visual decline. The boundary with Bardet-Biedl syndrome is age-dependent and allelic rather than absolute, so ongoing systemic review is appropriate. No exact MONDO term represents this five-gene mechanistic lump; MONDO:0019200 is used as the broad disease term and per-locus entities are retained as related mappings.",
+    "subtypes": [
+      "RP55",
+      "RP51",
+      "RP74",
+      "BBS1 isolated RP",
+      "BBS9 isolated RP"
+    ],
+    "description": "BBSome-related retinitis pigmentosa is a mechanism-anchored class of autosomal recessive, predominantly isolated rod-cone dystrophy caused by biallelic variants in genes encoding the BBSome or its membrane-recruiting GTPase. The supported loci in this entry are ARL6/BBS3 (RP55), TTC8/BBS8 (RP51), BBS1, BBS2, and BBS9. Retina-restricted splice isoforms, hypomorphic alleles, and other mild allelic combinations can reduce BBSome function enough to disturb photoreceptor-cilium cargo and outer-segment homeostasis while producing few or no extra-ocular Bardet-Biedl manifestations at ascertainment. Rod dysfunction, nyctalopia, and peripheral field loss generally precede central visual decline. The boundary with Bardet-Biedl syndrome is age-dependent and allelic rather than absolute, so ongoing systemic review is appropriate. No MONDO class denotes this five-gene mechanistic lump, so disease_term carries a free-text preferred term with no binding: the broad retinitis pigmentosa class is recorded as a broad match, the three per-locus RP-numbered classes that exist (RP51, RP55, RP74) are carried as subtypes, and the gene-specific ciliopathy classes remain related mappings.",
     "pathophysiology": [
       "Partial or retina-selective BBSome dysfunction",
       "Photoreceptor outer-segment cargo and lipid dysregulation",
@@ -65229,9 +65235,17 @@ window.searchData = [
     ],
     "creation_date": "2026-02-06T03:39:54Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "CFC1",
+      "CFC2",
+      "CFC3",
+      "CFC4"
+    ],
     "description": "Cardiofaciocutaneous (CFC) syndrome is a RASopathy caused by heterozygous germline mutations in BRAF, MAP2K1 (MEK1), MAP2K2 (MEK2), or KRAS, characterized by distinctive craniofacial features, congenital heart defects, ectodermal abnormalities (sparse hair, keratosis pilaris, ichthyosis), failure to thrive, and developmental delay. CFC syndrome represents the most severe end of the RASopathy spectrum in terms of cognitive impairment.\n",
     "pathophysiology": [
+      "RAS GTPase Dysregulation by Germline KRAS Variants",
+      "B-Raf Kinase Dysregulation by Germline BRAF Variants",
+      "MEK1 and MEK2 Kinase Hyperactivation",
       "RAS-MAPK Pathway Hyperactivation"
     ],
     "cell_types": [
@@ -65243,6 +65257,7 @@ window.searchData = [
       "CL:0000312"
     ],
     "biological_processes": [
+      "Ras protein signal transduction",
       "MAPK Cascade",
       "ERK1/2 Cascade",
       "Cell Proliferation"
@@ -65289,9 +65304,6 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "BRAF Mutations",
-      "MAP2K1/MAP2K2 Mutations",
-      "KRAS Mutations",
       "BRAF",
       "KRAS",
       "MAP2K1",
@@ -65308,11 +65320,11 @@ window.searchData = [
     "source_file": "Cardiofaciocutaneous_Syndrome.yaml",
     "page_url": "../pages/disorders/Cardiofaciocutaneous_Syndrome.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 1,
-    "num_genes": 8,
+    "num_pathophysiology": 4,
+    "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cardiofacioneurodevelopmental Syndrome",
@@ -124289,9 +124301,15 @@ window.searchData = [
     ],
     "creation_date": "2026-05-30T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "FCS-LPL",
+      "FCS-APOC2",
+      "FCS-GPIHBP1",
+      "FCS-LMF1"
+    ],
     "description": "Familial chylomicronemia syndrome (FCS) is a rare autosomal recessive monogenic disorder of lipid metabolism characterized by extreme and sustained hypertriglyceridemia due to absent or markedly impaired lipoprotein lipase (LPL) activity. Loss of LPL-mediated hydrolysis of triglyceride-rich lipoproteins prevents clearance of dietary chylomicrons, producing fasting triglyceride levels typically >=10 mmol/L (>=885 mg/dL) and visibly lipemic plasma from a young age. FCS is caused by biallelic pathogenic variants in LPL or in one of four genes encoding proteins required for LPL function or secretion (APOC2, APOA5, GPIHBP1, LMF1). The dominant clinical risk is recurrent acute pancreatitis; other features include eruptive xanthomas, hepatosplenomegaly, lipemia retinalis, and recurrent abdominal pain. FCS is resistant to conventional triglyceride-lowering therapies, and management centers on a strict, lifelong very low-fat diet. The apolipoprotein C-III (apoC-III) pathway has emerged as the principal druggable target: antisense oligonucleotides (volanesorsen, olezarsen) and siRNAs (plozasiran) that reduce hepatic apoC-III synthesis substantially lower triglycerides and pancreatitis risk.\n",
     "pathophysiology": [
+      "Defective LPL Maturation, Trafficking, and Activation",
       "Lipoprotein Lipase Deficiency",
       "Chylomicronemia and Severe Hypertriglyceridemia",
       "Recurrent Acute Pancreatitis"
@@ -124305,6 +124323,8 @@ window.searchData = [
       "CL:0002064"
     ],
     "biological_processes": [
+      "positive regulation of lipoprotein lipase activity",
+      "localization of lipoprotein lipase to the capillary endothelial surface",
       "triglyceride catabolic process",
       "triglyceride homeostasis",
       "inflammatory response"
@@ -124364,11 +124384,11 @@ window.searchData = [
     "source_file": "Familial_Chylomicronemia_Syndrome.yaml",
     "page_url": "../pages/disorders/Familial_Chylomicronemia_Syndrome.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Familial Cold Autoinflammatory Syndrome",
@@ -143439,6 +143459,7 @@ window.searchData = [
     "subtypes": [
       "Laron Syndrome",
       "STAT5B Deficiency",
+      "STAT5B Dominant-Negative",
       "STAT5A Deficiency",
       "IGFALS Deficiency",
       "IGF1 Deficiency",
@@ -143484,7 +143505,8 @@ window.searchData = [
       "Decreased Regulatory T-Cell Proportion",
       "Lymphocytic Interstitial Pneumonia",
       "Hypergammaglobulinemia",
-      "Eczema"
+      "Severe eczema",
+      "Eczema with elevated IgE"
     ],
     "phenotype_categories": [
       "Phenotypic abnormality",
@@ -143520,9 +143542,11 @@ window.searchData = [
     ],
     "genes": [
       "GHR pathogenic variants (Laron syndrome)",
-      "STAT5B pathogenic variants",
+      "STAT5B biallelic loss-of-function variants",
+      "STAT5B dominant-negative heterozygous variants",
       "IGFALS pathogenic variants (ALS deficiency)",
-      "IGF1R pathogenic variants (IGF-1 resistance)"
+      "IGF1R pathogenic variants (IGF-1 resistance)",
+      "IGF1 pathogenic variants (IGF-1 deficiency)"
     ],
     "treatments": [
       "Recombinant Human IGF-1 (Mecasermin)",
@@ -143533,11 +143557,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Growth_Hormone_Insensitivity_Syndrome.yaml",
     "page_url": "../pages/disorders/Growth_Hormone_Insensitivity_Syndrome.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 6,
-    "num_genes": 4,
+    "num_genes": 6,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "4"
   },
   {
@@ -154083,7 +154107,17 @@ window.searchData = [
       "SPG4",
       "SPG3A",
       "SPG7",
-      "SPG11"
+      "SPG11",
+      "SPG6",
+      "SPG8",
+      "SPG12",
+      "SPG13",
+      "SPG28",
+      "SPG31",
+      "SPG62",
+      "SPG72",
+      "SPG80",
+      "SPG87"
     ],
     "description": "Hereditary spastic paraplegia (HSP) is a clinically and genetically heterogeneous group of inherited neurodegenerative disorders unified by length-dependent distal axonal degeneration of the corticospinal-tract upper motor neurons, maximal at the distal ends of the longest central nervous system axons in the thoracic spinal cord, with accompanying degeneration of the fasciculus gracilis (dorsal column) sensory fibers. More than 80 spastic paraplegia (SPG) genetic loci have been described, encoding proteins with diverse functions including axonal transport (SPAST/spastin microtubule severing), endoplasmic reticulum morphogenesis (ATL1/atlastin-1, SPAST/spastin, REEP1), mitochondrial quality control and oxidative phosphorylation (SPG7/paraplegin), and lipid/membrane and lysosomal-endosomal trafficking (SPG11/spatacsin). Despite this molecular diversity, the converging pathology is relatively selective corticospinal-tract axonopathy producing the shared clinical syndrome of progressive lower-limb spasticity and weakness with hyperreflexia and extensor plantar responses. HSP is divided clinically into \"pure\" (uncomplicated) forms, in which spasticity and weakness of the legs with subtle dorsal-column impairment and urinary urgency are the only features, and \"complex\" (complicated) forms, in which spastic paraplegia is accompanied by additional neurologic or systemic features such as thin corpus callosum, cognitive decline, peripheral neuropathy, ataxia, or distal amyotrophy.\n",
     "pathophysiology": [
@@ -154091,6 +154125,12 @@ window.searchData = [
       "Spastin Microtubule-Severing Defect (SPG4)",
       "Atlastin-1 ER Tubular Network Defect (SPG3A)",
       "Paraplegin Mitochondrial Quality-Control and OXPHOS Failure (SPG7)",
+      "Tubular ER-Shaping Protein Network Defect (SPG12/SPG31/SPG72)",
+      "Mitochondrial Chaperonin Hsp60 Folding Defect (SPG13)",
+      "Fatty-Acid Metabolizing Enzyme Defect with Mitochondrial Bioenergetic Failure (SPG28)",
+      "Endosomal Membrane Trafficking and Sorting Defect (SPG6/SPG8/SPG80)",
+      "Mitochondria-ER Contact Site and Organelle Morphology Defect (SPG87)",
+      "Erlin-1/Erlin-2 Complex Defect (SPG62)",
       "Progressive Lower-Limb Spasticity and Weakness"
     ],
     "cell_types": [
@@ -154110,7 +154150,10 @@ window.searchData = [
       "Endoplasmic reticulum membrane fusion",
       "Endoplasmic reticulum tubular network organization",
       "Mitochondrial protein quality control",
-      "Oxidative phosphorylation"
+      "Oxidative phosphorylation",
+      "Protein folding",
+      "Fatty acid metabolic process",
+      "Endosomal transport"
     ],
     "phenotypes": [
       "Corticospinal tract degeneration",
@@ -154164,7 +154207,19 @@ window.searchData = [
       "SPAST",
       "ATL1",
       "SPG7",
-      "SPG11"
+      "SPG11",
+      "NIPA1",
+      "WASHC5",
+      "RTN2",
+      "HSPD1",
+      "DDHD1",
+      "REEP1",
+      "ERLIN1",
+      "REEP2",
+      "UBAP1",
+      "TMEM63C",
+      "ZFYVE27",
+      "SLC33A1"
     ],
     "treatments": [
       "Antispastic Pharmacotherapy (Baclofen / Tizanidine)",
@@ -154177,10 +154232,10 @@ window.searchData = [
     "source_file": "Hereditary_Spastic_Paraplegia.yaml",
     "page_url": "../pages/disorders/Hereditary_Spastic_Paraplegia.html",
     "num_phenotypes": 14,
-    "num_pathophysiology": 5,
-    "num_genes": 4,
+    "num_pathophysiology": 11,
+    "num_genes": 16,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "3"
   },
   {
@@ -187047,24 +187102,36 @@ window.searchData = [
     ],
     "creation_date": "2026-06-29T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "KFS1",
+      "KFS2",
+      "KFS3",
+      "KFS4"
+    ],
     "description": "Klippel-Feil syndrome (KFS) is a congenital axial-skeleton malformation defined by failure of segmentation of the cervical spine, producing fusion of two or more cervical vertebrae. The classic clinical triad is a short neck, low posterior hairline, and restricted neck mobility, often with scoliosis, Sprengel deformity, and cranial-base anomalies. It is an axial serial-homology disorder: the cervical vertebrae are serially repeated somite (sclerotome) derivatives, and KFS represents a failure of the somite-boundary / resegmentation program that normally separates adjacent vertebrae. Autosomal recessive KFS is caused by biallelic loss-of-function variants in MEOX1, a homeobox transcription factor with a nonredundant role in somite development and sclerotome polarity; autosomal dominant forms are caused by GDF6 and GDF3 (BMP-family) variants. KFS conforms to the axial-skeleton serial-homology module at its somite-boundary and vertebral-malsegmentation nodes.",
     "pathophysiology": [
       "MEOX1 Somite and Sclerotome Polarity Defect",
+      "BMP Ligand Signaling Defect at Developing Vertebral Boundaries",
+      "MYO18B Loss of Function",
+      "Sarcomeric Myosin Filament Disorganization",
       "Cervical Vertebral Fusion"
     ],
     "cell_types": [
       "Presomitic (Paraxial) Mesoderm Cell",
+      "Skeletal muscle fiber",
       "Chondrocyte",
       "Osteoblast"
     ],
     "cell_type_ids": [
       "CL:0011007",
+      "CL:0008002",
       "CL:0000138",
       "CL:0000062"
     ],
     "biological_processes": [
       "Somitogenesis",
+      "BMP signaling pathway",
+      "Myofibril assembly",
       "Embryonic Skeletal System Morphogenesis"
     ],
     "phenotypes": [
@@ -187072,10 +187139,16 @@ window.searchData = [
       "Short Neck",
       "Low Posterior Hairline",
       "Scoliosis",
-      "Sprengel Anomaly"
+      "Sprengel Anomaly",
+      "Myopathy",
+      "Ptosis",
+      "Bulbous Nose",
+      "Short Stature"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
       "Head and Neck",
       "Integument",
       "Musculoskeletal"
@@ -187085,10 +187158,20 @@ window.searchData = [
       "HP:0000470",
       "HP:0002162",
       "HP:0002650",
-      "HP:0000912"
+      "HP:0000912",
+      "HP:0003198",
+      "HP:0000508",
+      "HP:0000414",
+      "HP:0004322"
     ],
     "frequencies": [],
-    "genes": [],
+    "genes": [
+      "MEOX1",
+      "GDF6",
+      "GDF3",
+      "MYO18B",
+      "RIPPLY2"
+    ],
     "treatments": [
       "Physical Therapy",
       "Cervical Spine Surgical Stabilization"
@@ -187097,12 +187180,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Klippel-Feil_Syndrome.yaml",
     "page_url": "../pages/disorders/Klippel-Feil_Syndrome.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 2,
-    "num_genes": 0,
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 5,
     "num_treatments": 2,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Kniest Dysplasia",
@@ -194096,8 +194179,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Li-Fraumeni Syndrome",
@@ -265493,6 +265576,8 @@ window.searchData = [
     "description": "Primary pigmented nodular adrenocortical disease (PPNAD) is a rare, typically bilateral micronodular form of adrenocortical hyperplasia that produces cortisol autonomously, causing ACTH-independent (pituitary-independent) Cushing syndrome that often presents in childhood or young adulthood and may be cyclical or subclinical. It occurs as an isolated condition or, in roughly one-third of cases, as the most frequent endocrine manifestation of Carney complex. The dominant disease mechanism is dysregulated cAMP/PKA signaling, most often caused by germline inactivating variants in PRKAR1A (the type I alpha regulatory subunit of protein kinase A); additional causes affect cAMP phosphodiesterases (PDE11A, PDE8B) or the PKA catalytic subunit (PRKACA copy number gain). Loss of PKA regulatory restraint drives constitutive PKA catalytic activity, autonomous steroidogenesis, abnormal adrenocortical differentiation, increased proliferation, and resistance to apoptosis, with downstream involvement of mTORC1 and Wnt signaling programs. Histologically the adrenal glands are small to normal in size and contain multiple small pigmented cortical nodules with internodular cortical atrophy.",
     "pathophysiology": [
       "PRKAR1A Loss and Constitutive PKA Activation",
+      "Phosphodiesterase Loss and Impaired cAMP Degradation",
+      "PRKACA Copy-Number Gain and Constitutive PKA Catalytic Activation",
       "Autonomous Steroidogenesis and Adrenocortical Hyperplasia",
       "mTORC1 Activation and Apoptosis Resistance",
       "MAPK Pathway Activation and Proliferation",
@@ -265507,6 +265592,7 @@ window.searchData = [
     "biological_processes": [
       "cAMP/PKA signal transduction",
       "activation of protein kinase A activity",
+      "cAMP catabolic process",
       "glucocorticoid biosynthetic process",
       "cell population proliferation",
       "TOR signaling",
@@ -265573,10 +265659,10 @@ window.searchData = [
     "source_file": "Primary_Pigmented_Nodular_Adrenocortical_Disease.yaml",
     "page_url": "../pages/disorders/Primary_Pigmented_Nodular_Adrenocortical_Disease.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
   },
   {
@@ -336240,14 +336326,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3184,
-  "total_subtypes": 4188,
-  "total_disorders_and_subtypes": 7372,
-  "total_unique_evidence_sources": 46241,
-  "total_unique_publications": 43454,
+  "total_subtypes": 4216,
+  "total_disorders_and_subtypes": 7400,
+  "total_unique_evidence_sources": 46302,
+  "total_unique_publications": 43510,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 286,
   "total_pathographs": 3179,
-  "total_unique_pathological_events": 20069,
+  "total_unique_pathological_events": 20084,
   "total_modules": 178,
   "total_research_reports": 3296,
   "total_classifications": 20,
