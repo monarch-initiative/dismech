@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1371/journal.ppat.1006855
+extractor_version: 1
 title: Decoding the network of Trypanosoma brucei proteins that determines sensitivity to apolipoprotein-L1
 authors:
 - Rachel B. Currier
@@ -18,6 +19,7 @@ full_text_url: "https://journals.plos.org/plospathogens/article/file?id=10.1371/
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1371_journal.ppat.1006855.pdf
+full_text_access_type: open
 ---
 
 # Decoding the network of Trypanosoma brucei proteins that determines sensitivity to apolipoprotein-L1

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1128/mbio.02198-15
+extractor_version: 1
 title: Apolipoprotein L1 Variant Associated with Increased Susceptibility to Trypanosome Infection
 authors:
 - Bart Cuypers
@@ -28,7 +29,7 @@ journal: mBio
 year: '2016'
 doi: 10.1128/mbio.02198-15
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
 ---
 
 # Apolipoprotein L1 Variant Associated with Increased Susceptibility to Trypanosome Infection
@@ -58,7 +59,7 @@ gambiense
             strains and lacks the TgsGP defense mechanism against human serum. By sequencing the ApoL1 gene of the patient and subsequent
             in vitro
             mutagenesis experiments, we demonstrate that a homozygous missense substitution (N264K) in the membrane-addressing domain of this ApoL1 variant knocks down the trypanolytic activity, allowing the trypanosome to avoid ApoL1-mediated immunity.
-
+          
 
 IMPORTANCE
             Most African trypanosomes are lysed by the ApoL1 protein in human serum. Only the subspecies
