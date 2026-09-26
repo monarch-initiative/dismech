@@ -3173,6 +3173,17 @@ ictrp-rebuild *args="":
 ictrp-list limit="20":
     uv run python -m dismech.structured_sources.cli list ictrp --limit {{limit}}
 
+# Fetch EPA's ToxCast/Tox21 assay-endpoint annotations into data/toxcast/.
+# These describe what each assay measures — intended gene target, target family,
+# biological process, species, tissue, method and signal direction — and are the
+# input to the assay-to-pathograph-node mapping work in issue #12858. Chemical
+# hit-calls are NOT fetched; those stay with #12682.
+# Requires CTX_API_KEY (free, from ccte_api@epa.gov). Pass --force to refetch,
+# --summary to describe what is already cached.
+[group('Research')]
+toxcast-refresh *args="":
+    uv run python -m dismech.toxcast_assays {{args}}
+
 # Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
 # is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.
 [group('Research')]
