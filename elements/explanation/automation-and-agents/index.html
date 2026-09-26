@@ -25557,6 +25557,15 @@ deliberately not a hold, because ejection does not imply fault: a PR ahead in th
 stack can poison it, and a third-party outage can fail it. What triggers the hold
 is repetition against unchanged content. The count is keyed on the head commit's
 <code>committedDate</code>, so any push resets it to zero, and a lookup failure fails open.</p>
+<p>A second hold with no trace on the PR page is the <strong>cache-row hold</strong>. When a
+merge queue is active, a candidate that adds a row to a <code>cache/&lt;prefix&gt;/*.csv</code>
+term cache already added by a PR enqueued <em>earlier in the same sweep</em> is skipped
+for that sweep, because the two would conflict in the queue and the second
+would be ejected. Only multi-field rows (<code>curie,label,retrieved_at</code>) count; a
+bare-CURIE enum-cache row is identical in both PRs and merges cleanly. The hold
+is within-run and lasts exactly one sweep; it does not apply in direct-merge
+mode, and <code>--no-conflict-batching</code> disables it. Its only trace is a <code>SKIP</code> line
+naming the PR that holds the row. A failed changed-files lookup fails open.</p>
 <p>Draft state is metadata, not a hold. An otherwise eligible draft is marked
 ready immediately before a complete re-read of the merge guards. If the attempt
 does not merge, its original draft state is restored.</p>
@@ -25800,13 +25809,15 @@ that opportunity rather than as an arbitrary cooling-off period.</p>
 <p><strong>To stop a PR being auto-merged, assign it to a human or leave a
 <code>CHANGES_REQUESTED</code> review.</strong> Draft status does not block it.</p>
 </blockquote>
-<p>There is a third hold, which nobody chooses: a PR held back by the <strong>ejection
-hold</strong> above. Unlike assignment and <code>CHANGES_REQUESTED</code>, it leaves no label,
-review, or assignee — its only trace is a <code>SKIP</code> line naming the strike count,
-inside the run summary's collapsed <code>Skipped N near-miss PR(s)</code> block. So an
-approved, green, days-old PR that is not merging and has neither a human
-assignee nor a requested-changes review has one remaining explanation, and the
-run summary is where to look for it. A push clears it.</p>
+<p>There are two more holds, which nobody chooses: the <strong>ejection hold</strong> and the
+<strong>cache-row hold</strong> above. Unlike assignment and <code>CHANGES_REQUESTED</code>, they leave
+no label, review, or assignee. Their only trace is a <code>SKIP</code> line, inside the run
+summary's collapsed <code>Skipped N near-miss PR(s)</code> block, naming the strike count
+or the PR holding the contended cache row. So an approved, green, days-old PR
+that is not merging and has neither a human assignee nor a requested-changes
+review has one of these two explanations, and the run summary is where to look
+for it. A push clears the ejection hold; the cache-row hold clears itself on the
+next sweep.</p>
 <p>Preview what the next sweep would do, read-only: <code>just auto-merge-preview</code>.</p>
 <hr />
 <h2 id="what-assigning-an-issue-actually-does">What assigning an issue actually does</h2>
