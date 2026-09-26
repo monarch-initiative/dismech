@@ -1177,6 +1177,19 @@ alias validate-references := validate-kb-references
 count-verified-snippets *args:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
 
+# Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
+# A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
+# re-checks them: the trial registry is the one live-API reference source with no
+# `*-refresh` recipe, and its cache records carry no retrieval timestamp, so drift
+# is not measurable offline. Reports only -- never edits the KB, since a trial
+# moving to COMPLETED/TERMINATED usually wants its description/evidence revisited
+# too. Network-dependent and therefore advisory: deliberately NOT part of `just qc`.
+# Pass --strict to gate, --only-drift for just the worklist, --format json|markdown.
+# See docs/clinical-trial-status.md.
+[group('QC')]
+clinicaltrials-status-audit *args:
+    uv run python -m dismech.clinical_trial_status {{args}}
+
 # Deterministically validate reference cache frontmatter against the
 # linkml-reference-validator cache contract before the heavier data validators.
 [group('QC')]
@@ -2036,6 +2049,14 @@ export-context-scores output_dir="output/context_scores":
 export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
+
+# Maximal KGX export: the whole KB (disorders, modules, comorbidities,
+# groupings) as one graph with entry-local pathograph nodes promoted to
+# first-class KG nodes (dismech:<stem>#<node> ids). Experimental; see the
+# module docstring for the koza join / report follow-on commands.
+[group('Export')]
+export-kgx-maximal out_dir="output/maximal_kgx":
+    uv run python -m dismech.export.maximal_kgx_export -o {{out_dir}}
 
 # Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
 [group('Export')]
