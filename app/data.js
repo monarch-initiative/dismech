@@ -12046,106 +12046,6 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
-    "name": "Acute Hepatitis C Virus Infection",
-    "disease_id": "MONDO:0100371",
-    "category": "Infectious Disease",
-    "parents": [
-      "Acute disease",
-      "Hepatitis C virus infection"
-    ],
-    "creation_date": "2026-05-04T19:32:38Z",
-    "updated_date": null,
-    "subtypes": [],
-    "description": "Acute hepatitis C virus infection is the early phase after acquisition of hepatitis C virus (HCV), before either spontaneous viral clearance or persistent infection is established. The course is often clinically silent; symptomatic hepatitis can include jaundice, nausea, fatigue, anorexia, and elevated hepatic transaminases. Diagnosis requires both evidence of current infection and evidence that acquisition was recent because anti-HCV and HCV RNA results considered at a single time point do not reliably separate acute from chronic infection. Early direct-acting antiviral therapy can eradicate viremia and prevent chronic infection.",
-    "pathophysiology": [
-      "HCV attachment and hepatocyte entry",
-      "HCV Polyprotein Translation",
-      "HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein",
-      "HCV genome replication and early viremia",
-      "Interferon-driven innate and NK-cell activation",
-      "NS3/4A-mediated innate immune evasion",
-      "HCV-specific adaptive immune response",
-      "IFNL3 rs12979860 host-clearance modifier",
-      "Spontaneous viral clearance",
-      "Persistent HCV viremia",
-      "Chronic hepatitis C virus infection",
-      "Immune-associated hepatocellular injury"
-    ],
-    "cell_types": [
-      "hepatocyte",
-      "natural killer cell",
-      "T cell"
-    ],
-    "cell_type_ids": [
-      "CL:0000182",
-      "CL:0000623",
-      "CL:0000084"
-    ],
-    "biological_processes": [
-      "symbiont entry into host cell",
-      "Viral Gene Expression",
-      "Viral Protein Processing",
-      "Viral RNA Genome Replication",
-      "natural killer cell activation",
-      "type I interferon-mediated signaling pathway",
-      "symbiont-mediated suppression of host type I interferon-mediated signaling pathway",
-      "T cell activation",
-      "response to virus",
-      "viral genome replication",
-      "viral process"
-    ],
-    "phenotypes": [
-      "Jaundice",
-      "Nausea",
-      "Fatigue",
-      "Anorexia",
-      "Elevated hepatic transaminases"
-    ],
-    "phenotype_categories": [
-      "Hepatic",
-      "Gastrointestinal",
-      "Constitutional",
-      "Laboratory"
-    ],
-    "phenotype_hpo_categories": [
-      "Constitutional",
-      "Digestive",
-      "Integument",
-      "Metabolism"
-    ],
-    "phenotype_ids": [
-      "HP:0000952",
-      "HP:0002018",
-      "HP:0012378",
-      "HP:0002039",
-      "HP:0002910"
-    ],
-    "frequencies": [],
-    "genes": [
-      "IFNL3 (IL28B) rs12979860 clearance modifier"
-    ],
-    "treatments": [
-      "Immediate direct-acting antiviral treatment after confirmed acute HCV viremia",
-      "Eight-week glecaprevir/pibrentasvir therapy"
-    ],
-    "environmental": [
-      "Blood-exposure risk contexts"
-    ],
-    "biochemical": [
-      "HCV RNA",
-      "Anti-HCV antibody",
-      "Alanine aminotransferase"
-    ],
-    "source_file": "Acute_Hepatitis_C_Virus_Infection.yaml",
-    "page_url": "../pages/disorders/Acute_Hepatitis_C_Virus_Infection.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 12,
-    "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "25",
-    "causal_graph_longest_path": "8"
-  },
-  {
     "name": "Acute Hypotension",
     "disease_id": "MONDO:0005174",
     "category": "Complex",
@@ -149350,39 +149250,59 @@ window.searchData = [
     ],
     "creation_date": "2026-01-09T05:44:55Z",
     "updated_date": null,
-    "subtypes": [
-      "Acute Hepatitis C",
-      "Chronic Hepatitis C"
-    ],
-    "description": "Hepatitis C is a liver infection caused by the hepatitis C virus (HCV). It is primarily transmitted through blood-to-blood contact, including injection drug use, unsafe medical practices, and rarely through sexual transmission. Acute infection is often asymptomatic but progresses to chronic infection in 75-85% of cases. Chronic hepatitis C can lead to liver cirrhosis, hepatocellular carcinoma, and liver failure. Direct-acting antiviral therapies have revolutionized treatment, with cure rates exceeding 95%.\n",
+    "subtypes": [],
+    "description": "Hepatitis C is a liver infection caused by the hepatitis C virus (HCV). It is primarily transmitted through blood-to-blood contact, including injection drug use, unsafe medical practices, and transfusion of unscreened blood and blood products before donor screening; sexual and mother-to-child transmission occur less often. The entry covers the whole course of one infection. The acute phase, within six months of acquisition, is often clinically silent and can end in spontaneous clearance; the majority of infections instead persist as chronic hepatitis C, in which continuing viremia drives progressive hepatic fibrosis, cirrhosis, hepatocellular carcinoma, and immune-complex extrahepatic disease. Direct-acting antiviral therapies cure more than 95% of treated infections and are recommended once acute infection with quantifiable viremia is diagnosed, without waiting for possible spontaneous resolution.\n",
     "pathophysiology": [
-      "Viral Replication and Hepatocyte Injury",
+      "HCV attachment and hepatocyte entry",
+      "HCV Polyprotein Translation",
+      "HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein",
+      "HCV genome replication and early viremia",
+      "Interferon-driven innate and NK-cell activation",
+      "NS3/4A-mediated innate immune evasion",
+      "HCV-specific adaptive immune response",
+      "IFNL3 rs12979860 host-clearance modifier",
+      "Immune-associated hepatocellular injury",
+      "Spontaneous viral clearance",
+      "Persistent HCV viremia",
+      "Chronic hepatitis C virus infection",
       "Chronic Inflammation and Fibrosis",
-      "Immune Evasion",
       "Hepatocellular Carcinoma Development",
       "Cryoglobulin Immune Complex Deposition"
     ],
     "cell_types": [
       "hepatocyte",
-      "hepatic stellate cell",
-      "T cell"
+      "natural killer cell",
+      "T cell",
+      "hepatic stellate cell"
     ],
     "cell_type_ids": [
       "CL:0000182",
-      "CL:0000632",
-      "CL:0000084"
+      "CL:0000623",
+      "CL:0000084",
+      "CL:0000632"
     ],
     "biological_processes": [
-      "viral life cycle",
+      "symbiont entry into host cell",
+      "Viral Gene Expression",
+      "Viral Protein Processing",
+      "Viral RNA Genome Replication",
+      "natural killer cell activation",
+      "type I interferon-mediated signaling pathway",
+      "symbiont-mediated suppression of host type I interferon-mediated signaling pathway",
+      "T cell activation",
+      "response to virus",
+      "viral genome replication",
+      "viral process",
       "chronic inflammatory response",
       "hepatic stellate cell activation",
       "collagen biosynthetic process",
-      "symbiont-mediated suppression of host type I interferon-mediated signaling pathway",
       "immune complex formation"
     ],
     "phenotypes": [
       "Fatigue",
       "Jaundice",
+      "Nausea",
+      "Anorexia",
       "Hepatomegaly",
       "Elevated Transaminases",
       "Cirrhosis",
@@ -149397,6 +149317,7 @@ window.searchData = [
     "phenotype_categories": [
       "Constitutional",
       "Hepatic",
+      "Gastrointestinal",
       "Laboratory",
       "Neoplastic",
       "Immunologic",
@@ -149419,6 +149340,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0012378",
       "HP:0000952",
+      "HP:0002018",
+      "HP:0002039",
       "HP:0002240",
       "HP:0002910",
       "HP:0001394",
@@ -149436,14 +149359,17 @@ window.searchData = [
       "FREQUENT"
     ],
     "genes": [
-      "IL28B Polymorphisms"
+      "IFNL3 (IL28B) rs12979860 clearance modifier"
     ],
     "treatments": [
       "Direct-Acting Antivirals (DAAs)",
+      "Immediate direct-acting antiviral treatment after confirmed acute HCV viremia",
+      "Eight-week glecaprevir/pibrentasvir therapy",
       "Liver Transplantation",
       "Hepatocellular Carcinoma Surveillance"
     ],
     "environmental": [
+      "Blood-exposure risk contexts",
       "Injection Drug Use",
       "Unsafe Medical Practices",
       "Occupational Exposure",
@@ -149452,17 +149378,17 @@ window.searchData = [
     "biochemical": [
       "HCV RNA",
       "Anti-HCV Antibodies",
-      "Elevated ALT",
+      "Alanine aminotransferase",
       "Elevated Bilirubin"
     ],
     "source_file": "Hepatitis_C.yaml",
     "page_url": "../pages/disorders/Hepatitis_C.html",
-    "num_phenotypes": 12,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 15,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 5,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Hepatitis D",
@@ -333245,15 +333171,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3160,
-  "total_subtypes": 4049,
-  "total_disorders_and_subtypes": 7209,
+  "total_disorder_pages": 3159,
+  "total_subtypes": 4047,
+  "total_disorders_and_subtypes": 7206,
   "total_unique_evidence_sources": 45786,
   "total_unique_publications": 43031,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 285,
-  "total_pathographs": 3155,
-  "total_unique_pathological_events": 19876,
+  "total_pathographs": 3154,
+  "total_unique_pathological_events": 19875,
   "total_modules": 178,
   "total_research_reports": 3269,
   "total_classifications": 20,
