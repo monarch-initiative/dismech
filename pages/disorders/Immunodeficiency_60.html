@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4232,6 +4300,7 @@ A separate claim must be kept distinct from this one. BACH2 is also a common-var
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4253,6 +4322,7 @@ A separate claim must be kept distinct from this one. BACH2 is also a common-var
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4342,6 +4412,7 @@ This is recorded as a hypothesis and deliberately not drawn as a causal edge. Th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4363,6 +4434,7 @@ This is recorded as a hypothesis and deliberately not drawn as a causal edge. Th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4390,6 +4462,7 @@ This is recorded as a hypothesis and deliberately not drawn as a causal edge. Th
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4491,6 +4564,7 @@ The plasmablast and class-switch assay results named in the original version of 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4512,6 +4586,7 @@ The plasmablast and class-switch assay results named in the original version of 
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -4595,6 +4670,7 @@ One thing the full text complicates rather than settles. The null mouse showed p
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4616,6 +4692,7 @@ One thing the full text complicates rather than settles. The null mouse showed p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4700,6 +4777,7 @@ One thing the full text complicates rather than settles. The null mouse showed p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4781,6 +4859,7 @@ One thing the full text complicates rather than settles. The null mouse showed p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4805,6 +4884,7 @@ One thing the full text complicates rather than settles. The null mouse showed p
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4881,6 +4961,7 @@ One thing the full text complicates rather than settles. The null mouse showed p
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4915,6 +4996,7 @@ One thing the full text complicates rather than settles. The null mouse showed p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bach2-protein-destabilization" data-dismech-node="BACH2 Protein Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">BACH2 Protein Destabilization</div>
+
 
                 <div class="item-desc">The step that explains why one mutant allele yields half-dosage rather than a poisoned pathway. The reported BRIDA mutations do not produce a dominant-negative protein; they destabilize BACH2 itself, either by interfering with homodimerization through the BTB/POZ domain or by driving the protein into aggregates. The mutant product is therefore lost rather than interfering, which is what makes the downstream defect a pure gene-dosage problem.</div>
 
@@ -5011,6 +5093,8 @@ This genetic context concerns BACH2 (hgnc:14078). hgnc:14078 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5023,6 +5107,9 @@ This genetic context concerns BACH2 (hgnc:14078). hgnc:14078 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5068,6 +5155,7 @@ This genetic context concerns BACH2 (hgnc:14078). hgnc:14078 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5089,6 +5177,7 @@ This genetic context concerns BACH2 (hgnc:14078). hgnc:14078 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5116,6 +5205,7 @@ This genetic context concerns BACH2 (hgnc:14078). hgnc:14078 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5138,6 +5228,7 @@ This genetic context concerns BACH2 (hgnc:14078). hgnc:14078 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bach2-haploinsufficiency" data-dismech-node="BACH2 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">BACH2 Haploinsufficiency</div>
+
 
                 <div class="item-desc">Loss of one functional BACH2 allele leaves insufficient BACH2 protein to specify lymphocyte lineage decisions. IUIS characterises the defect as haploinsufficiency for a critical lineage specification transcription factor, which is a dosage statement rather than a dominant-negative one: the residual wild-type allele is not poisoned, it is simply not enough. BACH2 is required in both lymphoid lineages, which is why one dosage lesion produces a T-cell and a B-cell defect at once.</div>
 
@@ -5288,6 +5379,7 @@ This pathophysiological event involves decreased BACH2 transcriptional repressor
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5314,6 +5406,7 @@ This pathophysiological event involves decreased BACH2 transcriptional repressor
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5335,6 +5428,7 @@ This pathophysiological event involves decreased BACH2 transcriptional repressor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5362,6 +5456,7 @@ This pathophysiological event involves decreased BACH2 transcriptional repressor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-regulatory-t-cell-differentiation" data-dismech-node="Impaired Regulatory T Cell Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Regulatory T Cell Differentiation</div>
+
 
                 <div class="item-desc">BACH2 is one of the transcription factors whose loss defines the monogenic &#34;Tregopathies&#34; - inborn errors of immunity that act through the regulatory T-cell compartment rather than through effector immunity. Insufficient BACH2 impairs regulatory T-cell differentiation, and the resulting failure of peripheral tolerance is the arm of the disease that produces lymphocytic tissue infiltration rather than infection.</div>
 
@@ -5548,6 +5643,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5572,6 +5668,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5600,6 +5697,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5624,6 +5722,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th1-effector-skewing" data-dismech-node="TH1 Effector Skewing" data-dismech-type="pathophysiology">
                 <div class="item-name">TH1 Effector Skewing</div>
+
 
                 <div class="item-desc">The effector half of the T-cell lesion. Insufficient BACH2 releases the repression that normally restrains effector lineage commitment, and the patients&#39; CD4+ compartment is pushed towards the TH1 programme, marked by raised T-bet. This says what the surviving cells become; where they go is the separate node below.</div>
 
@@ -5747,6 +5846,7 @@ This pathophysiological event involves increased T-helper 1 cell differentiation
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5769,6 +5869,7 @@ This pathophysiological event involves increased T-helper 1 cell differentiation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gut-homing-receptor-upregulation-on-cd4-t-cells" data-dismech-node="Gut-Homing Receptor Upregulation on CD4+ T Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Gut-Homing Receptor Upregulation on CD4+ T Cells</div>
+
 
                 <div class="item-desc">The addressing half, and what makes the tissue infiltration land in the gut. A Treg deficit on its own predicts autoimmunity without predicting where it will appear; in BRIDA the CD4+ compartment carries raised levels of the two receptors that direct a T cell to intestinal tissue, CCR9 and beta-7 integrin. The same shift is reproduced at matched gene dosage in the heterozygous mouse, which is what makes it a consequence of halving BACH2 rather than a reaction to established colitis.</div>
 
@@ -5874,6 +5975,7 @@ This pathophysiological event involves CD4-positive helper T cell (CL:0000492). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5900,6 +6002,7 @@ This pathophysiological event involves CD4-positive helper T cell (CL:0000492). 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5922,6 +6025,7 @@ This pathophysiological event involves CD4-positive helper T cell (CL:0000492). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-memory-b-cell-development" data-dismech-node="Impaired Memory B Cell Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Memory B Cell Development</div>
+
 
                 <div class="item-desc">The B-cell arm of the defect. IUIS records impaired memory B-cell development as the circulating B-cell finding in BACH2 deficiency. Mechanistically BACH2 sits upstream of the memory-versus-plasma-cell decision: in normal human memory B cells, differentiation to plasma cells is driven by PRDM1/BLIMP1 induction with reciprocal downregulation of BACH2, so BACH2 is the repressor that holds the memory programme open. Insufficient BACH2 leaves that programme unable to be established, and the memory B-cell compartment that supplies durable mucosal and respiratory antibody does not accumulate.
 The founding report&#39;s full text resolves how far the defect goes, which earlier versions of this entry left open. The loss in patients is not only of memory B cells but specifically of class-switched ones, and activating patient naive B cells in vitro reproduces the failure directly: class-switch recombination, plasmablast generation and class-switched antibody secretion are all impaired. Isotype switching is therefore annotated here as a patient-level defect rather than a mouse inference.</div>
@@ -6184,6 +6288,7 @@ This pathophysiological event involves decreased immunoglobulin class switch rec
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6210,6 +6315,7 @@ This pathophysiological event involves decreased immunoglobulin class switch rec
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6231,6 +6337,7 @@ This pathophysiological event involves decreased immunoglobulin class switch rec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6295,6 +6402,7 @@ This pathophysiological event involves decreased immunoglobulin class switch rec
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6316,6 +6424,7 @@ This pathophysiological event involves decreased immunoglobulin class switch rec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6380,13 +6489,13 @@ This pathophysiological event involves decreased immunoglobulin class switch rec
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
@@ -6400,7 +6509,7 @@ This pathophysiological event involves decreased immunoglobulin class switch rec
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-t-cell-lymphopenia" data-dismech-node="Progressive T-cell lymphopenia" data-dismech-type="phenotype">
@@ -6451,6 +6560,9 @@ This clinical feature is Progressive T-cell lymphopenia, annotated with Decrease
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6465,6 +6577,7 @@ This clinical feature is Progressive T-cell lymphopenia, annotated with Decrease
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6489,6 +6602,7 @@ This clinical feature is Progressive T-cell lymphopenia, annotated with Decrease
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6543,6 +6657,9 @@ This clinical feature is Immunoglobulin deficiency, annotated with Decreased cir
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6566,6 +6683,7 @@ This clinical feature is Immunoglobulin deficiency, annotated with Decreased cir
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6593,6 +6711,7 @@ This clinical feature is Immunoglobulin deficiency, annotated with Decreased cir
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6614,6 +6733,7 @@ This clinical feature is Immunoglobulin deficiency, annotated with Decreased cir
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6670,6 +6790,9 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6684,6 +6807,7 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6738,6 +6862,9 @@ This clinical feature is Decreased memory B cell proportion (HP:0030374). HP:003
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6752,6 +6879,7 @@ This clinical feature is Decreased memory B cell proportion (HP:0030374). HP:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6806,6 +6934,9 @@ This clinical feature is Decreased class-switched memory B cell proportion (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6820,6 +6951,7 @@ This clinical feature is Decreased class-switched memory B cell proportion (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6831,74 +6963,6 @@ This clinical feature is Decreased class-switched memory B cell proportion (HP:0
 
 
                 <div class="evidence-explanation">The same sentence names the switched CD27+IgG+ subset as separately reduced, which is what this phenotype records.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-specific-antibody-response-to-vaccination" data-dismech-node="Decreased specific antibody response to vaccination" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased specific antibody response to vaccination
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0032140</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased specific antibody response to vaccination (HP:0032140). HP:0032140 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28530713" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28530713" target="_blank">PMID:28530713</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All three have developed a chronic variable immunodeficiency characterized by recurrent respiratory tract infections associated with an inability to generate appropriate antibody responses to vaccination."</div>
-
-
-                <div class="evidence-explanation">States the vaccine-response failure in all three subjects. Quoted in full because the same sentence carries the authors&#39; own summary characterisation of the humoral picture, which this entry cites rather than paraphrases.</div>
 
 
 
@@ -6928,15 +6992,18 @@ This clinical feature is Decreased specific antibody response to vaccination (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0031382</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased anti-CD3/28-induced T-cell proliferation (HP:0031382). HP:0031382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to the anti-CD3/28 child term rather than the general mitogen-induced parent because the methods name the stimulus: patient T cells were cultured with anti-CD3 and anti-CD28 for five days. The parent term was the right call while only the abstract was available; the full text makes the specific one correct.</div>
@@ -6968,6 +7035,7 @@ This clinical feature is Decreased anti-CD3/28-induced T-cell proliferation (HP:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6992,6 +7060,7 @@ This clinical feature is Decreased anti-CD3/28-induced T-cell proliferation (HP:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7013,6 +7082,7 @@ This clinical feature is Decreased anti-CD3/28-induced T-cell proliferation (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7053,15 +7123,18 @@ This clinical feature is Decreased anti-CD3/28-induced T-cell proliferation (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001876</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001876</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7081,6 +7154,7 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7130,15 +7204,18 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7158,6 +7235,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7198,15 +7276,18 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7226,6 +7307,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7250,6 +7332,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7299,15 +7382,18 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002583</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002583</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphocytic colitis, annotated with Colitis (HP:0002583). HP:0002583 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7327,6 +7413,7 @@ This clinical feature is Lymphocytic colitis, annotated with Colitis (HP:0002583
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7351,6 +7438,7 @@ This clinical feature is Lymphocytic colitis, annotated with Colitis (HP:0002583
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7383,7 +7471,7 @@ This clinical feature is Lymphocytic colitis, annotated with Colitis (HP:0002583
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-sinopulmonary-infections" data-dismech-node="Recurrent sinopulmonary infections" data-dismech-type="phenotype">
@@ -7400,15 +7488,18 @@ This clinical feature is Lymphocytic colitis, annotated with Colitis (HP:0002583
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005425" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0005425</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005425" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0005425</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent sinopulmonary infections (HP:0005425). HP:0005425 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7438,6 +7529,7 @@ This clinical feature is Recurrent sinopulmonary infections (HP:0005425). HP:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7446,6 +7538,78 @@ This clinical feature is Recurrent sinopulmonary infections (HP:0005425). HP:000
 
 
                 <div class="evidence-explanation">The associated-features column of the IUIS Table 4 row, quoted together with the preceding functional-defect cell so the span is long enough to be self-describing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-specific-antibody-response-to-vaccination" data-dismech-node="Decreased specific antibody response to vaccination" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased specific antibody response to vaccination
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0032140</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased specific antibody response to vaccination (HP:0032140). HP:0032140 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28530713" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28530713" target="_blank">PMID:28530713</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three have developed a chronic variable immunodeficiency characterized by recurrent respiratory tract infections associated with an inability to generate appropriate antibody responses to vaccination."</div>
+
+
+                <div class="evidence-explanation">States the vaccine-response failure in all three subjects. Quoted in full because the same sentence carries the authors&#39; own summary characterisation of the humoral picture, which this entry cites rather than paraphrases.</div>
 
 
 
@@ -7498,6 +7662,9 @@ This clinical feature is Non-infectious fever, annotated with Fever (HP:0001945)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7512,6 +7679,7 @@ This clinical feature is Non-infectious fever, annotated with Fever (HP:0001945)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7575,6 +7743,9 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7589,6 +7760,7 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7687,6 +7859,9 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -7701,6 +7876,7 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7728,6 +7904,7 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7752,6 +7929,7 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7785,6 +7963,12 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
         NM_021813.4:c.1727G&gt;T p.(Arg576Leu)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Novel heterozygous missense variant reported in the second BRIDA family, substituting a highly conserved arginine and predicted deleterious. Patient cells showed reduced BACH2 expression and deficient repression of its target BLIMP1. Inherited from the father, who was clinically unaffected but had an extreme reduction in memory B cells - the entry&#39;s one data point on penetrance.</div>
@@ -7862,6 +8046,7 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7980,6 +8165,9 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7990,6 +8178,9 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -8026,6 +8217,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8069,6 +8261,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8136,6 +8329,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8146,6 +8342,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
     </div>
+
+
+
 
 
 
@@ -8182,6 +8381,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8225,6 +8425,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8313,6 +8514,9 @@ This treatment uses corticosteroid, annotated with glucocorticoid (CHEBI:24261).
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8323,6 +8527,9 @@ This treatment uses corticosteroid, annotated with glucocorticoid (CHEBI:24261).
 
 
     </div>
+
+
+
 
 
 
@@ -8359,6 +8566,7 @@ This treatment uses corticosteroid, annotated with glucocorticoid (CHEBI:24261).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8409,6 +8617,7 @@ This treatment uses corticosteroid, annotated with glucocorticoid (CHEBI:24261).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8452,6 +8661,7 @@ This treatment uses corticosteroid, annotated with glucocorticoid (CHEBI:24261).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8473,6 +8683,7 @@ This treatment uses corticosteroid, annotated with glucocorticoid (CHEBI:24261).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8550,6 +8761,7 @@ This treatment uses corticosteroid, annotated with glucocorticoid (CHEBI:24261).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8621,6 +8833,7 @@ This treatment uses corticosteroid, annotated with glucocorticoid (CHEBI:24261).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8839,6 +9052,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8878,6 +9092,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8959,6 +9174,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8998,6 +9214,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9154,6 +9371,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9213,6 +9431,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9252,6 +9471,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9331,6 +9551,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9390,6 +9611,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9429,6 +9651,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9508,6 +9731,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9547,6 +9771,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9686,6 +9911,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9725,6 +9951,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9862,6 +10089,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9901,6 +10129,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10040,6 +10269,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10079,6 +10309,7 @@ Keeping the dose-match versus dose-dependence distinction this entry draws: dose
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

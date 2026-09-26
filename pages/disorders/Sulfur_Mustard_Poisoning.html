@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4107,6 +4175,7 @@ Two features set this entry apart from other acute toxic exposures. The first is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4128,6 +4197,7 @@ Two features set this entry apart from other acute toxic exposures. The first is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4203,6 +4273,7 @@ Two features set this entry apart from other acute toxic exposures. The first is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4224,6 +4295,7 @@ Two features set this entry apart from other acute toxic exposures. The first is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4299,6 +4371,7 @@ Two features set this entry apart from other acute toxic exposures. The first is
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4414,6 +4487,7 @@ Closing this properly needs a primary clinical series reporting blood counts in 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4448,6 +4522,7 @@ Closing this properly needs a primary clinical series reporting blood counts in 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sulfur-mustard-penetration-and-episulfonium-ion-formation" data-dismech-node="Sulfur Mustard Penetration and Episulfonium Ion Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sulfur Mustard Penetration and Episulfonium Ion Formation</div>
+
 
                 <div class="item-desc">Sulfur mustard is lipophilic and crosses skin, corneal and airway epithelium within minutes of contact. Inside the cell it cyclizes intramolecularly, displacing chloride to form a strained three-membered episulfonium (ethylene sulfonium) ring. That cation, not the parent molecule, is the alkylating electrophile, and because the parent carries two chloroethyl arms the reaction can happen twice on the same molecule. Most of a dermal dose stays in the epidermis, which is why the cutaneous lesion is superficial and the systemic dose is small relative to the local injury.</div>
 
@@ -4544,6 +4619,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4565,6 +4641,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4590,6 +4667,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-n7-guanine-alkylation-and-interstrand-crosslinking" data-dismech-node="DNA N7-Guanine Alkylation and Interstrand Crosslinking" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA N7-Guanine Alkylation and Interstrand Crosslinking</div>
+
 
                 <div class="item-desc">The episulfonium ion attacks nucleophilic sites in DNA, predominantly the N7 position of deoxyguanosine. Because sulfur mustard is bifunctional, a single molecule can alkylate two nucleophiles, producing intrastrand and interstrand DNA crosslinks as well as DNA-protein crosslinks. An interstrand crosslink tethers the two strands together and physically blocks the replication and transcription machinery, so the lesion is cytotoxic rather than merely mutagenic. Replication forks that collide with an unrepaired crosslink generate double-strand breaks.</div>
 
@@ -4715,6 +4793,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4737,6 +4816,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-parp1-hyperactivation-and-nad-depletion" data-dismech-node="PARP1 Hyperactivation and NAD+ Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">PARP1 Hyperactivation and NAD+ Depletion</div>
+
 
                 <div class="item-desc">PARP1 detects DNA strand breaks and responds by transferring ADP-ribose units from NAD+ onto nuclear acceptor proteins. At the lesion densities sulfur mustard produces, this repair response becomes the injury: PARP1 consumes the cellular NAD+ pool, and because NAD+ is an obligate cofactor for glycolysis, the TCA cycle and the electron transport chain, ATP synthesis fails with it. The consequence is a switch in death mode - a cell with modest damage apoptoses or repairs, a cell with severe damage runs out of energy and dies by necrosis. Necrosis rather than apoptosis is what makes the lesion inflammatory and slow to heal.</div>
 
@@ -4860,6 +4940,7 @@ This pathophysiological event involves increased NAD+ consumption by poly-ADP-ri
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4881,6 +4962,7 @@ This pathophysiological event involves increased NAD+ consumption by poly-ADP-ri
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4906,6 +4988,7 @@ This pathophysiological event involves increased NAD+ consumption by poly-ADP-ri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutathione-depletion-and-oxidative-stress" data-dismech-node="Glutathione Depletion and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutathione Depletion and Oxidative Stress</div>
+
 
                 <div class="item-desc">Sulfur mustard depletes intracellular glutathione by direct conjugation to the electrophile and, in chronically exposed human lung, by downregulation of glutathione reductase, the enzyme that regenerates reduced glutathione from its disulfide. The cell therefore loses its principal antioxidant buffer at the moment it most needs it, and reactive oxygen and nitrogen species accumulate. This arm is largely independent of the DNA-alkylation arm and synergistic with it: both converge on the same dying cell. Human mustard lung shows the paradoxical signature of the pathway under strain - glutathione peroxidases, transferases and synthetase are all overexpressed while glutathione reductase is strongly suppressed and the substrate they need is scarce.</div>
 
@@ -5067,6 +5150,7 @@ This pathophysiological event involves decreased glutathione reductase activity,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5088,6 +5172,7 @@ This pathophysiological event involves decreased glutathione reductase activity,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5115,6 +5200,7 @@ This pathophysiological event involves decreased glutathione reductase activity,
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5137,6 +5223,7 @@ This pathophysiological event involves decreased glutathione reductase activity,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cellular-energy-collapse-and-epithelial-necrosis" data-dismech-node="Cellular Energy Collapse and Epithelial Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular Energy Collapse and Epithelial Necrosis</div>
+
 
                 <div class="item-desc">Keratinocytes, corneal epithelial cells and airway epithelial cells that have lost their NAD+ and ATP pools and their antioxidant buffer die. The death mode is dose-dependent rather than uniform: a cell with modest damage apoptoses, a cell whose energy has collapsed cannot run the ATP-dependent apoptotic programme and dies by necrosis. Both are present in the injured airway, and the balance between them is what the PARP1 arm sets. Necrotic death spills intracellular contents into the tissue, which is what converts a molecular lesion into an inflammatory one. Do not read this node as claiming the death is exclusively necrotic - the evidence below includes a direct demonstration of early apoptosis in the same inhalation model.</div>
 
@@ -5352,6 +5439,7 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5373,6 +5461,7 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5400,6 +5489,7 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5422,6 +5512,7 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-pro-inflammatory-cytokine-burst-and-neutrophil-recruitment" data-dismech-node="Acute Pro-Inflammatory Cytokine Burst and Neutrophil Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Pro-Inflammatory Cytokine Burst and Neutrophil Recruitment</div>
+
 
                 <div class="item-desc">Necrotic epithelium releases a burst of pro-inflammatory cytokines and chemokines within the first 72 hours, and neutrophils follow them into the tissue. In the rat inhalation model this burst comprises IL-1 beta, TNF-alpha, IL-2, IL-6 and the chemokines CCL2, CCL3, CCL11 and CXCL1. In exposed patients, serum IL-6 tracks the severity of the pulmonary complication, which is the human counterpart of the same signal. This node substitutes the chemical vesicant insult for the generic injury the fibrosis module expects at this step.</div>
 
@@ -5645,6 +5736,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5666,6 +5758,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5691,6 +5784,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermal-epidermal-separation-and-vesication" data-dismech-node="Dermal-Epidermal Separation and Vesication" data-dismech-type="pathophysiology">
                 <div class="item-name">Dermal-Epidermal Separation and Vesication</div>
+
 
                 <div class="item-desc">Death of basal keratinocytes at the dermal-epidermal junction, together with the proteases released from them, separates the epidermis from the dermis and produces the blister that gives the agent its name. The lesion is delayed relative to the chemistry: alkylation is complete within minutes, while the visible lesion takes hours. In the mouse ear vesicant model the equivalent lesion rises sharply between 4 and 8 hours after exposure and stays elevated at 24 hours. The figures commonly quoted for humans - erythema at 2 to 24 hours, vesication at 24 to 48 - are not stated in any source cached for this entry and are deliberately not asserted here.</div>
 
@@ -5809,6 +5903,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5835,6 +5930,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5857,6 +5953,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skin-ulceration-and-impaired-wound-healing" data-dismech-node="Skin Ulceration and Impaired Wound Healing" data-dismech-type="pathophysiology">
                 <div class="item-name">Skin Ulceration and Impaired Wound Healing</div>
+
 
                 <div class="item-desc">Once the blister roof is lost the wound behaves unlike a thermal burn of comparable depth: healing is slow, the ulcer is prone to secondary infection, and scarring follows. Because the underlying keratinocyte population has itself been alkylated, the tissue is repairing with cells whose replicative capacity has been damaged.</div>
 
@@ -5933,6 +6030,7 @@ This pathophysiological event involves decreased wound healing (GO:0042060). GO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5955,6 +6053,7 @@ This pathophysiological event involves decreased wound healing (GO:0042060). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneal-and-limbal-epithelial-injury" data-dismech-node="Corneal and Limbal Epithelial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneal and Limbal Epithelial Injury</div>
+
 
                 <div class="item-desc">The cornea is the most sensitive tissue to sulfur mustard in the acute phase. Acute injury presents after a latent period of hours as lacrimation, blepharospasm, severe conjunctivitis and corneal erosion. Most acute lesions re-epithelialise within days. The consequential injury is to the limbus, the narrow zone at the corneal margin that houses the stem cells responsible for renewing corneal epithelium.</div>
 
@@ -6103,6 +6202,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6124,6 +6224,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6149,6 +6250,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-il-17-dependent-airway-inflammation" data-dismech-node="Chronic IL-17-Dependent Airway Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic IL-17-Dependent Airway Inflammation</div>
+
 
                 <div class="item-desc">The acute neutrophilic burst does not resolve. From about two weeks after a single inhalational exposure the infiltrate becomes lymphocytic, cytokine expression stays elevated, and IL-17-positive cells accumulate in the inflamed regions of the lung. This persistence is the hinge of the whole entry: it is the mechanism by which a single exposure produces disease that is still progressing decades later, and it is why the chronic pulmonary disease develops in patients whose acute exposure was unremarkable.</div>
 
@@ -6325,6 +6427,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6346,6 +6449,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6371,6 +6475,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta-driven-myofibroblast-activation" data-dismech-node="TGF-beta Driven Myofibroblast Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta Driven Myofibroblast Activation</div>
+
 
                 <div class="item-desc">TGF-beta is undetectable during the acute phase and is strongly upregulated in the chronic phase, where it drives fibroblast-to-myofibroblast conversion and proliferation. PDGF and PAI-1 rise alongside it. The temporal separation matters: the profibrotic signal is not part of the initial injury but a consequence of inflammation that failed to resolve, which is why the fibrosis is delayed rather than immediate.</div>
 
@@ -6544,6 +6649,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6565,6 +6671,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6590,6 +6697,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bronchiolar-and-interstitial-collagen-deposition" data-dismech-node="Bronchiolar and Interstitial Collagen Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Bronchiolar and Interstitial Collagen Deposition</div>
+
 
                 <div class="item-desc">Activated myofibroblasts deposit collagen in the bronchiolar wall and the interstitium. In the small airways this produces the concentric intraluminal and peribronchiolar scarring that defines bronchiolitis obliterans; in the parenchyma it produces interstitial fibrosis. Both are present together in the rat inhalation model and both worsen with time.</div>
 
@@ -6814,6 +6922,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6835,6 +6944,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6860,6 +6970,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bronchiolitis-obliterans-and-progressive-airflow-obstruction" data-dismech-node="Bronchiolitis Obliterans and Progressive Airflow Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Bronchiolitis Obliterans and Progressive Airflow Obstruction</div>
+
 
                 <div class="item-desc">Obliterated small airways and stiffened parenchyma translate into measurable physiology: rising lung resistance, falling compliance, and a mixed obstructive-restrictive spirometric pattern that declines year on year. The pattern is mixed, not purely obstructive, in every source that reports it - worth stating because the node&#39;s name emphasises obstruction. This is the dominant cause of long-term disability and death in survivors, and it is what the clinical literature calls mustard lung. Roughly 42.5% of exposed Iranian veterans have pulmonary involvement, with cough and dyspnoea the leading complaints.</div>
 
@@ -6978,6 +7089,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6999,6 +7111,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7026,6 +7139,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7048,6 +7162,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limbal-stem-cell-deficiency-and-delayed-mustard-gas-keratopathy" data-dismech-node="Limbal Stem Cell Deficiency and Delayed Mustard Gas Keratopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Limbal Stem Cell Deficiency and Delayed Mustard Gas Keratopathy</div>
+
 
                 <div class="item-desc">With the limbal stem cell pool destroyed, the cornea can no longer renew its own epithelium, and conjunctival epithelium invades across the limbal barrier instead. The clinical result appears after a silent interval that can run to decades: limbal ischaemia, corneal scarring and opacity, neovascularization, thinning, lipid and amyloid deposits, and persistent epithelial defects. In a series of 48 patients, corneal scar or opacity was present in 87.5% and neovascularization in 70.8%. The link between the acute limbal insult and the multi-decade latency is inferred from clinical natural history and is not established at the cell-biological level.</div>
 
@@ -7178,6 +7293,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7199,6 +7315,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7226,6 +7343,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7250,6 +7368,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haematopoietic-suppression" data-dismech-node="Haematopoietic Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Haematopoietic Suppression</div>
+
 
                 <div class="item-desc">After significant systemic absorption, sulfur mustard suppresses haematopoiesis, producing cytopenias and marrow damage. Mechanistically this is unsurprising - the agent is the chemical ancestor of the nitrogen mustard cytotoxics, whose dose-limiting toxicity is myelosuppression, and dividing marrow progenitors are exactly the population an interstrand crosslink is most cytotoxic to. Read the evidence grade before relying on this node: the only quotable statement available here is a review&#39;s secondhand assertion, not a primary clinical series, which is why no frequency or severity is curated and why the gap is recorded as a discussion.</div>
 
@@ -7345,6 +7464,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7367,6 +7487,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-melanocyte-injury-and-dyspigmentation" data-dismech-node="Melanocyte Injury and Dyspigmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Melanocyte Injury and Dyspigmentation</div>
+
 
                 <div class="item-desc">Epidermal melanocytes are alkylated alongside keratinocytes, and the effect on pigment is dose-dependent in opposite directions. Low sulfur mustard concentrations raise melanin synthesis and the expression of tyrosinase, TRP1, TRP2 and MITF; high concentrations reduce melanin content and downregulate all of them. This is offered as an explanation for the characteristic mixture of hyper- and hypopigmented patches in healed skin. Keep the two claims apart: the opposing dose-dependence is measured, in cultured human melanocytes, and the mapping onto the clinical pattern is the study authors&#39; own inference from it - no cached source here reports the concentration gradient across a patient&#39;s contact area that the explanation would require.</div>
 
@@ -7496,6 +7617,7 @@ This pathophysiological event involves dysregulated melanin biosynthetic process
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7517,6 +7639,7 @@ This pathophysiological event involves dysregulated melanin biosynthetic process
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7544,6 +7667,7 @@ This pathophysiological event involves dysregulated melanin biosynthetic process
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7566,6 +7690,7 @@ This pathophysiological event involves dysregulated melanin biosynthetic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malignant-transformation-of-chronically-injured-bronchial-epithelium" data-dismech-node="Malignant Transformation of Chronically Injured Bronchial Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Malignant Transformation of Chronically Injured Bronchial Epithelium</div>
+
 
                 <div class="item-desc">Bronchial epithelium that has been alkylated, is chronically inflamed and is proliferating to repair itself carries an elevated risk of malignant transformation. Two lines of evidence support this, and neither is as strong as it first looks. In bronchial biopsies, FOXM1 and APOE are overexpressed roughly 15-fold and 4-fold - but the study has six exposed patients and five controls, excluded anyone with lung cancer, and its authors read APOE the other way, as protective against ROS damage in the short term, with the cancer link offered as a hypothesis. Clinically, in 719 victims followed for a mean of 38 years, lung fibrosis raised tumour risk about 17.75-fold, air trapping about 11.73-fold and bronchiectasis about 10.14-fold, and the lobes with fibrosis were the lobes tumours appeared in - but that cohort had no control group. The spatial concordance makes the association hard to explain by shared exposure alone; it is not itself a demonstration of mechanism.</div>
 
@@ -7689,6 +7814,7 @@ This pathophysiological event involves dysregulated DNA damage response (GO:0006
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7713,6 +7839,7 @@ This pathophysiological event involves dysregulated DNA damage response (GO:0006
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7734,6 +7861,7 @@ This pathophysiological event involves dysregulated DNA damage response (GO:0006
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7801,19 +7929,17 @@ This pathophysiological event involves dysregulated DNA damage response (GO:0006
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Neoplasm<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7823,7 +7949,7 @@ This pathophysiological event involves dysregulated DNA damage response (GO:0006
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-erythema" data-dismech-node="Erythema" data-dismech-type="phenotype">
@@ -7854,6 +7980,9 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7871,6 +8000,7 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7879,6 +8009,96 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
                 <div class="evidence-explanation">Erythema recorded as a presenting sign in confirmed human sulfur mustard exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-keratoconjunctivitis" data-dismech-node="Keratoconjunctivitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Keratoconjunctivitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001096" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001096</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Keratoconjunctivitis (HP:0001096), qualified as temporality acute. HP:0001096 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: ACUTE</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35974928" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35974928" target="_blank">PMID:35974928</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical findings in acute conditions include; sore eyes, lacrimation, burning sensation, edematous, obvious blepharospasm of eyelids, severe conjunctivitis, erosion and opacity of the cornea."</div>
+
+
+                <div class="evidence-explanation">Enumerates the acute ocular findings that constitute this phenotype.</div>
 
 
 
@@ -7917,15 +8137,18 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000613</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000613</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7945,6 +8168,7 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7985,10 +8209,10 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0007957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0007957</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Corneal opacity (HP:0007957), qualified as course progressive. HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8017,6 +8241,9 @@ This clinical feature is Corneal opacity (HP:0007957), qualified as course progr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8031,6 +8258,7 @@ This clinical feature is Corneal opacity (HP:0007957), qualified as course progr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8071,15 +8299,18 @@ This clinical feature is Corneal opacity (HP:0007957), qualified as course progr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0011496</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0011496</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8099,6 +8330,7 @@ This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8139,10 +8371,10 @@ This clinical feature is Corneal neovascularization (HP:0011496). HP:0011496 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000498" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000498</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000498" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000498</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic blepharitis, annotated with Blepharitis (HP:0000498), qualified as temporality chronic. HP:0000498 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8171,6 +8403,9 @@ This clinical feature is Chronic blepharitis, annotated with Blepharitis (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8185,6 +8420,7 @@ This clinical feature is Chronic blepharitis, annotated with Blepharitis (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8227,15 +8463,18 @@ This clinical feature is Chronic blepharitis, annotated with Blepharitis (HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000633</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000633</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is decreased tear meniscus, annotated with Decreased lacrimation (HP:0000633). HP:0000633 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8258,6 +8497,7 @@ This clinical feature is decreased tear meniscus, annotated with Decreased lacri
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8297,15 +8537,18 @@ This clinical feature is decreased tear meniscus, annotated with Decreased lacri
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0032107</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0032107</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limbal stem cell deficiency (HP:0032107). HP:0032107 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8325,6 +8568,7 @@ This clinical feature is Limbal stem cell deficiency (HP:0032107). HP:0032107 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8349,6 +8593,7 @@ This clinical feature is Limbal stem cell deficiency (HP:0032107). HP:0032107 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8381,8 +8626,98 @@ This clinical feature is Limbal stem cell deficiency (HP:0032107). HP:0032107 is
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-bronchitis" data-dismech-node="Chronic bronchitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic bronchitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0004469</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic bronchitis (HP:0004469), qualified as temporality chronic. HP:0004469 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36539770" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36539770" target="_blank">PMID:36539770</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The late abnormalities can be present as chronic bronchitis, tracheobronchial stenosis, asthma, bronchiectasis, airway narrowing, lung fibrosis, and lung cancers."</div>
+
+
+                <div class="evidence-explanation">Lists chronic bronchitis among the established late respiratory abnormalities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-asthma" data-dismech-node="Asthma" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -8398,15 +8733,18 @@ This clinical feature is Limbal stem cell deficiency (HP:0032107). HP:0032107 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002099</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8426,6 +8764,7 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8450,6 +8789,7 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8501,15 +8841,18 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0008066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0008066</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vesicles and bullae, annotated with Abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8529,6 +8872,7 @@ This clinical feature is Vesicles and bullae, annotated with Abnormal blistering
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8571,15 +8915,18 @@ This clinical feature is Vesicles and bullae, annotated with Abnormal blistering
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000953</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000953</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8602,6 +8949,7 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8643,15 +8991,18 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001010</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8674,6 +9025,7 @@ This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 i
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8705,7 +9057,7 @@ This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 i
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiolitis-obliterans" data-dismech-node="Bronchiolitis obliterans" data-dismech-type="phenotype">
@@ -8722,10 +9074,10 @@ This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011946" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0011946</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011946" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0011946</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as course progressive. HP:0011946 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8754,6 +9106,9 @@ This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8768,6 +9123,7 @@ This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8808,15 +9164,18 @@ This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as cou
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8836,6 +9195,7 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8847,92 +9207,6 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                 <div class="evidence-explanation">Bronchiectasis in 151 of 719 followed victims on serial HRCT.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-bronchitis" data-dismech-node="Chronic bronchitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic bronchitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0004469</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic bronchitis (HP:0004469), qualified as temporality chronic. HP:0004469 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36539770" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36539770" target="_blank">PMID:36539770</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The late abnormalities can be present as chronic bronchitis, tracheobronchial stenosis, asthma, bronchiectasis, airway narrowing, lung fibrosis, and lung cancers."</div>
-
-
-                <div class="evidence-explanation">Lists chronic bronchitis among the established late respiratory abnormalities.</div>
 
 
 
@@ -8962,10 +9236,10 @@ This clinical feature is Chronic bronchitis (HP:0004469), qualified as temporali
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0002206</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course progressive. HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8994,6 +9268,9 @@ This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9008,6 +9285,7 @@ This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9048,10 +9326,10 @@ This clinical feature is Pulmonary fibrosis (HP:0002206), qualified as course pr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0012735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0012735</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cough (HP:0012735), qualified as temporality chronic. HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9080,6 +9358,9 @@ This clinical feature is Cough (HP:0012735), qualified as temporality chronic. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9094,6 +9375,7 @@ This clinical feature is Cough (HP:0012735), qualified as temporality chronic. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9134,10 +9416,10 @@ This clinical feature is Cough (HP:0012735), qualified as temporality chronic. H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094), qualified as course progressive. HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9166,6 +9448,9 @@ This clinical feature is Dyspnea (HP:0002094), qualified as course progressive. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9180,6 +9465,7 @@ This clinical feature is Dyspnea (HP:0002094), qualified as course progressive. 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9220,15 +9506,18 @@ This clinical feature is Dyspnea (HP:0002094), qualified as course progressive. 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0006536</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0006536</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9248,6 +9537,7 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9272,6 +9562,7 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9323,15 +9614,18 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0100526</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0100526</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9354,6 +9648,7 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9362,101 +9657,6 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
                 <div class="evidence-explanation">Histological distribution of the tumours arising in the followed cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-keratoconjunctivitis" data-dismech-node="Keratoconjunctivitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Keratoconjunctivitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001096" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0001096</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Keratoconjunctivitis (HP:0001096), qualified as temporality acute. HP:0001096 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: ACUTE</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35974928" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35974928" target="_blank">PMID:35974928</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical findings in acute conditions include; sore eyes, lacrimation, burning sensation, edematous, obvious blepharospasm of eyelids, severe conjunctivitis, erosion and opacity of the cornea."</div>
-
-
-                <div class="evidence-explanation">Enumerates the acute ocular findings that constitute this phenotype.</div>
 
 
 
@@ -9544,6 +9744,9 @@ This disease-associated gene is GSTM1 (hgnc:4632). hgnc:4632 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9558,6 +9761,7 @@ This disease-associated gene is GSTM1 (hgnc:4632). hgnc:4632 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9585,6 +9789,7 @@ This disease-associated gene is GSTM1 (hgnc:4632). hgnc:4632 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9609,6 +9814,7 @@ This disease-associated gene is GSTM1 (hgnc:4632). hgnc:4632 is a gene from the 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9665,6 +9871,9 @@ This disease-associated gene is GSTT1 (hgnc:4641). hgnc:4641 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9679,6 +9888,7 @@ This disease-associated gene is GSTT1 (hgnc:4641). hgnc:4641 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9736,6 +9946,9 @@ This disease-associated gene is GSTP1 (hgnc:4638). hgnc:4638 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9750,6 +9963,7 @@ This disease-associated gene is GSTP1 (hgnc:4638). hgnc:4638 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9836,6 +10050,9 @@ This treatment is skin decontamination, annotated with Therapeutic Procedure (NC
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9846,6 +10063,9 @@ This treatment is skin decontamination, annotated with Therapeutic Procedure (NC
 
 
     </div>
+
+
+
 
 
 
@@ -9894,6 +10114,7 @@ This treatment is skin decontamination, annotated with Therapeutic Procedure (NC
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9918,6 +10139,7 @@ This treatment is skin decontamination, annotated with Therapeutic Procedure (NC
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9939,6 +10161,7 @@ This treatment is skin decontamination, annotated with Therapeutic Procedure (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10011,6 +10234,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Humidified oxygen, bronchodilators, rehydration, mechanical ventilation where needed, antibiotics for secondary infection, respiratory physiotherapy, and burn-style wound care. There is no antidote, so this is the substance of acute management rather than an adjunct to one.</div>
 
 
@@ -10035,6 +10264,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10056,6 +10286,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10144,6 +10375,9 @@ This treatment uses N-acetylcysteine, annotated with acetylcysteine (CHEBI:22198
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10154,6 +10388,9 @@ This treatment uses N-acetylcysteine, annotated with acetylcysteine (CHEBI:22198
 
 
     </div>
+
+
+
 
 
 
@@ -10202,6 +10439,7 @@ This treatment uses N-acetylcysteine, annotated with acetylcysteine (CHEBI:22198
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10223,6 +10461,7 @@ This treatment uses N-acetylcysteine, annotated with acetylcysteine (CHEBI:22198
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10345,6 +10584,9 @@ This treatment uses salmeterol (CHEBI:9011). CHEBI:9011 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10355,6 +10597,9 @@ This treatment uses salmeterol (CHEBI:9011). CHEBI:9011 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -10403,6 +10648,7 @@ This treatment uses salmeterol (CHEBI:9011). CHEBI:9011 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10429,6 +10675,7 @@ This treatment uses salmeterol (CHEBI:9011). CHEBI:9011 is a therapeutic agent f
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10450,6 +10697,7 @@ This treatment uses salmeterol (CHEBI:9011). CHEBI:9011 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10538,6 +10786,9 @@ This treatment uses sodium thiosulfate (CHEBI:132112). CHEBI:132112 is a therape
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10548,6 +10799,9 @@ This treatment uses sodium thiosulfate (CHEBI:132112). CHEBI:132112 is a therape
 
 
     </div>
+
+
+
 
 
 
@@ -10575,6 +10829,7 @@ This treatment uses sodium thiosulfate (CHEBI:132112). CHEBI:132112 is a therape
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10642,6 +10897,9 @@ This treatment is burn wound care, annotated with Wound Care Management (NCIT:C1
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10652,6 +10910,9 @@ This treatment is burn wound care, annotated with Wound Care Management (NCIT:C1
 
 
     </div>
+
+
+
 
 
 
@@ -10697,6 +10958,7 @@ This treatment is burn wound care, annotated with Wound Care Management (NCIT:C1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10764,6 +11026,9 @@ This treatment is corneal and limbal allograft transplantation, annotated with C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10774,6 +11039,9 @@ This treatment is corneal and limbal allograft transplantation, annotated with C
 
 
     </div>
+
+
+
 
 
 
@@ -10819,6 +11087,7 @@ This treatment is corneal and limbal allograft transplantation, annotated with C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10886,6 +11155,9 @@ This treatment is mesenchymal stromal cell therapy, annotated with Mesenchymal S
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10896,6 +11168,9 @@ This treatment is mesenchymal stromal cell therapy, annotated with Mesenchymal S
 
 
     </div>
+
+
+
 
 
 
@@ -10944,6 +11219,7 @@ This treatment is mesenchymal stromal cell therapy, annotated with Mesenchymal S
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10965,6 +11241,7 @@ This treatment is mesenchymal stromal cell therapy, annotated with Mesenchymal S
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -11053,6 +11330,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11074,6 +11352,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11125,6 +11404,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11205,6 +11485,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11253,6 +11534,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11321,6 +11603,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11367,6 +11650,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11469,6 +11753,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11556,6 +11841,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11577,6 +11863,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11667,6 +11954,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11688,6 +11976,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11760,6 +12049,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11784,6 +12074,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11835,6 +12126,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11890,6 +12182,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11942,6 +12235,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11963,6 +12257,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12031,6 +12326,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12190,6 +12486,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12242,6 +12539,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12263,6 +12561,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12385,6 +12684,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12469,6 +12769,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12518,6 +12819,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12640,6 +12942,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12689,6 +12992,7 @@ This environmental factor is exposure to sulfur mustard, annotated with exposure
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15064,6 +15368,283 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry curates the human injury syndrome caused by sulfur mustard and the mechanism that produces it. It is not an entry about the agent&#39;s production, dispersal or military use, and the historical context recorded under `environmental:` is there because route and setting determine which organ is injured and how severely.
+Bone marrow suppression is curated, but read the evidence grade before relying on it. An earlier draft of this note claimed no cited source reported it quotably. That was false: PMID:40034085, cited seven times in this entry, states that sulfur mustard leads to systemic toxicity shown through &#34;blood cytopenia, bone marrow destruction&#34;. It is a review&#39;s secondhand assertion attributed to another author rather than a primary clinical series, so the node is graded accordingly and the absence of a primary cohort is recorded under `discussions:`.
+ECTO binding. The exposure term `ECTO:9001175` is the ontology&#39;s term for exposure to bis(2-chloroethyl) sulfide, which is sulfur mustard under its systematic name; ECTO has no term under any of the agent&#39;s common or military names. `ECTO:0070054`, &#34;exposure to mustard greens via ingestion&#34;, is an unrelated dietary term and is not a candidate here.
+NCIT binding for decontamination. `NCIT:C68769` is NCIT&#39;s term for decontamination and looks like the obvious binding for the acute intervention, but it is not reachable from `NCIT:C25218` (Clinical Intervention or Procedure), so it cannot be the `term:` of a `TreatmentTerm`. That treatment is bound to `NCIT:C49236` (Therapeutic Procedure) with the specificity carried in `preferred_term`, which is the same compromise CLAUDE.md records for medical devices.
+Organ systems seen in the research and left out, recorded so they are not re-litigated. The deep-research report surfaced gastrointestinal involvement (nausea, vomiting, diarrhoea; haemorrhagic gastroduodenitis and desquamative enteritis in severe systemic poisoning), neuropsychiatric sequelae (acute convulsions in severely poisoned patients; chronic anxiety, depression and cognitive decline decades later), basal and squamous cell carcinoma at exposure sites, and dry eye. The reason differs by item.
+The gastrointestinal, neuropsychiatric and cutaneous-malignancy findings are cited in the report to NCBI Bookshelf chapters, which are not fetchable as references here, so no exact snippet can be taken; the neuropsychiatric entry additionally carries a publisher link to animal aggregate-culture demyelination data, which would not support a human phenotype in any case. Those three remain uncurated.
+Dry eye is curated, and an earlier version of this paragraph was wrong about why it had not been. That version said dry eye &#34;has no citation behind it at all - it appears only in the report&#39;s list of suggested HP terms&#34;. The suggested-terms half is true, and HP:0000585 offered there is one of the six identifiers that name a different concept. The rest was false: dry eye also appears in the report&#39;s clinical narrative for delayed keratopathy, cited to PMID:15808253, whose cached abstract reports chronic blepharitis and decreased tear meniscus in all 48 patients - a sentence this entry already quoted twice for other claims before anyone noticed it also carried this one.
+Both findings from that sentence are now phenotypes. What is bound is the sign each time: Blepharitis, and Decreased lacrimation for the reduced tear meniscus. The keratoconjunctivitis sicca diagnosis is deliberately not asserted - HP:0001097 exists and this cohort does show the ocular surface damage the diagnosis needs, but the authors did not draw that conclusion in the sentence quoted.
+The cutaneous malignancy omission is the one a curator should look at first, because it is asymmetric: this entry models malignant transformation of chronically injured bronchial epithelium but not of skin, and the same alkylation and chronic-injury nodes run through both. That asymmetry reflects what is citable here, not a claim that the skin risk is lower.
+GeneReviews. Not applicable. This is an acquired toxic exposure with no Mendelian form, so there is no GeneReviews chapter to use as a phenotype baseline; a PubMed search for one returns nothing.
+Host susceptibility. An earlier draft of this note said no sulfur-mustard-specific association study existed for the glutathione-pathway polymorphisms and that no `genetic:` records were therefore curated. That was wrong, and it was wrong because the claim was carried over from the deep-research report&#39;s own statement that it had not identified such a study, rather than being checked. PMID:29435433 is exactly that study - 185 sulfur-mustard-exposed subjects, GSTM1 null genotype associated with mustard lung severity - and it is now curated below, along with the negative results for GSTT1 and GSTP1 from the same cohort. The genes are modifiers of severity, not causes: this disease has no genetic form, and nothing in `genetic:` should be read as one.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Pre-PR repository-state sweep: curate GST modifiers, fix two false source claims</strong> · 2026-09-11T02:38:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Sulfur_Mustard_Poisoning/2026-09-11T023849Z-claude-code-a0f6f3.yaml">View source</a></p>
+                        <p class="research-review-text">Ran the repository-state sweep on this entry before opening its PR, applying the
+habit that closed four review rounds on the COA6 entry: grep the file for every
+claim about what sources say, what an ontology contains, or what is or is not
+curated, then test each one rather than trusting the prose. Three of the seven
+claims tested were wrong, and the two substantive ones are fixed here.
+
+Claims that held. ECTO has no term under the agent&#39;s common or military names -
+searches for mustard gas, yperite, vesicant, sulfur mustard and sulphur mustard
+all return nothing, and ECTO:0070054 really is &#34;exposure to mustard greens via
+ingestion&#34;. NCIT:C68769 (Decontamination) really has no NCIT:C25218 ancestor
+while NCIT:C49236 does, so the binding compromise recorded in notes is correct.
+No GeneReviews chapter exists - the PubMed search returns zero hits.
+
+Finding 1, and the reason the sweep was worth running. The notes asserted that
+no sulfur-mustard-specific association study existed for the glutathione-pathway
+polymorphisms, and that no genetic: records were therefore curated. False.
+PubMed returns PMID:29435433, &#34;Association of glutathione S-transferase
+polymorphisms with the severity of mustard lung&#34; - 185 exposed subjects, GSTM1
+null genotype associated with severity at an adjusted OR of 2.257. The claim was
+not something this session established; it was the deep-research report&#39;s own
+statement that its search had not found such a study, absorbed into the notes as
+though it were a finding of ours. That is the same defect class as the four COA6
+rounds, with an additional wrinkle: the false claim originated in a provider
+artifact rather than in an earlier draft.
+
+The fix is content, not a reworded sentence. Three genetic: records are now
+curated: GSTM1 as MODIFIER carrying the severity association, and GSTT1 and
+GSTP1 as DISPUTED carrying the negative results from the same cohort and the
+same analysis. Negative results from a study powered to find the GSTM1 effect
+are informative - they argue the effect is isoform-specific rather than a
+general property of glutathione-transferase capacity - so they are recorded
+rather than omitted. PMID:24344877 was fetched alongside and is cited on the
+GSTM1 record for the complementary observation that GSTM1 message is upregulated
+2.84-fold in mustard-lung airway wall; the notes state explicitly that combining
+the two lines is inference and that neither study tests the link.
+
+All three gene CURIEs were resolved by live lookup in both directions rather
+than read from the cache alone: hgnc:4632 GSTM1, hgnc:4641 GSTT1, hgnc:4638
+GSTP1.
+
+Finding 2. The entry contradicted itself on blister timing. A note said the
+human figures - erythema at 2 to 24 hours, vesication at 24 to 48 - are stated
+in no cached source and are deliberately not asserted, while the Skin blistering
+phenotype asserted &#34;appearing 24 to 48 hours after contact&#34;. The note was right
+about the cache: grepping every cited source for those intervals returns
+nothing. The phenotype description now says the lesion appears after a latent
+interval without naming a figure, and points at the node that carries the
+animal-model timing that is quotable.
+
+Finding 3. The melanocyte node hedged its in-vitro explanation with &#34;pigmentary
+change is also reported in areas that were never exposed&#34;, which was load-bearing
+- it was the stated reason the explanation &#34;cannot be the whole story&#34; - and
+which no cached source supports. Searching every cited cache for unexposed-site
+pigmentary change returns nothing. The unsourced assertion is removed and the
+epistemics kept: the opposing dose-dependence is measured in cultured human
+melanocytes, the mapping onto the clinical pattern is the study authors&#39; own
+inference, and no cached source reports the within-lesion concentration gradient
+the explanation would require. That replacement negative claim was itself tested
+before being written.
+
+Counts recomputed from the file rather than carried forward: 17 pathophysiology
+nodes, 18 phenotypes, 8 treatments, 3 genetic records, 3 animal models, 2
+environmental exposures, 4 discussions, 4 conforms_to declarations against the
+5-node fibrotic_response module, 21 evidence PMIDs of which 13 are
+content_type full_text, 117 evidence snippets. Every fetched reference is now
+cited; nothing is left in references_cache/ unused.
+
+Validation: just validate-disorders passes, 117/117 snippets verified, and all
+twelve offline gates green - validate-terms, check-entity-refs,
+check-causal-targets, check-duplicate-keys, check-enum-values,
+check-qualifier-terms, check-folded-hyphens, check-snippet-length,
+check-title-snippets, check-snippet-grading, check-environmental-evidence,
+check-reference-titles. Graph audit confirms no dangling targets, no orphan
+nodes and no unconnected phenotypes. Weighted compliance 87.3%.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Sulfur Mustard Poisoning</strong> · 2026-09-10T19:49:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Sulfur_Mustard_Poisoning/2026-09-10T194922Z-claude-code-2a5aac.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Sulfur_Mustard_Poisoning.yaml (MONDO:0800387), an
+environmental/occupational chemical-vesicant exposure entry. No prior KB entry,
+stub, PR or issue covered the disease (checked against origin/main by MONDO ID
+and by the labels &#34;sulfur mustard&#34;, &#34;sulphur mustard&#34;, &#34;mustard gas&#34; and
+&#34;vesicant&#34;, plus PR and issue search across all states).
+
+Deep research: `just research-disorder claude_code Sulfur_Mustard_Poisoning`,
+one run, report committed at
+research/Sulfur_Mustard_Poisoning-deep-research-claude_code.md with its
+citations sidecar. The provider was the one requested by the user; no fallback
+was needed.
+
+Report validation as generated. Reference validation clean: 29/29 references
+resolved, confabulation_rate 0.0, 1/1 quoted claims found in source. Term
+validation NOT clean: needs_review true, with 7 identifiers named as a
+different term. Five of those were HP CURIEs naming unrelated concepts -
+HP:0000508 offered as &#34;photophobia&#34; is Ptosis, HP:0000534 as &#34;corneal
+neovascularization&#34; is Abnormal eyebrow morphology, HP:0000585 as &#34;dry eye&#34; is
+Band keratopathy, HP:0000523 as &#34;blindness&#34; is Subcapsular cataract, and
+HP:0025406 as &#34;blistering&#34; is Asthenia. A sixth, HP:0002204 offered as
+&#34;pulmonary fibrosis&#34;, is Pulmonary embolism and was reported only in the
+softer &#34;worth a second look&#34; bucket. None of the report&#39;s CURIEs were used.
+Every identifier in the entry was resolved by live OAK lookup at the moment it
+was written, which is how the correct terms (HP:0000613 Photophobia, HP:0011496
+Corneal neovascularization, HP:0002206 Pulmonary fibrosis) were obtained.
+
+One further report error found by reading the sources rather than by a
+validator: for PMID:27832694 the report quoted &#34;56.7% of a 30-patient
+sub-cohort showing pulmonary function improvement and 77.8% of an HRCT-assessed
+sub-cohort showing radiographic improvement&#34;. The abstract reports neither
+figure - it describes 73 patients (38 asthma, 16 COPD, 19 bronchiolitis
+obliterans) and compares FEV1 decline. The entry uses the abstract&#39;s own text.
+
+Content. 15 pathophysiology nodes forming a branched chain from agent
+penetration and episulfonium ion formation, through N7-guanine alkylation and
+interstrand crosslinking, PARP1 hyperactivation and NAD+/ATP depletion, and a
+parallel glutathione-depletion arm, into epithelial necrosis; then three organ
+arms (cutaneous vesication and ulceration, corneal and limbal injury into
+delayed mustard gas keratopathy, and the pulmonary arm) plus a melanocyte arm
+and a terminal malignant-transformation node. Four nodes conform to
+fibrotic_response (Inflammatory Recruitment and Amplification, Mesenchymal Cell
+Activation, Excessive ECM Deposition, Architectural Distortion and Organ
+Dysfunction), following the pattern Asbestosis and Paraquat_Poisoning use.
+17 phenotypes, all bound and all connected to a mechanism node by a bare-name
+downstream edge. Two environmental exposures bound to ECTO:9001175, both
+pathograph-linked with environmental_effect TRIGGERS. Six treatments, four
+progression phases, three diagnosis records, three animal models with
+modeled_mechanisms and readouts, two biomarkers, one prevalence record, four
+discussions.
+
+Deliberate omissions, each recorded in the entry rather than left silent.
+Bone marrow suppression is not curated as a node: no cached source states it
+quotably, and the nearest (PMID:37852927) records a workshop scoping decision
+rather than a finding, so it is a KNOWLEDGE_GAP discussion citing that source
+with supports NO_EVIDENCE. No genetic: records, because the host-susceptibility
+literature is glutathione-pathway polymorphisms as severity modifiers with no
+sulfur-mustard-specific association study identified. No GeneReviews baseline:
+the disease is an acquired toxic exposure with no Mendelian form.
+
+Two binding compromises recorded in notes:. NCIT:C68769 (Decontamination) is
+not reachable from NCIT:C25218, so the decontamination treatment binds
+NCIT:C49236 (Therapeutic Procedure) with the specificity in preferred_term.
+ECTO has no term under any of the agent&#39;s common or military names;
+ECTO:9001175 &#34;exposure to bis(2-chloroethyl) sulfide&#34; is the systematic-name
+term for the same substance, and ECTO:0070054 &#34;exposure to mustard greens via
+ingestion&#34; is an unrelated dietary term that is not a candidate.
+
+One self-caught error worth recording because it is the exact failure mode
+CLAUDE.md warns about: NCIT:C17204 was written with the label
+&#34;High-Resolution Computed Tomography&#34; from memory rather than from a lookup.
+The CURIE is Computed Tomography; term validation flagged the mismatch, and a
+search found the real term, NCIT:C20644 High Resolution Computed Tomography.
+
+Validation. `just validate-disorders` passes. 98/98 evidence snippets verified
+against the local reference cache by `just count-verified-snippets`.
+`just validate-terms` passes. Ten offline gates green: check-duplicate-keys,
+check-entity-refs, check-causal-targets, check-qualifier-terms,
+check-enum-values, check-folded-hyphens, check-snippet-length,
+check-title-snippets, check-snippet-grading, check-environmental-evidence.
+check-snippet-length initially failed on a four-word snippet, which was
+lengthened to the full clause rather than baselined. Graph audit confirms no
+dangling downstream targets, no orphan pathophysiology nodes, and no phenotype
+without an incoming edge. Weighted compliance 87.2%.
+
+24 references cached and committed, all PMIDs; 16 were recovered from PMC IDs
+in the report via the PMC ID Converter API and cited by PMID in preference to
+DOI.
+
+PRE-PR RED-TEAM REVIEW (same session, before first PR). An adversarial review
+was run against the entry with the mechanical gates already passing, to find
+what they cannot catch. It returned 15 findings; all were verified against the
+sources and all were acted on. The substantive ones:
+
+Two false statements about the entry&#39;s own evidence base. The notes and the
+bone-marrow discussion both asserted that no cited source reports haematopoietic
+suppression quotably. PMID:40034085, cited seven times in this entry, states
+that sulfur mustard leads to systemic toxicity shown through &#34;blood cytopenia,
+bone marrow destruction&#34; - and this entry already quoted the tail of that same
+sentence elsewhere. A Haematopoietic Suppression node is now curated on it,
+graded INDIRECT/OTHER because it is a review&#39;s secondhand assertion, and both
+prose passages were rewritten to record the correction rather than the claim.
+This is the same defect class as the COA6 note corrected earlier in this
+session: a claim about what the cache does not contain.
+
+An unsourced rat strain. The first animal model was described as
+Sprague-Dawley; that cache is abstract-only and states no strain, so the claim
+had no source at all (the review reports the paper&#39;s methods say Wistar). The
+strain claim was removed rather than replaced, since the cache cannot support
+either.
+
+A binding that asserted the reverse of its node&#39;s mechanism. The PARP1 node
+carried GO:0019674 NAD+ metabolic process with modifier DECREASED, while its own
+description and snippet say PARP1 consumes NAD+ - metabolism up, pool down.
+Rebound to GO:0019677 NAD+ catabolic process, INCREASED. Self-consistent and
+therefore invisible to validate-terms.
+
+A cell-type binding that overstated its source. CL:0000899 T-helper 17 cell
+asserts a RORgamma-t+/CXCR3-/CCR6+ phenotype that PMID:22465472 never
+established - it did IL-17 immunohistochemistry, titles itself &#34;possible role of
+Th17 cells&#34;, and notes IL-17 is also produced by neutrophils. Rebound to
+CL:0000084 T cell with the specificity in preferred_term.
+
+A mechanism claim contradicted by a source cited eight times. The necrosis node
+said the epithelium dies &#34;by necrosis rather than apoptosis&#34;; PMID:22465472
+reports TUNEL-positive cells and states &#34;SM exposure triggers an early apoptotic
+cell death&#34;. The node now describes a dose-dependent balance and carries that
+sentence as REFUTE evidence against an exclusively necrotic reading.
+
+An inference presented as fact. The dyspigmentation node explained the
+hyper/hypopigmented mixture as following the concentration gradient across the
+contact area. PMID:40034085 reports that nonexposed areas also develop
+pigmentary change, which no such gradient explains. Hedged, with that sentence
+added as REFUTE.
+
+Frequency bands with the wrong denominator. Corneal opacity carried
+VERY_FREQUENT and neovascularization FREQUENT, both derived from a series of 48
+patients who already had keratitis. Bands removed; the percentages moved into
+the descriptions with their denominator stated.
+
+Overstated cancer evidence. The FOXM1/APOE study is six exposed patients against
+five controls, excluded anyone with lung cancer, and its authors read APOE as
+protective with the cancer link offered as a hypothesis; the 719-patient HRCT
+cohort had no control group. Both caveats are now in the description, and the
+claim that spatial concordance makes the relationship &#34;mechanistic&#34; was
+withdrawn.
+
+Content gaps closed: Asthma (HP:0002099) and Limbal stem cell deficiency
+(HP:0032107), both named in cached sources and both blocking under the review
+skill&#39;s threshold; a Cutaneous Wound Management treatment for the previously
+untreated skin-ulcer node; the positive NAC clinical result from PMID:25055840,
+where only the negative caveat had been cited; GO:0032964 added to the ECM node
+so its fibrotic_response conformance is fully earned; a directly on-topic latent
+period quote replacing a mouse-ear proxy as primary support.
+
+Consistency: PMID:40034085 is a review and was graded MODEL_ORGANISM on two
+items and OTHER on five. All now OTHER, with animal provenance carried by
+directness: INDIRECT. Not caught by check-snippet-grading, which keys on the
+sentence.
+
+Also fixed: the skin blister term was HP:0200037 Skin vesicle, defined as under
+10mm, while sulfur mustard classically produces bullae - rebound to HP:0008066
+Abnormal blistering of the skin. Unsourced human vesication timings and an
+unsourced causal clause about corneal susceptibility were removed.
+
+The review confirmed clean: all reference titles matching the cache, none of the
+report&#39;s mislabelled CURIEs bound, both ontology claims in notes verifying
+against the local builds, and every re-derived figure accurate.
+
+Post-review state: 17 pathophysiology nodes, 18 phenotypes, 8 treatments.
+112/112 snippets verified. Evidence now carries 3 REFUTE and 1 NO_EVIDENCE items
+against 108 SUPPORT; the review noted that zero REFUTE across the entry was
+itself a signal for a mechanism this contested. All eleven offline gates green,
+validate-disorders passes, weighted compliance 86.9%.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

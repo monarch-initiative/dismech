@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4232,6 +4300,7 @@ The clinical shape follows the molecular one and is starkly sex-dependent. Hemiz
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4253,6 +4322,7 @@ The clinical shape follows the molecular one and is starkly sex-dependent. Hemiz
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4364,6 +4434,7 @@ This subtype is caused by variation in DMD (hgnc:2928). hgnc:2928 is a gene from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4442,6 +4513,7 @@ This subtype is caused by variation in DMD (hgnc:2928). hgnc:2928 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4585,6 +4657,7 @@ This subtype is caused by variation in DMD (hgnc:2928). hgnc:2928 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4619,6 +4692,7 @@ This subtype is caused by variation in DMD (hgnc:2928). hgnc:2928 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-5-dmd-muscle-promoter-isoform-disrupting-lesion" data-dismech-node="5&#39; DMD Muscle-Promoter/Isoform-Disrupting Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">5&#39; DMD Muscle-Promoter/Isoform-Disrupting Lesion</div>
+
 
                 <div class="item-desc">The initiating lesion. The paradigmatic XLDCM mutation deletes the muscle (M) promoter and first muscle exon at the 5&#39; end of DMD, abolishing transcription of the muscle dystrophin isoform (Dp427m); other XLDCM lesions include in-frame exon 45-55 deletions and destabilizing missense variants. Towbin&#39;s linkage study localized the disorder to the centromeric half of the dystrophin locus at Xp21 and showed that cardiac dystrophin was abnormal on Western blot while skeletal-muscle dystrophin was normal - the biochemical signature of a heart-preferential dystrophin defect.</div>
 
@@ -4710,6 +4784,7 @@ This pathophysiological event involves dystrophin actin filament binding, annota
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4731,6 +4806,7 @@ This pathophysiological event involves dystrophin actin filament binding, annota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4756,6 +4832,7 @@ This pathophysiological event involves dystrophin actin filament binding, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricle-selective-loss-of-dystrophin" data-dismech-node="Ventricle-Selective Loss of Dystrophin" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricle-Selective Loss of Dystrophin</div>
+
 
                 <div class="item-desc">The node on which the whole entry turns, and the reason XLDCM is cardiac-selective rather than a systemic dystrophinopathy. When the 5&#39; mutation abolishes the muscle (M) dystrophin isoform, skeletal muscle compensates by up-regulating the brain (B) isoform from an intact downstream promoter. The ventricular myocardium cannot: in the healthy human heart the B isoform is expressed only in atrial cardiomyocytes and conduction tissue, and is absent from the ventricles, which transcribe the M isoform alone. With no compensatory transcript available, the ventricle is left dystrophin-deficient while the limbs are rescued.</div>
 
@@ -4843,6 +4920,7 @@ This pathophysiological event involves ventricular cardiomyocyte, annotated with
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4869,6 +4947,7 @@ This pathophysiological event involves ventricular cardiomyocyte, annotated with
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4890,6 +4969,7 @@ This pathophysiological event involves ventricular cardiomyocyte, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4915,6 +4995,7 @@ This pathophysiological event involves ventricular cardiomyocyte, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-dystrophin-glycoprotein-complex-disruption" data-dismech-node="Cardiomyocyte Dystrophin-Glycoprotein Complex Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Dystrophin-Glycoprotein Complex Disruption</div>
+
 
                 <div class="item-desc">Dystrophin is the central member of the dystrophin-glycoprotein complex (DGC) at the sarcolemma, linking the intracellular actin cytoskeleton through dystroglycan and sarcoglycan subcomplexes to the extracellular matrix. Without dystrophin the DGC cannot assemble, and the mechanical and signaling link across the ventricular cardiomyocyte membrane is lost.</div>
 
@@ -5006,6 +5087,7 @@ This pathophysiological event involves cardiomyocyte sarcolemma, annotated with 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5027,6 +5109,7 @@ This pathophysiological event involves cardiomyocyte sarcolemma, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5052,6 +5135,7 @@ This pathophysiological event involves cardiomyocyte sarcolemma, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcolemmal-fragility-and-contraction-induced-cardiomyocyte-injury" data-dismech-node="Sarcolemmal Fragility and Contraction-Induced Cardiomyocyte Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcolemmal Fragility and Contraction-Induced Cardiomyocyte Injury</div>
+
 
                 <div class="item-desc">With the DGC gone, dystrophin can no longer act as the molecular spring that protects the membrane during contraction, so each cardiac cycle inflicts microtears on the ventricular cardiomyocyte sarcolemma. This is the primary cardiomyocyte insult that the maladaptive-remodeling module models generically; here it is driven specifically by the ventricular dystrophin deficit and is aggravated by mechanical loading (the &#34;use hypothesis&#34;).</div>
 
@@ -5167,6 +5251,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5188,6 +5273,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5213,6 +5299,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-calcium-overload" data-dismech-node="Cardiomyocyte Calcium Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Calcium Overload</div>
+
 
                 <div class="item-desc">Sarcolemmal microdamage and disrupted mechanosensitive channel regulation admit excess calcium into the ventricular cardiomyocyte, and intracellular calcium handling becomes overwhelmed. Calcium overload activates calcium-dependent proteases and injures mitochondria, driving the cell-death programme downstream.</div>
 
@@ -5304,6 +5391,7 @@ This pathophysiological event involves abnormal intracellular calcium ion overlo
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5326,6 +5414,7 @@ This pathophysiological event involves abnormal intracellular calcium ion overlo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-necrosis-and-replacement-fibrosis" data-dismech-node="Cardiomyocyte Necrosis and Replacement Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Necrosis and Replacement Fibrosis</div>
+
 
                 <div class="item-desc">Chronic calcium overload and membrane injury cause cardiomyocyte necrosis, with secondary replacement fibrosis and fatty infiltration that characteristically begin in the left ventricular posterobasal/inferolateral wall - the territory that lights up as late gadolinium enhancement on cardiac MRI across dystrophinopathy cardiomyopathy.</div>
 
@@ -5451,6 +5540,7 @@ This pathophysiological event involves increased cardiomyocyte necrotic cell dea
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5472,6 +5562,7 @@ This pathophysiological event involves increased cardiomyocyte necrotic cell dea
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5497,6 +5588,7 @@ This pathophysiological event involves increased cardiomyocyte necrotic cell dea
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-ventricular-dilation-and-systolic-heart-failure" data-dismech-node="Left Ventricular Dilation and Systolic Heart Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Left Ventricular Dilation and Systolic Heart Failure</div>
+
 
                 <div class="item-desc">The clinical endpoint: progressive left ventricular dilation with systolic dysfunction, presenting as congestive heart failure. In classic XLDCM this is rapid and lethal in adolescent and young-adult males; in the exon 45-55 subtype it is more indolent and more responsive to standard heart-failure therapy. The failing, fibrotic ventricle also provides the substrate for ventricular arrhythmia and sudden cardiac death.</div>
 
@@ -5647,6 +5739,7 @@ This pathophysiological event involves decreased impaired cardiac muscle contrac
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5668,6 +5761,7 @@ This pathophysiological event involves decreased impaired cardiac muscle contrac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5693,6 +5787,7 @@ This pathophysiological event involves decreased impaired cardiac muscle contrac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-arrhythmogenesis" data-dismech-node="Ventricular Arrhythmogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Arrhythmogenesis</div>
+
 
                 <div class="item-desc">A fibrotic, dilated ventricle is electrically unstable: replacement fibrosis and myocyte loss create a re-entrant/ectopic substrate that generates ventricular arrhythmia, a major contributor to mortality in XLDCM.</div>
 
@@ -5752,6 +5847,7 @@ This pathophysiological event involves decreased impaired cardiac muscle contrac
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5774,6 +5870,7 @@ This pathophysiological event involves decreased impaired cardiac muscle contrac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrhythmic-sudden-cardiac-death" data-dismech-node="Arrhythmic Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrhythmic Sudden Cardiac Death</div>
+
 
                 <div class="item-desc">Sudden cardiac death can be the presenting event, occurring without preceding overt heart failure - documented at autopsy by elevated pericardial-fluid NT-proBNP marking undiagnosed left ventricular dysfunction.</div>
 
@@ -5822,6 +5919,7 @@ This pathophysiological event involves decreased impaired cardiac muscle contrac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5884,6 +5982,7 @@ This pathophysiological event involves decreased impaired cardiac muscle contrac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5928,6 +6027,7 @@ This pathophysiological event involves decreased impaired cardiac muscle contrac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6055,6 +6155,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6069,6 +6172,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6125,6 +6229,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6139,6 +6246,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6193,6 +6301,9 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6210,6 +6321,7 @@ This clinical feature is Reduced left ventricular ejection fraction (HP:0012664)
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6265,6 +6377,9 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6279,6 +6394,7 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6333,6 +6449,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6347,6 +6466,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6430,6 +6550,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as adult
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6444,6 +6567,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as adult
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6492,7 +6616,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as adult
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -6502,10 +6626,13 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as adult
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6525,6 +6652,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6621,6 +6749,9 @@ This disease-associated gene is DMD (hgnc:2928). hgnc:2928 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -6646,6 +6777,7 @@ This disease-associated gene is DMD (hgnc:2928). hgnc:2928 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6667,6 +6799,7 @@ This disease-associated gene is DMD (hgnc:2928). hgnc:2928 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6791,6 +6924,9 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6801,6 +6937,9 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
     </div>
+
+
+
 
 
 
@@ -6840,6 +6979,7 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6885,6 +7025,7 @@ This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a t
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6989,6 +7130,9 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6999,6 +7143,9 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -7047,6 +7194,7 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7113,6 +7261,9 @@ This treatment is cardiac transplantation, annotated with Organ Transplantation 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7123,6 +7274,9 @@ This treatment is cardiac transplantation, annotated with Organ Transplantation 
 
 
     </div>
+
+
+
 
 
 
@@ -7159,6 +7313,7 @@ This treatment is cardiac transplantation, annotated with Organ Transplantation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7205,6 +7360,7 @@ This treatment is cardiac transplantation, annotated with Organ Transplantation 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7226,6 +7382,7 @@ This treatment is cardiac transplantation, annotated with Organ Transplantation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7292,6 +7449,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7302,6 +7462,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7332,6 +7495,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7353,6 +7517,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7420,6 +7585,9 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7430,6 +7598,9 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
     </div>
+
+
+
 
 
 
@@ -7475,6 +7646,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7544,6 +7716,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7568,6 +7741,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7636,6 +7810,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7657,6 +7832,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7714,6 +7890,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7765,6 +7942,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7822,6 +8000,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7846,6 +8025,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7899,6 +8079,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7971,6 +8152,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8020,6 +8202,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8088,6 +8271,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8230,6 +8414,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8364,6 +8549,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8403,6 +8589,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8518,6 +8705,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8559,6 +8747,7 @@ This treatment is cardiac resynchronization therapy device implantation, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9165,10 +9354,10 @@ phenotypes:
     normal, particularly with exon 45-55 deletions and in later-onset or female cases - so
     unlike in classic Duchenne, a normal CK does not exclude the diagnosis.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:10841222
     reference_title: &#34;Prevalence and characteristics of dystrophin defects in adult male patients with dilated cardiomyopathy.&#34;
@@ -10348,6 +10537,28 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated from a Claude Code deep-research report (research/X-linked_Dilated_Cardiomyopathy-deep-research-claude_code.md; 18 web searches, 45 citations), with every cited reference independently fetched and quoted from its cached abstract or full text.
+Named-entity note: XLDCM (dystrophin/DMD, dilated) must be kept distinct from the other X-linked cardiomyopathies the deep-research report flagged as differentials - Barth syndrome (TAZ, DCM/LVNC with 3-methylglutaconic aciduria and neutropenia), Danon disease (LAMP2, predominantly hypertrophic), and X-linked Emery-Dreifuss muscular dystrophy (EMD). None of those share the DMD gene, and this entry cites only DMD/dystrophin sources.
+Two PMIDs supplied to the curator as candidate anchors were verified against the primary literature and found to be WRONG, so were not used: PMID:8281153 (proposed for &#34;Towbin 1993&#34;) resolves to an NF-kappa B gene paper, and PMID:8302331 (proposed for &#34;Muntoni 1993&#34;) resolves to a non-Hodgkin lymphoma model. The correct primary references are Towbin 1993 (PMID:8504498, Circulation, the Xp21 linkage study) and Muntoni 1993 (PMID:8361506, NEJM, the 5&#39; muscle-promoter deletion). Muntoni&#39;s NEJM &#34;brief report&#34; has no structured abstract in the PubMed cache, so the 5&#39; isoform-compensation mechanism is evidenced here from Neri et al. 2012 (PMID:22455600), which directly maps the ventricular absence of the brain isoform, rather than from a Muntoni snippet.
+Conformance to cardiomyopathy_maladaptive_remodeling is claimed at the insult node (Sarcolemmal Fragility and Contraction-Induced Cardiomyocyte Injury -&gt; Primary Cardiomyocyte Insult) and the outcome node (Left Ventricular Dilation and Systolic Heart Failure -&gt; Structural Cardiac Impairment and Heart Failure), following the pattern used in Becker Muscular Dystrophy; the module&#39;s intervening neurohormonal/remodeling nodes are not separately claimed because the references read for this entry do not evidence those specific steps in XLDCM.
+Several mechanistic and treatment statements are supported by review-class sources (evidence_source OTHER: the XLDCM cardiospecific review PMID:26066469, the DGC-mechanotransduction review PMID:36168044, the calcium-handling review PMID:32075145, the carrier-females review PMID:32650403, and the transplant series PMID:28580208), because primary human tissue for this rare, lethal phenotype is scarce; the founding pedigree and linkage/isoform-mechanism claims rest on primary sources (PMID:3574369, PMID:8504498, PMID:22455600).</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: X-linked Dilated Cardiomyopathy</strong> · 2026-09-03T15:23:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/X-linked_Dilated_Cardiomyopathy/2026-09-03T152330Z-claude-code-7270a7.yaml">View source</a></p>
+                        <p class="research-review-text">Created XLDCM (dilated cardiomyopathy 3B, MONDO:0010542), the cardiac-selective dystrophinopathy caused by DMD (hgnc:2928) mutations. Curated from a Claude Code deep-research report (18 web searches, 45 citations). Modeled a seven-node pathophysiology chain: 5&#39; DMD muscle-promoter/isoform-disrupting lesion -&gt; ventricle-selective loss of dystrophin (B-isoform compensation fails in ventricle per Neri 2012, PMID:22455600) -&gt; DGC disruption -&gt; sarcolemmal fragility (conforms cardiomyopathy_maladaptive_remodeling#Primary Cardiomyocyte Insult) -&gt; calcium overload -&gt; necrosis/replacement fibrosis -&gt; LV dilation and systolic failure (conforms #Structural Cardiac Impairment and Heart Failure) -&gt; ventricular arrhythmia/sudden death. Phenotypes (DCM, CHF, reduced LVEF, ventricular arrhythmia, sudden death, variable CK, carrier-female DCM), X-linked recessive inheritance block (HP:0001419), diagnostic-yield prevalence note, and treatments (ACE-I+beta-blocker, ARB/losartan, transplant, surveillance). Verified that two candidate anchor PMIDs supplied to the curator were WRONG: PMID:8281153 (NF-kB paper) and PMID:8302331 (lymphoma model); used the correct primaries Towbin 1993 (PMID:8504498) and, for the 5&#39; mechanism, Neri 2012 (Muntoni NEJM PMID:8361506 has no cached abstract). All snippets exact (33/33). Validated: validate, validate-terms, count-verified-snippets 33/33, check-causal-targets, check-duplicate-keys, check-entity-refs, check-qualifier-terms, validate-disorders.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10947,7 +11158,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "X-linked Dilated Cardiomyopathy", "mondoId": "MONDO:0010542", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "X-linked_Dilated_Cardiomyopathy", "yamlRevision": "1253edd7d785"};
+        const OS_CONFIG = {"diseaseName": "X-linked Dilated Cardiomyopathy", "mondoId": "MONDO:0010542", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "X-linked_Dilated_Cardiomyopathy", "yamlRevision": "39e97885e8ed"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

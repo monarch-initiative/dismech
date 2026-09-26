@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Spina%20Bifida%20Cystica"
@@ -3977,7 +4045,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">18</div>
+                <div class="stat-value">20</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4203,6 +4271,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4224,6 +4293,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4318,6 +4388,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4382,6 +4453,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4403,6 +4475,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4450,6 +4523,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-folate-dependent-one-carbon-metabolism" data-dismech-node="Impaired Folate-Dependent One-Carbon Metabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Folate-Dependent One-Carbon Metabolism</div>
+
 
                 <div class="item-desc">The common MTHFR c.677C&gt;T variant reduces methylenetetrahydrofolate reductase activity, impairing the one-carbon/folate metabolic pathway that supplies methyl groups for nucleotide synthesis and DNA methylation during neurulation. Reduced enzyme activity is an established, modest genetic susceptibility factor for neural tube defects, and is the biochemical basis for the protective effect of periconceptional folic acid supplementation.</div>
 
@@ -4613,6 +4687,7 @@ This pathophysiological event involves decreased methylenetetrahydrofolate reduc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4635,6 +4710,7 @@ This pathophysiological event involves decreased methylenetetrahydrofolate reduc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-planar-cell-polarity-pathway-disruption" data-dismech-node="Planar Cell Polarity Pathway Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Planar Cell Polarity Pathway Disruption</div>
+
 
                 <div class="item-desc">Rare missense variants in the core planar-cell-polarity (PCP) genes VANGL1 and VANGL2 -- the human orthologs of the Drosophila Van Gogh/ Strabismus gene and of the mouse Looptail (Lp) locus -- impair non-canonical Wnt/PCP signaling. This pathway drives convergent extension, the coordinated mediolateral cell intercalation that narrows and elongates the neural plate; its disruption is a well-established genetic contributor to neural tube defects in both animal models and human cohorts, found in an estimated 1-3% of patients.</div>
 
@@ -4732,6 +4808,8 @@ This genetic context concerns VANGL2 (hgnc:15511). hgnc:15511 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4745,6 +4823,9 @@ This genetic context concerns VANGL2 (hgnc:15511). hgnc:15511 is a gene from the
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4864,6 +4945,7 @@ This pathophysiological event involves decreased convergent extension involved i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4885,6 +4967,7 @@ This pathophysiological event involves decreased convergent extension involved i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4912,6 +4995,7 @@ This pathophysiological event involves decreased convergent extension involved i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4934,6 +5018,7 @@ This pathophysiological event involves decreased convergent extension involved i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-obesity-associated-neurulation-risk" data-dismech-node="Maternal Obesity-Associated Neurulation Risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Obesity-Associated Neurulation Risk</div>
+
 
                 <div class="item-desc">Maternal obesity is an independent, dose-response risk factor for spina bifida cystica -- more severe obesity confers greater risk -- and is mechanistically distinct from the folate pathway: unlike folate insufficiency, obesity-associated risk is not consistently rescued by folic acid supplementation. Suggested underlying mechanisms include aberrant maternal glucose control, oxidative stress, and metabolic syndrome, though the precise pathway remains uncertain.</div>
 
@@ -4987,6 +5072,7 @@ This pathophysiological event involves decreased convergent extension involved i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5009,6 +5095,7 @@ This pathophysiological event involves decreased convergent extension involved i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-posterior-neuropore-closure" data-dismech-node="Failed Posterior Neuropore Closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Posterior Neuropore Closure</div>
+
 
                 <div class="item-desc">The defining lesion of spina bifida cystica: the posterior neuropore, which normally completes closure by approximately day 28 after fertilization, fails to fuse. This leaves a persistent gap in the neural tube and overlying vertebral arches, meninges, muscle, and skin at the affected spinal level, most often lumbosacral.</div>
 
@@ -5129,6 +5216,7 @@ This pathophysiological event occurs in neural tube (UBERON:0001049). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5151,6 +5239,7 @@ This pathophysiological event occurs in neural tube (UBERON:0001049). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-open-neural-placode-exposure-and-secondary-injury" data-dismech-node="Open Neural Placode Exposure and Secondary Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Open Neural Placode Exposure and Secondary Injury</div>
+
 
                 <div class="item-desc">The &#34;two-hit&#34; mechanism proposed to explain the paralysis of myelomeningocele: the primary failure of neurulation (hit one) leaves the neural placode exposed to the amniotic cavity for the remainder of gestation, where chemical injury from amniotic fluid and mechanical trauma from fetal movement (hit two) causes progressive erosion, necrosis, and loss of neurons and axons beyond what congenital myelodysplasia alone would produce. This is the mechanistic rationale for in-utero surgical repair, which aims to halt the second hit rather than reverse the first.</div>
 
@@ -5250,6 +5339,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5271,6 +5361,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5296,6 +5387,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skin-covered-meningeal-herniation" data-dismech-node="Skin-Covered Meningeal Herniation" data-dismech-type="pathophysiology">
                 <div class="item-name">Skin-Covered Meningeal Herniation</div>
+
 
                 <div class="item-desc">In meningocele, the vertebral arch defect and meningeal herniation occur without exposure or incorporation of the neural placode, which remains covered by an intact (if sometimes dysplastic or ulcerated) layer of skin. Because neural tissue is not directly exposed to the intrauterine environment, the &#34;two-hit&#34; secondary injury that drives myelomeningocele paralysis does not apply, and neurological examination is often normal; a tethered cord can still cause delayed deficits.</div>
 
@@ -5334,6 +5426,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5356,6 +5449,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chiari-ii-hindbrain-herniation" data-dismech-node="Chiari II Hindbrain Herniation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chiari II Hindbrain Herniation</div>
+
 
                 <div class="item-desc">Near-universal in myelomeningocele: caudal displacement of the medulla, fourth ventricle, and cerebellar vermis into the cervical spinal canal, with an abnormally small posterior fossa. Obstructs cerebrospinal fluid egress at the fourth ventricular outflow and foramen magnum, producing hydrocephalus. This node is a deliberate cross-reference to the more detailed Congenital_Hydrocephalus entry rather than a re-derivation of it; see that entry&#39;s &#34;Chiari II-associated&#34; subtype and &#34;Neural Tube Defect with Chiari II Hindbrain Herniation and Small Posterior Fossa&#34; node for the full CSF-dynamics mechanism.</div>
 
@@ -5409,6 +5503,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5430,6 +5525,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5455,6 +5551,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-segmental-motor-and-sensory-neuron-loss" data-dismech-node="Segmental Motor and Sensory Neuron Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Segmental Motor and Sensory Neuron Loss</div>
+
 
                 <div class="item-desc">Destruction of the exposed neural placode causes segmental denervation of the lower limbs and of the autonomically innervated bladder, bowel, and pelvic floor, with severity and level determined by the rostrocaudal extent of the lesion.</div>
 
@@ -5516,6 +5613,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5561,7 +5659,7 @@ This pathophysiological event involves increased cell death (necrosis), annotate
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anticonvulsant (Valproate) Exposure During Pregnancy\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"First-trimester exposure to the anticonvulsant valproic acid (VPA) is a well-established, substantial (~10-fold) independent risk factor for neural tube defects, including spina bifida cystica, distinct from folate status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chiari II Hindbrain Herniation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-universal in myelomeningocele: caudal displacement of the medulla, fourth ventricle, and cerebellar vermis into the cervical spinal canal, with an abnormally small posterior fossa. Obstructs cerebrospinal fluid egress at the fourth ventricular outflow and foramen magnum, producing hydrocephalus. This node is a deliberate cross-reference to the more detailed Congenital_Hydrocephalus entry rather than a re-derivation of it; see that entry\u0027s \\\"Chiari II-associated\\\" subtype and \\\"Neural Tube Defect with Chiari II Hindbrain Herniation and Small Posterior Fossa\\\" node for the full CSF-dynamics mechanism.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Myelomeningocele\"]}}, {\"id\": \"Clean Intermittent Catheterization for Neurogenic Bladder\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular clean intermittent catheterization, with adjunctive antimuscarinic or beta-3 agonist pharmacotherapy and urodynamic surveillance as needed, to manage neurogenic bladder and protect renal function.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failed Posterior Neuropore Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining lesion of spina bifida cystica: the posterior neuropore, which normally completes closure by approximately day 28 after fertilization, fails to fuse. This leaves a persistent gap in the neural tube and overlying vertebral arches, meninges, muscle, and skin at the affected spinal level, most often lumbosacral.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neural tube closure\"], \"locations\": [\"neural tube\"]}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular dilatation secondary to CSF outflow obstruction at the herniated hindbrain, typically requiring ventriculoperitoneal shunt placement. See the cross-referenced Congenital_Hydrocephalus entry (the \\\"Chiari II-associated\\\" subtype) for full treatment detail.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myelomeningocele\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired Folate-Dependent One-Carbon Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common MTHFR c.677C\u003eT variant reduces methylenetetrahydrofolate reductase activity, impairing the one-carbon/folate metabolic pathway that supplies methyl groups for nucleotide synthesis and DNA methylation during neurulation. Reduced enzyme activity is an established, modest genetic susceptibility factor for neural tube defects, and is the biochemical basis for the protective effect of periconceptional folic acid supplementation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"folic acid metabolic process\", \"one-carbon metabolic process\"], \"molecular_functions\": [\"methylenetetrahydrofolate reductase (NAD(P)H) activity\"], \"role\": \"trigger\"}}, {\"id\": \"Lower Limb Weakness and Sensory Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flaccid paralysis or paresis and sensory loss below the level of the spinal lesion, present from birth in myelomeningocele.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myelomeningocele\"], \"term_id\": \"HP:0007340\"}}, {\"id\": \"Maternal Obesity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Maternal obesity is an established, dose-response independent risk factor for spina bifida cystica, mechanistically distinct from the folate pathway because the elevated risk is not consistently rescued by folic acid supplementation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maternal Obesity-Associated Neurulation Risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Maternal obesity is an independent, dose-response risk factor for spina bifida cystica -- more severe obesity confers greater risk -- and is mechanistically distinct from the folate pathway: unlike folate insufficiency, obesity-associated risk is not consistently rescued by folic acid supplementation. Suggested underlying mechanisms include aberrant maternal glucose control, oxidative stress, and metabolic syndrome, though the precise pathway remains uncertain.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\"}}, {\"id\": \"Neurogenic Bladder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Denervation of the bladder and urethral sphincter causing retention, incontinence, vesicoureteral reflux, and recurrent urinary tract infection; a leading cause of long-term renal morbidity in myelomeningocele.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myelomeningocele\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000011\"}}, {\"id\": \"Open Neural Placode Exposure and Secondary Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The \\\"two-hit\\\" mechanism proposed to explain the paralysis of myelomeningocele: the primary failure of neurulation (hit one) leaves the neural placode exposed to the amniotic cavity for the remainder of gestation, where chemical injury from amniotic fluid and mechanical trauma from fetal movement (hit two) causes progressive erosion, necrosis, and loss of neurons and axons beyond what congenital myelodysplasia alone would produce. This is the mechanistic rationale for in-utero surgical repair, which aims to halt the second hit rather than reverse the first.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell death (necrosis)\"], \"subtypes\": [\"Myelomeningocele\"]}}, {\"id\": \"Periconceptional Folic Acid Supplementation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Adequate periconceptional folic acid intake (400 micrograms/day for the general population; higher supervised doses after a prior neural tube defect pregnancy) is the only proven environmental protective factor against spina bifida cystica; conversely, insufficient intake raises risk. Mandatory grain fortification programs are associated with population-level declines in prevalence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Planar Cell Polarity Pathway Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rare missense variants in the core planar-cell-polarity (PCP) genes VANGL1 and VANGL2 -- the human orthologs of the Drosophila Van Gogh/ Strabismus gene and of the mouse Looptail (Lp) locus -- impair non-canonical Wnt/PCP signaling. This pathway drives convergent extension, the coordinated mediolateral cell intercalation that narrows and elongates the neural plate; its disruption is a well-established genetic contributor to neural tube defects in both animal models and human cohorts, found in an estimated 1-3% of patients.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Wnt/planar cell polarity signaling pathway\", \"convergent extension involved in neural plate elongation\"], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"VANGL1\", \"id\": \"hgnc:15512\"}, {\"label\": \"VANGL2\", \"id\": \"hgnc:15511\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Postnatal Surgical Closure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical closure of the open spinal defect, generally performed within 24-48 hours of birth when prenatal repair has not been performed, to protect the exposed placode from further injury and infection. Does not reverse neurological deficit already present at birth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pregestational (Maternal) Diabetes Mellitus\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Pre-existing maternal diabetes mellitus, which predisposes to a range of birth defects, is an established independent risk factor for neural tube defects including spina bifida cystica, mediated by hyperglycemia rather than by folate status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prenatal (Fetal) Repair of Myelomeningocele\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In-utero surgical closure of the open neural tube defect, offered to selected pregnancies (T1-S1 lesion level, hindbrain herniation, suitable gestational age, no major contraindication) before 26 weeks of gestation. Demonstrated in the randomized MOMS trial to reduce hindbrain herniation and shunt-requiring hydrocephalus and to improve motor outcomes relative to postnatal repair, at the cost of maternal hysterotomy risk and increased prematurity.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Segmental Motor and Sensory Neuron Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destruction of the exposed neural placode causes segmental denervation of the lower limbs and of the autonomically innervated bladder, bowel, and pelvic floor, with severity and level determined by the rostrocaudal extent of the lesion.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myelomeningocele\"]}}, {\"id\": \"Skin-Covered Meningeal Herniation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In meningocele, the vertebral arch defect and meningeal herniation occur without exposure or incorporation of the neural placode, which remains covered by an intact (if sometimes dysplastic or ulcerated) layer of skin. Because neural tissue is not directly exposed to the intrauterine environment, the \\\"two-hit\\\" secondary injury that drives myelomeningocele paralysis does not apply, and neurological examination is often normal; a tethered cord can still cause delayed deficits.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Meningocele\"]}}], \"edges\": [{\"source\": \"Impaired Folate-Dependent One-Carbon Metabolism\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired folate-dependent methylation and nucleotide supply during the neurulation window is a modest, non-deterministic contributor to failure of posterior neuropore closure, acting alongside planar-cell-polarity and other susceptibility factors.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Planar Cell Polarity Pathway Disruption\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted convergent extension prevents the neural folds from being brought into apposition at the dorsal midline, directly impairing closure of the posterior neuropore.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal Obesity-Associated Neurulation Risk\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal obesity is proposed to disrupt neurulation through aberrant glucose control, oxidative stress, and/or metabolic syndrome, though the exact intermediate mechanism linking obesity to failed neuropore closure remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Posterior Neuropore Closure\", \"target\": \"Open Neural Placode Exposure and Secondary Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the failure of closure is complete at the affected level, the neural placode itself remains unfused and open to the amniotic cavity, producing myelomeningocele rather than meningocele.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Posterior Neuropore Closure\", \"target\": \"Skin-Covered Meningeal Herniation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When neural tube closure fails only at the level of the vertebral arches and meninges while the neural placode itself closes and is covered by skin, the result is the milder meningocele phenotype rather than an open, neural-tissue-bearing lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Open Neural Placode Exposure and Secondary Injury\", \"target\": \"Chiari II Hindbrain Herniation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic leakage of cerebrospinal fluid through the open neural tube prevents the embryonic ventricular system from distending, arresting posterior fossa growth (McLone-Knepper unified theory). This node cross-references, and deliberately does not duplicate, the detailed hydrocephalus mechanism curated in the Congenital_Hydrocephalus entry\u0027s \\\"Neural Tube Defect with Chiari II Hindbrain Herniation and Small Posterior Fossa\\\" node.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Open Neural Placode Exposure and Secondary Injury\", \"target\": \"Segmental Motor and Sensory Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive destruction of the exposed placode causes segmental loss of motor and sensory neurons at and below the level of the lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chiari II Hindbrain Herniation\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obstruction of cerebrospinal fluid outflow at the level of the herniated hindbrain and small posterior fossa produces ventricular dilatation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental Motor and Sensory Neuron Loss\", \"target\": \"Lower Limb Weakness and Sensory Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of motor and sensory neurons below the level of the lesion produces flaccid, lesion-level-dependent paraparesis or paraplegia with sensory deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental Motor and Sensory Neuron Loss\", \"target\": \"Neurogenic Bladder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation of the detrusor, sphincter, and pelvic floor musculature produces neurogenic bladder dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Periconceptional Folic Acid Supplementation\", \"target\": \"Impaired Folate-Dependent One-Carbon Metabolism\", \"predicate\": \"protects_against\", \"is_orphan\": false, \"description\": \"Adequate periconceptional folic acid intake supplies the substrate for folate-dependent one-carbon metabolism during neurulation, offsetting reduced MTHFR enzyme activity and other sources of impaired one-carbon flux, and thereby reducing the risk of failed neuropore closure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anticonvulsant (Valproate) Exposure During Pregnancy\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Valproic acid\u0027s potent histone deacetylase (HDAC) inhibitory activity is proposed to disturb the balance of protein acetylation and deacetylation required for normal neurulation, triggering failure of posterior neuropore closure independent of maternal folate status.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pregestational (Maternal) Diabetes Mellitus\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Maternal hyperglycemia is described as the immediate cause of neural tube defects in pregestational diabetes, though the precise pathogenic mechanism linking hyperglycemia to failed neuropore closure remains poorly understood.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maternal Obesity\", \"target\": \"Maternal Obesity-Associated Neurulation Risk\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Maternal obesity exacerbates spina bifida risk in a dose-response manner, and this risk is not consistently modified downward by folic acid supplementation, distinguishing its mechanism from the classic folate-dependent pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Postnatal Surgical Closure\", \"target\": \"Open Neural Placode Exposure and Secondary Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prenatal (Fetal) Repair of Myelomeningocele\", \"target\": \"Open Neural Placode Exposure and Secondary Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Clean Intermittent Catheterization for Neurogenic Bladder\", \"target\": \"Neurogenic Bladder\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anticonvulsant (Valproate) Exposure During Pregnancy\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"First-trimester exposure to the anticonvulsant valproic acid (VPA) is a well-established, substantial (~10-fold) independent risk factor for neural tube defects, including spina bifida cystica, distinct from folate status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chiari II Hindbrain Herniation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-universal in myelomeningocele: caudal displacement of the medulla, fourth ventricle, and cerebellar vermis into the cervical spinal canal, with an abnormally small posterior fossa. Obstructs cerebrospinal fluid egress at the fourth ventricular outflow and foramen magnum, producing hydrocephalus. This node is a deliberate cross-reference to the more detailed Congenital_Hydrocephalus entry rather than a re-derivation of it; see that entry\u0027s \\\"Chiari II-associated\\\" subtype and \\\"Neural Tube Defect with Chiari II Hindbrain Herniation and Small Posterior Fossa\\\" node for the full CSF-dynamics mechanism.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Myelomeningocele\"]}}, {\"id\": \"Clean Intermittent Catheterization for Neurogenic Bladder\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular clean intermittent catheterization, with adjunctive antimuscarinic or beta-3 agonist pharmacotherapy and urodynamic surveillance as needed, to manage neurogenic bladder and protect renal function.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failed Posterior Neuropore Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining lesion of spina bifida cystica: the posterior neuropore, which normally completes closure by approximately day 28 after fertilization, fails to fuse. This leaves a persistent gap in the neural tube and overlying vertebral arches, meninges, muscle, and skin at the affected spinal level, most often lumbosacral.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neural tube closure\"], \"locations\": [\"neural tube\"]}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular dilatation secondary to CSF outflow obstruction at the herniated hindbrain, typically requiring ventriculoperitoneal shunt placement. See the cross-referenced Congenital_Hydrocephalus entry (the \\\"Chiari II-associated\\\" subtype) for full treatment detail.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myelomeningocele\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired Folate-Dependent One-Carbon Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common MTHFR c.677C\u003eT variant reduces methylenetetrahydrofolate reductase activity, impairing the one-carbon/folate metabolic pathway that supplies methyl groups for nucleotide synthesis and DNA methylation during neurulation. Reduced enzyme activity is an established, modest genetic susceptibility factor for neural tube defects, and is the biochemical basis for the protective effect of periconceptional folic acid supplementation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"folic acid metabolic process\", \"one-carbon metabolic process\"], \"molecular_functions\": [\"methylenetetrahydrofolate reductase (NAD(P)H) activity\"], \"role\": \"trigger\"}}, {\"id\": \"Lower Limb Weakness and Sensory Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flaccid paralysis or paresis and sensory loss below the level of the spinal lesion, present from birth in myelomeningocele.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myelomeningocele\"], \"term_id\": \"HP:0007340\"}}, {\"id\": \"Maternal Obesity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Maternal obesity is an established, dose-response independent risk factor for spina bifida cystica, mechanistically distinct from the folate pathway because the elevated risk is not consistently rescued by folic acid supplementation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maternal Obesity-Associated Neurulation Risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Maternal obesity is an independent, dose-response risk factor for spina bifida cystica -- more severe obesity confers greater risk -- and is mechanistically distinct from the folate pathway: unlike folate insufficiency, obesity-associated risk is not consistently rescued by folic acid supplementation. Suggested underlying mechanisms include aberrant maternal glucose control, oxidative stress, and metabolic syndrome, though the precise pathway remains uncertain.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\"}}, {\"id\": \"Neurogenic Bladder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Denervation of the bladder and urethral sphincter causing retention, incontinence, vesicoureteral reflux, and recurrent urinary tract infection; a leading cause of long-term renal morbidity in myelomeningocele.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myelomeningocele\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000011\"}}, {\"id\": \"Open Neural Placode Exposure and Secondary Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The \\\"two-hit\\\" mechanism proposed to explain the paralysis of myelomeningocele: the primary failure of neurulation (hit one) leaves the neural placode exposed to the amniotic cavity for the remainder of gestation, where chemical injury from amniotic fluid and mechanical trauma from fetal movement (hit two) causes progressive erosion, necrosis, and loss of neurons and axons beyond what congenital myelodysplasia alone would produce. This is the mechanistic rationale for in-utero surgical repair, which aims to halt the second hit rather than reverse the first.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell death (necrosis)\"], \"subtypes\": [\"Myelomeningocele\"]}}, {\"id\": \"Periconceptional Folic Acid Supplementation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Adequate periconceptional folic acid intake (400 micrograms/day for the general population; higher supervised doses after a prior neural tube defect pregnancy) is the only proven environmental protective factor against spina bifida cystica; conversely, insufficient intake raises risk. Mandatory grain fortification programs are associated with population-level declines in prevalence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Planar Cell Polarity Pathway Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rare missense variants in the core planar-cell-polarity (PCP) genes VANGL1 and VANGL2 -- the human orthologs of the Drosophila Van Gogh/ Strabismus gene and of the mouse Looptail (Lp) locus -- impair non-canonical Wnt/PCP signaling. This pathway drives convergent extension, the coordinated mediolateral cell intercalation that narrows and elongates the neural plate; its disruption is a well-established genetic contributor to neural tube defects in both animal models and human cohorts, found in an estimated 1-3% of patients.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Wnt/planar cell polarity signaling pathway\", \"convergent extension involved in neural plate elongation\"], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"VANGL1\", \"id\": \"hgnc:15512\"}, {\"label\": \"VANGL2\", \"id\": \"hgnc:15511\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Postnatal Surgical Closure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical closure of the open spinal defect, generally performed within 24-48 hours of birth when prenatal repair has not been performed, to protect the exposed placode from further injury and infection. Does not reverse neurological deficit already present at birth.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pregestational (Maternal) Diabetes Mellitus\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Pre-existing maternal diabetes mellitus, which predisposes to a range of birth defects, is an established independent risk factor for neural tube defects including spina bifida cystica, mediated by hyperglycemia rather than by folate status.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prenatal (Fetal) Repair of Myelomeningocele\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In-utero surgical closure of the open neural tube defect, offered to selected pregnancies (T1-S1 lesion level, hindbrain herniation, suitable gestational age, no major contraindication) before 26 weeks of gestation. Demonstrated in the randomized MOMS trial to reduce hindbrain herniation and shunt-requiring hydrocephalus and to improve motor outcomes relative to postnatal repair, at the cost of maternal hysterotomy risk and increased prematurity.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Segmental Motor and Sensory Neuron Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destruction of the exposed neural placode causes segmental denervation of the lower limbs and of the autonomically innervated bladder, bowel, and pelvic floor, with severity and level determined by the rostrocaudal extent of the lesion.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myelomeningocele\"]}}, {\"id\": \"Skin-Covered Meningeal Herniation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In meningocele, the vertebral arch defect and meningeal herniation occur without exposure or incorporation of the neural placode, which remains covered by an intact (if sometimes dysplastic or ulcerated) layer of skin. Because neural tissue is not directly exposed to the intrauterine environment, the \\\"two-hit\\\" secondary injury that drives myelomeningocele paralysis does not apply, and neurological examination is often normal; a tethered cord can still cause delayed deficits.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Meningocele\"]}}, {\"id\": \"VANGL1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VANGL1\"], \"gene_terms\": [{\"label\": \"VANGL1\", \"id\": \"hgnc:15512\"}], \"frequency\": \"rare missense variants, small subset of patients\", \"association\": \"Missense variants (e.g. V239I, R274Q, M328T) partially disrupt VANGL1 interaction with Dishevelled proteins, impairing planar-cell-polarity signaling required for convergent extension.\", \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"VANGL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VANGL2\"], \"gene_terms\": [{\"label\": \"VANGL2\", \"id\": \"hgnc:15511\"}], \"frequency\": \"rare missense variants, small subset of patients\", \"association\": \"Rare missense variants in the human ortholog of the mouse Looptail (Lp) gene, which causes severe neural tube defects (craniorachischisis) in homozygotes and is the founding planar-cell-polarity model for mammalian neurulation.\", \"relationship_type\": \"SUSCEPTIBILITY\"}}], \"edges\": [{\"source\": \"Impaired Folate-Dependent One-Carbon Metabolism\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired folate-dependent methylation and nucleotide supply during the neurulation window is a modest, non-deterministic contributor to failure of posterior neuropore closure, acting alongside planar-cell-polarity and other susceptibility factors.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Planar Cell Polarity Pathway Disruption\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted convergent extension prevents the neural folds from being brought into apposition at the dorsal midline, directly impairing closure of the posterior neuropore.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal Obesity-Associated Neurulation Risk\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal obesity is proposed to disrupt neurulation through aberrant glucose control, oxidative stress, and/or metabolic syndrome, though the exact intermediate mechanism linking obesity to failed neuropore closure remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Posterior Neuropore Closure\", \"target\": \"Open Neural Placode Exposure and Secondary Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the failure of closure is complete at the affected level, the neural placode itself remains unfused and open to the amniotic cavity, producing myelomeningocele rather than meningocele.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Posterior Neuropore Closure\", \"target\": \"Skin-Covered Meningeal Herniation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When neural tube closure fails only at the level of the vertebral arches and meninges while the neural placode itself closes and is covered by skin, the result is the milder meningocele phenotype rather than an open, neural-tissue-bearing lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Open Neural Placode Exposure and Secondary Injury\", \"target\": \"Chiari II Hindbrain Herniation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic leakage of cerebrospinal fluid through the open neural tube prevents the embryonic ventricular system from distending, arresting posterior fossa growth (McLone-Knepper unified theory). This node cross-references, and deliberately does not duplicate, the detailed hydrocephalus mechanism curated in the Congenital_Hydrocephalus entry\u0027s \\\"Neural Tube Defect with Chiari II Hindbrain Herniation and Small Posterior Fossa\\\" node.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Open Neural Placode Exposure and Secondary Injury\", \"target\": \"Segmental Motor and Sensory Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive destruction of the exposed placode causes segmental loss of motor and sensory neurons at and below the level of the lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chiari II Hindbrain Herniation\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obstruction of cerebrospinal fluid outflow at the level of the herniated hindbrain and small posterior fossa produces ventricular dilatation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental Motor and Sensory Neuron Loss\", \"target\": \"Lower Limb Weakness and Sensory Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of motor and sensory neurons below the level of the lesion produces flaccid, lesion-level-dependent paraparesis or paraplegia with sensory deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental Motor and Sensory Neuron Loss\", \"target\": \"Neurogenic Bladder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation of the detrusor, sphincter, and pelvic floor musculature produces neurogenic bladder dysfunction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Periconceptional Folic Acid Supplementation\", \"target\": \"Impaired Folate-Dependent One-Carbon Metabolism\", \"predicate\": \"protects_against\", \"is_orphan\": false, \"description\": \"Adequate periconceptional folic acid intake supplies the substrate for folate-dependent one-carbon metabolism during neurulation, offsetting reduced MTHFR enzyme activity and other sources of impaired one-carbon flux, and thereby reducing the risk of failed neuropore closure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anticonvulsant (Valproate) Exposure During Pregnancy\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Valproic acid\u0027s potent histone deacetylase (HDAC) inhibitory activity is proposed to disturb the balance of protein acetylation and deacetylation required for normal neurulation, triggering failure of posterior neuropore closure independent of maternal folate status.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pregestational (Maternal) Diabetes Mellitus\", \"target\": \"Failed Posterior Neuropore Closure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Maternal hyperglycemia is described as the immediate cause of neural tube defects in pregestational diabetes, though the precise pathogenic mechanism linking hyperglycemia to failed neuropore closure remains poorly understood.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maternal Obesity\", \"target\": \"Maternal Obesity-Associated Neurulation Risk\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Maternal obesity exacerbates spina bifida risk in a dose-response manner, and this risk is not consistently modified downward by folic acid supplementation, distinguishing its mechanism from the classic folate-dependent pathway.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Postnatal Surgical Closure\", \"target\": \"Open Neural Placode Exposure and Secondary Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prenatal (Fetal) Repair of Myelomeningocele\", \"target\": \"Open Neural Placode Exposure and Secondary Injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Clean Intermittent Catheterization for Neurogenic Bladder\", \"target\": \"Neurogenic Bladder\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"VANGL1\", \"target\": \"Planar Cell Polarity Pathway Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VANGL2\", \"target\": \"Planar Cell Polarity Pathway Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5631,6 +5729,9 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5645,6 +5746,7 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5710,6 +5812,9 @@ This clinical feature is Lower limb muscle weakness (HP:0007340). HP:0007340 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5724,6 +5829,7 @@ This clinical feature is Lower limb muscle weakness (HP:0007340). HP:0007340 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5780,6 +5886,9 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5794,6 +5903,7 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5875,6 +5985,9 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5889,6 +6002,7 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5956,6 +6070,9 @@ This clinical feature is Spina bifida cystica, annotated with Spina bifida (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5970,6 +6087,7 @@ This clinical feature is Spina bifida cystica, annotated with Spina bifida (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6024,6 +6142,9 @@ This clinical feature is Meningocele (HP:0002435). HP:0002435 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6038,6 +6159,7 @@ This clinical feature is Meningocele (HP:0002435). HP:0002435 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6094,6 +6216,9 @@ This clinical feature is Chiari type II malformation (HP:0025660). HP:0025660 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6108,6 +6233,7 @@ This clinical feature is Chiari type II malformation (HP:0025660). HP:0025660 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6164,6 +6290,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6178,6 +6307,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6232,6 +6362,9 @@ This clinical feature is Tethered cord (HP:0002144). HP:0002144 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6246,6 +6379,7 @@ This clinical feature is Tethered cord (HP:0002144). HP:0002144 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6302,6 +6436,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6316,6 +6453,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6340,6 +6478,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6405,6 +6544,9 @@ This clinical feature is Bowel incontinence (HP:0002607). HP:0002607 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6419,6 +6561,7 @@ This clinical feature is Bowel incontinence (HP:0002607). HP:0002607 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6519,6 +6662,9 @@ This disease-associated gene is MTHFR (hgnc:7436). hgnc:7436 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6533,6 +6679,7 @@ This disease-associated gene is MTHFR (hgnc:7436). hgnc:7436 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6592,6 +6739,9 @@ This disease-associated gene is VANGL1 (hgnc:15512). hgnc:15512 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6606,6 +6756,7 @@ This disease-associated gene is VANGL1 (hgnc:15512). hgnc:15512 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6665,6 +6816,9 @@ This disease-associated gene is VANGL2 (hgnc:15511). hgnc:15511 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6679,6 +6833,7 @@ This disease-associated gene is VANGL2 (hgnc:15511). hgnc:15511 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6738,6 +6893,9 @@ This disease-associated gene is CRKL (hgnc:2363). hgnc:2363 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6752,6 +6910,7 @@ This disease-associated gene is CRKL (hgnc:2363). hgnc:2363 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6776,6 +6935,7 @@ This disease-associated gene is CRKL (hgnc:2363). hgnc:2363 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6862,6 +7022,9 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6872,6 +7035,9 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -6917,6 +7083,7 @@ This treatment is neurosurgical procedure (NCIT:C15656). NCIT:C15656 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6984,6 +7151,9 @@ This treatment is fetal surgical repair, annotated with Surgical Procedure (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6994,6 +7164,9 @@ This treatment is fetal surgical repair, annotated with Surgical Procedure (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -7042,6 +7215,7 @@ This treatment is fetal surgical repair, annotated with Surgical Procedure (NCIT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7063,6 +7237,7 @@ This treatment is fetal surgical repair, annotated with Surgical Procedure (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7130,6 +7305,9 @@ This treatment is intermittent urinary catheterization, annotated with Therapeut
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7140,6 +7318,9 @@ This treatment is intermittent urinary catheterization, annotated with Therapeut
 
 
     </div>
+
+
+
 
 
 
@@ -7185,6 +7366,7 @@ This treatment is intermittent urinary catheterization, annotated with Therapeut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7252,6 +7434,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7262,6 +7447,9 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -7289,6 +7477,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7377,6 +7566,7 @@ This environmental factor is exposure to folic acid via ingestion (ECTO:0900036)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7428,6 +7618,7 @@ This environmental factor is exposure to folic acid via ingestion (ECTO:0900036)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7449,6 +7640,7 @@ This environmental factor is exposure to folic acid via ingestion (ECTO:0900036)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7529,6 +7721,7 @@ This environmental factor is anticonvulsant exposure during pregnancy, annotated
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7580,6 +7773,7 @@ This environmental factor is anticonvulsant exposure during pregnancy, annotated
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7601,6 +7795,7 @@ This environmental factor is anticonvulsant exposure during pregnancy, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7675,6 +7870,7 @@ This environmental factor is pregestational maternal diabetes mellitus.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7723,6 +7919,7 @@ This environmental factor is pregestational maternal diabetes mellitus.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7797,6 +7994,7 @@ This environmental factor is maternal obesity.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7845,6 +8043,7 @@ This environmental factor is maternal obesity.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7954,6 +8153,7 @@ This environmental factor is maternal obesity.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7978,6 +8178,7 @@ This environmental factor is maternal obesity.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7999,6 +8200,7 @@ This environmental factor is maternal obesity.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8089,6 +8291,7 @@ This environmental factor is maternal obesity.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8110,6 +8313,7 @@ This environmental factor is maternal obesity.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8200,6 +8404,7 @@ This environmental factor is maternal obesity.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8262,6 +8467,7 @@ This environmental factor is maternal obesity.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8336,6 +8542,7 @@ This environmental factor is maternal obesity.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9896,6 +10103,19 @@ progression:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Spina Bifida Cystica</strong> · 2026-08-27T15:48:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spina_Bifida_Cystica/2026-08-27T154826Z-claude-code-4ae7e9.yaml">View source</a></p>
+                        <p class="research-review-text">New root Disease entry (MONDO:0017069) with has_subtypes for Meningocele (MONDO:0017076 posterior meningocele) and Myelomeningocele (MONDO:0019773). Deep research via falcon (Edison Scientific); frontmatter reference_validation reported 11/11 references resolved, 0 confabulations, 3 off-topic flags reviewed by hand and confirmed as genuine (low-vocabulary-overlap) myelomeningocele outcome papers, not NEC. just preflight-dr returned SKIP (MONDO records no single causal gene for this complex/multifactorial disorder, as expected) -- manual MONDO synonym/definition check confirmed no entity confusion. Pathophysiology chain: MTHFR-mediated impaired folate/one-carbon metabolism and VANGL1/VANGL2-mediated planar-cell-polarity/convergent-extension disruption (both trigger nodes) leading to Failed Posterior Neuropore Closure, then subtype-specific branches: Open Neural Placode Exposure and Secondary Injury (the Heffez et al. 1990 two-hit hypothesis, PMID:2362676) for Myelomeningocele, versus Skin-Covered Meningeal Herniation for Meningocele. The Myelomeningocele branch continues to Chiari II Hindbrain Herniation (cross-referencing, not duplicating, kb/disorders/Congenital_Hydrocephalus.yaml&#39;s more detailed CSF-dynamics mechanism per that entry&#39;s own scope-boundary note) and Segmental Motor/Sensory Neuron Loss. Folate modeled as an environmental entry with influences_mechanisms using environmental_effect PROTECTS_AGAINST (MRC Vitamin Study RCT PMID:1677062, plus mouse gene-environment evidence from the 2024 Vong et al. Science 22q11.2/CRKL paper PMID:38696583); the link carries its own evidence separate from the environmental entry&#39;s top-level evidence. Also curated the 2024 Vong et al. 22q11.2 deletion/CRKL finding as an additional high-confidence genetic driver beyond the issue&#39;s named VANGL1/VANGL2/MTHFR genes, since it is a major, well-validated recent addition to spina bifida cystica genetics. Treatments: postnatal surgical closure, prenatal (fetal) MOMS-trial repair (PMID:21306277, PMID:31980545 school-age follow-up), clean intermittent catheterization for neurogenic bladder, and orthopedic management. Validation observed: schema pass; 38/38 snippets verified against cached references (just count-verified-snippets); validate-terms pass; check-duplicate-keys pass (whole-KB, 4394 files); check-environmental-evidence pass; just validate-disorders (batched pre-PR sweep, the same check CI runs) pass with 0 issues. No DOI references used -- all citations are PMID-keyed and snippet-verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

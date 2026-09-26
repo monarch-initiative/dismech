@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4207,6 +4275,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4228,6 +4297,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4303,6 +4373,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4324,6 +4395,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4420,6 +4492,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4479,6 +4552,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4577,6 +4651,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4611,6 +4686,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lead-absorption" data-dismech-node="Lead absorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Lead absorption</div>
+
 
                 <div class="item-desc">Lead enters the body through gastrointestinal and respiratory absorption.</div>
 
@@ -4702,6 +4778,7 @@ This pathophysiological event involves abnormal transmembrane transport (GO:0055
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4724,6 +4801,7 @@ This pathophysiological event involves abnormal transmembrane transport (GO:0055
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-lead-distribution" data-dismech-node="Systemic lead distribution" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic lead distribution</div>
+
 
                 <div class="item-desc">Absorbed lead circulates systemically and persists in biologic tissues, allowing redistribution into bone, erythroid tissues, neurons, and kidney.</div>
 
@@ -4841,6 +4919,7 @@ This pathophysiological event involves abnormal transmembrane transport (GO:0055
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4863,6 +4942,7 @@ This pathophysiological event involves abnormal transmembrane transport (GO:0055
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-sequestration-of-lead" data-dismech-node="Bone sequestration of lead" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone sequestration of lead</div>
+
 
                 <div class="item-desc">Most retained lead is deposited in bone, where it replaces calcium within mineralized tissue and serves as a long-term endogenous source of ongoing exposure during bone turnover.</div>
 
@@ -4973,6 +5053,7 @@ This pathophysiological event involves abnormal calcium ion homeostasis (GO:0055
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4994,6 +5075,7 @@ This pathophysiological event involves abnormal calcium ion homeostasis (GO:0055
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5019,6 +5101,7 @@ This pathophysiological event involves abnormal calcium ion homeostasis (GO:0055
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inhibition-of-delta-aminolevulinic-acid-dehydratase" data-dismech-node="Inhibition of delta-aminolevulinic acid dehydratase" data-dismech-type="pathophysiology">
                 <div class="item-name">Inhibition of delta-aminolevulinic acid dehydratase</div>
+
 
                 <div class="item-desc">Lead inhibits delta-aminolevulinic acid dehydratase (ALAD), a zinc-dependent heme biosynthetic enzyme. This is an early and sensitive biochemical lesion of lead exposure and contributes to defective heme production. ALAD is cytosolic, so the block is both present and routinely assayed in the mature erythrocyte; the erythroid precursors are listed alongside because that is where the reduced flux actually costs the cell its heme.</div>
 
@@ -5182,6 +5265,7 @@ This pathophysiological event involves decreased heme biosynthetic process (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5204,6 +5288,7 @@ This pathophysiological event involves decreased heme biosynthetic process (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythrocyte-pyrimidine-5-nucleotidase-deficiency" data-dismech-node="Erythrocyte pyrimidine 5&#39;-nucleotidase deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythrocyte pyrimidine 5&#39;-nucleotidase deficiency</div>
+
 
                 <div class="item-desc">Lead intoxication causes an acquired erythrocyte pyrimidine 5&#39;-nucleotidase deficiency, leading to abnormal pyrimidine nucleotide handling and basophilic stippling.</div>
 
@@ -5329,6 +5414,7 @@ This pathophysiological event involves abnormal pyrimidine-containing compound b
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5351,6 +5437,7 @@ This pathophysiological event involves abnormal pyrimidine-containing compound b
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hemolytic-erythrocyte-injury" data-dismech-node="Hemolytic erythrocyte injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hemolytic erythrocyte injury</div>
+
 
                 <div class="item-desc">Lead-associated erythrocyte injury increases hemolysis and contributes to clinically significant anemia.</div>
 
@@ -5446,6 +5533,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5468,6 +5556,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shortened-erythrocyte-lifespan-and-erythropoietic-strain" data-dismech-node="Shortened Erythrocyte Lifespan and Erythropoietic Strain" data-dismech-type="pathophysiology">
                 <div class="item-name">Shortened Erythrocyte Lifespan and Erythropoietic Strain</div>
+
 
                 <div class="item-desc">Accelerated erythrocyte destruction shortens red-cell survival; the bone marrow responds with reticulocytosis and erythroid hyperplasia, but in chronically exposed subjects this compensation is measurably incomplete.</div>
 
@@ -5627,6 +5716,7 @@ This pathophysiological event involves increased erythropoiesis, annotated with 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5648,6 +5738,7 @@ This pathophysiological event involves increased erythropoiesis, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5673,6 +5764,7 @@ This pathophysiological event involves increased erythropoiesis, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ala-and-coproporphyrin-accumulation" data-dismech-node="ALA and Coproporphyrin Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">ALA and Coproporphyrin Accumulation</div>
+
 
                 <div class="item-desc">Behind the ALAD block, the pathway precursor 5-aminolevulinic acid (ALA) and coproporphyrin III accumulate to pathological concentrations, while porphobilinogen — downstream of the ALAD-catalyzed step — is not overproduced. This is the same ALA-up/PBG-not-up biochemical signature seen in the inherited ALAD-deficiency porphyria, modeled here on that disorder&#39;s &#34;Hepatic and erythroid ALA accumulation without PBG overproduction&#34; node.</div>
 
@@ -5832,6 +5924,7 @@ This pathophysiological event involves abnormal heme biosynthetic process (GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5853,6 +5946,7 @@ This pathophysiological event involves abnormal heme biosynthetic process (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5880,6 +5974,7 @@ This pathophysiological event involves abnormal heme biosynthetic process (GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5904,6 +5999,7 @@ This pathophysiological event involves abnormal heme biosynthetic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ala-mediated-neurovisceral-neurotoxicity" data-dismech-node="ALA-Mediated Neurovisceral Neurotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">ALA-Mediated Neurovisceral Neurotoxicity</div>
+
 
                 <div class="item-desc">Accumulated ALA acts as a pro-oxidant neurotoxin on the autonomic, peripheral, and central nervous systems, producing the classic neurovisceral triad of abdominal pain, constipation, and peripheral neuropathy — the same effector arm the heme biosynthesis module assigns to precursor accumulation in the acute hepatic porphyrias.</div>
 
@@ -6047,6 +6143,7 @@ This pathophysiological event involves increased response to oxidative stress (G
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6069,6 +6166,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ferrochelatase-inhibition" data-dismech-node="Ferrochelatase Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Ferrochelatase Inhibition</div>
+
 
                 <div class="item-desc">Lead also inhibits ferrochelatase, the terminal enzyme of heme biosynthesis, which normally inserts iron into protoporphyrin IX. The reaction is carried out in the mitochondria of the nucleated erythroid precursors, not in the mature anucleate erythrocyte; blocking it leaves protoporphyrin IX to chelate zinc into the vacant iron site, and the resulting zinc protoporphyrin persists in the circulating red cells the entry measures as its biomarker. This is a second, independent instance of the module&#39;s enzymatic-block lesion, acting at the terminal step of the pathway rather than at ALAD.</div>
 
@@ -6228,6 +6326,7 @@ This pathophysiological event involves abnormal porphyrin-containing compound me
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6249,6 +6348,7 @@ This pathophysiological event involves abnormal porphyrin-containing compound me
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6274,6 +6374,7 @@ This pathophysiological event involves abnormal porphyrin-containing compound me
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-calcium-mimicry-in-neuronal-signaling" data-dismech-node="Calcium mimicry in neuronal signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Calcium mimicry in neuronal signaling</div>
+
 
                 <div class="item-desc">Lead acts as a calcium substitute in intracellular signaling, perturbing calcium-dependent neuronal regulatory pathways.</div>
 
@@ -6399,6 +6500,7 @@ This pathophysiological event involves abnormal calcium ion homeostasis (GO:0055
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6421,6 +6523,7 @@ This pathophysiological event involves abnormal calcium ion homeostasis (GO:0055
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-kinase-c-dysregulation" data-dismech-node="Protein kinase C dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein kinase C dysregulation</div>
+
 
                 <div class="item-desc">Lead-induced disturbance of second-messenger signaling alters protein kinase C activation and other calcium-regulated neuronal signaling outputs.</div>
 
@@ -6508,6 +6611,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6530,6 +6634,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nmda-receptor-blockade-in-glutamatergic-neurons" data-dismech-node="NMDA receptor blockade in glutamatergic neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">NMDA receptor blockade in glutamatergic neurons</div>
+
 
                 <div class="item-desc">Pb2+ inhibits the NMDA-receptor ion-channel complex directly, reducing NMDA-evoked whole-cell and single-channel current and the frequency of channel opening, while sparing AMPA- and kainate-receptor-mediated transmission. This is a separate neuronal action from the calcium mimicry curated alongside it: lead here blocks the principal activity-gated calcium channel of the excitatory synapse rather than substituting for calcium downstream of it.</div>
 
@@ -6655,6 +6760,7 @@ This pathophysiological event involves decreased NMDA glutamate receptor activit
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6676,6 +6782,7 @@ This pathophysiological event involves decreased NMDA glutamate receptor activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6701,6 +6808,7 @@ This pathophysiological event involves decreased NMDA glutamate receptor activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-nmda-receptor-mediated-calcium-signaling" data-dismech-node="Reduced NMDA receptor-mediated calcium signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced NMDA receptor-mediated calcium signaling</div>
+
 
                 <div class="item-desc">Loss of NMDA-receptor conductance removes the activity-gated calcium transient that couples synaptic activity to the postsynaptic calcium-dependent transcriptional program. In developmental exposure this is compounded by disruption of the ontogenetic pattern of NMDAR subunit expression.</div>
 
@@ -6847,6 +6955,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6869,6 +6978,7 @@ This pathophysiological event occurs in hippocampal formation (UBERON:0002421). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-bdnf-trkb-signaling" data-dismech-node="Reduced BDNF-TrkB signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced BDNF-TrkB signaling</div>
+
 
                 <div class="item-desc">Lead exposure during synaptogenesis lowers BDNF gene and protein expression and extracellular mature BDNF, with reduced TrkB levels and autophosphorylation and decreased phosphorylation of the presynaptic BDNF target Synapsin I. The result is impaired vesicular release and degraded activity-dependent synaptic function.</div>
 
@@ -7028,6 +7138,7 @@ This pathophysiological event involves decreased BDNF-TrkB signaling, annotated 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7049,6 +7160,7 @@ This pathophysiological event involves decreased BDNF-TrkB signaling, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7074,6 +7186,7 @@ This pathophysiological event involves decreased BDNF-TrkB signaling, annotated 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction" data-dismech-node="Mitochondrial dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial dysfunction</div>
+
 
                 <div class="item-desc">Lead poisoning perturbs mitochondrial function across multiple organ systems, contributing to cellular energy failure and tissue injury.</div>
 
@@ -7165,6 +7278,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7187,6 +7301,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-response" data-dismech-node="Oxidative stress response" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative stress response</div>
+
 
                 <div class="item-desc">Lead exposure increases oxidative stress signaling and contributes to multisystem cellular injury.</div>
 
@@ -7263,6 +7378,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7285,6 +7401,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-tubular-lead-accumulation" data-dismech-node="Proximal tubular lead accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal tubular lead accumulation</div>
+
 
                 <div class="item-desc">Lead accumulates in proximal renal tubular cells, where it forms inclusion bodies and produces potentially reversible proximal tubular dysfunction in acute toxicity.</div>
 
@@ -7410,6 +7527,7 @@ This pathophysiological event involves abnormal renal absorption (GO:0070293). G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7431,6 +7549,7 @@ This pathophysiological event involves abnormal renal absorption (GO:0070293). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7456,6 +7575,7 @@ This pathophysiological event involves abnormal renal absorption (GO:0070293). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-tubulointerstitial-nephropathy" data-dismech-node="Chronic tubulointerstitial nephropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic tubulointerstitial nephropathy</div>
+
 
                 <div class="item-desc">Chronic lead nephrotoxicity is a tubulointerstitial renal disease marked by interstitial fibrosis, progressive nephron loss, and associated hyperuricemia, gout, and hypertension.</div>
 
@@ -7559,6 +7679,7 @@ This pathophysiological event involves proximal tubule cell, annotated with epit
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7580,6 +7701,7 @@ This pathophysiological event involves proximal tubule cell, annotated with epit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7642,6 +7764,7 @@ This pathophysiological event involves proximal tubule cell, annotated with epit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7663,6 +7786,7 @@ This pathophysiological event involves proximal tubule cell, annotated with epit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7713,6 +7837,7 @@ This pathophysiological event involves proximal tubule cell, annotated with epit
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7734,6 +7859,7 @@ This pathophysiological event involves proximal tubule cell, annotated with epit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7852,6 +7978,9 @@ This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </div>
 
 
+
+
+
                     <div class="item-desc">19% of 63 chronically lead-exposed industrial workers, and mild where present. The low figure is consistent with an occupational cohort under surveillance rather than with symptomatic poisoning.</div>
 
 
@@ -7871,6 +8000,7 @@ This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7898,6 +8028,7 @@ This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7919,6 +8050,7 @@ This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7986,6 +8118,9 @@ This clinical feature is hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8000,6 +8135,7 @@ This clinical feature is hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8063,6 +8199,9 @@ This clinical feature is constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8077,6 +8216,7 @@ This clinical feature is constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8140,6 +8280,9 @@ This clinical feature is chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8154,6 +8297,7 @@ This clinical feature is chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8219,6 +8363,9 @@ This clinical feature is gingival lead line, annotated with Abnormality of the g
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8233,6 +8380,7 @@ This clinical feature is gingival lead line, annotated with Abnormality of the g
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8298,6 +8446,9 @@ This clinical feature is gout (HP:0001997). HP:0001997 is a phenotype from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8312,6 +8463,7 @@ This clinical feature is gout (HP:0001997). HP:0001997 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8375,6 +8527,9 @@ This clinical feature is encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8389,6 +8544,7 @@ This clinical feature is encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8443,6 +8599,9 @@ This clinical feature is cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8457,6 +8616,7 @@ This clinical feature is cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8513,6 +8673,9 @@ This clinical feature is developmental delay, annotated with Global developmenta
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8527,6 +8690,7 @@ This clinical feature is developmental delay, annotated with Global developmenta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8583,6 +8747,9 @@ This clinical feature is behavioral changes, annotated with Atypical behavior (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8597,6 +8764,7 @@ This clinical feature is behavioral changes, annotated with Atypical behavior (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8651,6 +8819,9 @@ This clinical feature is peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8665,6 +8836,7 @@ This clinical feature is peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8689,6 +8861,7 @@ This clinical feature is peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8751,6 +8924,9 @@ This clinical feature is abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">62% of 63 chronically lead-exposed industrial workers.</div>
 
 
@@ -8770,6 +8946,7 @@ This clinical feature is abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8794,6 +8971,7 @@ This clinical feature is abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8917,6 +9095,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">The first intervention is removal from the lead source and prevention of ongoing exposure.</div>
 
 
@@ -8947,6 +9131,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8990,6 +9175,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9062,6 +9248,12 @@ This treatment is chelator agent therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oral succimer is used as a lead chelator, particularly in children with elevated blood lead concentrations.</div>
 
 
@@ -9092,6 +9284,7 @@ This treatment is chelator agent therapy, annotated with Pharmacotherapy (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9135,6 +9328,7 @@ This treatment is chelator agent therapy, annotated with Pharmacotherapy (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9207,6 +9401,12 @@ This treatment is chelator agent therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Calcium disodium EDTA chelation is used in selected patients with significant body lead burden, particularly when nephropathy is present.</div>
 
 
@@ -9228,6 +9428,7 @@ This treatment is chelator agent therapy, annotated with Pharmacotherapy (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9300,6 +9501,12 @@ This treatment is chelator agent therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Dimercaprol is used with calcium disodium EDTA in more severely intoxicated patients, including severe acute lead poisoning and lead encephalopathy.</div>
 
 
@@ -9321,6 +9528,7 @@ This treatment is chelator agent therapy, annotated with Pharmacotherapy (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9426,6 +9634,7 @@ This environmental factor occurs in lead paint (ENVO:02000124). ENVO:02000124 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9474,6 +9683,7 @@ This environmental factor occurs in lead paint (ENVO:02000124). ENVO:02000124 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9571,6 +9781,7 @@ This environmental factor occurs in household dust, annotated with dust (ENVO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9619,6 +9830,7 @@ This environmental factor occurs in household dust, annotated with dust (ENVO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9716,6 +9928,7 @@ This environmental factor occurs in drinking water (ENVO:00003064). ENVO:0000306
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9764,6 +9977,7 @@ This environmental factor occurs in drinking water (ENVO:00003064). ENVO:0000306
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9844,6 +10058,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9892,6 +10107,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9972,6 +10188,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10020,6 +10237,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10100,6 +10318,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10148,6 +10367,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10228,6 +10448,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10276,6 +10497,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10373,6 +10595,7 @@ This environmental factor occurs in electronic waste material, annotated with wa
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10421,6 +10644,7 @@ This environmental factor occurs in electronic waste material, annotated with wa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10501,6 +10725,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10522,6 +10747,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10573,6 +10799,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10653,6 +10880,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10701,6 +10929,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10769,6 +10998,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10815,6 +11045,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10921,6 +11152,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11009,6 +11241,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11103,6 +11336,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11194,6 +11428,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11273,6 +11508,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11328,6 +11564,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11392,6 +11629,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11438,6 +11676,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11541,6 +11780,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11562,6 +11802,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11635,6 +11876,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11656,6 +11898,7 @@ This environmental factor is exposure to lead (ECTO:9000945). ECTO:9000945 is an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11769,6 +12012,7 @@ This dataset samples peripheral blood mononuclear cells, annotated with mononucl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11897,6 +12141,7 @@ This dataset covers lead exposure, annotated with exposure to lead (ECTO:9000945
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11984,6 +12229,7 @@ This clinical trial targets cognitive impairment (HP:0100543). HP:0100543 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12005,6 +12251,7 @@ This clinical trial targets cognitive impairment (HP:0100543). HP:0100543 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12100,6 +12347,7 @@ This clinical trial targets cognitive impairment (HP:0100543). HP:0100543 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12121,6 +12369,7 @@ This clinical trial targets cognitive impairment (HP:0100543). HP:0100543 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12216,6 +12465,7 @@ This clinical trial targets cognitive impairment (HP:0100543). HP:0100543 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12237,6 +12487,7 @@ This clinical trial targets cognitive impairment (HP:0100543). HP:0100543 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12339,6 +12590,7 @@ This clinical trial targets cognitive impairment (HP:0100543). HP:0100543 is a p
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12422,6 +12674,7 @@ This clinical trial targets cognitive impairment (HP:0100543). HP:0100543 is a p
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12443,6 +12696,7 @@ This clinical trial targets cognitive impairment (HP:0100543). HP:0100543 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13651,8 +13905,8 @@ phenotypes:
 - category: Nervous System
   name: Encephalopathy
   description: &gt;-
-    Severe acute lead poisoning, especially in children, can cause life-
-    threatening lead encephalopathy with seizures, altered mental status, and
+    Severe acute lead poisoning, especially in children, can cause life-threatening
+    lead encephalopathy with seizures, altered mental status, and
     raised intracranial pressure.
   phenotype_term:
     preferred_term: encephalopathy
@@ -15059,6 +15313,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15241,6 +15496,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15309,6 +15565,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15417,6 +15674,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15565,6 +15823,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -15636,6 +15895,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -15670,6 +15930,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -16449,7 +16711,7 @@ These terms are used interchangeably in contemporary clinical literature. (lanph
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Lead Poisoning", "mondoId": "MONDO:0018019", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lead_Poisoning", "yamlRevision": "a73095716c65"};
+        const OS_CONFIG = {"diseaseName": "Lead Poisoning", "mondoId": "MONDO:0018019", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lead_Poisoning", "yamlRevision": "7909c0063691"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

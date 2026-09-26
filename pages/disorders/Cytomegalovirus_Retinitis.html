@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4212,6 +4280,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cmv-reactivation-under-impaired-cellular-immunity" data-dismech-node="CMV reactivation under impaired cellular immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">CMV reactivation under impaired cellular immunity</div>
 
+
                 <div class="item-desc">In hosts with deficient CD4+ T-cell-mediated immunity (advanced HIV/AIDS, transplant recipients, or other iatrogenic immunosuppression), latent cytomegalovirus escapes immune control and resumes active replication. Loss of protective cellular immunity is the proximal permissive event for end-organ CMV disease.</div>
 
 
@@ -4374,6 +4443,7 @@ This pathophysiological event involves increased viral genome replication (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4396,6 +4466,7 @@ This pathophysiological event involves increased viral genome replication (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-productive-cmv-infection-of-the-retina" data-dismech-node="Productive CMV infection of the retina" data-dismech-type="pathophysiology">
                 <div class="item-name">Productive CMV infection of the retina</div>
+
 
                 <div class="item-desc">Replicating cytomegalovirus reaches the eye and productively infects retinal cells. In profoundly immunosuppressed HIV-positive patients, the retina is one of the most characteristic sites of CMV end-organ disease.</div>
 
@@ -4551,6 +4622,7 @@ This pathophysiological event involves increased viral process (GO:0016032). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4573,6 +4645,7 @@ This pathophysiological event involves increased viral process (GO:0016032). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-full-thickness-necrotizing-retinitis" data-dismech-node="Full-thickness necrotizing retinitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Full-thickness necrotizing retinitis</div>
+
 
                 <div class="item-desc">Productive retinal CMV infection produces a progressive, full-thickness necrotizing retinitis with retinal opacification from necrosis and associated intraretinal hemorrhage. It typically begins in the peripheral retina and advances toward the posterior pole, and untreated it can rapidly destroy the retina, leading to blindness.</div>
 
@@ -4698,6 +4771,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4719,6 +4793,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4746,6 +4821,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4768,6 +4844,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-recovery-uveitis" data-dismech-node="Immune recovery uveitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune recovery uveitis</div>
+
 
                 <div class="item-desc">When cellular immunity is restored, most often after initiation of antiretroviral therapy in HIV/AIDS, a paradoxical intraocular inflammatory reaction can develop in eyes with prior CMV retinitis. This immune recovery uveitis is an important cause of visual morbidity despite control of the underlying viral infection.</div>
 
@@ -4878,6 +4955,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4969,6 +5047,9 @@ This clinical feature is Retinitis (HP:0032118). HP:0032118 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4983,6 +5064,7 @@ This clinical feature is Retinitis (HP:0032118). HP:0032118 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5037,6 +5119,9 @@ This clinical feature is Yellow-white retinal lesions, annotated with Yellow/whi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5051,6 +5136,7 @@ This clinical feature is Yellow-white retinal lesions, annotated with Yellow/whi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5078,6 +5164,7 @@ This clinical feature is Yellow-white retinal lesions, annotated with Yellow/whi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5099,6 +5186,7 @@ This clinical feature is Yellow-white retinal lesions, annotated with Yellow/whi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5153,6 +5241,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5167,6 +5258,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5194,6 +5286,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5215,6 +5308,7 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5269,6 +5363,9 @@ This clinical feature is Vitreous floaters (HP:0100832). HP:0100832 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5283,6 +5380,7 @@ This clinical feature is Vitreous floaters (HP:0100832). HP:0100832 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5307,6 +5405,7 @@ This clinical feature is Vitreous floaters (HP:0100832). HP:0100832 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5361,6 +5460,9 @@ This clinical feature is Scotoma (HP:0000575). HP:0000575 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5375,6 +5477,7 @@ This clinical feature is Scotoma (HP:0000575). HP:0000575 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5399,6 +5502,7 @@ This clinical feature is Scotoma (HP:0000575). HP:0000575 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5453,6 +5557,9 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -5467,6 +5574,7 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5494,6 +5602,7 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5515,6 +5624,7 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5571,6 +5681,9 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5585,6 +5698,7 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5639,6 +5753,9 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5653,6 +5770,7 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5766,6 +5884,9 @@ This treatment uses fomivirsen (NCIT:C174902). NCIT:C174902 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5778,12 +5899,15 @@ This treatment uses fomivirsen (NCIT:C174902). NCIT:C174902 is a therapeutic age
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: Unconjugated</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
 
 
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: Phosphorothioate</span>
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -5863,6 +5987,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5887,6 +6012,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5908,6 +6034,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6004,6 +6131,12 @@ This treatment uses ganciclovir (CHEBI:465284). CHEBI:465284 is a therapeutic ag
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Intravitreal ganciclovir delivers high local antiviral drug concentrations to control CMV retinitis, used alone or combined with systemic antiviral therapy.</div>
 
 
@@ -6065,6 +6198,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6159,6 +6293,12 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oral valganciclovir is a prodrug of ganciclovir providing systemic anti-CMV therapy for induction and maintenance treatment of CMV retinitis.</div>
 
 
@@ -6220,6 +6360,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6314,6 +6455,12 @@ This treatment uses foscarnet (NCIT:C71630). NCIT:C71630 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Foscarnet is a pyrophosphate analogue antiviral used for CMV retinitis as an alternative to ganciclovir, given intravenously or intravitreally, particularly in drug-resistant disease or when ganciclovir is not tolerated.</div>
 
 
@@ -6344,6 +6491,7 @@ This treatment uses foscarnet (NCIT:C71630). NCIT:C71630 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6412,6 +6560,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6433,6 +6582,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6505,6 +6655,12 @@ This treatment is antiretroviral therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">In HIV/AIDS-associated CMV retinitis, antiretroviral therapy raises the CD4+ T-cell count, and that immune recovery has been effective in controlling opportunistic infections: in some patients retinitis has not progressed even after specific anti-CMV therapy was stopped, and anti-CMV maintenance therapy can likely be discontinued safely in selected patients with a sustained CD4+ response. The same immune recovery can precipitate immune recovery uveitis.</div>
 
 
@@ -6538,6 +6694,7 @@ This treatment is antiretroviral therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6559,6 +6716,7 @@ This treatment is antiretroviral therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6605,6 +6763,7 @@ This treatment is antiretroviral therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6626,6 +6785,7 @@ This treatment is antiretroviral therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6653,6 +6813,7 @@ This treatment is antiretroviral therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6746,6 +6907,12 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Cidofovir (Vistide) is an intravenous nucleotide analogue antiviral approved by the FDA for CMV retinitis in AIDS patients, particularly for relapsing or ganciclovir-resistant disease. Its prolonged intracellular half-life allows biweekly maintenance dosing. Must be co-administered with oral probenecid and intravenous saline hydration to minimize nephrotoxicity.</div>
 
 
@@ -6807,6 +6974,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6915,6 +7083,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7002,6 +7171,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7035,6 +7205,193 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
         <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-hiv-positive-patients-worldwide">
+                <div class="item-name">HIV-positive patients (worldwide)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Lifetime Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        30000.0 per 100,000
+                        (20000.0&ndash;40000.0)
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Cumulative proportion of HIV-positive patients who develop CMV retinitis over the course of their HIV disease. The figure derives from the pre-HAART literature, where 25-42% of AIDS patients developed CMVR; it is not a current-era point prevalence, and it is not comparable with the post-HAART annual incidence recorded below, which is roughly 400-fold lower.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39339903" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39339903" target="_blank">PMID:39339903</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"affecting approximately 20–40% of human immunodeficiency virus (HIV)-positive patients"</div>
+
+
+                <div class="evidence-explanation">Review giving the proportion of HIV-positive patients affected by CMV retinitis over the course of disease. The cited sentence carries no temporal qualifier, and the same statistic is phrased in the pre-HAART literature as the proportion of AIDS patients who develop CMVR, so it is recorded as a lifetime rather than a point prevalence. Evidence source is OTHER because this is a narrative clinical review, consistent with every other citation of this reference in this file.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-hiv-positive-patients-single-us-institution-cohort-1992-1993-pre-haart">
+                <div class="item-name">HIV-positive patients, single US institution cohort, 1992-1993 (pre-HAART)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        2600.0 per 100,000 per year
+                    </span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">Pre-HAART-era new-CMVR-diagnosis rate at one US practice, before the advent of protease inhibitors. The source reviews a 1992-1993 window, roughly two years, against the one-year October 1997 - October 1998 window of the post-HAART record below, so the two rates are not annualized on an identical basis and the pre/post contrast is the reliable reading rather than either absolute figure.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10935050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10935050" target="_blank">PMID:10935050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Twenty five (2.6%) of 974 HIV+ patients in group 1 developed CMVR."</div>
+
+
+                <div class="evidence-explanation">Reports the pre-HAART annual incidence of new CMV retinitis diagnoses at a single institution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-hiv-positive-patients-same-us-institution-cohort-1997-1998-after-widespread-haart-use">
+                <div class="item-name">HIV-positive patients, same US institution cohort, 1997-1998 (after widespread HAART use)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        70.0 per 100,000 per year
+                    </span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">Same institution&#39;s cohort after widespread HAART adoption, a 99% reduction from the pre-HAART rate reported in the same study. Window is October 1997 to October 1998.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10935050" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10935050" target="_blank">PMID:10935050</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only 1 patient (0.07%) of 1274 patients in group 3 developed CMVR, which represents a 99% reduction since 1993"</div>
+
+
+                <div class="evidence-explanation">Reports the post-HAART annual incidence of new CMV retinitis diagnoses at the same institution, quantifying the HAART-era decline.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Epidemiology -->
@@ -7075,6 +7432,7 @@ This treatment targets Retinitis (HP:0032118). HP:0032118 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7943,6 +8301,81 @@ diagnosis:
       Supports pp65 antigenemia and quantitative PCR as primary methods for
       quantifying CMV viremia and identifying high-risk patients for
       pre-emptive antiviral therapy.
+prevalence:
+- population: HIV-positive patients (worldwide)
+  measure_type: LIFETIME_PREVALENCE
+  prevalence_class: ABOVE_1_IN_1000
+  rate_per_100000: 30000.0
+  rate_low: 20000.0
+  rate_high: 40000.0
+  notes: &gt;-
+    Cumulative proportion of HIV-positive patients who develop CMV retinitis
+    over the course of their HIV disease. The figure derives from the
+    pre-HAART literature, where 25-42% of AIDS patients developed CMVR; it is
+    not a current-era point prevalence, and it is not comparable with the
+    post-HAART annual incidence recorded below, which is roughly 400-fold
+    lower.
+  evidence:
+  - reference: PMID:39339903
+    reference_title: &#34;Cytomegalovirus Retinitis: Clinical Manifestations, Diagnosis and Treatment.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;affecting approximately 20–40% of human immunodeficiency virus (HIV)-positive patients&#34;
+    explanation: &gt;-
+      Review giving the proportion of HIV-positive patients affected by CMV
+      retinitis over the course of disease. The cited sentence carries no
+      temporal qualifier, and the same statistic is phrased in the pre-HAART
+      literature as the proportion of AIDS patients who develop CMVR, so it is
+      recorded as a lifetime rather than a point prevalence. Evidence source
+      is OTHER because this is a narrative clinical review, consistent with
+      every other citation of this reference in this file.
+- population: &gt;-
+    HIV-positive patients, single US institution cohort, 1992-1993
+    (pre-HAART)
+  measure_type: ANNUAL_INCIDENCE
+  rate_per_100000: 2600.0
+  rate_denominator: POPULATION_PER_YEAR
+  notes: &gt;-
+    Pre-HAART-era new-CMVR-diagnosis rate at one US practice, before the
+    advent of protease inhibitors. The source reviews a 1992-1993 window,
+    roughly two years, against the one-year October 1997 - October 1998 window
+    of the post-HAART record below, so the two rates are not annualized on an
+    identical basis and the pre/post contrast is the reliable reading rather
+    than either absolute figure.
+  evidence:
+  - reference: PMID:10935050
+    reference_title: &gt;-
+      Effect of highly active antiretroviral therapy on the incidence of
+      HIV-related cytomegalovirus retinitis and retinal detachment.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Twenty five (2.6%) of 974 HIV+ patients in group 1 developed CMVR.&#34;
+    explanation: &gt;-
+      Reports the pre-HAART annual incidence of new CMV retinitis diagnoses
+      at a single institution.
+- population: &gt;-
+    HIV-positive patients, same US institution cohort, 1997-1998
+    (after widespread HAART use)
+  measure_type: ANNUAL_INCIDENCE
+  rate_per_100000: 70.0
+  rate_denominator: POPULATION_PER_YEAR
+  notes: &gt;-
+    Same institution&#39;s cohort after widespread HAART adoption, a 99%
+    reduction from the pre-HAART rate reported in the same study. Window is
+    October 1997 to October 1998.
+  evidence:
+  - reference: PMID:10935050
+    reference_title: &gt;-
+      Effect of highly active antiretroviral therapy on the incidence of
+      HIV-related cytomegalovirus retinitis and retinal detachment.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Only 1 patient (0.07%) of 1274 patients in group 3 developed CMVR,
+      which represents a 99% reduction since 1993
+    explanation: &gt;-
+      Reports the post-HAART annual incidence of new CMV retinitis
+      diagnoses at the same institution, quantifying the HAART-era decline.
 mappings:
   mondo_mappings:
   - term:
@@ -8018,7 +8451,7 @@ mappings:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cytomegalovirus Retinitis", "mondoId": "MONDO:0000878", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cytomegalovirus_Retinitis", "yamlRevision": "a0b7461076cd"};
+        const OS_CONFIG = {"diseaseName": "Cytomegalovirus Retinitis", "mondoId": "MONDO:0000878", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cytomegalovirus_Retinitis", "yamlRevision": "418cb4159616"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4124,6 +4192,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4145,6 +4214,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4250,6 +4320,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4271,6 +4342,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4355,6 +4427,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4376,6 +4449,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4414,6 +4488,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-scn11a-gain-of-function-variant" data-dismech-node="Heterozygous SCN11A Gain-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous SCN11A Gain-of-Function Variant</div>
 
+
                 <div class="item-desc">A germline missense variant in one SCN11A allele alters the NaV1.9 channel protein. The variant class matters: these are point substitutions that change gating, not alleles that remove the channel.</div>
 
 
@@ -4424,6 +4499,8 @@
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4443,6 +4520,9 @@
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4490,6 +4570,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4512,6 +4593,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperpolarized-nav1-9-activation-with-enlarged-window-current" data-dismech-node="Hyperpolarized NaV1.9 Activation with Enlarged Window Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperpolarized NaV1.9 Activation with Enlarged Window Current</div>
+
 
                 <div class="item-desc">The mutant channel opens at more negative potentials than wild type and carries a larger persistent or window current, so more channels are open near the resting potential. This is the whole biophysical lesion; everything downstream follows from it.</div>
 
@@ -4662,6 +4744,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4683,6 +4766,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4708,6 +4792,7 @@ This pathophysiological event involves plasma membrane (GO:0005886). GO:0005886 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depolarized-resting-membrane-potential-in-nociceptors" data-dismech-node="Depolarized Resting Membrane Potential in Nociceptors" data-dismech-type="pathophysiology">
                 <div class="item-name">Depolarized Resting Membrane Potential in Nociceptors</div>
+
 
                 <div class="item-desc">Small-diameter dorsal root ganglion neurons sit closer to threshold than they should. NaV1.9 is the channel that normally sets this potential, which is why a gating change in it moves the resting potential rather than the action potential upstroke.</div>
 
@@ -4883,6 +4968,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4904,6 +4990,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4929,6 +5016,7 @@ This pathophysiological event involves increased membrane depolarization (GO:005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nociceptor-hyperexcitability-with-reduced-firing-threshold" data-dismech-node="Nociceptor Hyperexcitability with Reduced Firing Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Nociceptor Hyperexcitability with Reduced Firing Threshold</div>
+
 
                 <div class="item-desc">Nociceptors fire action potentials at lower stimulus intensities and at higher frequencies. Crucially the hyperexcitability persists at cold temperatures, where normal nociceptor firing is suppressed - which is the cellular explanation for a pain syndrome that is triggered by cold.</div>
 
@@ -5116,6 +5204,7 @@ This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). U
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5137,6 +5226,7 @@ This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5162,6 +5252,7 @@ This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-nociceptive-signalling-from-distal-limb-afferents" data-dismech-node="Ectopic Nociceptive Signalling from Distal Limb Afferents" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Nociceptive Signalling from Distal Limb Afferents</div>
+
 
                 <div class="item-desc">Amplified nociceptive traffic from afferents innervating the distal limbs, predominantly the lower limbs. Large-fibre function is spared - nerve conduction studies, imaging and inflammatory markers are normal, and there is no joint pathology - so the acute episode is a signalling abnormality. That does not mean the nerve is structurally intact: a small-fibre lesion is demonstrable on skin biopsy in some patients, and is curated separately as histopathology.</div>
 
@@ -5290,6 +5381,7 @@ This pathophysiological event occurs in hindlimb (UBERON:0002103). UBERON:000210
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5312,6 +5404,7 @@ This pathophysiological event occurs in hindlimb (UBERON:0002103). UBERON:000210
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myenteric-neuron-hyperexcitability" data-dismech-node="Myenteric Neuron Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Myenteric Neuron Hyperexcitability</div>
+
 
                 <div class="item-desc">A variant-dependent branch. NaV1.9 is preferentially expressed in myenteric neurons, and in at least one allele the enteric compartment is affected alongside the limbs, producing episodic abdominal pain and chronic constipation. Most reported patients have no gastrointestinal involvement.</div>
 
@@ -5407,6 +5500,7 @@ This pathophysiological event involves myenteric neuron, annotated with enteric 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5431,6 +5525,7 @@ This pathophysiological event involves myenteric neuron, annotated with enteric 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5489,6 +5584,7 @@ This pathophysiological event involves myenteric neuron, annotated with enteric 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5620,6 +5716,9 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5634,6 +5733,7 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5699,6 +5799,9 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5713,6 +5816,7 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5775,6 +5879,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately left unconnected in the pathograph. Every other phenotype here is reached by a downstream edge from a mechanism node, but no mechanism has been proposed linking NaV1.9 to tremor, and this is a co-segregation observation in a single pedigree. Drawing an edge would assert a causal claim the source does not make.</div>
 
 
@@ -5794,6 +5901,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5859,6 +5967,9 @@ This clinical feature is Episodic pain (HP:0032148). HP:0032148 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5873,6 +5984,7 @@ This clinical feature is Episodic pain (HP:0032148). HP:0032148 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5929,6 +6041,9 @@ This clinical feature is Lower limb pain (HP:0012514). HP:0012514 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5943,6 +6058,7 @@ This clinical feature is Lower limb pain (HP:0012514). HP:0012514 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5967,6 +6083,7 @@ This clinical feature is Lower limb pain (HP:0012514). HP:0012514 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6020,6 +6137,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">The quoted sentence reproduces a line-break hyphenation artifact present in the cached source, where the word &#34;increasing&#34; is split across a line. It is quoted exactly rather than repaired, because a snippet must be a true substring of the cited source.</div>
 
 
@@ -6039,6 +6159,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6095,6 +6216,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6109,6 +6233,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6209,6 +6334,9 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6223,6 +6351,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6247,6 +6376,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6279,6 +6409,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Arg222His
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The most frequently reported allele and a founder mutation in the Tohoku region of Japan, seen in seven of forty-eight families in the largest series.</div>
@@ -6332,6 +6468,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6361,6 +6498,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Arg222Ser
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The second allele identified in the founding series, and the one modelled as a knock-in mouse.</div>
@@ -6414,6 +6557,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6443,6 +6587,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Arg225Cys
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Reported in a four-generation Chinese family in which early-onset episodic pain co-segregated with adult-onset essential tremor.</div>
@@ -6496,6 +6646,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6525,6 +6676,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Phe814Cys and p.Phe1146Ser
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Two novel alleles from the forty-two-family Japanese expansion series, each validated by an orthologous knock-in mouse.</div>
@@ -6578,6 +6735,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6607,6 +6765,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Val1184Ala
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Identified by exome sequencing in a European case with cold-aggravated peripheral pain, and the allele on which the cold-resistant hyperexcitability mechanism was demonstrated.</div>
@@ -6660,6 +6824,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6689,6 +6854,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Asn816Lys
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Reported in a child with early-onset episodic pain in both legs together with episodic abdominal pain and chronic constipation, which is the allele linking the enteric branch of the phenotype to the channel.</div>
@@ -6742,6 +6913,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6771,6 +6943,12 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
         p.Leu811Phe
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A novel allele in a four-generation Japanese pedigree, and the more informative half of a residue that diverges by substitution: p.Leu811Phe causes episodic pain while p.Leu811Pro at the same residue causes congenital insensitivity to pain.</div>
@@ -6824,6 +7002,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6845,6 +7024,7 @@ This disease-associated gene is SCN11A (hgnc:10583). hgnc:10583 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6935,6 +7115,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6945,6 +7128,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6981,6 +7167,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7024,6 +7211,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7090,6 +7278,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7100,6 +7291,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7127,6 +7321,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7192,6 +7387,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7240,6 +7436,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7297,6 +7494,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7345,6 +7543,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7454,6 +7653,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7475,6 +7675,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7565,6 +7766,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7632,6 +7834,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7681,6 +7884,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7749,6 +7953,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7840,6 +8045,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7861,6 +8067,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7919,6 +8126,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7974,6 +8182,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7999,11 +8208,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-congenital-insensitivity-to-pain">
                 <div class="item-name">
 
-                    <a class="item-name-link" href="Congenital_Insensitivity_to_Pain.html">Congenital insensitivity to pain</a>
+                    <a class="item-name-link" href="Hereditary_Sensory_and_Autonomic_Neuropathy.html">Congenital insensitivity to pain</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0015364" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0015364" target="_blank">
                             MONDO:0015364
                         </a>
                     </span>
@@ -8032,6 +8241,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8181,6 +8391,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8240,6 +8451,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8279,6 +8491,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8416,6 +8629,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8455,6 +8669,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8594,6 +8809,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8636,6 +8852,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10066,6 +10283,31 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope, and why this entry is SCN11A only. The disease name &#34;predominantly lower limb involvement&#34; does not by itself pick a gene, and the deep-research report says so explicitly in its own limitations: FEPS2 (SCN10A) also causes distal, predominantly lower-limb episodic pain. The preflight check flagged the same risk, with SCN10A mentioned at 43% of the rate of SCN11A. The question is settled by the ontology rather than by the prose: MONDO:0014247 carries OMIM 615552, which is FEPS3, which is SCN11A. FEPS1 (TRPA1), FEPS2 (SCN10A) and FEPS4 (SCN9A) each have their own concepts and are curated here as differentials, not as content. Sections of the report covering SCN10A biology were excluded on that basis.
+Terms deliberately not bound. Neither environmental trigger carries an exposure_term. ECTO was searched for ambient cold and for physical exertion; the closest cold matches are exposure to cold room, exposure to cold water immersion therapy and exposure to cold cereal via ingestion, none of which names ambient cold or cold weather, and nothing suitable exists for fatigue. Both are left unbound with the search recorded in review_notes rather than bound to a near miss. The myenteric neuron node is bound to CL:0000101 sensory neuron rather than to an enteric neuron type: the report proposed CL:0011103 for &#34;enteric neuron&#34; and that identifier is sympathetic neuron.
+Report term corrections. This report&#39;s suggested identifiers were unusually unreliable and none of the following was used. Five were flagged by the report&#39;s own term validation as naming a different concept: HP:0025277, offered for episodic pain, is Gustatory sweating; HP:0500152, offered for cold-induced pain, is Hypocystinemia; HP:0003394, offered for limb pain, is Muscle spasm; GO:0045211, offered for &#34;axon/terminal&#34;, is postsynaptic membrane; and UBERON:0001132, offered for trigeminal ganglion, is parathyroid gland. A sixth, CL:0011103 for enteric neuron, is sympathetic neuron. Beyond those, all four NCIT identifiers the report proposed for treatments are wrong, and none was caught by the report&#39;s own validation because that section does not check NCIT: C15272, offered for Supportive Care, is Lobectomy; C376, offered for Carbamazepine, is Cisplatin; C198, offered for NSAID, is Acetaminophen; and C15311, offered for Genetic Counseling, is Quality Control. The correct terms NCIT:C15747 and NCIT:C15240 are used here. Every identifier in this entry was checked against its ontology before binding, and HP:0032148 Episodic pain - which the report did not propose at all - is the exact term for the defining phenotype.
+Deliberately not curated, and five references read and set aside. No treatments beyond warming, trigger avoidance and genetic counselling. The report lists NSAIDs, carbamazepine, lidocaine and mexiletine as off-label symptomatic options, but the one paper it cites for any of them reports carbamazepine correcting the gating of a NaV1.8-S242T channel in a patient with painful diabetic neuropathy - a different channel in a different disease. Curating that as a treatment here would assert a clinical use no source supports. The PRMT7 inhibitor DS-437 and transcutaneous cholesterol are preclinical mouse findings about channel regulation, not treatments for this disorder. A NaV1.8/NaV1.9 double-knockout study and a general sodium-channel-analgesia review are likewise about the target rather than the disease. All five were fetched by the research run, read, and their caches are not shipped. No prevalence rate: none exists in the literature, so only the qualitative band is claimed.
+Source defects reproduced rather than repaired. The cached abstract of PMID:30549873 carries line-break hyphenation artifacts from its source (&#34;fa- tigue&#34;, &#34;in- creasing&#34;, &#34;var- iants&#34;). Where a quote spans one of these, the artifact is reproduced exactly, because the snippet must be a true substring of the cited source and silently repairing a quote is worse than an ugly one.
+Review round two. The entry originally claimed there is no tissue damage at any point. That was wrong, and wrong against a source this entry already cited five times: skin biopsy in some patients shows reduced intraepidermal nerve fibre density and vacuolar degeneration of unmyelinated axons. The narrower claims were and are correct - nerve conduction studies are normal, imaging and inflammatory markers are normal, there is no joint pathology - and the error was generalizing from those to the whole nervous system when routine studies interrogate large fibres and the lesion is in the small ones. The claim is now scoped, and the small-fibre lesion is curated as histopathology.
+That correction changes the remission gap too. The same paragraph of the same review proposes that long-term NaV1.9 dysfunction may itself degenerate the unmyelinated fibres in patients whose pain remits - which would make the good prognosis and the nerve damage the same event. The gap previously said the remission was entirely unexplained, which understated what the literature offers; it now carries this candidate, hedged as its authors hedge it.
+Also in round two: the resting-potential node was bound to GO:0086010, membrane depolarization during action potential, which contradicted the node&#39;s own statement that NaV1.9 does not drive the action potential upstroke; GO:0051899 membrane depolarization is used instead. The myenteric node was bound to CL:0000101 sensory neuron, which was a second wrong binding after correctly rejecting the report&#39;s CL:0011103; myenteric neurons are motor and interneuron populations, and CL:0007011 enteric neuron is used. Four nodes now declare conforms_to against nociceptor_sodium_channel_excitability, whose description names this disease by mechanism and which three sibling entries already conform to. A diagnosis section was added covering panel sequencing and quantitative sensory testing, the latter being the objective correlate of the thermal sensitivity that defines the syndrome.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: familial episodic pain syndrome 3 (SCN11A)</strong> · 2026-09-02T00:01:21Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement/2026-09-02T000121Z-claude-code-c57848.yaml">View source</a></p>
+                        <p class="research-review-text">Curated FEPS3 from an OpenScientist deep-research report plus 11 cited PubMed abstracts. Six-node pathograph from a heterozygous SCN11A gain-of-function missense variant through hyperpolarized NaV1.9 activation with an enlarged window current, a depolarized resting membrane potential in small-diameter dorsal root ganglion neurons, and nociceptor hyperexcitability that is retained at cold temperatures, to ectopic nociceptive signalling from distal limb afferents, with a variant-dependent myenteric branch. Scope was the first decision and is recorded in the entry notes: the disease name does not pick a gene, the report itself flags in its limitations that FEPS2 (SCN10A) also causes distal lower-limb episodic pain, and the preflight check reported SCN10A at 43 percent of the SCN11A mention rate. MONDO:0014247 carries OMIM 615552, which is FEPS3 and therefore SCN11A, so the entry is SCN11A only and FEPS1, FEPS2 and FEPS4 are curated as differentials. Included the NaV1.9-null mouse as a deliberately inverted model with relationship PERTURBS, limitations stating it carries the opposite lesion, and its readout graded directness INDIRECT, since it establishes necessity where the knock-ins establish sufficiency. Two open knowledge gaps: what quantitative degree of gain of function separates episodic pain from congenital insensitivity to pain at the same residue, and why episodes remit around adolescence when the variant is lifelong. This report&#39;s suggested identifiers were unusually unreliable and none was adopted. Its own term validation flagged five naming a different concept, including HP:0025277 for episodic pain which is Gustatory sweating and UBERON:0001132 for trigeminal ganglion which is parathyroid gland; a sixth, CL:0011103 for enteric neuron, is sympathetic neuron. Beyond those, all four NCIT identifiers it proposed for treatments are wrong and none was caught by its own validation, which does not check NCIT: C15272 offered for Supportive Care is Lobectomy, C376 for Carbamazepine is Cisplatin, C198 for NSAID is Acetaminophen, and C15311 for Genetic Counseling is Quality Control. Every identifier bound here was checked against its ontology first, and HP:0032148 Episodic pain, which the report never proposed, is the exact term for the defining phenotype. Declined to curate any pharmacotherapy: the only paper cited for carbamazepine concerns a NaV1.8 channel in diabetic neuropathy, and the PRMT7 and cholesterol findings are preclinical mechanism studies rather than treatments. Five references fetched by the research run were read, set aside and their caches not shipped. The cached abstract of PMID:30549873 carries line-break hyphenation artifacts from its source and quotes spanning them reproduce the artifact exactly rather than silently repairing it. Neither environmental trigger is bound to an ECTO term; both searches are recorded in review_notes. Validation: schema, terms and references clean with 62/62 snippets verified; all offline gates green.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

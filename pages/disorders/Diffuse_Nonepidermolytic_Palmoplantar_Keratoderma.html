@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4178,6 +4246,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4199,6 +4268,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4285,6 +4355,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4306,6 +4377,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4355,6 +4427,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-krt1-germline-keratin-1-defect" data-dismech-node="KRT1 germline keratin 1 defect" data-dismech-type="pathophysiology">
                 <div class="item-name">KRT1 germline keratin 1 defect</div>
+
 
                 <div class="item-desc">Disease-causing germline KRT1 variants alter keratin 1, a type II keratin expressed in suprabasal epidermal keratinocytes. In diffuse NEPPK pedigrees, KRT1 variation segregates with diffuse palmoplantar keratoderma and points to a keratin filament defect distinct from KRT9-related epidermolytic PPK.
 </div>
@@ -4523,6 +4596,7 @@ This pathophysiological event involves abnormal intermediate filament organizati
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4544,6 +4618,7 @@ This pathophysiological event involves abnormal intermediate filament organizati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4569,6 +4644,7 @@ This pathophysiological event involves abnormal intermediate filament organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nonepidermolytic-palmoplantar-keratinization-disturbance" data-dismech-node="Nonepidermolytic palmoplantar keratinization disturbance" data-dismech-type="pathophysiology">
                 <div class="item-name">Nonepidermolytic palmoplantar keratinization disturbance</div>
+
 
                 <div class="item-desc">The KRT1-related keratinocyte defect produces abnormal palmoplantar keratinization and diffuse hyperkeratosis while preserving nonepidermolytic histology. This separates the entity from epidermolytic palmoplantar keratoderma and supports the diffuse palmoplantar hyperkeratosis phenotype.
 </div>
@@ -4844,6 +4920,7 @@ This pathophysiological event involves abnormal keratinocyte differentiation (GO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4865,6 +4942,7 @@ This pathophysiological event involves abnormal keratinocyte differentiation (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4890,6 +4968,7 @@ This pathophysiological event involves abnormal keratinocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-orthokeratotic-hyperkeratosis-without-epidermolysis" data-dismech-node="Orthokeratotic hyperkeratosis without epidermolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Orthokeratotic hyperkeratosis without epidermolysis</div>
+
 
                 <div class="item-desc">Lesional skin biopsy shows orthokeratotic hyperkeratosis, acanthosis, hypergranulosis, and mild upper-dermal lymphocytic infiltrates without epidermolysis, matching the nonepidermolytic clinical designation.
 </div>
@@ -5017,6 +5096,7 @@ This pathophysiological event involves abnormal cornification (GO:0070268). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5074,6 +5154,7 @@ This pathophysiological event involves abnormal cornification (GO:0070268). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5191,6 +5272,9 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5205,6 +5289,7 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5270,6 +5355,9 @@ This clinical feature is Abnormal umbilicus morphology (HP:0001551). HP:0001551 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5284,6 +5372,7 @@ This clinical feature is Abnormal umbilicus morphology (HP:0001551). HP:0001551 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5349,6 +5438,9 @@ This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5363,6 +5455,7 @@ This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5419,6 +5512,9 @@ This clinical feature is Onychomycosis (HP:0012203). HP:0012203 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5433,6 +5529,7 @@ This clinical feature is Onychomycosis (HP:0012203). HP:0012203 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5457,6 +5554,7 @@ This clinical feature is Onychomycosis (HP:0012203). HP:0012203 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5522,6 +5620,9 @@ This clinical feature is Nonepidermolytic palmoplantar hyperkeratosis (HP:000740
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5536,6 +5637,7 @@ This clinical feature is Nonepidermolytic palmoplantar hyperkeratosis (HP:000740
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5592,6 +5694,9 @@ This clinical feature is Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5606,6 +5711,7 @@ This clinical feature is Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5630,6 +5736,7 @@ This clinical feature is Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5686,6 +5793,9 @@ This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5700,6 +5810,7 @@ This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5756,6 +5867,9 @@ This clinical feature is Concave nail (HP:0001598). HP:0001598 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5770,6 +5884,7 @@ This clinical feature is Concave nail (HP:0001598). HP:0001598 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5826,6 +5941,9 @@ This clinical feature is Palmoplantar blistering (HP:0007446). HP:0007446 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5840,6 +5958,7 @@ This clinical feature is Palmoplantar blistering (HP:0007446). HP:0007446 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5896,6 +6015,9 @@ This clinical feature is Palmoplantar scaling skin (HP:0025524). HP:0025524 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5910,6 +6032,7 @@ This clinical feature is Palmoplantar scaling skin (HP:0025524). HP:0025524 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5966,6 +6089,9 @@ This clinical feature is Knuckle pad (HP:0032541). HP:0032541 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5980,6 +6106,7 @@ This clinical feature is Knuckle pad (HP:0032541). HP:0032541 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6036,6 +6163,9 @@ This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6050,6 +6180,7 @@ This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6115,6 +6246,9 @@ This clinical feature is Thickened Achilles tendon (HP:0004690). HP:0004690 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6129,6 +6263,7 @@ This clinical feature is Thickened Achilles tendon (HP:0004690). HP:0004690 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6185,6 +6320,9 @@ This clinical feature is Decreased movement range in interphalangeal joints (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6199,6 +6337,7 @@ This clinical feature is Decreased movement range in interphalangeal joints (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6264,6 +6403,9 @@ This clinical feature is Tendon thickening (HP:0032523). HP:0032523 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6278,6 +6420,7 @@ This clinical feature is Tendon thickening (HP:0032523). HP:0032523 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6380,6 +6523,9 @@ This disease-associated gene is KRT1 (hgnc:6412). hgnc:6412 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6394,6 +6540,7 @@ This disease-associated gene is KRT1 (hgnc:6412). hgnc:6412 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6421,6 +6568,7 @@ This disease-associated gene is KRT1 (hgnc:6412). hgnc:6412 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6442,6 +6590,7 @@ This disease-associated gene is KRT1 (hgnc:6412). hgnc:6412 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6502,7 +6651,7 @@ This disease-associated gene is KRT1 (hgnc:6412). hgnc:6412 is a gene from the H
 
     </div>
 
-    <div class="item-desc">Orphanet&#39;s ORPHA:530838 structured record provides the disease definition, autosomal dominant inheritance, KRT1 disease-gene assertion, worldwide prevalence class, HPO phenotype rows, and exact MONDO and OMIM cross- references used in this entry.
+    <div class="item-desc">Orphanet&#39;s ORPHA:530838 structured record provides the disease definition, autosomal dominant inheritance, KRT1 disease-gene assertion, worldwide prevalence class, HPO phenotype rows, and exact MONDO and OMIM cross-references used in this entry.
 </div>
 
 
@@ -6523,6 +6672,7 @@ This disease-associated gene is KRT1 (hgnc:6412). hgnc:6412 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6547,6 +6697,7 @@ This disease-associated gene is KRT1 (hgnc:6412). hgnc:6412 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6616,6 +6767,7 @@ This disease-associated gene is KRT1 (hgnc:6412). hgnc:6412 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6653,6 +6805,12 @@ This disease-associated gene is KRT1 (hgnc:6412). hgnc:6412 is a gene from the H
                 <div class="item-name">
                     Topical emollient and keratolytic symptom therapy
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6748,6 +6906,7 @@ This treatment targets Palmoplantar scaling skin (HP:0025524). HP:0025524 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6838,6 +6997,12 @@ This treatment uses retinoid (CHEBI:26537). CHEBI:26537 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oral retinoids are a systemic option for severe hereditary palmoplantar keratoderma, but benefit varies by PPK subtype and tolerability can limit use.
 </div>
 
@@ -6900,6 +7065,7 @@ This treatment targets Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:0007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7011,6 +7177,7 @@ This treatment targets Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:0007
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7101,6 +7268,7 @@ This treatment targets Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:0007
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7168,6 +7336,7 @@ This treatment targets Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:0007
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7189,6 +7358,7 @@ This treatment targets Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:0007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7242,6 +7412,7 @@ This treatment targets Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:0007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7314,6 +7485,7 @@ This treatment targets Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:0007
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7335,6 +7507,7 @@ This treatment targets Diffuse palmoplantar hyperkeratosis (HP:0007447). HP:0007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7451,8 +7624,8 @@ external_assertions:
   description: &gt;
     Orphanet&#39;s ORPHA:530838 structured record provides the disease definition,
     autosomal dominant inheritance, KRT1 disease-gene assertion, worldwide
-    prevalence class, HPO phenotype rows, and exact MONDO and OMIM cross-
-    references used in this entry.
+    prevalence class, HPO phenotype rows, and exact MONDO and OMIM cross-references
+    used in this entry.
   evidence:
   - reference: ORPHA:530838
     reference_title: &#34;KRT1-related diffuse nonepidermolytic keratoderma&#34;
@@ -8350,6 +8523,66 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Diffuse Nonepidermolytic Palmoplantar Keratoderma (Changes required)</strong> · 2026-05-31T03:02:21Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Diffuse_Nonepidermolytic_Palmoplantar_Keratoderma/2026-05-31T030221Z-github-review-3616.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3616
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:21Z
+Issue updated: 2026-05-31T03:02:21Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Diffuse Nonepidermolytic Palmoplantar Keratoderma**
+- Entry: `kb/disorders/Diffuse_Nonepidermolytic_Palmoplantar_Keratoderma.yaml`
+- Selection basis: #147 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Actionable baseline check: a `diagnosis` section exists, but no top-level GeneReviews tag was detected in the YAML. For this Mendelian entry, confirm whether a GeneReviews article exists and either add/tag it or record why no GeneReviews baseline applies.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Disease-boundary check: no subtypes are modeled. Confirm this is intentionally a single pathomechanism entry and not a spectrum that should expose subtypes, genotype classes, or clinically distinct forms.
+4. Pathophysiology review: the main modeled mechanisms include KRT1 germline keratin 1 defect, Nonepidermolytic palmoplantar keratinization disturbance, Orthokeratotic hyperkeratosis without epidermolysis. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment/trial alignment: both `treatments` and `clinical_trials` are present. Verify that trial interventions, phases/statuses, target phenotypes, and treatment entries agree, and distinguish approved/standard care from investigational or case-report therapy.
+6. Evidence/reference check: top references include ORPHA:530838, ORPHA:496, PMID:30452289, PMID:7531539. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: review major phenotypes such as Nonepidermolytic palmoplantar hyperkeratosis, Diffuse palmoplantar hyperkeratosis, Dry skin, Atopic dermatitis, Abnormal umbilicus morphology.
+- Subtype completeness: N/A or not modeled; confirm no required subtype split.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: diagnosis present but should be checked against baseline sources.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Diffuse_Nonepidermolytic_Palmoplantar_Keratoderma-deep-research-fallback.md`
+- `ORPHA:530838`
+- `ORPHA:496`
+- PMID:30452289: https://pubmed.ncbi.nlm.nih.gov/30452289/
+- PMID:7531539: https://pubmed.ncbi.nlm.nih.gov/7531539/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8436,7 +8669,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Diffuse Nonepidermolytic Palmoplantar Keratoderma", "mondoId": "MONDO:0010962", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diffuse_Nonepidermolytic_Palmoplantar_Keratoderma", "yamlRevision": "4f00e3744e8a"};
+        const OS_CONFIG = {"diseaseName": "Diffuse Nonepidermolytic Palmoplantar Keratoderma", "mondoId": "MONDO:0010962", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diffuse_Nonepidermolytic_Palmoplantar_Keratoderma", "yamlRevision": "d4e17dd187a2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

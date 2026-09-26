@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4352,6 +4420,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4373,6 +4442,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4459,6 +4529,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4524,6 +4595,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4545,6 +4617,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4728,6 +4801,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4752,6 +4826,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4773,6 +4848,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4897,6 +4973,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4918,6 +4995,7 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5043,6 +5121,13 @@ The entity&#39;s defining curatorial problem is that the same allele does not pr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vapb-p-pro56ser-msp-domain-variant" data-dismech-node="VAPB p.Pro56Ser MSP-Domain Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">VAPB p.Pro56Ser MSP-Domain Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A heterozygous germline missense change substitutes serine for a conserved proline at residue 56 of VAPB, within the N-terminal major sperm protein (MSP) homology domain — the surface through which VAPB binds FFAT-motif partners and so recruits lipid-transfer and other proteins to the cytosolic face of the endoplasmic reticulum. Essentially every reported family carries this one allele, inherited from a common founder.</div>
 
 
@@ -5103,6 +5188,8 @@ This pathophysiological event involves VAPB (hgnc:12649). hgnc:12649 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5113,6 +5200,9 @@ This pathophysiological event involves VAPB (hgnc:12649). hgnc:12649 is a gene f
 
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline missense variant in the MSP domain. The functional impact category is deliberately left unset: whether the dominant action is a toxic gain of function through aggregation and sequestration of the wild-type protein, or loss of function of the remaining wild-type allele, is the unresolved question recorded in this entry&#39;s mechanistic_hypotheses.</div>
 
@@ -5166,6 +5256,7 @@ This pathophysiological event involves VAPB (hgnc:12649). hgnc:12649 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5187,6 +5278,7 @@ This pathophysiological event involves VAPB (hgnc:12649). hgnc:12649 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5212,6 +5304,13 @@ This pathophysiological event involves VAPB (hgnc:12649). hgnc:12649 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-derived-aggregation-of-misfolded-vapb" data-dismech-node="ER-Derived Aggregation of Misfolded VAPB" data-dismech-type="pathophysiology">
                 <div class="item-name">ER-Derived Aggregation of Misfolded VAPB</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Mutant VAPB misfolds and self-associates into immobile, tubular ER-derived inclusions in motor neurons, dragging endogenous wild-type VAPA and VAPB into the same aggregates. The inclusions are not inert: they are decorated with ER-associated degradation machinery (p97/VCP, Derlin-1, BAP31) and behave as a quality-control compartment formed when misfolded VAPB exceeds ERAD capacity. Their pathogenic weight is contested — see the HUMAN_MODEL_MISMATCH discussion below, since patient-derived motor neurons expressing the allele at physiological level do not show them.</div>
 
@@ -5361,6 +5460,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5382,6 +5482,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5409,6 +5510,7 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5431,6 +5533,13 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-functional-vapb-at-er-membrane-contact-sites" data-dismech-node="Loss of Functional VAPB at ER Membrane Contact Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Functional VAPB at ER Membrane Contact Sites</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">However the aggregates are read, the functional consequence converges on too little working VAPB at the ER surface. The mutant protein is unstable and non-functional, and VAPB levels are reduced in patient-derived motor neurons and in ALS spinal cord. Because VAPB is the tether that recruits FFAT-motif partners to the ER, its shortfall degrades a whole family of contact-site functions at once: ER-to-Golgi transport, lipid exchange (with a characteristic rise in phosphatidylinositol-4-phosphate), phosphoinositide and calcium handling, and ER protein quality control.</div>
 
@@ -5591,6 +5700,7 @@ This pathophysiological event involves decreased endoplasmic reticulum to Golgi 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5612,6 +5722,7 @@ This pathophysiological event involves decreased endoplasmic reticulum to Golgi 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5639,6 +5750,7 @@ This pathophysiological event involves decreased endoplasmic reticulum to Golgi 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5663,6 +5775,13 @@ This pathophysiological event involves decreased endoplasmic reticulum to Golgi 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-stress-and-unfolded-protein-response-activation" data-dismech-node="ER Stress and Unfolded Protein Response Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">ER Stress and Unfolded Protein Response Activation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of VAPB-dependent ER quality control and accumulation of misfolded VAPB together activate the ER stress response in motor neurons. In physiological-level knock-in mice this is detectable before any behavioural deficit, which is what makes it a candidate initiating step rather than an end-stage epiphenomenon.</div>
 
@@ -5840,6 +5959,7 @@ This pathophysiological event involves increased endoplasmic reticulum unfolded 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5861,6 +5981,7 @@ This pathophysiological event involves increased endoplasmic reticulum unfolded 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5888,6 +6009,7 @@ This pathophysiological event involves increased endoplasmic reticulum unfolded 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5910,6 +6032,13 @@ This pathophysiological event involves increased endoplasmic reticulum unfolded 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-er-mitochondria-contact-and-calcium-handling" data-dismech-node="Disrupted ER-Mitochondria Contact and Calcium Handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted ER-Mitochondria Contact and Calcium Handling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">VAPB is a mitochondria-associated-membrane protein that tethers ER to mitochondria by binding the outer-mitochondrial-membrane protein PTPIP51, and this contact is where calcium released from ER stores is taken up by mitochondria. p.Pro56Ser alters PTPIP51 binding and increases mitochondrial calcium uptake. PROVISIONAL rather than ESTABLISHED because the direct evidence comes from overexpression in cell lines and from yeast and mammalian model systems, not from VAPB-mutant human motor neurons.</div>
 
@@ -5999,6 +6128,7 @@ This pathophysiological event involves abnormal mitochondrial calcium ion homeos
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6020,6 +6150,7 @@ This pathophysiological event involves abnormal mitochondrial calcium ion homeos
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6047,6 +6178,7 @@ This pathophysiological event involves abnormal mitochondrial calcium ion homeos
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6069,6 +6201,13 @@ This pathophysiological event involves abnormal mitochondrial calcium ion homeos
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-autophagic-flux-and-rna-binding-protein-mislocalization" data-dismech-node="Impaired Autophagic Flux and RNA-Binding Protein Mislocalization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Autophagic Flux and RNA-Binding Protein Mislocalization</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">p.Pro56Ser disturbs both the initiation and the completion of autophagy, with autophagosomes failing to fuse with lysosomes. Aggregates accumulate together with LC3 and p62 and sequester RNA-binding proteins — phosphorylated TDP-43, FUS and Matrin 3 — into persistent stress granules, connecting this disorder to the wider TDP-43 proteinopathy of ALS. The human material is a single ALS8 index patient&#39;s muscle biopsy and fibroblasts, which is why the node is PROVISIONAL.</div>
 
@@ -6158,6 +6297,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6179,6 +6319,7 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6204,6 +6345,13 @@ This pathophysiological event involves decreased macroautophagy (GO:0016236). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lower-motor-neuron-degeneration" data-dismech-node="Lower Motor Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Lower Motor Neuron Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Anterior-horn and brainstem lower motor neurons become dysfunctional and degenerate. Selectivity is striking and only partly explained: VAPB is abundant in motor neurons, and in the pan-neuronal transgenic mouse the corticospinal population is lost while spinal motor neurons instead show altered C-bouton morphology and impaired rhythmic discharge without frank loss. In humans the clinical picture at the Finkel end of the spectrum is purely lower motor neuron, whereas subtle pyramidal signs appear in a majority of ALS8 patients overall.</div>
 
@@ -6376,6 +6524,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6397,6 +6546,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6424,6 +6574,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6446,6 +6597,13 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-denervation-and-reinnervation-of-skeletal-muscle" data-dismech-node="Chronic Denervation and Reinnervation of Skeletal Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Denervation and Reinnervation of Skeletal Muscle</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Failing motor neurons denervate their muscle fibres; surviving units sprout and reinnervate them, which is why electromyography in these patients shows ongoing denervation together with reinnervation rather than acute denervation alone. This compensation is what buys the disorder its decades-long course, and its eventual exhaustion is what produces clinically apparent weakness.</div>
 
@@ -6555,6 +6713,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6576,6 +6735,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6601,6 +6761,13 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-neurogenic-weakness-and-muscle-atrophy" data-dismech-node="Proximal Neurogenic Weakness and Muscle Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal Neurogenic Weakness and Muscle Atrophy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint: proximal and axial weakness with neurogenic muscle atrophy, beginning in the lumbar region in the great majority of patients and ascending over years. Reflexes are reduced and sensation is preserved, which is what separates this from a sensorimotor neuropathy.</div>
 
@@ -6678,6 +6845,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6699,6 +6867,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6724,6 +6893,13 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autonomic-and-unmyelinated-small-fibre-degeneration" data-dismech-node="Autonomic and Unmyelinated Small-Fibre Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Autonomic and Unmyelinated Small-Fibre Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A parallel, non-motor arm of the same VAPB deficit: peripheral autonomic and other unmyelinated fibres degenerate. Sural nerve biopsy in a p.Pro56Ser family showed loss of nerve fibres with a marked unmyelinated-fibre predominance and collagen pockets on electron microscopy, and the sympathetic skin response was absent. This is curated as a distinct arm rather than as part of lower motor neuron degeneration because the affected fibres are not motor, and as PROVISIONAL because it rests on two families — the original Brazilian kindred and an unrelated Chinese one — rather than on the large molecularly confirmed series, which did not assess autonomic function.</div>
 
@@ -6777,6 +6953,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6801,6 +6978,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6822,6 +7000,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6870,7 +7049,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALS8 patient-derived iPSC motor neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from p.Pro56Ser patients and their non-carrier siblings reprogrammed to iPSC and differentiated into motor neurons \\u2014 the closest available human-cell model, with sibling controls.\", \"meta\": {\"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:21685205\"}}, {\"id\": \"Autonomic and Unmyelinated Small-Fibre Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A parallel, non-motor arm of the same VAPB deficit: peripheral autonomic and other unmyelinated fibres degenerate. Sural nerve biopsy in a p.Pro56Ser family showed loss of nerve fibres with a marked unmyelinated-fibre predominance and collagen pockets on electron microscopy, and the sympathetic skin response was absent. This is curated as a distinct arm rather than as part of lower motor neuron degeneration because the affected fibres are not motor, and as PROVISIONAL because it rests on two families \\u2014 the original Brazilian kindred and an unrelated Chinese one \\u2014 rather than on the large molecularly confirmed series, which did not assess autonomic function.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\"}}, {\"id\": \"Bulbar Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bulbar features occur in about a fifth of ALS8 patients and are predominantly dysphonia rather than the dysarthria-dysphagia pattern of bulbar-onset ALS. Not an early or defining feature of the Finkel-type presentation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001618\"}}, {\"id\": \"Camptocormia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Forward flexion of the trunk from axial (paraspinal) weakness. Reported as a uniform feature of the Chinese p.Pro56Ser kindred and the same axial involvement that produces abdominal protrusion in the Brazilian families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100595\"}}, {\"id\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failing motor neurons denervate their muscle fibres; surviving units sprout and reinnervate them, which is why electromyography in these patients shows ongoing denervation together with reinnervation rather than acute denervation alone. This compensation is what buys the disorder its decades-long course, and its eventual exhaustion is what produces clinically apparent weakness.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"role\": \"intermediate\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic intestinal constipation as part of the autonomic involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Disrupted ER-Mitochondria Contact and Calcium Handling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VAPB is a mitochondria-associated-membrane protein that tethers ER to mitochondria by binding the outer-mitochondrial-membrane protein PTPIP51, and this contact is where calcium released from ER stores is taken up by mitochondria. p.Pro56Ser alters PTPIP51 binding and increases mitochondrial calcium uptake. PROVISIONAL rather than ESTABLISHED because the direct evidence comes from overexpression in cell lines and from yeast and mammalian model systems, not from VAPB-mutant human motor neurons.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial calcium ion homeostasis\"], \"role\": \"intermediate\"}}, {\"id\": \"Distal Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A distal tremor, common in the affected kindred and a recognised accompaniment of chronic partial denervation with enlarged motor units. The deep-research artifact proposed postural tremor here; the cited source says only \\\"distal tremor\\\", so the generic HP:0001337 Tremor is retained rather than asserting a postural qualifier no cited abstract supports.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Dysautonomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autonomic involvement \\u2014 choking, constipation, sexual dysfunction, sudomotor abnormalities, orthostatic hypotension \\u2014 with loss of unmyelinated fibres on nerve morphology. This is curated as a real but non-obligate feature of the p.Pro56Ser phenotype rather than as a defining one: the authors of the Brazilian kindred proposed that motor-plus-autonomic involvement constitutes a separate category of disease, and it was subsequently replicated in an unrelated Chinese family. It is not reported in most Finkel-type descriptions.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004926\"}}, {\"id\": \"ER Stress and Unfolded Protein Response Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of VAPB-dependent ER quality control and accumulation of misfolded VAPB together activate the ER stress response in motor neurons. In physiological-level knock-in mice this is detectable before any behavioural deficit, which is what makes it a candidate initiating step rather than an end-stage epiphenomenon.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"endoplasmic reticulum unfolded protein response\"], \"role\": \"intermediate\", \"animal_models\": [{\"name\": \"Vapb P56S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Vapb p.Pro56Ser knock-in (heterozygous and homozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"ER stress and an autophagic response appear in motor neurons before behavioural deficits, at physiological expression level.\"}]}}, {\"id\": \"ER-Derived Aggregation of Misfolded VAPB\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant VAPB misfolds and self-associates into immobile, tubular ER-derived inclusions in motor neurons, dragging endogenous wild-type VAPA and VAPB into the same aggregates. The inclusions are not inert: they are decorated with ER-associated degradation machinery (p97/VCP, Derlin-1, BAP31) and behave as a quality-control compartment formed when misfolded VAPB exceeds ERAD capacity. Their pathogenic weight is contested \\u2014 see the HUMAN_MODEL_MISMATCH discussion below, since patient-derived motor neurons expressing the allele at physiological level do not show them.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"protein folding\"], \"role\": \"intermediate\", \"animal_models\": [{\"name\": \"Vapb P56S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Vapb p.Pro56Ser knock-in (heterozygous and homozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cytoplasmic inclusions containing P56S VAPB and ubiquitinated protein form selectively in motor neurons at physiological expression level \\u2014 the counter-observation to the claim that aggregates are purely an overexpression artefact.\"}]}}, {\"id\": \"Fasciculations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visible spontaneous motor unit discharges, a cardinal sign of lower motor neuron disease and part of the reason this disorder enters the ALS differential.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002380\"}}, {\"id\": \"Impaired Autophagic Flux and RNA-Binding Protein Mislocalization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p.Pro56Ser disturbs both the initiation and the completion of autophagy, with autophagosomes failing to fuse with lysosomes. Aggregates accumulate together with LC3 and p62 and sequester RNA-binding proteins \\u2014 phosphorylated TDP-43, FUS and Matrin 3 \\u2014 into persistent stress granules, connecting this disorder to the wider TDP-43 proteinopathy of ALS. The human material is a single ALS8 index patient\u0027s muscle biopsy and fibroblasts, which is why the node is PROVISIONAL.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"macroautophagy\"], \"role\": \"intermediate\"}}, {\"id\": \"Loss of Ambulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wheelchair dependence is reached at a median of 7 years from onset \\u2014 early relative to the 21.9-year median survival, so most patients live many years with substantial motor disability rather than dying soon after losing ambulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002505\"}}, {\"id\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"However the aggregates are read, the functional consequence converges on too little working VAPB at the ER surface. The mutant protein is unstable and non-functional, and VAPB levels are reduced in patient-derived motor neurons and in ALS spinal cord. Because VAPB is the tether that recruits FFAT-motif partners to the ER, its shortfall degrades a whole family of contact-site functions at once: ER-to-Golgi transport, lipid exchange (with a characteristic rise in phosphatidylinositol-4-phosphate), phosphoinositide and calcium handling, and ER protein quality control.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"intermembrane lipid transfer\", \"endoplasmic reticulum to Golgi vesicle-mediated transport\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"ALS8 patient-derived iPSC motor neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"VAPB protein is reduced in patient-derived motor neurons relative to non-carrier siblings, at endogenous expression levels.\"}]}}, {\"id\": \"Lower Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anterior-horn and brainstem lower motor neurons become dysfunctional and degenerate. Selectivity is striking and only partly explained: VAPB is abundant in motor neurons, and in the pan-neuronal transgenic mouse the corticospinal population is lost while spinal motor neurons instead show altered C-bouton morphology and impaired rhythmic discharge without frank loss. In humans the clinical picture at the Finkel end of the spectrum is purely lower motor neuron, whereas subtle pyramidal signs appear in a majority of ALS8 patients overall.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Thy1.2 P56S VAPB transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Thy1.2-driven pan-neuronal human VAPB p.Pro56Ser transgene\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Spinal motor neurons show altered C-bouton morphology and impaired spontaneous rhythmic discharge, but do not die; the population that dies is the corticospinal one.\"}, {\"name\": \"Vapb knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Vapb null (complete loss of Vapb expression)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"MODERATE\", \"description\": \"Complete loss of Vapb produced only mild motor deficits after 18 months and left neuromuscular junctions innervated \\u2014 no motor neuron disease.\"}]}}, {\"id\": \"Neurogenic Muscle Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle wasting secondary to chronic denervation, accompanying the weakness in the same proximal and axial distribution.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003202\"}}, {\"id\": \"Noninvasive Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ventilatory support, typically bilevel positive airway pressure, once respiratory muscle weakness produces orthostatic breathlessness, orthopnoea or nocturnal hypoventilation. This is the single most consequential supportive intervention in this disorder because respiratory insufficiency is the terminal event, and because the natural history is slow and predictable enough to anticipate: the molecularly confirmed p.Pro56Ser series places the median time from onset to noninvasive ventilation at 10 years, three years after wheelchair dependence. It is not disease-modifying \\u2014 see the vapb_no_disease_modifying_therapy discussion \\u2014 and it does not slow denervation.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Physical Therapy and Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Stage-matched rehabilitation \\u2014 range-of-motion work, gait and transfer training, orthoses, mobility aids and eventually wheelchair provision \\u2014 aimed at independence, safety and prevention of secondary complications such as contractures and falls. The unusually long course here makes this weigh more than it does in typical ALS: median survival is 21.9 years while wheelchair dependence arrives at 7, so most patients live over a decade with substantial motor disability.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining clinical feature. Weakness begins proximally, is lumbar in origin in the great majority of patients, and ascends over years. Axial involvement produces abdominal protrusion and, in some families, camptocormia.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: proximal and axial weakness with neurogenic muscle atrophy, beginning in the lumbar region in the great majority of patients and ascending over years. Reflexes are reduced and sensation is preserved, which is what separates this from a sensorimotor neuropathy.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Reduced Tendon Reflexes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyporeflexia with reduced tone, the expected examination finding when the lesion is at the anterior horn cell and no upper motor neuron signs are present. Note that this is the Finkel-end finding; pyramidal signs are frequent across the wider ALS8 spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001315\"}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory muscle involvement is the principal cause of death and the milestone that most shapes management. Median time from onset to noninvasive ventilation is 10 years across the ALS8 series; in the dysautonomic Brazilian kindred death occurred in 10-15 years from respiratory insufficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002747\"}}, {\"id\": \"Thy1.2 P56S VAPB transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Pan-neuronal overexpression of human P56S VAPB. Instructive precisely because its cell-type selectivity is the opposite of the human Finkel phenotype: corticospinal motor neurons are progressively lost while spinal motor neurons survive with functional impairment.\"}, {\"id\": \"VAPB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"VAPB\"], \"gene_terms\": [{\"label\": \"VAPB\", \"id\": \"hgnc:12649\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"VAPB p.Pro56Ser MSP-Domain Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous germline missense change substitutes serine for a conserved proline at residue 56 of VAPB, within the N-terminal major sperm protein (MSP) homology domain \\u2014 the surface through which VAPB binds FFAT-motif partners and so recruits lipid-transfer and other proteins to the cytosolic face of the endoplasmic reticulum. Essentially every reported family carries this one allele, inherited from a common founder.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"VAPB\"], \"gene_terms\": [{\"label\": \"VAPB\", \"id\": \"hgnc:12649\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"description\": \"Heterozygous germline missense variant in the MSP domain. The functional impact category is deliberately left unset: whether the dominant action is a toxic gain of function through aggregation and sequestration of the wild-type protein, or loss of function of the remaining wild-type allele, is the unresolved question recorded in this entry\u0027s mechanistic_hypotheses.\"}, \"role\": \"trigger\"}}, {\"id\": \"Vapb P56S knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The most physiologic rodent model: the endogenous Vapb locus carries the P56S change, so expression level and tissue distribution are normal. Heterozygotes \\u2014 the human genotype \\u2014 show mild age-dependent motor deficits; homozygotes are worse, giving a dose-response consistent with the dominant human allele.\"}, {\"id\": \"Vapb knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A direct test of the haploinsufficiency hypothesis: if losing VAPB function were sufficient, a null mouse should develop motor neuron disease. It largely does not.\"}], \"edges\": [{\"source\": \"VAPB p.Pro56Ser MSP-Domain Variant\", \"target\": \"ER-Derived Aggregation of Misfolded VAPB\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"VAPB p.Pro56Ser MSP-Domain Variant\", \"target\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER-Derived Aggregation of Misfolded VAPB\", \"target\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER-Derived Aggregation of Misfolded VAPB\", \"target\": \"ER Stress and Unfolded Protein Response Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"target\": \"ER Stress and Unfolded Protein Response Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"target\": \"Disrupted ER-Mitochondria Contact and Calcium Handling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"target\": \"Impaired Autophagic Flux and RNA-Binding Protein Mislocalization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"target\": \"Autonomic and Unmyelinated Small-Fibre Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VAPB is not motor-neuron-specific, so the same functional shortfall is the presumed cause of the autonomic and small-fibre arm. The intermediates are unknown: nothing in this literature explains why some carriers develop dysautonomia and most do not, and no cell-type-selective mechanism has been proposed.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ER Stress and Unfolded Protein Response Activation\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted ER-Mitochondria Contact and Calcium Handling\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagic Flux and RNA-Binding Protein Mislocalization\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lower Motor Neuron Degeneration\", \"target\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lower Motor Neuron Degeneration\", \"target\": \"Reduced Tendon Reflexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the efferent limb of the monosynaptic stretch reflex. This is why reflexes are reduced or absent rather than brisk, and it is the sign that keeps the bedside picture in the lower motor neuron column.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lower Motor Neuron Degeneration\", \"target\": \"Bulbar Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extension of the same anterior-horn process to brainstem lower motor neurons. Because it is the bulbar motor nucleus rather than the corticobulbar tract that fails, the resulting deficit is predominantly dysphonia rather than the spastic dysarthria of bulbar-onset ALS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"target\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"target\": \"Fasciculations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spontaneous discharge of unstable, partly denervated motor units \\u2014 the clinical surface of the denervation-reinnervation process this node describes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"target\": \"Neurogenic Muscle Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle fibres that lose their motor neuron and are not recaptured by a sprouting neighbour atrophy, giving the grouped-fibre pattern of a neurogenic rather than myopathic process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"target\": \"Distal Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postural tremor attributed to the enlarged motor units produced by collateral reinnervation, not to a cerebellar or extrapyramidal lesion. Curated as an indirect edge because the intermediate is inferred from general motor-unit physiology rather than measured in these patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Enlarged reinnervated motor units firing with reduced rate modulation\"]}, {\"source\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical expression of this node: proximal, lumbar-predominant weakness that ascends over years.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"target\": \"Camptocormia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial extension of the same neurogenic weakness. Failure of the paraspinal extensors produces forward flexion of the trunk, and of the abdominal wall the abdominal protrusion described in the original kindred.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"target\": \"Loss of Ambulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wheelchair dependence at a median of 7 years from onset is the point at which the accumulating proximal deficit crosses a functional threshold, not a separate mechanism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cumulative loss of proximal lower-limb and axial motor units over years\"]}, {\"source\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same ascending neurogenic weakness reaching the respiratory muscles, which is why noninvasive ventilation follows loss of ambulation on a predictable interval (7 years to wheelchair, 10 to ventilation) and why respiratory failure is the terminal event.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Ascending involvement of phrenic and intercostal motor units\"]}, {\"source\": \"Autonomic and Unmyelinated Small-Fibre Degeneration\", \"target\": \"Dysautonomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of peripheral autonomic fibres produces the sudomotor, cardiovascular, gastrointestinal and sexual dysfunction recorded as the dysautonomia phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysautonomia\", \"target\": \"Constipation\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Constipation is curated as its own phenotype because it is the autonomic feature patients report most, but mechanistically it is one manifestation of the dysautonomia node rather than an independent process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Noninvasive Ventilation\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Loss of Ambulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALS8 patient-derived iPSC motor neurons\", \"target\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"VAPB protein is reduced in patient-derived motor neurons relative to non-carrier siblings, at endogenous expression levels.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"iPSC-derived motor neurons are developmentally immature and cannot model a disorder whose onset is in the fifth decade; the reduction is a molecular readout, not a degeneration phenotype.\"}, {\"source\": \"Vapb P56S knock-in mouse\", \"target\": \"ER Stress and Unfolded Protein Response Activation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"ER stress and an autophagic response appear in motor neurons before behavioural deficits, at physiological expression level.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The behavioural phenotype is mild and late; the model does not reproduce the severe weakness or the respiratory failure that ends the human disease, so it informs the initiating steps rather than the clinical endpoint.\"}, {\"source\": \"Vapb P56S knock-in mouse\", \"target\": \"ER-Derived Aggregation of Misfolded VAPB\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cytoplasmic inclusions containing P56S VAPB and ubiquitinated protein form selectively in motor neurons at physiological expression level \\u2014 the counter-observation to the claim that aggregates are purely an overexpression artefact.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Aggregation in mouse motor neurons does not settle whether aggregates form in human motor neurons, where the observation has not been made.\"}, {\"source\": \"Thy1.2 P56S VAPB transgenic mouse\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Spinal motor neurons show altered C-bouton morphology and impaired spontaneous rhythmic discharge, but do not die; the population that dies is the corticospinal one.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The human disorder curated here is defined by lower motor neuron loss with no upper motor neuron signs. This model inverts that, and its transgene is overexpressed under a heterologous promoter, so it cannot be used to argue about which motor neuron population is vulnerable in patients.\"}, {\"source\": \"Vapb knockout mouse\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Complete loss of Vapb produced only mild motor deficits after 18 months and left neuromuscular junctions innervated \\u2014 no motor neuron disease.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a null, not the human heterozygous missense genotype, and mouse lifespan may be too short for a disorder with a 45-year human onset. It therefore constrains rather than refutes the loss-of-function hypothesis: loss of VAPB function alone is insufficient in mouse, which is compatible with it being necessary but requiring the additional dominant-negative component.\"}, {\"source\": \"VAPB\", \"target\": \"VAPB p.Pro56Ser MSP-Domain Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALS8 patient-derived iPSC motor neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from p.Pro56Ser patients and their non-carrier siblings reprogrammed to iPSC and differentiated into motor neurons \\u2014 the closest available human-cell model, with sibling controls.\", \"meta\": {\"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:21685205\"}}, {\"id\": \"Autonomic and Unmyelinated Small-Fibre Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A parallel, non-motor arm of the same VAPB deficit: peripheral autonomic and other unmyelinated fibres degenerate. Sural nerve biopsy in a p.Pro56Ser family showed loss of nerve fibres with a marked unmyelinated-fibre predominance and collagen pockets on electron microscopy, and the sympathetic skin response was absent. This is curated as a distinct arm rather than as part of lower motor neuron degeneration because the affected fibres are not motor, and as PROVISIONAL because it rests on two families \\u2014 the original Brazilian kindred and an unrelated Chinese one \\u2014 rather than on the large molecularly confirmed series, which did not assess autonomic function.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Bulbar Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bulbar features occur in about a fifth of ALS8 patients and are predominantly dysphonia rather than the dysarthria-dysphagia pattern of bulbar-onset ALS. Not an early or defining feature of the Finkel-type presentation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001618\"}}, {\"id\": \"Camptocormia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Forward flexion of the trunk from axial (paraspinal) weakness. Reported as a uniform feature of the Chinese p.Pro56Ser kindred and the same axial involvement that produces abdominal protrusion in the Brazilian families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100595\"}}, {\"id\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failing motor neurons denervate their muscle fibres; surviving units sprout and reinnervate them, which is why electromyography in these patients shows ongoing denervation together with reinnervation rather than acute denervation alone. This compensation is what buys the disorder its decades-long course, and its eventual exhaustion is what produces clinically apparent weakness.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic intestinal constipation as part of the autonomic involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Disrupted ER-Mitochondria Contact and Calcium Handling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VAPB is a mitochondria-associated-membrane protein that tethers ER to mitochondria by binding the outer-mitochondrial-membrane protein PTPIP51, and this contact is where calcium released from ER stores is taken up by mitochondria. p.Pro56Ser alters PTPIP51 binding and increases mitochondrial calcium uptake. PROVISIONAL rather than ESTABLISHED because the direct evidence comes from overexpression in cell lines and from yeast and mammalian model systems, not from VAPB-mutant human motor neurons.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial calcium ion homeostasis\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Distal Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A distal tremor, common in the affected kindred and a recognised accompaniment of chronic partial denervation with enlarged motor units. The deep-research artifact proposed postural tremor here; the cited source says only \\\"distal tremor\\\", so the generic HP:0001337 Tremor is retained rather than asserting a postural qualifier no cited abstract supports.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Dysautonomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autonomic involvement \\u2014 choking, constipation, sexual dysfunction, sudomotor abnormalities, orthostatic hypotension \\u2014 with loss of unmyelinated fibres on nerve morphology. This is curated as a real but non-obligate feature of the p.Pro56Ser phenotype rather than as a defining one: the authors of the Brazilian kindred proposed that motor-plus-autonomic involvement constitutes a separate category of disease, and it was subsequently replicated in an unrelated Chinese family. It is not reported in most Finkel-type descriptions.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004926\"}}, {\"id\": \"ER Stress and Unfolded Protein Response Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of VAPB-dependent ER quality control and accumulation of misfolded VAPB together activate the ER stress response in motor neurons. In physiological-level knock-in mice this is detectable before any behavioural deficit, which is what makes it a candidate initiating step rather than an end-stage epiphenomenon.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"endoplasmic reticulum unfolded protein response\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Vapb P56S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Vapb p.Pro56Ser knock-in (heterozygous and homozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"ER stress and an autophagic response appear in motor neurons before behavioural deficits, at physiological expression level.\"}]}}, {\"id\": \"ER-Derived Aggregation of Misfolded VAPB\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant VAPB misfolds and self-associates into immobile, tubular ER-derived inclusions in motor neurons, dragging endogenous wild-type VAPA and VAPB into the same aggregates. The inclusions are not inert: they are decorated with ER-associated degradation machinery (p97/VCP, Derlin-1, BAP31) and behave as a quality-control compartment formed when misfolded VAPB exceeds ERAD capacity. Their pathogenic weight is contested \\u2014 see the HUMAN_MODEL_MISMATCH discussion below, since patient-derived motor neurons expressing the allele at physiological level do not show them.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"protein folding\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Vapb P56S knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Vapb p.Pro56Ser knock-in (heterozygous and homozygous)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cytoplasmic inclusions containing P56S VAPB and ubiquitinated protein form selectively in motor neurons at physiological expression level \\u2014 the counter-observation to the claim that aggregates are purely an overexpression artefact.\"}]}}, {\"id\": \"Fasciculations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visible spontaneous motor unit discharges, a cardinal sign of lower motor neuron disease and part of the reason this disorder enters the ALS differential.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002380\"}}, {\"id\": \"Impaired Autophagic Flux and RNA-Binding Protein Mislocalization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p.Pro56Ser disturbs both the initiation and the completion of autophagy, with autophagosomes failing to fuse with lysosomes. Aggregates accumulate together with LC3 and p62 and sequester RNA-binding proteins \\u2014 phosphorylated TDP-43, FUS and Matrin 3 \\u2014 into persistent stress granules, connecting this disorder to the wider TDP-43 proteinopathy of ALS. The human material is a single ALS8 index patient\u0027s muscle biopsy and fibroblasts, which is why the node is PROVISIONAL.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"macroautophagy\"], \"role\": \"intermediate\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Loss of Ambulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wheelchair dependence is reached at a median of 7 years from onset \\u2014 early relative to the 21.9-year median survival, so most patients live many years with substantial motor disability rather than dying soon after losing ambulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002505\"}}, {\"id\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"However the aggregates are read, the functional consequence converges on too little working VAPB at the ER surface. The mutant protein is unstable and non-functional, and VAPB levels are reduced in patient-derived motor neurons and in ALS spinal cord. Because VAPB is the tether that recruits FFAT-motif partners to the ER, its shortfall degrades a whole family of contact-site functions at once: ER-to-Golgi transport, lipid exchange (with a characteristic rise in phosphatidylinositol-4-phosphate), phosphoinositide and calcium handling, and ER protein quality control.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"intermembrane lipid transfer\", \"endoplasmic reticulum to Golgi vesicle-mediated transport\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"ALS8 patient-derived iPSC motor neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"VAPB protein is reduced in patient-derived motor neurons relative to non-carrier siblings, at endogenous expression levels.\"}]}}, {\"id\": \"Lower Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anterior-horn and brainstem lower motor neurons become dysfunctional and degenerate. Selectivity is striking and only partly explained: VAPB is abundant in motor neurons, and in the pan-neuronal transgenic mouse the corticospinal population is lost while spinal motor neurons instead show altered C-bouton morphology and impaired rhythmic discharge without frank loss. In humans the clinical picture at the Finkel end of the spectrum is purely lower motor neuron, whereas subtle pyramidal signs appear in a majority of ALS8 patients overall.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Thy1.2 P56S VAPB transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Thy1.2-driven pan-neuronal human VAPB p.Pro56Ser transgene\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Spinal motor neurons show altered C-bouton morphology and impaired spontaneous rhythmic discharge, but do not die; the population that dies is the corticospinal one.\"}, {\"name\": \"Vapb knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Vapb null (complete loss of Vapb expression)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"MODERATE\", \"description\": \"Complete loss of Vapb produced only mild motor deficits after 18 months and left neuromuscular junctions innervated \\u2014 no motor neuron disease.\"}]}}, {\"id\": \"Neurogenic Muscle Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle wasting secondary to chronic denervation, accompanying the weakness in the same proximal and axial distribution.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003202\"}}, {\"id\": \"Noninvasive Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ventilatory support, typically bilevel positive airway pressure, once respiratory muscle weakness produces orthostatic breathlessness, orthopnoea or nocturnal hypoventilation. This is the single most consequential supportive intervention in this disorder because respiratory insufficiency is the terminal event, and because the natural history is slow and predictable enough to anticipate: the molecularly confirmed p.Pro56Ser series places the median time from onset to noninvasive ventilation at 10 years, three years after wheelchair dependence. It is not disease-modifying \\u2014 see the vapb_no_disease_modifying_therapy discussion \\u2014 and it does not slow denervation.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Physical Therapy and Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Stage-matched rehabilitation \\u2014 range-of-motion work, gait and transfer training, orthoses, mobility aids and eventually wheelchair provision \\u2014 aimed at independence, safety and prevention of secondary complications such as contractures and falls. The unusually long course here makes this weigh more than it does in typical ALS: median survival is 21.9 years while wheelchair dependence arrives at 7, so most patients live over a decade with substantial motor disability.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining clinical feature. Weakness begins proximally, is lumbar in origin in the great majority of patients, and ascends over years. Axial involvement produces abdominal protrusion and, in some families, camptocormia.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: proximal and axial weakness with neurogenic muscle atrophy, beginning in the lumbar region in the great majority of patients and ascending over years. Reflexes are reduced and sensation is preserved, which is what separates this from a sensorimotor neuropathy.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Tendon Reflexes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyporeflexia with reduced tone, the expected examination finding when the lesion is at the anterior horn cell and no upper motor neuron signs are present. Note that this is the Finkel-end finding; pyramidal signs are frequent across the wider ALS8 spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001315\"}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory muscle involvement is the principal cause of death and the milestone that most shapes management. Median time from onset to noninvasive ventilation is 10 years across the ALS8 series; in the dysautonomic Brazilian kindred death occurred in 10-15 years from respiratory insufficiency.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002747\"}}, {\"id\": \"Thy1.2 P56S VAPB transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Pan-neuronal overexpression of human P56S VAPB. Instructive precisely because its cell-type selectivity is the opposite of the human Finkel phenotype: corticospinal motor neurons are progressively lost while spinal motor neurons survive with functional impairment.\"}, {\"id\": \"VAPB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"VAPB\"], \"gene_terms\": [{\"label\": \"VAPB\", \"id\": \"hgnc:12649\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"VAPB p.Pro56Ser MSP-Domain Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous germline missense change substitutes serine for a conserved proline at residue 56 of VAPB, within the N-terminal major sperm protein (MSP) homology domain \\u2014 the surface through which VAPB binds FFAT-motif partners and so recruits lipid-transfer and other proteins to the cytosolic face of the endoplasmic reticulum. Essentially every reported family carries this one allele, inherited from a common founder.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"VAPB\"], \"gene_terms\": [{\"label\": \"VAPB\", \"id\": \"hgnc:12649\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"description\": \"Heterozygous germline missense variant in the MSP domain. The functional impact category is deliberately left unset: whether the dominant action is a toxic gain of function through aggregation and sequestration of the wild-type protein, or loss of function of the remaining wild-type allele, is the unresolved question recorded in this entry\u0027s mechanistic_hypotheses.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Vapb P56S knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The most physiologic rodent model: the endogenous Vapb locus carries the P56S change, so expression level and tissue distribution are normal. Heterozygotes \\u2014 the human genotype \\u2014 show mild age-dependent motor deficits; homozygotes are worse, giving a dose-response consistent with the dominant human allele.\"}, {\"id\": \"Vapb knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A direct test of the haploinsufficiency hypothesis: if losing VAPB function were sufficient, a null mouse should develop motor neuron disease. It largely does not.\"}], \"edges\": [{\"source\": \"VAPB p.Pro56Ser MSP-Domain Variant\", \"target\": \"ER-Derived Aggregation of Misfolded VAPB\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"VAPB p.Pro56Ser MSP-Domain Variant\", \"target\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER-Derived Aggregation of Misfolded VAPB\", \"target\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER-Derived Aggregation of Misfolded VAPB\", \"target\": \"ER Stress and Unfolded Protein Response Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"target\": \"ER Stress and Unfolded Protein Response Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"target\": \"Disrupted ER-Mitochondria Contact and Calcium Handling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"target\": \"Impaired Autophagic Flux and RNA-Binding Protein Mislocalization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"target\": \"Autonomic and Unmyelinated Small-Fibre Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VAPB is not motor-neuron-specific, so the same functional shortfall is the presumed cause of the autonomic and small-fibre arm. The intermediates are unknown: nothing in this literature explains why some carriers develop dysautonomia and most do not, and no cell-type-selective mechanism has been proposed.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ER Stress and Unfolded Protein Response Activation\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted ER-Mitochondria Contact and Calcium Handling\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagic Flux and RNA-Binding Protein Mislocalization\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lower Motor Neuron Degeneration\", \"target\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lower Motor Neuron Degeneration\", \"target\": \"Reduced Tendon Reflexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the efferent limb of the monosynaptic stretch reflex. This is why reflexes are reduced or absent rather than brisk, and it is the sign that keeps the bedside picture in the lower motor neuron column.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lower Motor Neuron Degeneration\", \"target\": \"Bulbar Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extension of the same anterior-horn process to brainstem lower motor neurons. Because it is the bulbar motor nucleus rather than the corticobulbar tract that fails, the resulting deficit is predominantly dysphonia rather than the spastic dysarthria of bulbar-onset ALS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"target\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"target\": \"Fasciculations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spontaneous discharge of unstable, partly denervated motor units \\u2014 the clinical surface of the denervation-reinnervation process this node describes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"target\": \"Neurogenic Muscle Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle fibres that lose their motor neuron and are not recaptured by a sprouting neighbour atrophy, giving the grouped-fibre pattern of a neurogenic rather than myopathic process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Denervation and Reinnervation of Skeletal Muscle\", \"target\": \"Distal Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postural tremor attributed to the enlarged motor units produced by collateral reinnervation, not to a cerebellar or extrapyramidal lesion. Curated as an indirect edge because the intermediate is inferred from general motor-unit physiology rather than measured in these patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Enlarged reinnervated motor units firing with reduced rate modulation\"]}, {\"source\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical expression of this node: proximal, lumbar-predominant weakness that ascends over years.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"target\": \"Camptocormia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial extension of the same neurogenic weakness. Failure of the paraspinal extensors produces forward flexion of the trunk, and of the abdominal wall the abdominal protrusion described in the original kindred.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"target\": \"Loss of Ambulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wheelchair dependence at a median of 7 years from onset is the point at which the accumulating proximal deficit crosses a functional threshold, not a separate mechanism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cumulative loss of proximal lower-limb and axial motor units over years\"]}, {\"source\": \"Proximal Neurogenic Weakness and Muscle Atrophy\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same ascending neurogenic weakness reaching the respiratory muscles, which is why noninvasive ventilation follows loss of ambulation on a predictable interval (7 years to wheelchair, 10 to ventilation) and why respiratory failure is the terminal event.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Ascending involvement of phrenic and intercostal motor units\"]}, {\"source\": \"Autonomic and Unmyelinated Small-Fibre Degeneration\", \"target\": \"Dysautonomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of peripheral autonomic fibres produces the sudomotor, cardiovascular, gastrointestinal and sexual dysfunction recorded as the dysautonomia phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysautonomia\", \"target\": \"Constipation\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Constipation is curated as its own phenotype because it is the autonomic feature patients report most, but mechanistically it is one manifestation of the dysautonomia node rather than an independent process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Noninvasive Ventilation\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical Therapy and Rehabilitation\", \"target\": \"Loss of Ambulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALS8 patient-derived iPSC motor neurons\", \"target\": \"Loss of Functional VAPB at ER Membrane Contact Sites\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"VAPB protein is reduced in patient-derived motor neurons relative to non-carrier siblings, at endogenous expression levels.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"iPSC-derived motor neurons are developmentally immature and cannot model a disorder whose onset is in the fifth decade; the reduction is a molecular readout, not a degeneration phenotype.\"}, {\"source\": \"Vapb P56S knock-in mouse\", \"target\": \"ER Stress and Unfolded Protein Response Activation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"ER stress and an autophagic response appear in motor neurons before behavioural deficits, at physiological expression level.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The behavioural phenotype is mild and late; the model does not reproduce the severe weakness or the respiratory failure that ends the human disease, so it informs the initiating steps rather than the clinical endpoint.\"}, {\"source\": \"Vapb P56S knock-in mouse\", \"target\": \"ER-Derived Aggregation of Misfolded VAPB\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cytoplasmic inclusions containing P56S VAPB and ubiquitinated protein form selectively in motor neurons at physiological expression level \\u2014 the counter-observation to the claim that aggregates are purely an overexpression artefact.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Aggregation in mouse motor neurons does not settle whether aggregates form in human motor neurons, where the observation has not been made.\"}, {\"source\": \"Thy1.2 P56S VAPB transgenic mouse\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Spinal motor neurons show altered C-bouton morphology and impaired spontaneous rhythmic discharge, but do not die; the population that dies is the corticospinal one.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The human disorder curated here is defined by lower motor neuron loss with no upper motor neuron signs. This model inverts that, and its transgene is overexpressed under a heterologous promoter, so it cannot be used to argue about which motor neuron population is vulnerable in patients.\"}, {\"source\": \"Vapb knockout mouse\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Complete loss of Vapb produced only mild motor deficits after 18 months and left neuromuscular junctions innervated \\u2014 no motor neuron disease.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is a null, not the human heterozygous missense genotype, and mouse lifespan may be too short for a disorder with a 45-year human onset. It therefore constrains rather than refutes the loss-of-function hypothesis: loss of VAPB function alone is insufficient in mouse, which is compatible with it being necessary but requiring the additional dominant-negative component.\"}, {\"source\": \"VAPB\", \"target\": \"VAPB p.Pro56Ser MSP-Domain Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6940,6 +7119,9 @@ This clinical feature is Orthostatic hypotension due to autonomic dysfunction (H
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6966,6 +7148,7 @@ This clinical feature is Orthostatic hypotension due to autonomic dysfunction (H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6987,6 +7170,7 @@ This clinical feature is Orthostatic hypotension due to autonomic dysfunction (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7068,6 +7252,9 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7082,6 +7269,7 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7178,6 +7366,9 @@ This clinical feature is Proximal lower limb muscle weakness (HP:0008994), quali
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7192,6 +7383,7 @@ This clinical feature is Proximal lower limb muscle weakness (HP:0008994), quali
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7216,6 +7408,7 @@ This clinical feature is Proximal lower limb muscle weakness (HP:0008994), quali
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7312,6 +7505,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7326,6 +7522,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7353,6 +7550,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701), qualified as cou
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7374,6 +7572,7 @@ This clinical feature is Proximal muscle weakness (HP:0003701), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7430,6 +7629,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7444,6 +7646,7 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7500,6 +7703,9 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7514,6 +7720,7 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7568,6 +7775,9 @@ This clinical feature is Camptocormia (HP:0100595). HP:0100595 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7582,6 +7792,7 @@ This clinical feature is Camptocormia (HP:0100595). HP:0100595 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7638,6 +7849,9 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7652,6 +7866,7 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7676,6 +7891,7 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7739,6 +7955,9 @@ This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7753,6 +7972,7 @@ This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7807,6 +8027,9 @@ This clinical feature is Reduced tendon reflexes (HP:0001315). HP:0001315 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7821,6 +8044,7 @@ This clinical feature is Reduced tendon reflexes (HP:0001315). HP:0001315 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7877,6 +8101,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7891,6 +8118,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7947,6 +8175,9 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7961,6 +8192,7 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7988,6 +8220,7 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8009,6 +8242,7 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8063,6 +8297,9 @@ This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8077,6 +8314,7 @@ This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8144,6 +8382,9 @@ This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8158,6 +8399,7 @@ This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8182,6 +8424,7 @@ This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8282,6 +8525,9 @@ This disease-associated gene is VAPB (hgnc:12649). hgnc:12649 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8296,6 +8542,7 @@ This disease-associated gene is VAPB (hgnc:12649). hgnc:12649 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8323,6 +8570,7 @@ This disease-associated gene is VAPB (hgnc:12649). hgnc:12649 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8344,6 +8592,7 @@ This disease-associated gene is VAPB (hgnc:12649). hgnc:12649 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8434,6 +8683,9 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8444,6 +8696,9 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
 
 
     </div>
+
+
+
 
 
 
@@ -8480,6 +8735,7 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8526,6 +8782,7 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8550,6 +8807,7 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8571,6 +8829,7 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8639,6 +8898,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8649,6 +8911,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -8685,6 +8950,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8731,6 +8997,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8752,6 +9019,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8825,6 +9093,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counselling for an autosomal dominant, adult-onset, fully penetrant-appearing founder allele, where at-risk relatives are typically adults who have already reproduced. The 78-patient natural-history series explicitly frames its own findings as supporting genetic counselling and anticipatory management, which is the practical output of characterizing a course this predictable.</div>
 
 
@@ -8846,6 +9120,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8921,6 +9196,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8942,6 +9218,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8999,6 +9276,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9020,6 +9298,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9090,6 +9369,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9111,6 +9391,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9182,6 +9463,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9203,6 +9485,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9288,6 +9571,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9343,6 +9627,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9395,6 +9680,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9530,6 +9816,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9691,6 +9978,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9730,6 +10018,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9784,6 +10073,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9921,6 +10211,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9960,6 +10251,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10072,6 +10364,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -12743,6 +13036,169 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review response: cramps phenotype, supportive-care treatments, six suggestions</strong> · 2026-08-28T20:33:05Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Adult-Onset_Proximal_Spinal_Muscular_Atrophy_Autosomal_Dominant/2026-08-28T203305Z-claude-code-a61451.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the ai4c-reviewer CHANGES_REQUESTED review on PR #9769, plus the
+failing `test (3.13)` job.
+
+CI failure (fixed first). `just check-snippet-length` rejected
+diagnosis[0].evidence[1].snippet, &#34;Sensation was preserved.&#34; - a complete
+sentence in the PMID:16967488 abstract, but three words, and grandfathering is
+unavailable for a snippet introduced on the branch. Fixed by extending the quote
+backwards to the preceding exam sentence (&#34;Tone and tendon reflexes were
+decreased and a distal tremor was common. Sensation was preserved.&#34;), which is a
+verbatim substring of the cached abstract. The explanation was widened to match
+what is now quoted. The snippet was not shortened or invented.
+
+Review finding 1 - Muscle Cramps. Added HP:0003394 as a Neurologic phenotype.
+The canonical HPO label is &#34;Muscle spasm&#34; (verified with OAK); &#34;Muscle cramps&#34;
+is an EXACT synonym and is used as preferred_term. Evidence is the ORPHA:209335
+definition the entry already quoted twice, which names cramps among the cardinal
+features. No frequency band curated - no molecularly confirmed p.Pro56Ser series
+quantifies cramp burden. The evidence explanation records that the entry&#39;s
+existing REFUTE against the same ORPHA sentence is confined to its
+pyramidal/bulbar exclusion clause, so citing it as SUPPORT here is not a
+contradiction.
+
+Review finding 2 - treatments. The entry previously curated no treatments block
+at all. Added three, all supportive:
+  * Noninvasive Ventilation (NCIT:C171457, therapeutic_modality DEVICE),
+    target_mechanisms -&gt; Respiratory Insufficiency with treatment_effect
+    BYPASSES (mechanical support substitutes for force the denervated
+    diaphragmatic and intercostal units cannot generate; it acts nowhere on the
+    VAPB chain). Evidence: this cohort&#39;s own 10-year NIV milestone
+    (PMID:42166520), the French expert-panel respiratory-care guidance
+    (PMID:39019674), and the Bourke NIV RCT (PMID:16426990).
+  * Physical Therapy and Rehabilitation (NCIT:C15302, BEHAVIORAL),
+    target_mechanisms -&gt; Loss of Ambulation with treatment_effect MODULATES
+    (rehabilitation alters how much disability a given degree of weakness
+    imposes; nothing shows it slows motor unit loss). Evidence: PMID:24510737,
+    plus the wheelchair-at-7-years / death-at-21.9-years gap that is the
+    disease-specific reason it matters here.
+  * Genetic Counseling (NCIT:C15240, action_category COUNSELING_INFORMATIONAL,
+    no target_mechanisms per schema). Evidence: the cohort paper&#39;s own
+    conclusion.
+Evidence drawn from the ALS literature rather than from p.Pro56Ser carriers is
+marked supports: PARTIAL with the extrapolation named in its explanation. No new
+reference cache files were needed - all three supporting references were already
+in references_cache/ from the ALS entry.
+The two prose passages asserting the absence of a treatments block (the
+vapb_no_disease_modifying_therapy discussion rationale, and the &#34;What is
+deliberately not curated&#34; note) were rewritten. The no-disease-modifying-therapy
+argument itself is unchanged: nusinersen, risdiplam and onasemnogene are
+SMN-directed and have no route to a non-5q disorder with normal SMN.
+
+Suggestions worked:
+  * mean_age_years 44.9 is a cohort median. Added the explicit disclaimer note,
+    following the CASQ2_CPVT and PARK7 precedent.
+  * Added a mappings block: ICD10CM:G12.1 broadMatch from the ORPHA:209335
+    cross-reference table (G12.1 is a residual bucket whose synonym list spans
+    distal SMA, scapuloperoneal SMA, Kugelberg-Welander and Fazio-Londe). For
+    ICD-11, the icd11f dynamic enum keys on numeric Foundation entity ids, which
+    neither Orphanet (which gives the linearization code 8B61.Y) nor
+    MONDO:0008453 supplies; mapped instead to icd11f:353473981 &#34;Autosomal
+    dominant proximal spinal muscular atrophy&#34; as broadMatch with the derivation
+    stated in notes, rather than asserting 8B61.Y.
+  * GeneReviews. Resolved the reviewer&#39;s open disclosure: a PubMed search
+    restricted to the GeneReviews book for VAPB/ALS8 returns exactly one record,
+    PMID:20301623 (the ALS Overview). No VAPB- or ALS8-specific chapter exists.
+    It is now listed in references with tags: [GeneReviews] and the search is
+    recorded in notes; nothing is cited from it, because its indexed content is
+    the chapter&#39;s own statement of purpose.
+  * Dropped four cached-but-uncited reference files: DOI_10.1086_425287,
+    DOI_10.1093_hmg_ddv360 and DOI_10.3390_cells10081865 are DOI duplicates of
+    cited PMID:15372378, PMID:26362257 and PMID:34440634; DOI_10.7488_era_2973
+    is an unpublished Edinburgh thesis. None was referenced from any file under
+    kb/.
+  * Consumed the fifth: PMID:34133501 now supports the
+    vapb_p56s_one_allele_many_phenotypes discussion, stating the Finkel-SMA /
+    ALS8 allelism its premise rests on.
+  * Fixed the PROVISIONAL-vs-EMERGING wording mismatch on the autonomic node&#39;s
+    evidence explanation (mechanism_confidence has no EMERGING value).
+  * Phenotypes: added Proximal Lower Limb Onset Weakness (HP:0008994), which
+    carries both axes the source states (&#34;Onset was lumbar in 94%, proximally
+    predominant&#34;), in preference to the DR-proposed HP:0007340. Declined the
+    DR-proposed postural tremor: HP:0002173 is &#34;Hypoglycemic seizures&#34;, not
+    postural tremor, and no cited abstract says the tremor is postural - the
+    cited source says only &#34;a distal tremor was common&#34;. The unsourced word
+    &#34;postural&#34; was removed from the Distal Tremor description and HP:0001337
+    retained.
+
+Validation: just validate (passed), just count-verified-snippets (94/94 verified
+against cached references), just validate-terms (passed), just
+check-duplicate-keys (passed), just check-snippet-length (passed),
+just check-title-snippets, and the batched just validate-disorders sweep.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: adult-onset proximal SMA, autosomal dominant (VAPB p.Pro56Ser)</strong> · 2026-08-27T21:37:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Adult-Onset_Proximal_Spinal_Muscular_Atrophy_Autosomal_Dominant/2026-08-27T213753Z-claude-code-e444ef.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MONDO:0008453 (adult-onset proximal spinal muscular atrophy,
+autosomal dominant; Finkel type), the VAPB p.Pro56Ser lower motor neuron disease.
+
+Concept decision: curated as a Disease in kb/disorders/. MONDO:0008453 is a leaf
+term with one causal gene (VAPB), one OMIM entry (182980) and in practice one
+founder allele; it has no MONDO descendants and unites no distinct curated
+entities, so a Grouping would have nothing to unite. It is not a has_subtypes
+entry on Spinal_Muscular_Atrophy, which is anchored on SMN1/SMN2 and models the
+recessive 5q series. Reasoning is recorded in the entry&#39;s notes.
+
+NEC preflight: just preflight-dr returned PASS against MONDO:0008453 - canonical
+gene VAPB mentioned 43 times, next gene SMN1 at 6. The disease sits in a
+numbered/eponymic series (SMA types, SMALED, distal HMN) so the check was
+required; no wrong-entity content was found and the deep-research report was kept.
+
+Pathograph: VAPB p.Pro56Ser MSP-domain variant -&gt; ER-derived aggregation and loss
+of functional VAPB at ER membrane contact sites -&gt; ER stress/UPR, disrupted
+ER-mitochondria contact and calcium handling, impaired autophagic flux and RBP
+mislocalization -&gt; lower motor neuron degeneration -&gt; chronic denervation and
+reinnervation -&gt; proximal neurogenic weakness and muscle atrophy. A parallel
+PROVISIONAL arm (autonomic and unmyelinated small-fibre degeneration) carries the
+dysautonomia reported in two unrelated kindreds.
+
+Two competing mechanistic_hypotheses are curated rather than one settled chain:
+dominant-negative sequestration of wild-type VAP (CANONICAL, but demonstrated
+only in overexpression systems) and haploinsufficiency of the wild-type allele
+(EMERGING). functional_impact_category is deliberately left unset on the trigger
+node so the schema does not silently resolve that question.
+
+Three discussions are recorded: a KNOWLEDGE_GAP on why one founder allele
+produces late-onset SMA, atypical ALS and typical ALS in different kindreds; a
+HUMAN_MODEL_MISMATCH on whether the ER-derived aggregates that dominate the
+mechanistic literature form at physiological expression at all; and a
+KNOWLEDGE_GAP recording that no disease-modifying therapy exists and that the
+SMN-directed 5q SMA drugs have no mechanistic route to this non-5q disease.
+
+Orphanet disagreement left standing. ORPHA:209335 (exact match to MONDO:0008453)
+defines the entity as proximal weakness &#34;without bulbar or pyramidal
+involvement&#34;, while the 2026 series of 78 molecularly confirmed carriers reports
+upper motor neuron signs in 53 and bulbar involvement in 21.8%. The Orphanet
+definition is curated on both phenotypes as supports: REFUTE so a reference
+nosology and a genotype-defined cohort are visibly disagreeing rather than
+silently reconciled.
+
+Phenotype connectivity went from 0/12 to 11/12. Abnormal Pyramidal Signs is left
+unwired on purpose: wiring it needs an upper motor neuron node, and the only
+direct evidence is a transgenic mouse in which corticospinal neurons die while
+spinal motor neurons survive - the opposite of the human Finkel phenotype.
+
+Validation run in this session, all passing: just validate (schema, terms,
+references), just count-verified-snippets (82/82 verified against cached
+references), just check-duplicate-keys (OK across 4404 YAML files),
+just check-title-snippets (no new title-quoting snippets), and the batched
+just validate-disorders pre-PR sweep. No references_cache or cache/*/terms.csv
+file was hand-written; ORPHA_209335.md was generated with
+just structured-rebuild-orphanet --id 209335.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
