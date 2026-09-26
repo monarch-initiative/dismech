@@ -3442,6 +3442,46 @@ reactome-list:
 reactome-show query:
     uv run python scripts/fetch_reactome_disease.py "{{query}}" --format md -o /dev/stdout
 
+# ============== MINERVA Disease Maps ==============
+
+pdmap_dir := "pathways/pdmap"
+
+# Fetch a MINERVA disease map's referenced reactions as curation LEADS.
+# Defaults to the Parkinson's disease map (pdmap.uni.lu, CC-BY 4.0).
+# Leads are not evidence: fetch each PMID and quote it exactly before curating.
+# Examples:
+#   just pdmap-fetch
+#   just pdmap-fetch --submap "LRRK2 activity"
+#   just pdmap-fetch --instance https://host/minerva --project ID --out pathways/other-map
+[group('Disease Maps')]
+pdmap-fetch *args="":
+    uv run python scripts/fetch_pdmap.py {{args}}
+
+# List the submaps a MINERVA project serves (no files written)
+[group('Disease Maps')]
+pdmap-list *args="":
+    uv run python scripts/fetch_pdmap.py --list {{args}}
+
+# The lead worklist: cited PubMed IDs the KB does not cite yet, most-used first
+[group('Disease Maps')]
+pdmap-leads n="25":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    leads="{{pdmap_dir}}/lead_pmids.tsv"
+    if [ ! -f "$leads" ]; then
+      echo "No lead table yet — run 'just pdmap-fetch'"; exit 0
+    fi
+    total=$(tail -n +2 "$leads" | wc -l | tr -d ' ')
+    uncited=$(awk -F'\t' 'NR>1 && $4=="no"' "$leads" | wc -l | tr -d ' ')
+    echo "$uncited of $total cited PubMed IDs are not cited anywhere in kb/"
+    echo
+    printf 'reactions\tpmid\tyear\ttitle\n'
+    # awk caps the rows itself: piping into `head` closes the pipe early, and
+    # under `pipefail` that surfaces as SIGPIPE (exit 141) on a healthy run.
+    awk -F'\t' -v limit={{n}} \
+      'NR>1 && $4=="no" && shown<limit {printf "%s\t%s\t%s\t%s\n", $2, $1, $6, substr($8,1,80); shown++}' \
+      "$leads"
+
 # Normalize all term and enum cache files for deterministic diffs
 # Sorts term caches by CURIE (via linkml-term-validator migrate-cache)
 # and sorts enum membership caches by CURIE.
