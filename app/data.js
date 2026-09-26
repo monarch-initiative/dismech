@@ -17752,7 +17752,7 @@ window.searchData = [
     "num_pathophysiology": 29,
     "num_genes": 6,
     "num_treatments": 18,
-    "causal_graph_edges": "78",
+    "causal_graph_edges": "80",
     "causal_graph_longest_path": "6"
   },
   {
@@ -47608,20 +47608,27 @@ window.searchData = [
     "description": "Bilateral striopallidodentate calcinosis (BSPDC), commonly discussed in recent literature as primary familial brain calcification (PFBC), is a genetically heterogeneous cerebral microvascular calcification disorder defined by bilateral calcium phosphate deposition in the basal ganglia and other brain regions including the dentate nuclei, thalamus, cerebellum, and subcortical white matter. The spectrum includes autosomal dominant and autosomal recessive forms caused by defects in phosphate transport and neurovascular-unit homeostasis, with age-dependent penetrance and wide clinical variation ranging from incidental imaging findings to parkinsonism, cognitive impairment, psychosis, seizures, and other movement disorders.",
     "pathophysiology": [
       "Disrupted phosphate transport homeostasis",
+      "Neuronal and endothelial mitochondrial dysfunction",
       "Neurovascular calcium-phosphate deposition"
     ],
     "cell_types": [
+      "neuron",
+      "vascular endothelial cell",
       "brain pericyte",
       "brain microvascular endothelial cell",
       "astrocyte"
     ],
     "cell_type_ids": [
+      "CL:0000540",
+      "CL:0002139",
       "CL:2000043",
       "CL:2000044",
       "CL:0000127"
     ],
     "biological_processes": [
       "phosphate ion transmembrane transport",
+      "ATP biosynthetic process",
+      "mitochondrion organization",
       "maintenance of blood-brain barrier",
       "cell-cell adhesion"
     ],
@@ -47669,7 +47676,9 @@ window.searchData = [
       "PDGFB",
       "MYORG",
       "JAM2",
-      "NAA60"
+      "NAA60",
+      "CMPK2",
+      "RRP12"
     ],
     "treatments": [
       "Dopaminergic replacement therapy",
@@ -47682,10 +47691,10 @@ window.searchData = [
     "source_file": "Bilateral_Striopallidodentate_Calcinosis.yaml",
     "page_url": "../pages/disorders/Bilateral_Striopallidodentate_Calcinosis.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 2,
-    "num_genes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 9,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -88541,14 +88550,18 @@ window.searchData = [
       "HI/HA Syndrome",
       "SCHAD-HI",
       "HNF4A/HNF1A-HI",
-      "GCK-HI"
+      "GCK-HI",
+      "EIHI"
     ],
     "description": "Congenital isolated hyperinsulinism is the most common cause of persistent hypoglycemia in infancy, caused by dysregulated, glucose-independent insulin secretion from pancreatic beta cells. The most frequent and severe forms arise from inactivating variants in the K-ATP channel genes ABCC8 and KCNJ11, which leave beta cells chronically depolarized and unable to suppress insulin release; additional genetic forms involve GLUD1, HADH, HNF4A, HNF1A, and GCK. The resulting hyperinsulinemic hypoglycemia suppresses ketogenesis and causes neuroglycopenia, with seizures and neurodevelopmental sequelae if hypoglycemia is untreated; diffuse, diazoxide-unresponsive disease may require near-total pancreatectomy.",
     "pathophysiology": [
       "KATP Channel Loss of Function",
       "Unregulated Beta-Cell Depolarization and Insulin Secretion",
       "Hyperinsulinemic Hypoglycemia and Neuroglycopenia",
-      "Glutamate Dehydrogenase Dysregulation (Amino-Acid-Driven HI)"
+      "Glutamate Dehydrogenase Dysregulation (Amino-Acid-Driven HI)",
+      "Glucokinase Glucose-Sensing Threshold Shift",
+      "Ectopic Beta-Cell Monocarboxylate Transport",
+      "HNF4A-Dependent Fetal and Neonatal Beta-Cell Dysregulation"
     ],
     "cell_types": [
       "pancreatic beta cell",
@@ -88563,7 +88576,8 @@ window.searchData = [
       "regulation of insulin secretion",
       "membrane depolarization",
       "insulin secretion",
-      "glucose homeostasis"
+      "glucose homeostasis",
+      "pyruvate transmembrane transport"
     ],
     "phenotypes": [
       "Hyperinsulinemic Hypoglycemia",
@@ -88594,7 +88608,11 @@ window.searchData = [
     "genes": [
       "KATP channel gene variants (ABCC8, KCNJ11)",
       "KCNJ11 variants (HHF2)",
-      "GLUD1 activating variants"
+      "GLUD1 activating variants",
+      "GCK activating variants (HHF3)",
+      "HADH (SCHAD) deficiency (HHF4)",
+      "HNF4A haploinsufficiency",
+      "SLC16A1 promoter-activating variants (HHF7)"
     ],
     "treatments": [
       "Diazoxide",
@@ -88607,11 +88625,11 @@ window.searchData = [
     "source_file": "Congenital_Isolated_Hyperinsulinism.yaml",
     "page_url": "../pages/disorders/Congenital_Isolated_Hyperinsulinism.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 4,
-    "num_genes": 3,
+    "num_pathophysiology": 7,
+    "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Congenital Lactase Deficiency",
@@ -109632,9 +109650,13 @@ window.searchData = [
       "dHMN7B",
       "dHMN7A",
       "dHMN2C",
-      "dHMN-TRPV4"
+      "dHMN-TRPV4",
+      "dHMN-FBXO38",
+      "dHMN-EMILIN1",
+      "dHMN-SPTAN1",
+      "dHMN-BAG3"
     ],
-    "description": "Autosomal dominant distal hereditary motor neuronopathy (dHMN; also called autosomal dominant distal spinal muscular atrophy, dSMA) is a clinically and genetically heterogeneous group of inherited lower motor neuron disorders characterized by slowly progressive, length-dependent distal muscle weakness and atrophy with minimal or absent sensory involvement. Neurophysiology shows chronic neurogenic denervation on EMG with a motor axonal pattern on nerve conduction studies and preserved sensory responses, distinguishing dHMN from axonal Charcot-Marie-Tooth disease (CMT2). The autosomal dominant forms are caused by heterozygous mutations in genes affecting motor-neuron and distal-axon biology, prominently the small heat-shock protein chaperones HSPB1 (dHMN2B / CMT2F), HSPB3 (dHMN2C) and HSPB8 (dHMN2A, split out - see below), the endoplasmic-reticulum protein seipin BSCL2 (dHMN5 / Silver syndrome), the aminoacyl-tRNA synthetase GARS1 (dHMN5 / CMT2D spectrum), the axonal-transport motor adaptor DCTN1 (dynactin), the presynaptic choline transporter SLC5A7 (dHMN7A), and the cation channel TRPV4 (scapuloperoneal/congenital distal SMA spectrum). Recurrent pathogenic mechanisms include disrupted protein quality control with aggregation, impaired axonal transport, defective tRNA charging/translation, and disturbed neuromuscular-junction transmission. The autosomal recessive forms (e.g., IGHMBP2/SMARD1, SIGMAR1, PLEKHG5) are a distinct sibling entry. HSPB8 causes dHMN type 2A (MONDO:0008025) and now has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_2A`, rather than being carried here as a subtype - it is curated as a specific toxic-gain-of-function proteostasis lesion at the K141 hot spot, running through the HSPB8-BAG3 chaperone-assisted selective autophagy complex, which is finer than the general proteostasis framing of this entry. Its subtype row, HSPB8 genetic block and OMIM:158590 assertion moved with it. A second aminoacyl-tRNA synthetase gene, WARS1, causes dHMN type 9 (MONDO:0060585) and has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_9`, rather than being folded in here - its curated mechanism is two-armed (dominant-negative loss of tryptophanyl-tRNA charging plus potentiation of a non-canonical angiostatic TrpRS activity) and is not represented by the proteostasis and axonal-transport framing of this entry.\n",
+    "description": "Autosomal dominant distal hereditary motor neuronopathy (dHMN; also called autosomal dominant distal spinal muscular atrophy, dSMA) is a clinically and genetically heterogeneous group of inherited lower motor neuron disorders characterized by slowly progressive, length-dependent distal muscle weakness and atrophy with minimal or absent sensory involvement. Neurophysiology shows chronic neurogenic denervation on EMG with a motor axonal pattern on nerve conduction studies and preserved sensory responses, distinguishing dHMN from axonal Charcot-Marie-Tooth disease (CMT2). The autosomal dominant forms are caused by heterozygous mutations in genes affecting motor-neuron and distal-axon biology, prominently the small heat-shock protein chaperones HSPB1 (dHMN2B / CMT2F), HSPB3 (dHMN2C) and HSPB8 (dHMN2A, split out - see below), the endoplasmic-reticulum protein seipin BSCL2 (dHMN5 / Silver syndrome), the aminoacyl-tRNA synthetase GARS1 (dHMN5 / CMT2D spectrum), the axonal-transport motor adaptor DCTN1 (dynactin), the presynaptic choline transporter SLC5A7 (dHMN7A), and the cation channel TRPV4 (scapuloperoneal/congenital distal SMA spectrum). Recurrent pathogenic mechanisms include disrupted protein quality control with aggregation, impaired axonal transport, defective tRNA charging/translation, and disturbed neuromuscular-junction transmission. The autosomal recessive forms (e.g., IGHMBP2/SMARD1, SIGMAR1, PLEKHG5) are a distinct sibling entry. HSPB8 causes dHMN type 2A (MONDO:0008025) and now has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_2A`, rather than being carried here as a subtype - it is curated as a specific toxic-gain-of-function proteostasis lesion at the K141 hot spot, running through the HSPB8-BAG3 chaperone-assisted selective autophagy complex, which is finer than the general proteostasis framing of this entry. Its subtype row, HSPB8 genetic block and OMIM:158590 assertion moved with it. Four further dominant loci are curated here as subtype rows: FBXO38 (dHMN type 2D), which acts through KLF7-dependent transcription of axon-outgrowth genes; EMILIN1 (HMND10), an extracellular matrix glycoprotein and the one locus on this entry whose lesion is outside the motor neuron; SPTAN1 (HMND11), acting by haploinsufficiency of the axonal alpha-II spectrin cytoskeleton; and BAG3 (HMND15), the HSPB8 co-chaperone of chaperone-assisted selective autophagy. A second aminoacyl-tRNA synthetase gene, WARS1, causes dHMN type 9 (MONDO:0060585) and has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_9`, rather than being folded in here - its curated mechanism is two-armed (dominant-negative loss of tryptophanyl-tRNA charging plus potentiation of a non-canonical angiostatic TrpRS activity) and is not represented by the proteostasis and axonal-transport framing of this entry.\n",
     "pathophysiology": [
       "Motor Neuron and Distal Axon Gene Defect",
       "Disrupted Proteostasis and Axonal Transport",
@@ -109688,7 +109710,11 @@ window.searchData = [
       "DCTN1",
       "SLC5A7",
       "HSPB3",
-      "TRPV4"
+      "TRPV4",
+      "FBXO38",
+      "EMILIN1",
+      "SPTAN1",
+      "BAG3"
     ],
     "treatments": [
       "Genetic counseling",
@@ -109701,10 +109727,10 @@ window.searchData = [
     "page_url": "../pages/disorders/Distal_Hereditary_Motor_Neuronopathy,_Autosomal_Dominant.html",
     "num_phenotypes": 8,
     "num_pathophysiology": 4,
-    "num_genes": 7,
+    "num_genes": 11,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Distal Hereditary Motor Neuronopathy, Autosomal Recessive",
@@ -118177,6 +118203,109 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Epidemic typhus",
+    "disease_id": "MONDO:0019362",
+    "category": "Infectious Disease",
+    "parents": [
+      "Typhus",
+      "Rickettsial disease",
+      "Bacterial Infection"
+    ],
+    "creation_date": "2026-09-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Epidemic typhus is an acute louse-borne rickettsiosis caused by the obligate intracytoplasmic bacterium Rickettsia prowazekii. Human body lice become infected while feeding on a bacteremic person and shed organisms in feces; scratching inoculates the contaminated feces through abrasions or onto mucosal surfaces. R. prowazekii then disseminates and infects vascular endothelial cells and macrophages, producing diffuse rickettsial vasculitis that manifests as a severe febrile illness with headache, myalgia, and a variably present rash. The organism can persist after primary infection and reactivate years later as Brill-Zinsser disease, and early cell-penetrant doxycycline treatment is the key disease-modifying therapy.",
+    "pathophysiology": [
+      "Body-Louse-Borne Rickettsia prowazekii Exposure",
+      "Endothelial and Macrophage Rickettsial Infection",
+      "Energy Parasitism Through Tlc1",
+      "Acute Rickettsial Febrile Illness",
+      "Rickettsial Vasculitis",
+      "CD8 T-Cell and Interferon-Gamma Rickettsial Clearance",
+      "Adipose Reservoir and Brill-Zinsser Reactivation",
+      "Rickettsial Ribosomal Translation"
+    ],
+    "cell_types": [
+      "blood vessel endothelial cell",
+      "macrophage",
+      "CD8-positive, alpha-beta T cell",
+      "adipocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000071",
+      "CL:0000235",
+      "CL:0000625",
+      "CL:0000136"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "biological process involved in interaction with host",
+      "inflammatory response",
+      "positive regulation of vascular permeability",
+      "T cell mediated cytotoxicity",
+      "translation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Myalgia",
+      "Skin rash",
+      "Malaise",
+      "Meningoencephalitis",
+      "Seizure",
+      "Interstitial pneumonitis",
+      "Acute kidney injury"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Neurologic",
+      "Musculoskeletal",
+      "Dermatologic",
+      "Constitutional",
+      "Respiratory",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0000988",
+      "HP:0033834",
+      "HP:0002383",
+      "HP:0001250",
+      "HP:0006515",
+      "HP:0001919"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Doxycycline therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Epidemic_Typhus.yaml",
+    "page_url": "../pages/disorders/Epidemic_typhus.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Epidermolysis Bullosa",
     "disease_id": "MONDO:0006541",
     "category": "Mendelian",
@@ -124980,7 +125109,9 @@ window.searchData = [
       "LRP5-FEVR",
       "TSPAN12-FEVR",
       "NDP-FEVR",
-      "KIF11-FEVR"
+      "KIF11-FEVR",
+      "ZNF408-FEVR",
+      "CTNNB1-FEVR"
     ],
     "description": "Familial exudative vitreoretinopathy (FEVR) is a rare inherited vitreoretinopathy characterized by incomplete or arrested vascularization of the peripheral retina. The shared core mechanism is impaired Norrin/beta-catenin (Wnt) signaling in retinal vascular endothelial cells, which is required for developmental angiogenesis of the peripheral retina and establishment of the blood-retina barrier. The resulting peripheral avascular zone causes retinal ischemia, which drives compensatory neovascularization, exudation, hemorrhage, vitreoretinal traction, and tractional or exudative retinal detachment. FEVR is genetically heterogeneous: most cases are autosomal dominant (FZD4, LRP5, TSPAN12), but autosomal recessive (LRP5, TSPAN12) and X-linked recessive (NDP) forms occur, and KIF11 variants produce a FEVR-like retinal phenotype within a broader microcephaly-lymphedema-chorioretinal dysplasia spectrum. Expressivity is highly variable, ranging from an asymptomatic avascular periphery detectable only by fluorescein angiography to bilateral blindness, even within the same family. NDP variants additionally cause Norrie disease (a severe allelic disorder), and recessive LRP5 disease can be accompanied by reduced bone mineral density.",
     "pathophysiology": [
@@ -124990,6 +125121,7 @@ window.searchData = [
       "Vitreoretinal traction and retinal detachment",
       "Inner Blood-Retinal Barrier Dysfunction",
       "Impaired LRP5-mediated Wnt signaling in bone",
+      "ZNF408 dysfunction impairing retinal vascular development",
       "KIF11 mitotic spindle dysfunction"
     ],
     "cell_types": [
@@ -125094,10 +125226,10 @@ window.searchData = [
     "source_file": "Familial_Exudative_Vitreoretinopathy.yaml",
     "page_url": "../pages/disorders/Familial_Exudative_Vitreoretinopathy.html",
     "num_phenotypes": 20,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 8,
     "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "31",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "5"
   },
   {
@@ -184543,7 +184675,14 @@ window.searchData = [
       "FGF8",
       "CHD7",
       "SPRY4",
-      "FLRT3"
+      "FLRT3",
+      "WDR11",
+      "HS6ST1",
+      "SEMA3A",
+      "DUSP6",
+      "FGF17",
+      "FEZF1",
+      "NSMF"
     ],
     "description": "Kallmann syndrome is the anosmic form of congenital isolated gonadotropin-releasing hormone (GnRH) deficiency, characterized by hypogonadotropic hypogonadism (absent or incomplete puberty, low sex steroids, infertility) combined with an impaired sense of smell (anosmia or hyposmia). It arises from defective embryonic co-migration of GnRH neurons and olfactory axons from the olfactory placode to the forebrain, with associated failure of olfactory bulb morphogenesis. Kallmann syndrome is genetically heterogeneous and can be inherited in X-linked recessive, autosomal dominant, autosomal recessive, or oligogenic patterns. Causal genes include ANOS1/KAL1 (X-linked), FGFR1/KAL2, FGF8, PROKR2, PROK2, and CHD7, among others. Anosmia distinguishes Kallmann syndrome from normosmic isolated GnRH deficiency, with which it shares a reproductive phenotype.",
     "pathophysiology": [
@@ -184611,7 +184750,14 @@ window.searchData = [
       "FGF8 variants",
       "CHD7 variants",
       "SPRY4 variants",
-      "FLRT3 variants"
+      "FLRT3 variants",
+      "WDR11 variants",
+      "HS6ST1 variants",
+      "SEMA3A variants",
+      "DUSP6 variants",
+      "FGF17 variants",
+      "FEZF1 variants",
+      "NSMF (NELF) variants"
     ],
     "treatments": [
       "Sex steroid replacement therapy",
@@ -184623,9 +184769,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Kallmann_Syndrome.html",
     "num_phenotypes": 11,
     "num_pathophysiology": 3,
-    "num_genes": 8,
+    "num_genes": 15,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "2"
   },
   {
@@ -201436,8 +201582,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "MOGAD",
@@ -211639,11 +211785,14 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "Vitamin B12-responsive methylmalonic acidemia",
-      "Vitamin B12-unresponsive methylmalonic acidemia"
+      "Vitamin B12-unresponsive methylmalonic acidemia",
+      "TCblR defect"
     ],
     "description": "Methylmalonic acidemia (MMA) is an autosomal recessive inborn error of propionate metabolism caused by deficiency of methylmalonyl-CoA mutase (MMUT) or defects in intracellular adenosylcobalamin (AdoCbl) cofactor synthesis and handling (cblA/MMAA, cblB/MMAB). Impaired conversion of methylmalonyl-CoA to succinyl-CoA leads to systemic accumulation of methylmalonic acid, propionyl-CoA, 2-methylcitrate, and related metabolites, disrupting mitochondrial anaplerosis, respiratory chain function, and protein acylation homeostasis. The disease manifests with recurrent metabolic decompensation, progressive chronic kidney disease, neurological injury including basal ganglia injury, cardiomyopathy, and a distinctive lipodystrophy-like phenotype. Estimated incidence is approximately 1:50,000 live births. Newborn screening via elevated propionylcarnitine (C3) allows pre-symptomatic detection and significantly improves outcomes.\n",
     "pathophysiology": [
       "MMUT/AdoCbl pathway molecular function deficiency",
+      "Methylmalonyl-CoA epimerase deficiency",
+      "Impaired cellular cobalamin uptake",
       "Impaired methylmalonyl-CoA metabolism",
       "Acute organic acid decompensation",
       "Mitochondrial energy metabolism dysfunction",
@@ -211661,6 +211810,7 @@ window.searchData = [
       "CL:0002306"
     ],
     "biological_processes": [
+      "cobalamin transport",
       "methylmalonyl-CoA metabolic process",
       "propionate catabolic process",
       "tricarboxylic acid cycle",
@@ -211731,7 +211881,10 @@ window.searchData = [
     "genes": [
       "MMUT (methylmalonyl-CoA mutase)",
       "MMAA (cblA complementation group)",
-      "MMAB (cblB complementation group)"
+      "MMAB (cblB complementation group)",
+      "MMADHC (cblD complementation group)",
+      "MCEE (methylmalonyl-CoA epimerase)",
+      "CD320 (transcobalamin receptor defect)"
     ],
     "treatments": [
       "Protein-restricted diet",
@@ -211756,10 +211909,10 @@ window.searchData = [
     "source_file": "Methylmalonic_Acidemia.yaml",
     "page_url": "../pages/disorders/Methylmalonic_Acidemia.html",
     "num_phenotypes": 19,
-    "num_pathophysiology": 8,
-    "num_genes": 3,
+    "num_pathophysiology": 10,
+    "num_genes": 6,
     "num_treatments": 7,
-    "causal_graph_edges": "51",
+    "causal_graph_edges": "56",
     "causal_graph_longest_path": "6"
   },
   {
@@ -218796,26 +218949,36 @@ window.searchData = [
     ],
     "creation_date": "2026-05-04T22:23:50Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Moyamoya disease 2",
+      "Moyamoya disease 6 with achalasia",
+      "Moyamoya disease 7",
+      "Moyamoya disease 8"
+    ],
     "description": "Moyamoya disease is an idiopathic, progressive cerebrovascular arteriopathy characterized by stenosis or occlusion of the circle of Willis and terminal internal carotid arteries with development of prominent basal collateral vessels that create the radiographic \"puff-of-smoke\" appearance.",
     "pathophysiology": [
       "Progressive steno-occlusive intracranial arteriopathy",
       "RNF213-associated angiogenic and remodeling dysregulation",
       "RNF213 loss-of-function Hippo-YAP/TAZ-VEGFR2 activation",
-      "RNF213-TRAF2-mediated NF-\u03baB-IL-6 amplification"
+      "RNF213-TRAF2-mediated NF-\u03baB-IL-6 amplification",
+      "Nitric oxide-sGC-cGMP signaling deficiency",
+      "ANO1 gain-of-function chloride channel hyperactivity"
     ],
     "cell_types": [
-      "endothelial cell"
+      "endothelial cell",
+      "vascular associated smooth muscle cell"
     ],
     "cell_type_ids": [
-      "CL:0000115"
+      "CL:0000115",
+      "CL:0000359"
     ],
     "biological_processes": [
       "vasculature development",
       "angiogenesis",
       "vascular endothelial growth factor receptor signaling pathway",
       "cytokine production",
-      "inflammatory response"
+      "inflammatory response",
+      "nitric oxide-cGMP-mediated signaling"
     ],
     "phenotypes": [
       "Intracranial arterial stenosis",
@@ -218847,7 +219010,9 @@ window.searchData = [
     "genes": [
       "RNF213 susceptibility",
       "RNF213 variant and infectious burden interaction",
-      "GUCY1A3-associated vascular signaling susceptibility"
+      "GUCY1A1 biallelic loss of function",
+      "NOS3 biallelic loss of function",
+      "ANO1 gain-of-function variants"
     ],
     "treatments": [
       "Surgical revascularization",
@@ -218858,11 +219023,11 @@ window.searchData = [
     "source_file": "Moyamoya_Disease.yaml",
     "page_url": "../pages/disorders/Moyamoya_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 4,
-    "num_genes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 5,
     "num_treatments": 2,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Muckle-Wells Syndrome",
@@ -239666,7 +239831,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 4,
     "num_treatments": 10,
-    "causal_graph_edges": "35",
+    "causal_graph_edges": "54",
     "causal_graph_longest_path": "9"
   },
   {
@@ -268421,8 +268586,7 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "PHP1A",
-      "PHP1B",
-      "Pseudopseudohypoparathyroidism"
+      "PHP1B"
     ],
     "description": "Pseudohypoparathyroidism (PHP) is a group of disorders caused by impaired signaling at the GNAS locus, producing resistance to parathyroid hormone and, in many patients, additional endocrine and developmental abnormalities. The phenotype reflects both parent-of-origin effects (imprinting) and tissue-specific dependence on Gs alpha signaling.",
     "pathophysiology": [
@@ -268625,7 +268789,6 @@ window.searchData = [
     "disease_id": "MONDO:0012912",
     "category": "Genetic",
     "parents": [
-      "Pseudohypoparathyroidism",
       "Disorder of GNAS Inactivation",
       "Acromelic Dysplasia"
     ],
@@ -336434,19 +336597,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3185,
-  "total_subtypes": 4219,
-  "total_disorders_and_subtypes": 7404,
-  "total_unique_evidence_sources": 46320,
-  "total_unique_publications": 43528,
+  "total_disorder_pages": 3186,
+  "total_subtypes": 4237,
+  "total_disorders_and_subtypes": 7423,
+  "total_unique_evidence_sources": 46379,
+  "total_unique_publications": 43577,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 286,
-  "total_pathographs": 3180,
-  "total_unique_pathological_events": 20093,
-  "total_modules": 178,
-  "total_research_reports": 3297,
+  "total_pathographs": 3181,
+  "total_unique_pathological_events": 20109,
+  "total_modules": 179,
+  "total_research_reports": 3300,
   "total_classifications": 20,
   "total_comorbidities": 47,
-  "total_groupings": 105
+  "total_groupings": 106
 };
 window.dispatchEvent(new Event('searchDataReady'));
