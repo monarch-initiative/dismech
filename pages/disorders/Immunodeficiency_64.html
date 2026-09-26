@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4547,6 +4586,7 @@ Curators should be aware of a naming hazard: common regulatory variants near RAS
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-rasgrp1-loss-of-function-variants" data-dismech-node="Biallelic RASGRP1 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic RASGRP1 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Stop-gain, other truncating, and splice-donor alleles, all biallelic. The structural basis for why truncation is catastrophic is known: RASGRP1 is held autoinhibited, with its RAS-binding catalytic site blocked by an interdomain linker and its membrane-interaction surface buried in a dimerization interface stabilised by the C-terminal oligomerization domain. Calcium binding to the EF-hand regulatory module drives the conformational change that releases it. Truncating alleles remove the catalytic or regulatory modules that convert the calcium/DAG signal into RAS-GTP loading, so there is no partial-activity state to fall back on.
 </div>
 
@@ -4612,6 +4652,8 @@ This pathophysiological event involves decreased RASGRP1 (hgnc:9878). hgnc:9878 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4624,6 +4666,9 @@ This pathophysiological event involves decreased RASGRP1 (hgnc:9878). hgnc:9878 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic loss-of-function RASGRP1 alleles - homozygous stop-gain in the index kindred, with subsequently reported truncating and splice-donor alleles.</div>
 
@@ -4760,6 +4805,7 @@ This pathophysiological event involves decreased RASGRP1 (hgnc:9878). hgnc:9878 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collapse-of-tcr-to-ras-erk-signal-transduction" data-dismech-node="Collapse of TCR-to-RAS-ERK Signal Transduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Collapse of TCR-to-RAS-ERK Signal Transduction</div>
+
 
                 <div class="item-desc">The catalytic arm. RASGRP1 deficiency reduces RAS-GTPase activity and decreases ERK phosphorylation in both T cells and B cells; re-expression of wild-type RASGRP1 restores ERK phosphorylation, which is what makes this a demonstrated causal step rather than a correlation.
 </div>
@@ -4984,6 +5030,7 @@ This pathophysiological event involves Ras guanyl-nucleotide exchange factor act
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-rasgrp1-dynll1-cytoskeletal-coupling" data-dismech-node="Loss of RASGRP1-DYNLL1 Cytoskeletal Coupling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of RASGRP1-DYNLL1 Cytoskeletal Coupling</div>
 
+
                 <div class="item-desc">The second, RAS-independent arm. Interaction proteomics identified the dynein light chain DYNLL1 as a RASGRP1 interactor, and RASGRP1-deficient cells show decreased activation of the GTPase RhoA. This is the arm that explains the immune-synapse and motility phenotypes, which do not follow from reduced ERK signalling.
 </div>
 
@@ -5160,6 +5207,7 @@ This pathophysiological event involves decreased actin cytoskeleton organization
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nk-cell-cytotoxic-synapse-assembly" data-dismech-node="Impaired NK Cell Cytotoxic Synapse Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired NK Cell Cytotoxic Synapse Assembly</div>
 
+
                 <div class="item-desc">RASGRP1-deficient NK cells are impaired in cytotoxicity with defective granule convergence and actin accumulation - a synapse-assembly failure rather than a cell-number deficit. Reversible in principle: lenalidomide increases RhoA activity and reverses the migration and activation defects of RASGRP1-deficient lymphocytes.
 </div>
 
@@ -5294,6 +5342,7 @@ This pathophysiological event involves decreased natural killer cell mediated cy
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-antigen-driven-lymphocyte-proliferation-and-activation" data-dismech-node="Defective Antigen-Driven Lymphocyte Proliferation and Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Antigen-Driven Lymphocyte Proliferation and Activation</div>
+
 
                 <div class="item-desc">Proliferation, activation and motility are all defective in T and B cells. Motility is the item worth noticing: it is a cytoskeletal readout appearing alongside the proliferative ones, so both upstream arms converge here.
 </div>
@@ -5476,6 +5525,7 @@ This pathophysiological event involves decreased positive regulation of T cell p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-expansion-of-ebv-specific-cd8-positive-t-cells" data-dismech-node="Failed Expansion of EBV-Specific CD8-Positive T Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Expansion of EBV-Specific CD8-Positive T Cells</div>
 
+
                 <div class="item-desc">The step that makes IMD64 an EBV disease specifically. RASGRP1 is grouped with MAGT1 and ITK as genes whose mutation causes defective expansion of EBV-specific CD8+ T cells, and therefore failure to eliminate proliferating EBV-infected B cells. This is a shared final common path across a family of inborn errors, reached here through a TCR-proximal signalling defect.
 Two specific downstream steps are named: loss of RASGRP1 prevents upregulation of CTP synthetase 1 and of the CD27-CD70 axis. Both of those are themselves causes of EBV-susceptibility inborn errors in their own right, which is the concrete reason this disease&#39;s oncogenic profile resembles the narrow-spectrum EBV IEIs (CD27, CD70, ITK) rather than the broad lymphoproliferation of ALPS.
 </div>
@@ -5650,6 +5700,7 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ebv-driven-b-cell-lymphoproliferation-and-lymphoma" data-dismech-node="EBV-Driven B Cell Lymphoproliferation and Lymphoma" data-dismech-type="pathophysiology">
                 <div class="item-name">EBV-Driven B Cell Lymphoproliferation and Lymphoma</div>
 
+
                 <div class="item-desc">The characteristic and most dangerous outcome: EBV-associated lymphoproliferative disease with susceptibility to EBV-induced B cell malignancies.
 </div>
 
@@ -5762,6 +5813,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-dysregulation-with-autoimmunity-and-vasculopathy" data-dismech-node="Immune Dysregulation with Autoimmunity and Vasculopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Dysregulation with Autoimmunity and Vasculopathy</div>
+
 
                 <div class="item-desc">A second clinical arm, and the one whose weight has grown with reporting. Alongside cytopenic autoimmunity, the 2026 systematic review identifies vascular autoimmunity as an emerging life-threatening phenotype: the index case of that report had severe vasculopathy with ischaemic stroke and thrombosis, secondary antiphospholipid syndrome, and fatal refractory autoimmune haemolytic anaemia. This entry records vasculopathy as emerging rather than established, following the source&#39;s own framing.
 The proposed mechanism is a breakdown of tolerance to vascular antigens, which is the same loss of B-cell tolerance that produces the cytopenic autoantibodies - so the vascular and cytopenic arms are one lesion with two targets, not two findings that happen to co-occur.
@@ -7099,6 +7151,9 @@ This disease-associated gene is RASGRP1 (hgnc:9878). hgnc:9878 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

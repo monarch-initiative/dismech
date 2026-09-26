@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4468,6 +4507,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-copa-pathogenic-variants" data-dismech-node="COPA pathogenic variants" data-dismech-type="pathophysiology">
                 <div class="item-name">COPA pathogenic variants</div>
 
+
                 <div class="item-desc">Heterozygous deleterious COPA variants - most commonly missense changes in the N-terminal WD40 cargo-recognition domain of coatomer subunit alpha, with a smaller subset in the C-terminal domain - initiate the molecular cascade underlying COPA syndrome. The disease behaves as a dominant interferonopathy with incomplete clinical penetrance.
 </div>
 
@@ -4608,6 +4648,7 @@ This pathophysiological event involves COPA (hgnc:2230). hgnc:2230 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-copi-cargo-recognition" data-dismech-node="Impaired COPI cargo recognition" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired COPI cargo recognition</div>
+
 
                 <div class="item-desc">Mutant COPA fails to bind dilysine ER-retrieval motifs and the SURF4 adapter, blocking selection of STING and other cargo into COPI-coated vesicles at the cis-Golgi. CTD variants additionally destabilise the coatomer assembly itself, producing both anterograde and retrograde trafficking defects.
 </div>
@@ -4831,6 +4872,7 @@ This pathophysiological event involves abnormal COPI-mediated cargo sorting, ann
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-golgi-to-er-protein-retrieval" data-dismech-node="Impaired Golgi-to-ER protein retrieval" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Golgi-to-ER protein retrieval</div>
 
+
                 <div class="item-desc">Loss of COPI-mediated cargo selection compromises retrograde retrieval of client proteins, including STING, from the Golgi to the endoplasmic reticulum and perturbs ER-Golgi homeostasis. CTD variants also disrupt anterograde ER-to-Golgi transport.
 </div>
 
@@ -4949,6 +4991,7 @@ This pathophysiological event involves abnormal retrograde Golgi-to-ER transport
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sting-accumulation-and-activation-at-the-golgi" data-dismech-node="STING accumulation and activation at the Golgi" data-dismech-type="pathophysiology">
                 <div class="item-name">STING accumulation and activation at the Golgi</div>
+
 
                 <div class="item-desc">Failed COPA/SURF4-mediated retrieval traps ER-resident STING at the Golgi, where it multimerises and undergoes ligand-independent activation with TBK1 phosphorylation. STING activation is constitutive in WD40 variants and hyperactivated upon stimulation in dendritic cells from CTD- and other mutant carriers.
 </div>
@@ -5152,6 +5195,7 @@ This pathophysiological event involves abnormal Golgi membrane (GO:0000139). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-stress-and-unfolded-protein-response" data-dismech-node="ER stress and unfolded protein response" data-dismech-type="pathophysiology">
                 <div class="item-name">ER stress and unfolded protein response</div>
 
+
                 <div class="item-desc">Disturbed intracellular trafficking accumulates misfolded cargo and activates the unfolded protein response. ER stress contributes to proinflammatory cytokine output, NF-kappaB activation, and TH17 polarisation, and is genetically conserved in C. elegans copa-1 disease models.
 </div>
 
@@ -5354,6 +5398,7 @@ This pathophysiological event involves increased ER unfolded protein response, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-type-i-interferon-signaling" data-dismech-node="Constitutive type I interferon signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive type I interferon signaling</div>
+
 
                 <div class="item-desc">Golgi-retained STING drives persistent cGAS/STING-dependent type I interferon pathway activation through TBK1-IRF3 signalling and downstream JAK-STAT amplification, producing the elevated IFN-alpha and interferon-stimulated gene (ISG) signature seen in symptomatic patients. JAK inhibition is the principal mechanism-targeted therapy.
 </div>
@@ -5576,6 +5621,7 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nf-kappab-driven-proinflammatory-signaling" data-dismech-node="NF-kappaB-driven proinflammatory signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">NF-kappaB-driven proinflammatory signaling</div>
 
+
                 <div class="item-desc">Sustained ER stress and Golgi-localised STING signalling activate canonical NF-kappaB and induce IL-1beta, IL-6, and other proinflammatory cytokines that amplify autoinflammation. NF-kappaB activation is most prominently demonstrated in CTD variant cells.
 </div>
 
@@ -5725,6 +5771,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th17-skewed-adaptive-immune-dysregulation" data-dismech-node="TH17-skewed adaptive immune dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">TH17-skewed adaptive immune dysregulation</div>
+
 
                 <div class="item-desc">Sustained type I interferon signalling, ER stress, and IL-6/IL-1beta output skew CD4+ T cells toward a TH17 fate, drive B-cell autoantibody production, and produce the autoimmune cytokine milieu underlying chronic injury in lung, joint, and kidney tissues.
 </div>
@@ -5946,6 +5993,7 @@ This pathophysiological event involves increased T-helper 17 cell differentiatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-end-organ-inflammation" data-dismech-node="Autoimmune end-organ inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune end-organ inflammation</div>
 
+
                 <div class="item-desc">Convergent type I interferon, NF-kappaB, and TH17/autoantibody output targets the lung (interstitial pneumonia, capillaritis, alveolar haemorrhage, lymphoid hyperplasia), the synovium (inflammatory arthritis), and the kidney (ANCA-associated, lupus-like or immune-complex glomerulonephritis), and is the proximate driver of the clinical phenotype.
 </div>
 
@@ -6153,6 +6201,7 @@ This pathophysiological event involves increased T-helper 17 cell differentiatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haq-sting-dominant-suppression-of-sting-signalling" data-dismech-node="HAQ STING dominant suppression of STING signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">HAQ STING dominant suppression of STING signalling</div>
+
 
                 <div class="item-desc">The common HAQ haplotype of STING1 (R71H/G230A/R293Q) dominantly dampens STING signalling. When co-inherited with a pathogenic COPA variant, HAQ STING fully prevents the constitutive STING activation that drives type I interferon signalling and provides complete clinical protection in carriers, accounting for much of the observed incomplete penetrance.
 </div>
@@ -8242,6 +8291,9 @@ This disease-associated gene is COPA (hgnc:2230). hgnc:2230 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -8345,6 +8397,9 @@ This disease-associated gene is STING1 (hgnc:27962). hgnc:27962 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4648,6 +4687,7 @@ The practical rule this yields is narrow enough to be useful. The null mouse is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zap70-loss-of-kinase-function" data-dismech-node="ZAP70 Loss of Kinase Function" data-dismech-type="pathophysiology">
                 <div class="item-name">ZAP70 Loss of Kinase Function</div>
 
+
                 <div class="item-desc">Biallelic ZAP70 variants remove the kinase from the T-cell receptor cascade. Most reported alleles abolish protein expression or catalytic activity and cluster in the kinase domain, but there is a second, mechanistically distinct class in the C-terminal SH2 domain: R170C and R192W sit in the arginine pocket that docks the kinase onto the phosphorylated TCR zeta chain, so they abolish recruitment rather than catalysis. Preserved protein expression is documented for R170C specifically; R192W was confirmed pathogenic in two siblings without its expression level being reported in the same terms. Both classes reach the same place, a kinase that is not doing its job at the receptor, which is why a normal ZAP-70 protein level on flow cytometry does not exclude the diagnosis.</div>
 
 
@@ -4665,6 +4705,8 @@ The practical rule this yields is narrow enough to be useful. The null mouse is 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4675,6 +4717,9 @@ The practical rule this yields is narrow enough to be useful. The null mouse is 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4841,6 +4886,7 @@ This pathophysiological event involves decreased ZAP-70 tyrosine kinase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-tcr-proximal-signal-propagation" data-dismech-node="Failure of TCR-Proximal Signal Propagation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of TCR-Proximal Signal Propagation</div>
+
 
                 <div class="item-desc">Without ZAP-70 the phosphorylated CD3 and zeta ITAMs have nothing to recruit, so the adaptors LAT and SLP-76 are never phosphorylated and the signalosome that would carry the signal onward is never assembled. In patient T cells this reads out as markedly reduced tyrosine phosphorylation, no interleukin-2, and no proliferation to receptor stimulation — with the cells otherwise present and normal in number.</div>
 
@@ -5022,6 +5068,7 @@ This pathophysiological event involves decreased T cell receptor signaling pathw
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-block-of-cd8-single-positive-thymocyte-selection" data-dismech-node="Block of CD8 Single-Positive Thymocyte Selection" data-dismech-type="pathophysiology">
                 <div class="item-name">Block of CD8 Single-Positive Thymocyte Selection</div>
+
 
                 <div class="item-desc">Double-positive thymocytes accumulate normally in the cortex, but only CD4 single-positive cells reach the medulla. The asymmetry has a two-part explanation, each part separately sourced: the CD4 and CD8 lineages are selected at different ZAP-70 signalling thresholds, CD4 being the lower of the two, and human thymocytes express enough of the paralogous kinase SYK to carry that lower threshold. The rescue is human-specific. Mouse thymocytes express far less SYK, which is why complete Zap70 loss arrests both lineages in the mouse and only the CD8 lineage in patients.</div>
 
@@ -5281,6 +5328,7 @@ This pathophysiological event occurs in thymic cortex, annotated with cortex of 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-cd8-t-cell-lymphopenia" data-dismech-node="Peripheral CD8 T Cell Lymphopenia" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral CD8 T Cell Lymphopenia</div>
 
+
                 <div class="item-desc">The signature laboratory finding: profoundly reduced or absent circulating CD8 T cells against a normal or elevated total lymphocyte count, with normal B and NK numbers. It is present in essentially every patient, and it is the finding that should trigger ZAP70 sequencing. Rare exceptions with near-normal CD8 counts and impaired function are reported, so a normal count does not exclude the diagnosis when function is abnormal.</div>
 
 
@@ -5470,6 +5518,7 @@ This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:00006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-anergy-of-peripheral-cd4-t-cells" data-dismech-node="Functional Anergy of Peripheral CD4 T Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional Anergy of Peripheral CD4 T Cells</div>
+
 
                 <div class="item-desc">CD4 T cells are present in normal or elevated numbers and are functionally inert: they fail to flux calcium, make interleukin-2, or proliferate in response to receptor engagement or mitogen. This is the half of the disease a cell count misses, and it is why the mitogen proliferation assay is a first-line rather than a confirmatory test.</div>
 
@@ -5671,6 +5720,7 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-residual-tcr-signaling" data-dismech-node="Attenuated Residual TCR Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Residual TCR Signaling</div>
 
+
                 <div class="item-desc">A distinct state from the complete propagation failure above, and the two should not be conflated: hypomorphic and docking-defective alleles leave the cascade running weakly rather than not at all. That distinction is what makes the tolerance branch possible, because a thymocyte receiving no signal is not selected whereas one receiving a weak signal can be selected wrongly. This node is therefore reached only from the subset of alleles that retain residual function, which is why allele class and clinical presentation are related even though the pooled cohort finds no formal correlation.</div>
 
 
@@ -5688,6 +5738,8 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5698,6 +5750,9 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5806,6 +5861,7 @@ This pathophysiological event involves decreased T cell receptor signaling pathw
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-negative-selection-and-thymic-regulatory-t-cell-output" data-dismech-node="Impaired Negative Selection and Thymic Regulatory T Cell Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Negative Selection and Thymic Regulatory T Cell Output</div>
+
 
                 <div class="item-desc">Autoreactive thymocytes that a normal signal would delete survive selection, in a thymus simultaneously producing too few regulatory T cells to contain them afterwards. Both halves are thymic events, which is why this node is scoped to the thymus rather than to tolerance in general. The human evidence is an association between residual-function alleles and the dysregulation-predominant presentation; the mechanistic dissection is in mouse hypomorphs.</div>
 
@@ -6023,6 +6079,7 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cellular-immunity-against-opportunistic-pathogens" data-dismech-node="Impaired Cellular Immunity Against Opportunistic Pathogens" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cellular Immunity Against Opportunistic Pathogens</div>
 
+
                 <div class="item-desc">The combined loss of cytotoxic CD8 cells and functional CD4 help leaves patients open to the pathogens that cellular immunity normally handles: Pneumocystis jirovecii, Candida, CMV, varicella, and — where BCG is given before diagnosis — disseminated BCG disease.</div>
 
 
@@ -6152,6 +6209,7 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-t-dependent-antibody-responses" data-dismech-node="Defective T-Dependent Antibody Responses" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective T-Dependent Antibody Responses</div>
 
+
                 <div class="item-desc">B cells are present in normal numbers and serum IgM and IgA are usually normal, but specific antibody responses to protein and polysaccharide antigens fail in a majority of patients, and IgG is normal or reduced. The humoral defect is therefore functional rather than quantitative, which is why immunoglobulin replacement is offered even to patients whose total IgG looks acceptable.</div>
 
 
@@ -6231,6 +6289,7 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cytotoxic-surveillance-of-virus-infected-cells" data-dismech-node="Impaired Cytotoxic Surveillance of Virus-Infected Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cytotoxic Surveillance of Virus-Infected Cells</div>
+
 
                 <div class="item-desc">Without a cytotoxic CD8 compartment, EBV-infected B cells are not cleared, and a minority of patients develop EBV-driven lymphoproliferation or lymphoma. This is a downstream branch of the CD8 deficit rather than an independent tumour-suppressor lesion.</div>
 
@@ -6339,6 +6398,7 @@ This pathophysiological event involves CD8-positive, alpha-beta cytotoxic T cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmunity-and-immune-dysregulation" data-dismech-node="Autoimmunity and Immune Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmunity and Immune Dysregulation</div>
+
 
                 <div class="item-desc">Roughly a fifth of reported patients have autoimmune or dysregulatory disease — cytopenias, colitis and enteropathy, nephritis, skin involvement — and this arm can dominate the presentation in patients whose alleles leave residual function. It coexists with, rather than replaces, the infectious susceptibility.</div>
 
@@ -6487,13 +6547,11 @@ This pathophysiological event involves CD8-positive, alpha-beta cytotoxic T cell
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Neoplasm<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6505,6 +6563,80 @@ This pathophysiological event involves CD8-positive, alpha-beta cytotoxic T cell
                     Blood
                     <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-cd8-t-cell-count" data-dismech-node="Decreased total CD8+ T cell count" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased total CD8+ T cell count
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:5210426</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased total CD8+ T cell count (HP:5210426). HP:5210426 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32431715" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32431715" target="_blank">PMID:32431715</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The predominant immunologic phenotype was low CD8+ T cell counts (97.9%)."</div>
+
+
+                <div class="evidence-explanation">Gives the frequency of the finding across 49 pooled patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-increased-total-lymphocyte-count" data-dismech-node="Increased total lymphocyte count" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6520,10 +6652,10 @@ This pathophysiological event involves CD8-positive, alpha-beta cytotoxic T cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100827</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100827</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased total lymphocyte count (HP:0100827). HP:0100827 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6598,10 +6730,10 @@ This clinical feature is Increased total lymphocyte count (HP:0100827). HP:01008
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0031381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031381</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased mitogen-induced T-cell proliferation (HP:0031381). HP:0031381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6641,80 +6773,6 @@ This clinical feature is Decreased mitogen-induced T-cell proliferation (HP:0031
 
 
                 <div class="evidence-explanation">Gives the frequency of the mitogen-proliferation defect in the pooled cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-specific-antibody-response" data-dismech-node="Impaired specific antibody response" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired specific antibody response
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012475</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Impaired specific antibody response (HP:0012475). HP:0012475 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32431715" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32431715" target="_blank">PMID:32431715</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Immunologic profiling showed defective antibody production (57%) and decreased lymphocyte responses to mitogenic stimuli such as phytohemagglutinin (PHA) (95%)."</div>
-
-
-                <div class="evidence-explanation">Reports defective antibody production in 57% of pooled patients.</div>
 
 
 
@@ -7250,8 +7308,82 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-specific-antibody-response" data-dismech-node="Impaired specific antibody response" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Impaired specific antibody response
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012475</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired specific antibody response (HP:0012475). HP:0012475 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32431715" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32431715" target="_blank">PMID:32431715</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Immunologic profiling showed defective antibody production (57%) and decreased lymphocyte responses to mitogenic stimuli such as phytohemagglutinin (PHA) (95%)."</div>
+
+
+                <div class="evidence-explanation">Reports defective antibody production in 57% of pooled patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-infections" data-dismech-node="Recurrent respiratory infections" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7269,10 +7401,10 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002205</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7368,10 +7500,10 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000964</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7442,10 +7574,10 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7514,10 +7646,10 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020102" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0020102</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020102" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0020102</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:0020102 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7613,10 +7745,10 @@ This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:00201
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002090</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002090</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7687,10 +7819,10 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020087" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0020087</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020087" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0020087</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is BCGosis (HP:0020087). HP:0020087 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7770,10 +7902,10 @@ This clinical feature is BCGosis (HP:0020087). HP:0020087 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7853,10 +7985,10 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002664</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7921,89 +8053,6 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
                 <div class="evidence-explanation">A patient-level lymphoma report, and a reminder that not every lymphoma in this disorder is EBV-driven.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-cd8-t-cell-count" data-dismech-node="Decreased total CD8+ T cell count" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased total CD8+ T cell count
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:5210426</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased total CD8+ T cell count (HP:5210426). HP:5210426 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32431715" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32431715" target="_blank">PMID:32431715</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The predominant immunologic phenotype was low CD8+ T cell counts (97.9%)."</div>
-
-
-                <div class="evidence-explanation">Gives the frequency of the finding across 49 pooled patients.</div>
 
 
 
@@ -8089,6 +8138,9 @@ This disease-associated gene is ZAP70 (hgnc:12858). hgnc:12858 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8215,6 +8267,9 @@ This disease-associated gene is SYK (hgnc:11491). hgnc:11491 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

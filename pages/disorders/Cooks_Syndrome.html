@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cooks%20Syndrome"
@@ -3868,7 +3907,7 @@
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Cooks syndrome is an isolated malformation of the apical structures of the digits: absent or dysplastic nails together with hypoplasia or absence of the distal phalanges, usually affecting more than half the digits of hands and feet, with thumbs that may look &#34;digitalized&#34;. Despite the eponym it is not a multisystem syndrome — reported patients have normal stature, normal intellectual development, and no other skeletal abnormality — which is why the ISDS nosology places it with the isolated brachydactylies rather than the syndromic ones.
-Its mechanistic interest is out of proportion to its rarity. Cooks syndrome is caused not by a coding variant but by duplications at 17q24.3 that cross the boundary between the SOX9 topologically associating domain and the neighbouring KCNJ domain. Chromosome conformation capture showed that such a boundary-crossing duplication builds an entirely new chromatin domain — a neo-TAD — which captures KCNJ2 and exposes it to SOX9 limb enhancers, so KCNJ2 is misexpressed in the digit anlagen. The gene is an inward-rectifier potassium channel whose coding mutations cause Andersen-Tawil syndrome; here the channel is structurally normal and simply switched on in the wrong tissue, and affected individuals have none of the Andersen-Tawil phenotype. Cooks syndrome is therefore one of the clearest human demonstrations that where a gene is expressed, set by three-dimensional genome architecture, can be the disease mechanism.
+A well-studied cause is a tandem duplication at 17q24.3 that includes KCNJ2 coding sequence and SOX9 regulatory sequence while sparing SOX9 itself. Boundary-crossing duplication forms a neo-TAD that exposes KCNJ2 to the duplicated SOX9 regulatory landscape. Patient-fibroblast chromatin contacts and engineered mouse limb-expression assays support this mechanism, with ectopic Kcnj2 expression in developing mouse digits. Thus the regulatory consequence is distinct from the coding overlap or copy-number gain. A complex 1;17 translocation has also been reported with a Cooks-like phenotype; its embryonic limb-expression consequence remains unresolved.
 
             </p>
 
@@ -3985,7 +4024,7 @@ Its mechanistic interest is out of proportion to its rarity. Cooks syndrome is c
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4006,7 +4045,7 @@ Its mechanistic interest is out of proportion to its rarity. Cooks syndrome is c
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4020,6 +4059,14 @@ Its mechanistic interest is out of proportion to its rarity. Cooks syndrome is c
             </div>
             </a>
 
+
+            <a class="stat-link" href="#variants">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#treatments">
@@ -4283,14 +4330,14 @@ Its mechanistic interest is out of proportion to its rarity. Cooks syndrome is c
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-boundary-crossing-duplication-at-17q24-3" data-dismech-node="Boundary-Crossing Duplication at 17q24.3" data-dismech-type="pathophysiology">
                 <div class="item-name">Boundary-Crossing Duplication at 17q24.3</div>
 
-                <div class="item-desc">The causal lesion is a tandem duplication of roughly 1-2 Mb at 17q24.3 that contains the coding sequences of KCNJ2 and KCNJ16 together with noncoding regulatory sequence 5&#39; of SOX9. What matters is not the extra copy of any gene but where the duplication starts and stops: it spans the boundary between the SOX9 TAD and the neighbouring KCNJ TAD. Duplications confined within the SOX9 TAD produce a different disease (sex reversal), and duplications that stay inside a single boundary can be phenotypically silent — so the pathogenicity is a property of the breakpoints relative to TAD architecture, not of dosage. In-tandem duplication is not the only route: a de novo 1;17 translocation affecting the KCNJ2 locus produces the same phenotype, which widens the lesion class to any rearrangement that reorganises this boundary.
-</div>
+
+                <div class="item-desc">Boundary-crossing duplications at 17q24.3 copy KCNJ2 and neighboring noncoding regulatory sequence. The original Cooks duplications also include KCNJ16. Their regulatory consequence depends on the extent of the duplicated interval. In the experimental mouse series, duplicating Kcnj2 and Kcnj16 within their original TAD did not produce the digit phenotype, whereas incorporation of Kcnj2 into a neo-TAD with Sox9 regulatory sequence did. This distinguishes the pathogenic regulatory rearrangement from gene copy-number gain alone.</div>
 
 
 
@@ -4339,6 +4386,74 @@ This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene fr
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KCNJ2
+
+
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:6263</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: duplication</span>
+
+
+        <span class="tag tag-classification">Genomic context: coding sequence</span>
+
+        <span class="tag tag-classification">Genomic context: intergenic region</span>
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+
+
+    </div>
+
+
+
+
+    <div class="context-detail">Tandem duplications include KCNJ2 coding sequence and intergenic SOX9 regulatory sequence, crossing the boundary between their TADs while sparing SOX9 coding sequence. The POSTRE Table 1 Nr3 interval is one reported example of this lesion class.</div>
+
+
+
 
 
 
@@ -4356,7 +4471,7 @@ This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene fr
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact</span>
 
-	                            <span class="crosslink-desc">A duplication extending past the TAD boundary reorganises the local chromatin into a new self-contained domain.</span>
+	                            <span class="crosslink-desc">The boundary-crossing duplicated interval forms an insulated chromatin domain containing KCNJ2 and duplicated SOX9 regulatory sequence.</span>
 
 
 	                        </div>
@@ -4368,7 +4483,7 @@ This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene fr
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (5 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -4391,7 +4506,7 @@ This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene fr
                 <div class="evidence-snippet">"which is involved in two coding regions of KCNJ2 and KCNJ16"</div>
 
 
-                <div class="evidence-explanation">Defines the gene content of the duplicated interval.</div>
+                <div class="evidence-explanation">Defines the coding content of the independently reported Chinese-family duplication.</div>
 
 
 
@@ -4441,14 +4556,14 @@ This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene fr
                 <div class="evidence-snippet">"Duplications of non-coding DNA within the mouse Sox9 TAD (intra-TAD) that cause female to male sex reversal in humans, showed increased contact of the duplicated regions within the TAD, but no change in the overall TAD structure."</div>
 
 
-                <div class="evidence-explanation">Establishes that a duplication contained within the SOX9 TAD gives a different phenotype, so breakpoint position relative to the boundary is what matters.</div>
+                <div class="evidence-explanation">The full experimental series distinguishes intra-TAD duplications from boundary-crossing duplications. Dup-K1 and Dup-K2 mice duplicate the Kcnj genes within their original domain without the Cooks digit phenotype.</div>
 
 
 
             </div>
 
 
-            <div class="evidence-more">+ 2 more references</div>
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -4459,8 +4574,14 @@ This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neo-tad-formation-and-ectopic-kcnj2-enhancer-contact" data-dismech-node="Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact" data-dismech-type="pathophysiology">
                 <div class="item-name">Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact</div>
 
-                <div class="item-desc">Inside the neo-TAD, KCNJ2 comes to lie in the same insulated compartment as the duplicated portion of the SOX9 regulatory landscape. Capture Hi-C and 4C-seq show ectopic contacts between KCNJ2 and those enhancers. The consequence is tissue-specific misexpression: KCNJ2 is switched on in the digit anlagen and limb buds, where SOX9 enhancers are active and where KCNJ2 is normally silent. A neo-TAD that does not capture a gene has no phenotypic effect, which is the control that identifies gene capture, rather than domain formation itself, as the pathogenic step.
-</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
+                <div class="item-desc">The duplicated KCNJ2 gene occupies the neo-TAD together with part of the SOX9 regulatory landscape. Capture Hi-C and 4C-seq in engineered Dup-C mouse limb buds demonstrate new contacts within this domain; patient fibroblast 4C-seq also demonstrates ectopic KCNJ2 contacts with the duplicated SOX9 regulatory region. SOX9 itself remains outside the duplication. A gene-free neo-TAD in the Dup-L control is phenotypically silent, so domain formation alone is insufficient for the limb phenotype. The contact measurements are distinct from the expression assays below.</div>
 
 
 
@@ -4477,16 +4598,16 @@ This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene fr
 
     <span class="tag tag-gene">
 
-        SOX9
+        KCNJ2
 
 
-    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11204</a>
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6263</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.</span>
+This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4517,25 +4638,25 @@ This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene f
 
 
                     <span class="tag tag-bio">
-                        Regulation of Transcription by RNA Polymerase II
+                        KCNJ2 enhancer-promoter contacts within the neo-TAD
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140588" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0140588</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated Regulation of Transcription by RNA Polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
+This pathophysiological event involves abnormal KCNJ2 enhancer-promoter contacts within the neo-TAD, annotated with chromatin looping (GO:0140588). GO:0140588 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
 
     <span class="tag tag-modifier">
-        ↕ DYSREGULATED
+        ⚠ ABNORMAL
     </span>
 
 
@@ -4551,23 +4672,171 @@ This pathophysiological event involves dysregulated Regulation of Transcription 
                 </div>
 
 
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ectopic KCNJ2 Expression in Developing Digits</span>
+
+	                            <span class="crosslink-desc">Contact with the duplicated Sox9 regulatory landscape drives a Sox9-like Kcnj2 expression pattern in the developing digits of Dup-C mice.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27706140" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27706140" target="_blank">PMID:27706140</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, incorporation of the next flanking gene, Kcnj2, in the neo-TAD resulted in ectopic contacts of Kcnj2 with the duplicated part of the Sox9 regulatory region, consecutive misexpression of Kcnj2, and a limb malformation phenotype."</div>
+
+
+                <div class="evidence-explanation">The engineered Dup-C mouse provides direct chromatin-contact evidence; the full paper separately reports corresponding 4C-seq contacts in cultured fibroblasts from an affected individual (Extended Data Figure 6).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27706140" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27706140" target="_blank">PMID:27706140</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"As a consequence of this insulation, inter-TAD duplications had no phenotypic effect."</div>
+
+
+                <div class="evidence-explanation">The Dup-L control forms a neo-TAD without capturing Kcnj2 or Kcnj16 and has no digit phenotype; this does not describe the pathogenic Dup-C allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-kcnj2-expression-in-developing-digits" data-dismech-node="Ectopic KCNJ2 Expression in Developing Digits" data-dismech-type="pathophysiology">
+                <div class="item-name">Ectopic KCNJ2 Expression in Developing Digits</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Regulatory category: GOE (Established)</span>
+
+                </div>
+
+
+                <div class="item-desc">Whole-mount in situ hybridization in Dup-C mice shows Kcnj2 expression in the digit anlagen with a Sox9-like spatial pattern. Limb-bud RNA-seq at E12.5 and E17.5 also shows increased Kcnj2 expression, while Sox9 and Kcnj16 remain unchanged. The spatially ectopic expression supports GOE; the quantitative increase alone would not. A Dup-C2 allele including Kcnj2 but not Kcnj16 also produces the digit phenotype. These are model measurements, not direct expression measurements from human embryonic digits, and they do not demonstrate altered intrinsic channel activity.</div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KCNJ2
+
+
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:6263</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
                 <div class="item-meta">
 
 
 
                     <span class="tag tag-bio">
-                        Inward Rectifier Potassium Channel Activity
+                        gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005242" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005242</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0010467</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased Inward Rectifier Potassium Channel Activity (GO:0005242). GO:0005242 is a molecular function from the Gene Ontology.</span>
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased gene expression (GO:0010467). GO:0010467 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4595,6 +4864,7 @@ This pathophysiological event involves increased Inward Rectifier Potassium Chan
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4602,7 +4872,7 @@ This pathophysiological event involves increased Inward Rectifier Potassium Chan
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Apical Digit Malformation with Anonychia</span>
 
-	                            <span class="crosslink-desc">Ectopic KCNJ2 activity in the digit anlagen disturbs formation of the terminal phalanx and its nail unit.</span>
+	                            <span class="crosslink-desc">Ectopic Kcnj2 expression is associated with abnormal terminal phalanges and nail development in the duplication model. The intervening cellular mechanism remains unresolved.</span>
 
 
 	                        </div>
@@ -4614,7 +4884,7 @@ This pathophysiological event involves increased Inward Rectifier Potassium Chan
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (5 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4634,35 +4904,10 @@ This pathophysiological event involves increased Inward Rectifier Potassium Chan
 
                 </div>
 
-                <div class="evidence-snippet">"However, incorporation of the next flanking gene, Kcnj2, in the neo-TAD resulted in ectopic contacts of Kcnj2 with the duplicated part of the Sox9 regulatory region, consecutive misexpression of Kcnj2, and a limb malformation phenotype."</div>
+                <div class="evidence-snippet">"consecutive misexpression of Kcnj2, and a limb malformation phenotype."</div>
 
 
-                <div class="evidence-explanation">The central mechanistic result — gene capture into the neo-TAD drives KCNJ2 misexpression and limb malformation.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27706140" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27706140" target="_blank">PMID:27706140</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"As a consequence of this insulation, inter-TAD duplications had no phenotypic effect."</div>
-
-
-                <div class="evidence-explanation">The negative control: forming a neo-TAD without capturing a gene produces no phenotype, isolating gene capture as the pathogenic step.</div>
+                <div class="evidence-explanation">Figure 3 and the accompanying expression assays demonstrate ectopic Kcnj2 in developing digits, supporting regulatory GOE in the model.</div>
 
 
 
@@ -4678,23 +4923,197 @@ This pathophysiological event involves increased Inward Rectifier Potassium Chan
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
                 <div class="evidence-snippet">"17q24.3 duplications disrupt the boundary between SOX9 TAD and KCNJ TAD, leading to overexpression of Kcnj2 in the digit anlagen and limb buds"</div>
 
 
-                <div class="evidence-explanation">Restates the boundary-disruption-to-misexpression mechanism for the human duplication.</div>
+                <div class="evidence-explanation">This clinical report summarizes the earlier mouse mechanism; it is not an independent expression experiment in the Chinese family&#39;s limb tissue.</div>
 
 
 
             </div>
 
 
-            <div class="evidence-more">+ 2 more references</div>
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-alternative-translocation-affecting-kcnj2-regulation" data-dismech-node="Alternative Translocation Affecting KCNJ2 Regulation" data-dismech-type="pathophysiology">
+                <div class="item-name">Alternative Translocation Affecting KCNJ2 Regulation</div>
+
+
+                <div class="item-desc">A reported complex 1;17 rearrangement is associated with a variant of Cooks syndrome and reduced KCNJ2 expression in blood cells and cultured skin fibroblasts. The expression effect in those accessible tissues does not establish the direction or spatial pattern in developing digits. This alternate lesion therefore does not refute the ectopic limb expression demonstrated in the duplication mouse model.</div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KCNJ2
+
+
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:6263</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: translocation</span>
+
+
+
+
+        <span class="tag tag-classification">variant_origin: DE_NOVO</span>
+
+
+
+
+
+
+    </div>
+
+
+
+
+    <div class="context-detail">A complex de novo 1;17 rearrangement affects sequence 5&#39; of KCNJ2; this is a distinct allele class from the boundary-crossing duplications.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Apical Digit Malformation with Anonychia</span>
+
+	                            <span class="crosslink-desc">The rearrangement is associated with a Cooks-like developmental phenotype, but the limb-specific expression consequence and intervening pathway have not been established.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34821995" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34821995" target="_blank">PMID:34821995</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report a unique case of CS associated with a de novo 1;17 translocation affecting the KCNJ2 locus."</div>
+
+
+                <div class="evidence-explanation">Documents the alternate physical rearrangement in a human case.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34821995" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34821995" target="_blank">PMID:34821995</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Gene expression analysis demonstrated downregulation of KCNJ2 in both patient&#39;s blood cells and cultured skin fibroblasts."</div>
+
+
+                <div class="evidence-explanation">This item supports the cultured fibroblast expression result. The source sentence also mentions patient blood; neither assay directly measures the developmental limb mechanism.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4704,6 +5123,7 @@ This pathophysiological event involves increased Inward Rectifier Potassium Chan
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apical-digit-malformation-with-anonychia" data-dismech-node="Apical Digit Malformation with Anonychia" data-dismech-type="pathophysiology">
                 <div class="item-name">Apical Digit Malformation with Anonychia</div>
+
 
                 <div class="item-desc">The realised malformation is confined to the apical digital structures: hypoplasia or absence of distal phalanges with absent or dystrophic nails, typically in more than half the digits of both hands and feet, and thumbs that may appear digitalized. Because the terminal phalanx and the nail unit develop together, the anonychia is part of the same apical lesion rather than a separate ectodermal defect. Nothing outside the autopod is affected — no short stature, no developmental delay, no other skeletal abnormality, and none of the Andersen-Tawil phenotype that KCNJ2 coding mutations produce.
 </div>
@@ -4727,11 +5147,11 @@ This pathophysiological event involves increased Inward Rectifier Potassium Chan
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042733" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042733</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042733" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042733</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (GO:0042733). GO:0042733 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4761,11 +5181,11 @@ This pathophysiological event involves abnormal Embryonic Digit Morphogenesis (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0035108</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0035108</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108). GO:0035108 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4923,7 +5343,7 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"17q24.3 Boundary-Crossing Duplication\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"KCNJ2\"], \"gene_terms\": [{\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Anonychia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or severely dystrophic nails on the affected digits, the feature that names the phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001798\"}}, {\"id\": \"Apical Digit Malformation with Anonychia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The realised malformation is confined to the apical digital structures: hypoplasia or absence of distal phalanges with absent or dystrophic nails, typically in more than half the digits of both hands and feet, and thumbs that may appear digitalized. Because the terminal phalanx and the nail unit develop together, the anonychia is part of the same apical lesion rather than a separate ectodermal defect. Nothing outside the autopod is affected \\u2014 no short stature, no developmental delay, no other skeletal abnormality, and none of the Andersen-Tawil phenotype that KCNJ2 coding mutations produce.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Embryonic Digit Morphogenesis\", \"Limb Morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Aplasia or Hypoplasia of the Distal Phalanges of the Hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or absence of the terminal phalanges of the fingers; in the Chinese family the middle phalanges of fingers II-V were absent radiographically.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0009835\"}}, {\"id\": \"Aplasia or Hypoplasia of the Distal Phalanges of the Toes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The feet are affected in the same distribution as the hands.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010185\"}}, {\"id\": \"Aplasia or Hypoplasia of the Middle Phalanges of the Hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In the Chinese family the radiographic lesion was absence of the middle phalanges of fingers and toes II-V, not only of the terminal segments, showing that the deficiency can extend one joint further proximally than the classic \\\"apical structures\\\" description implies.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009843\"}}, {\"id\": \"Boundary-Crossing Duplication at 17q24.3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The causal lesion is a tandem duplication of roughly 1-2 Mb at 17q24.3 that contains the coding sequences of KCNJ2 and KCNJ16 together with noncoding regulatory sequence 5\u0027 of SOX9. What matters is not the extra copy of any gene but where the duplication starts and stops: it spans the boundary between the SOX9 TAD and the neighbouring KCNJ TAD. Duplications confined within the SOX9 TAD produce a different disease (sex reversal), and duplications that stay inside a single boundary can be phenotypically silent \\u2014 so the pathogenicity is a property of the breakpoints relative to TAD architecture, not of dosage. In-tandem duplication is not the only route: a de novo 1;17 translocation affecting the KCNJ2 locus produces the same phenotype, which widens the lesion class to any rearrangement that reorganises this boundary.\\n\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"KCNJ2\"], \"gene_terms\": [{\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}], \"role\": \"trigger\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits follow from the missing terminal skeletal segments.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inside the neo-TAD, KCNJ2 comes to lie in the same insulated compartment as the duplicated portion of the SOX9 regulatory landscape. Capture Hi-C and 4C-seq show ectopic contacts between KCNJ2 and those enhancers. The consequence is tissue-specific misexpression: KCNJ2 is switched on in the digit anlagen and limb buds, where SOX9 enhancers are active and where KCNJ2 is normally silent. A neo-TAD that does not capture a gene has no phenotypic effect, which is the control that identifies gene capture, rather than domain formation itself, as the pathogenic step.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"Regulation of Transcription by RNA Polymerase II\"], \"molecular_functions\": [\"Inward Rectifier Potassium Channel Activity\"], \"genes\": [\"SOX9\"], \"gene_terms\": [{\"label\": \"SOX9\", \"id\": \"hgnc:11204\"}], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Boundary-Crossing Duplication at 17q24.3\", \"target\": \"Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A duplication extending past the TAD boundary reorganises the local chromatin into a new self-contained domain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact\", \"target\": \"Apical Digit Malformation with Anonychia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic KCNJ2 activity in the digit anlagen disturbs formation of the terminal phalanx and its nail unit.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Anonychia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Aplasia or Hypoplasia of the Distal Phalanges of the Hand\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Aplasia or Hypoplasia of the Middle Phalanges of the Hand\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Aplasia or Hypoplasia of the Distal Phalanges of the Toes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"17q24.3 Boundary-Crossing Duplication\", \"target\": \"Boundary-Crossing Duplication at 17q24.3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"17q24.3 Boundary-Crossing Duplication\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"KCNJ2\"], \"gene_terms\": [{\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Alternative Translocation Affecting KCNJ2 Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A reported complex 1;17 rearrangement is associated with a variant of Cooks syndrome and reduced KCNJ2 expression in blood cells and cultured skin fibroblasts. The expression effect in those accessible tissues does not establish the direction or spatial pattern in developing digits. This alternate lesion therefore does not refute the ectopic limb expression demonstrated in the duplication mouse model.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"KCNJ2\"], \"gene_terms\": [{\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}], \"genetic_context\": {\"variant_type\": \"translocation\", \"variant_origin\": \"DE_NOVO\", \"description\": \"A complex de novo 1;17 rearrangement affects sequence 5\u0027 of KCNJ2; this is a distinct allele class from the boundary-crossing duplications.\"}, \"role\": \"trigger\"}}, {\"id\": \"Anonychia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or severely dystrophic nails on the affected digits, the feature that names the phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001798\"}}, {\"id\": \"Apical Digit Malformation with Anonychia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The realised malformation is confined to the apical digital structures: hypoplasia or absence of distal phalanges with absent or dystrophic nails, typically in more than half the digits of both hands and feet, and thumbs that may appear digitalized. Because the terminal phalanx and the nail unit develop together, the anonychia is part of the same apical lesion rather than a separate ectodermal defect. Nothing outside the autopod is affected \\u2014 no short stature, no developmental delay, no other skeletal abnormality, and none of the Andersen-Tawil phenotype that KCNJ2 coding mutations produce.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Embryonic Digit Morphogenesis\", \"Limb Morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Aplasia or Hypoplasia of the Distal Phalanges of the Hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or absence of the terminal phalanges of the fingers; in the Chinese family the middle phalanges of fingers II-V were absent radiographically.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0009835\"}}, {\"id\": \"Aplasia or Hypoplasia of the Distal Phalanges of the Toes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The feet are affected in the same distribution as the hands.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010185\"}}, {\"id\": \"Aplasia or Hypoplasia of the Middle Phalanges of the Hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In the Chinese family the radiographic lesion was absence of the middle phalanges of fingers and toes II-V, not only of the terminal segments, showing that the deficiency can extend one joint further proximally than the classic \\\"apical structures\\\" description implies.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009843\"}}, {\"id\": \"Boundary-Crossing Duplication at 17q24.3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Boundary-crossing duplications at 17q24.3 copy KCNJ2 and neighboring noncoding regulatory sequence. The original Cooks duplications also include KCNJ16. Their regulatory consequence depends on the extent of the duplicated interval. In the experimental mouse series, duplicating Kcnj2 and Kcnj16 within their original TAD did not produce the digit phenotype, whereas incorporation of Kcnj2 into a neo-TAD with Sox9 regulatory sequence did. This distinguishes the pathogenic regulatory rearrangement from gene copy-number gain alone.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"KCNJ2\"], \"gene_terms\": [{\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}], \"genetic_context\": {\"variant_type\": \"duplication\", \"variant_origin\": \"GERMLINE\", \"description\": \"Tandem duplications include KCNJ2 coding sequence and intergenic SOX9 regulatory sequence, crossing the boundary between their TADs while sparing SOX9 coding sequence. The POSTRE Table 1 Nr3 interval is one reported example of this lesion class.\", \"genomic_contexts\": [\"coding sequence\", \"intergenic region\"], \"gene_terms\": [{\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits follow from the missing terminal skeletal segments.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"Ectopic KCNJ2 Expression in Developing Digits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whole-mount in situ hybridization in Dup-C mice shows Kcnj2 expression in the digit anlagen with a Sox9-like spatial pattern. Limb-bud RNA-seq at E12.5 and E17.5 also shows increased Kcnj2 expression, while Sox9 and Kcnj16 remain unchanged. The spatially ectopic expression supports GOE; the quantitative increase alone would not. A Dup-C2 allele including Kcnj2 but not Kcnj16 also produces the digit phenotype. These are model measurements, not direct expression measurements from human embryonic digits, and they do not demonstrate altered intrinsic channel activity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"gene expression\"], \"genes\": [\"KCNJ2\"], \"gene_terms\": [{\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}], \"role\": \"central_effector\", \"regulatory_category\": \"GOE\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The duplicated KCNJ2 gene occupies the neo-TAD together with part of the SOX9 regulatory landscape. Capture Hi-C and 4C-seq in engineered Dup-C mouse limb buds demonstrate new contacts within this domain; patient fibroblast 4C-seq also demonstrates ectopic KCNJ2 contacts with the duplicated SOX9 regulatory region. SOX9 itself remains outside the duplication. A gene-free neo-TAD in the Dup-L control is phenotypically silent, so domain formation alone is insufficient for the limb phenotype. The contact measurements are distinct from the expression assays below.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"KCNJ2 enhancer-promoter contacts within the neo-TAD\"], \"genes\": [\"KCNJ2\"], \"gene_terms\": [{\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"POSTRE Table 1 Nr3 17q24.3 duplication\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Approximately 2.02 Mb duplication represented in POSTRE Table 1 patient Nr3 and Supplementary Data 3 as hg19 chr17:68020547-70038208, attributed there to the Cooks syndrome patient in Franke et al. (2016). These are POSTRE-reported interval bounds, not independently verified nucleotide-resolved junctions or a newly identified patient. The interval contains KCNJ2 and KCNJ16 coding sequence and intergenic regulatory sequence 5\u0027 of SOX9, while sparing SOX9 itself. KCNJ2 is both physically duplicated and the regulatory target. The pathogenic model is enhancer adoption within a neo-TAD, supported by patient-fibroblast chromatin contacts and corresponding engineered mouse alleles with ectopic digit expression. The GOE assignment uses the mouse spatial-expression evidence; it is not a claim that POSTRE experimentally measured this patient\u0027s expression.\", \"meta\": {\"evidence_count\": 2, \"regulatory_target_gene\": {\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}, \"genes\": [\"KCNJ2\"], \"gene_terms\": [{\"label\": \"KCNJ2\", \"id\": \"hgnc:6263\"}], \"variant_type\": \"duplication\", \"genomic_contexts\": [\"coding sequence\", \"intergenic region\"], \"regulatory_category\": \"GOE\"}}], \"edges\": [{\"source\": \"Boundary-Crossing Duplication at 17q24.3\", \"target\": \"Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The boundary-crossing duplicated interval forms an insulated chromatin domain containing KCNJ2 and duplicated SOX9 regulatory sequence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact\", \"target\": \"Ectopic KCNJ2 Expression in Developing Digits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contact with the duplicated Sox9 regulatory landscape drives a Sox9-like Kcnj2 expression pattern in the developing digits of Dup-C mice.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic KCNJ2 Expression in Developing Digits\", \"target\": \"Apical Digit Malformation with Anonychia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic Kcnj2 expression is associated with abnormal terminal phalanges and nail development in the duplication model. The intervening cellular mechanism remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Alternative Translocation Affecting KCNJ2 Regulation\", \"target\": \"Apical Digit Malformation with Anonychia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The rearrangement is associated with a Cooks-like developmental phenotype, but the limb-specific expression consequence and intervening pathway have not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Anonychia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Aplasia or Hypoplasia of the Distal Phalanges of the Hand\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Aplasia or Hypoplasia of the Middle Phalanges of the Hand\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Aplasia or Hypoplasia of the Distal Phalanges of the Toes\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apical Digit Malformation with Anonychia\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"17q24.3 Boundary-Crossing Duplication\", \"target\": \"Alternative Translocation Affecting KCNJ2 Regulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"17q24.3 Boundary-Crossing Duplication\", \"target\": \"Boundary-Crossing Duplication at 17q24.3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"17q24.3 Boundary-Crossing Duplication\", \"target\": \"Ectopic KCNJ2 Expression in Developing Digits\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"17q24.3 Boundary-Crossing Duplication\", \"target\": \"Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"POSTRE Table 1 Nr3 17q24.3 duplication\", \"target\": \"17q24.3 Boundary-Crossing Duplication\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"POSTRE Table 1 Nr3 17q24.3 duplication\", \"target\": \"17q24.3 Boundary-Crossing Duplication\", \"predicate\": \"has_regulatory_target\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4973,10 +5393,10 @@ This pathophysiological event involves abnormal Limb Morphogenesis (GO:0035108).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001798" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001798</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001798" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001798</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anonychia (HP:0001798). HP:0001798 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5058,10 +5478,10 @@ This clinical feature is Anonychia (HP:0001798). HP:0001798 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009835" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0009835</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009835" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0009835</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplasia/Hypoplasia of the distal phalanges of the hand (HP:0009835). HP:0009835 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5134,10 +5554,10 @@ This clinical feature is Aplasia/Hypoplasia of the distal phalanges of the hand 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0010185</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0010185</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplasia/Hypoplasia of the distal phalanges of the toes (HP:0010185). HP:0010185 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5208,10 +5628,10 @@ This clinical feature is Aplasia/Hypoplasia of the distal phalanges of the toes 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5284,10 +5704,10 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009843" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0009843</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009843" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0009843</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplasia/Hypoplasia of the middle phalanges of the hand (HP:0009843). HP:0009843 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5399,10 +5819,10 @@ This clinical feature is Aplasia/Hypoplasia of the middle phalanges of the hand 
                         Gene: KCNJ2
 
 
-    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:6263</a>
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:6263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5414,6 +5834,9 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -5512,6 +5935,220 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
 
         <!-- Variants recorded at the disease level -->
 
+        <div class="card" id="variants">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🔬</div>
+                <h2 class="card-title">Variants</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+    <div class="item-box variant-box anchor-target" id="variant-postre-table-1-nr3-17q24-3-duplication" data-dismech-node="POSTRE Table 1 Nr3 17q24.3 duplication" data-dismech-type="genetic">
+
+    <div class="item-name">
+        POSTRE Table 1 Nr3 17q24.3 duplication
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: KCNJ2
+
+
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6263</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: KCNJ2
+
+
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:6263</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">duplication</span>
+
+
+        <span class="tag" style="background: #fef3c7; color: #92400e;">GOE</span>
+
+
+    </div>
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">coding sequence</span>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">intergenic region</span>
+
+    </div>
+
+
+
+
+
+    <div class="item-desc">Approximately 2.02 Mb duplication represented in POSTRE Table 1 patient Nr3 and Supplementary Data 3 as hg19 chr17:68020547-70038208, attributed there to the Cooks syndrome patient in Franke et al. (2016). These are POSTRE-reported interval bounds, not independently verified nucleotide-resolved junctions or a newly identified patient. The interval contains KCNJ2 and KCNJ16 coding sequence and intergenic regulatory sequence 5&#39; of SOX9, while sparing SOX9 itself. KCNJ2 is both physically duplicated and the regulatory target. The pathogenic model is enhancer adoption within a neo-TAD, supported by patient-fibroblast chromatin contacts and corresponding engineered mouse alleles with ectopic digit expression. The GOE assignment uses the mouse spatial-expression evidence; it is not a claim that POSTRE experimentally measured this patient&#39;s expression.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">Neo-TAD formation across the SOX9/KCNJ boundary</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">Regulatory structural rearrangement</span>
+
+
+
+                <span class="tag" style="background: #fce7f3; color: #9d174d;">TAD BOUNDARY</span>
+
+            </div>
+
+
+            <div class="item-desc">Duplicated parts of the adjacent regulatory domains form an insulated neo-TAD containing KCNJ2 and SOX9 regulatory sequence. This is domain reorganization rather than deletion of the boundary sequence.</div>
+
+
+            <div class="item-desc"><strong>Mechanism:</strong> Boundary-crossing tandem duplication and neo-TAD formation</div>
+
+
+
+        </div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">Ectopic KCNJ2 expression in developing digits</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">Regulatory gain of ectopic expression</span>
+
+
+                <span class="tag" style="background: #fef3c7; color: #92400e;">GOE</span>
+
+
+                <span class="tag" style="background: #fce7f3; color: #9d174d;">ENHANCER</span>
+
+            </div>
+
+
+            <div class="item-desc">Kcnj2 adopts a Sox9-like digit expression pattern in the corresponding mouse duplication model. Expression and phenotype controls distinguish this effect from an extra Kcnj2 copy within its original regulatory domain; no altered intrinsic potassium-channel activity is established.</div>
+
+
+            <div class="item-desc"><strong>Mechanism:</strong> Enhancer adoption from the duplicated SOX9 regulatory landscape</div>
+
+
+
+            <div class="item-desc"><strong>Developmental stage:</strong> Embryonic digit development; mouse limb assays at E12.5 and E17.5</div>
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36999617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36999617" target="_blank">PMID:36999617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The coordinates of the SVs in positive control patients (Table 1 and Table 2)"</div>
+
+
+                <div class="evidence-explanation">Table 1 Nr3, Supplementary Data 3 Table1_SVs, and the authors&#39; testFiles/Table1_LongRange_SVs.tsv agree on the hg19 interval chr17:68020547-70038208, duplication, KCNJ2, limb phenotype, and Franke et al. source. POSTRE is the secondary coordinate and case index here, not the source of experimental proof.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27706140" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27706140" target="_blank">PMID:27706140</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, incorporation of the next flanking gene, Kcnj2, in the neo-TAD resulted in ectopic contacts of Kcnj2 with the duplicated part of the Sox9 regulatory region, consecutive misexpression of Kcnj2, and a limb malformation phenotype."</div>
+
+
+                <div class="evidence-explanation">Primary experimental evidence supports the mechanism of the corresponding duplication class. The mouse Dup-C and Dup-C2 alleles are engineered models, not the human hg19 allele; patient fibroblast 4C-seq separately supports the ectopic contacts. The paper&#39;s main text does not resolve the POSTRE coordinate pair to nucleotide-level human junctions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+        </div>
+
 
         <!-- Registry / external-database assertions recorded at the disease level -->
 
@@ -5533,7 +6170,7 @@ This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5668,7 +6305,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5836,11 +6473,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         array comparative genomic hybridization
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C198497" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-15">NCIT:C198497</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C198497" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-20">NCIT:C198497</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6115,19 +6752,15 @@ description: &gt;
   ISDS nosology places it with the isolated brachydactylies rather than the
   syndromic ones.
 
-  Its mechanistic interest is out of proportion to its rarity. Cooks syndrome is
-  caused not by a coding variant but by duplications at 17q24.3 that cross the
-  boundary between the SOX9 topologically associating domain and the neighbouring
-  KCNJ domain. Chromosome conformation capture showed that such a
-  boundary-crossing duplication builds an entirely new chromatin domain — a
-  neo-TAD — which captures KCNJ2 and exposes it to SOX9 limb enhancers, so KCNJ2
-  is misexpressed in the digit anlagen. The gene is an inward-rectifier potassium
-  channel whose coding mutations cause Andersen-Tawil syndrome; here the channel
-  is structurally normal and simply switched on in the wrong tissue, and affected
-  individuals have none of the Andersen-Tawil phenotype. Cooks syndrome is
-  therefore one of the clearest human demonstrations that where a gene is
-  expressed, set by three-dimensional genome architecture, can be the disease
-  mechanism.
+  A well-studied cause is a tandem duplication at 17q24.3 that includes KCNJ2
+  coding sequence and SOX9 regulatory sequence while sparing SOX9 itself.
+  Boundary-crossing duplication forms a neo-TAD that exposes KCNJ2 to the
+  duplicated SOX9 regulatory landscape. Patient-fibroblast chromatin contacts
+  and engineered mouse limb-expression assays support this mechanism, with
+  ectopic Kcnj2 expression in developing mouse digits. Thus the regulatory
+  consequence is distinct from the coding overlap or copy-number gain.
+  A complex 1;17 translocation has also been reported with a Cooks-like
+  phenotype; its embryonic limb-expression consequence remains unresolved.
 disease_term:
   preferred_term: Cooks syndrome
   term:
@@ -6204,19 +6837,31 @@ pathophysiology:
 - name: Boundary-Crossing Duplication at 17q24.3
   role: trigger
   biological_scale: MOLECULAR
-  description: &gt;
-    The causal lesion is a tandem duplication of roughly 1-2 Mb at 17q24.3 that
-    contains the coding sequences of KCNJ2 and KCNJ16 together with noncoding
-    regulatory sequence 5&#39; of SOX9. What matters is not the extra copy of any
-    gene but where the duplication starts and stops: it spans the boundary
-    between the SOX9 TAD and the neighbouring KCNJ TAD. Duplications confined
-    within the SOX9 TAD produce a different disease (sex reversal), and
-    duplications that stay inside a single boundary can be phenotypically silent
-    — so the pathogenicity is a property of the breakpoints relative to TAD
-    architecture, not of dosage. In-tandem duplication is not the only route: a
-    de novo 1;17 translocation affecting the KCNJ2 locus produces the same
-    phenotype, which widens the lesion class to any rearrangement that
-    reorganises this boundary.
+  genetic_context:
+    gene:
+      preferred_term: KCNJ2
+      term:
+        id: hgnc:6263
+        label: KCNJ2
+    variant_type: duplication
+    genomic_contexts:
+    - coding sequence
+    - intergenic region
+    variant_origin: GERMLINE
+    description: &gt;-
+      Tandem duplications include KCNJ2 coding sequence and intergenic SOX9
+      regulatory sequence, crossing the boundary between their TADs while
+      sparing SOX9 coding sequence. The POSTRE Table 1 Nr3 interval is one
+      reported example of this lesion class.
+  description: &gt;-
+    Boundary-crossing duplications at 17q24.3 copy KCNJ2 and neighboring
+    noncoding regulatory sequence. The original Cooks duplications also
+    include KCNJ16. Their regulatory consequence depends on the extent of
+    the duplicated interval. In the experimental mouse series, duplicating
+    Kcnj2 and Kcnj16 within their original TAD did not produce the digit
+    phenotype, whereas incorporation of Kcnj2 into a neo-TAD with Sox9
+    regulatory sequence did. This distinguishes the pathogenic regulatory
+    rearrangement from gene copy-number gain alone.
   gene:
     preferred_term: KCNJ2
     term:
@@ -6228,7 +6873,7 @@ pathophysiology:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;which is involved in two coding regions of KCNJ2 and KCNJ16&#34;
-    explanation: Defines the gene content of the duplicated interval.
+    explanation: Defines the coding content of the independently reported Chinese-family duplication.
   - reference: PMID:32583964
     reference_title: A 17q24.3 duplication identified in a large Chinese family with brachydactyly-anonychia.
     supports: SUPPORT
@@ -6241,29 +6886,20 @@ pathophysiology:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Duplications of non-coding DNA within the mouse Sox9 TAD (intra-TAD) that cause female to male sex reversal in humans, showed increased contact of the duplicated regions within the TAD, but no change in the overall TAD structure.&#34;
     explanation: &gt;-
-      Establishes that a duplication contained within the SOX9 TAD gives a
-      different phenotype, so breakpoint position relative to the boundary is
-      what matters.
+      The full experimental series distinguishes intra-TAD duplications from
+      boundary-crossing duplications. Dup-K1 and Dup-K2 mice duplicate the
+      Kcnj genes within their original domain without the Cooks digit phenotype.
   - reference: PMID:34821995
     reference_title: A novel complex genomic rearrangement affecting the KCNJ2 regulatory region causes a variant of Cooks syndrome.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cooks syndrome (CS) is an ultrarare limb malformation due to in tandem microduplications involving KCNJ2 and extending to the 5&#39; regulatory element of SOX9.&#34;
-    explanation: Independent statement of the duplication class that defines Cooks syndrome.
-  - reference: PMID:34821995
-    reference_title: A novel complex genomic rearrangement affecting the KCNJ2 regulatory region causes a variant of Cooks syndrome.
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Here, we report a unique case of CS associated with a de novo 1;17 translocation affecting the KCNJ2 locus.&#34;
-    explanation: &gt;-
-      A non-duplication rearrangement producing the same phenotype. It widens
-      the lesion class this node describes, showing that in-tandem duplication
-      is not the only route to Cooks syndrome.
+    explanation: Independent statement of the duplication class associated with Cooks syndrome.
   downstream:
   - target: Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact
     description: &gt;-
-      A duplication extending past the TAD boundary reorganises the local
-      chromatin into a new self-contained domain.
+      The boundary-crossing duplicated interval forms an insulated chromatin
+      domain containing KCNJ2 and duplicated SOX9 regulatory sequence.
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:27706140
@@ -6271,36 +6907,31 @@ pathophysiology:
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;In contrast, overlapping duplications that extended over the next boundary into the neighbouring TAD (inter-TAD), resulted in the formation of a new chromatin domain (neo-TAD) that was isolated from the rest of the genome.&#34;
-      explanation: Shows boundary-crossing duplications generate a neo-TAD.
+      explanation: Capture Hi-C in engineered mouse limb buds demonstrates neo-TAD formation.
 - name: Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact
   role: central_effector
   biological_scale: MOLECULAR
-  description: &gt;
-    Inside the neo-TAD, KCNJ2 comes to lie in the same insulated compartment as
-    the duplicated portion of the SOX9 regulatory landscape. Capture Hi-C and
-    4C-seq show ectopic contacts between KCNJ2 and those enhancers. The
-    consequence is tissue-specific misexpression: KCNJ2 is switched on in the
-    digit anlagen and limb buds, where SOX9 enhancers are active and where KCNJ2
-    is normally silent. A neo-TAD that does not capture a gene has no phenotypic
-    effect, which is the control that identifies gene capture, rather than
-    domain formation itself, as the pathogenic step.
+  mechanism_confidence: ESTABLISHED
+  description: &gt;-
+    The duplicated KCNJ2 gene occupies the neo-TAD together with part of the
+    SOX9 regulatory landscape. Capture Hi-C and 4C-seq in engineered Dup-C
+    mouse limb buds demonstrate new contacts within this domain; patient
+    fibroblast 4C-seq also demonstrates ectopic KCNJ2 contacts with the
+    duplicated SOX9 regulatory region. SOX9 itself remains outside the
+    duplication. A gene-free neo-TAD in the Dup-L control is phenotypically
+    silent, so domain formation alone is insufficient for the limb phenotype.
+    The contact measurements are distinct from the expression assays below.
   gene:
-    preferred_term: SOX9
+    preferred_term: KCNJ2
     term:
-      id: hgnc:11204
-      label: SOX9
+      id: hgnc:6263
+      label: KCNJ2
   biological_processes:
-  - preferred_term: Regulation of Transcription by RNA Polymerase II
+  - preferred_term: KCNJ2 enhancer-promoter contacts within the neo-TAD
     term:
-      id: GO:0006357
-      label: regulation of transcription by RNA polymerase II
-    modifier: DYSREGULATED
-  molecular_functions:
-  - preferred_term: Inward Rectifier Potassium Channel Activity
-    term:
-      id: GO:0005242
-      label: inward rectifier potassium channel activity
-    modifier: INCREASED
+      id: GO:0140588
+      label: chromatin looping
+    modifier: ABNORMAL
   evidence:
   - reference: PMID:27706140
     reference_title: Formation of new chromatin domains determines pathogenicity of genomic duplications.
@@ -6308,59 +6939,153 @@ pathophysiology:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;However, incorporation of the next flanking gene, Kcnj2, in the neo-TAD resulted in ectopic contacts of Kcnj2 with the duplicated part of the Sox9 regulatory region, consecutive misexpression of Kcnj2, and a limb malformation phenotype.&#34;
     explanation: &gt;-
-      The central mechanistic result — gene capture into the neo-TAD drives
-      KCNJ2 misexpression and limb malformation.
+      The engineered Dup-C mouse provides direct chromatin-contact evidence;
+      the full paper separately reports corresponding 4C-seq contacts in
+      cultured fibroblasts from an affected individual (Extended Data Figure 6).
   - reference: PMID:27706140
     reference_title: Formation of new chromatin domains determines pathogenicity of genomic duplications.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;As a consequence of this insulation, inter-TAD duplications had no phenotypic effect.&#34;
     explanation: &gt;-
-      The negative control: forming a neo-TAD without capturing a gene produces
-      no phenotype, isolating gene capture as the pathogenic step.
+      The Dup-L control forms a neo-TAD without capturing Kcnj2 or Kcnj16
+      and has no digit phenotype; this does not describe the pathogenic Dup-C allele.
+  downstream:
+  - target: Ectopic KCNJ2 Expression in Developing Digits
+    description: &gt;-
+      Contact with the duplicated Sox9 regulatory landscape drives a Sox9-like
+      Kcnj2 expression pattern in the developing digits of Dup-C mice.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27706140
+      reference_title: Formation of new chromatin domains determines pathogenicity of genomic duplications.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;ectopic contacts of Kcnj2 with the duplicated part of the Sox9 regulatory region, consecutive misexpression of Kcnj2&#34;
+      explanation: &gt;-
+        Chromatin-contact assays and whole-mount in situ hybridization link
+        the new regulatory contacts to ectopic digit expression in the mouse model.
+- name: Ectopic KCNJ2 Expression in Developing Digits
+  role: central_effector
+  biological_scale: MOLECULAR
+  regulatory_category: GOE
+  mechanism_confidence: ESTABLISHED
+  description: &gt;-
+    Whole-mount in situ hybridization in Dup-C mice shows Kcnj2 expression
+    in the digit anlagen with a Sox9-like spatial pattern. Limb-bud RNA-seq
+    at E12.5 and E17.5 also shows increased Kcnj2 expression, while Sox9 and
+    Kcnj16 remain unchanged. The spatially ectopic expression supports GOE;
+    the quantitative increase alone would not. A Dup-C2 allele including
+    Kcnj2 but not Kcnj16 also produces the digit phenotype. These are model
+    measurements, not direct expression measurements from human embryonic
+    digits, and they do not demonstrate altered intrinsic channel activity.
+  gene:
+    preferred_term: KCNJ2
+    term:
+      id: hgnc:6263
+      label: KCNJ2
+  biological_processes:
+  - preferred_term: gene expression
+    term:
+      id: GO:0010467
+      label: gene expression
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:27706140
+    reference_title: Formation of new chromatin domains determines pathogenicity of genomic duplications.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;consecutive misexpression of Kcnj2, and a limb malformation phenotype.&#34;
+    explanation: &gt;-
+      Figure 3 and the accompanying expression assays demonstrate ectopic
+      Kcnj2 in developing digits, supporting regulatory GOE in the model.
   - reference: PMID:32583964
     reference_title: A 17q24.3 duplication identified in a large Chinese family with brachydactyly-anonychia.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;17q24.3 duplications disrupt the boundary between SOX9 TAD and KCNJ TAD, leading to overexpression of Kcnj2 in the digit anlagen and limb buds&#34;
-    explanation: Restates the boundary-disruption-to-misexpression mechanism for the human duplication.
-  - reference: PMID:34821995
-    reference_title: A novel complex genomic rearrangement affecting the KCNJ2 regulatory region causes a variant of Cooks syndrome.
-    supports: REFUTE
     directness: INDIRECT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Gene expression analysis demonstrated downregulation of KCNJ2 in both patient&#39;s blood cells and cultured skin fibroblasts.&#34;
+    evidence_source: MODEL_ORGANISM
+    quote_role: BACKGROUND
+    snippet: &#34;17q24.3 duplications disrupt the boundary between SOX9 TAD and KCNJ TAD, leading to overexpression of Kcnj2 in the digit anlagen and limb buds&#34;
     explanation: &gt;-
-      Cuts against this node&#39;s INCREASED direction: in the translocation case
-      KCNJ2 was *down*-regulated, with the breakpoint separating KCNJ2 from a
-      putative enhancer. What the finding establishes is that a rearrangement
-      giving the Cooks phenotype can reduce rather than raise KCNJ2 output, so
-      increased expression is not a necessary feature of the lesion class and
-      the direction that matters for the limb is unsettled. Graded INDIRECT
-      because the measurement was made in blood and cultured fibroblasts rather
-      than the digit anlagen, so it reaches the limb claim only through the
-      inference that accessible tissues report on limb-bud expression.
+      This clinical report summarizes the earlier mouse mechanism; it is not
+      an independent expression experiment in the Chinese family&#39;s limb tissue.
+  downstream:
+  - target: Apical Digit Malformation with Anonychia
+    description: &gt;-
+      Ectopic Kcnj2 expression is associated with abnormal terminal phalanges
+      and nail development in the duplication model. The intervening cellular
+      mechanism remains unresolved.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27706140
+      reference_title: Formation of new chromatin domains determines pathogenicity of genomic duplications.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;consecutive misexpression of Kcnj2, and a limb malformation phenotype.&#34;
+      explanation: &gt;-
+        Dup-C and Dup-C2 models recapitulate the digital phenotype, supporting
+        the regulatory mechanism without identifying all downstream intermediates.
+    - reference: PMID:32583964
+      reference_title: A 17q24.3 duplication identified in a large Chinese family with brachydactyly-anonychia.
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;our findings suggest that 17q24.3 duplication is the genetic cause of brachydactyly-anonychia in this family&#34;
+      explanation: &gt;-
+        Human genotype-phenotype association supports the disease endpoint;
+        this family did not undergo embryonic limb expression assays.
+- name: Alternative Translocation Affecting KCNJ2 Regulation
+  role: trigger
+  biological_scale: MOLECULAR
+  genetic_context:
+    variant_type: translocation
+    variant_origin: DE_NOVO
+    description: &gt;-
+      A complex de novo 1;17 rearrangement affects sequence 5&#39; of KCNJ2;
+      this is a distinct allele class from the boundary-crossing duplications.
+  description: &gt;-
+    A reported complex 1;17 rearrangement is associated with a variant of
+    Cooks syndrome and reduced KCNJ2 expression in blood cells and cultured
+    skin fibroblasts. The expression effect in those accessible tissues
+    does not establish the direction or spatial pattern in developing digits.
+    This alternate lesion therefore does not refute the ectopic limb
+    expression demonstrated in the duplication mouse model.
+  gene:
+    preferred_term: KCNJ2
+    term:
+      id: hgnc:6263
+      label: KCNJ2
+  evidence:
   - reference: PMID:34821995
     reference_title: A novel complex genomic rearrangement affecting the KCNJ2 regulatory region causes a variant of Cooks syndrome.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Our findings suggest that a complex rearrangement falling in the 5&#39; of KCNJ2 may mimic the developmental consequences of in tandem duplications affecting the SOX9-KCNJ2/Sox9-Kcnj2 locus.&#34;
+    snippet: &#34;Here, we report a unique case of CS associated with a de novo 1;17 translocation affecting the KCNJ2 locus.&#34;
+    explanation: Documents the alternate physical rearrangement in a human case.
+  - reference: PMID:34821995
+    reference_title: A novel complex genomic rearrangement affecting the KCNJ2 regulatory region causes a variant of Cooks syndrome.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Gene expression analysis demonstrated downregulation of KCNJ2 in both patient&#39;s blood cells and cultured skin fibroblasts.&#34;
     explanation: &gt;-
-      The authors converge on the same conclusion by a different lesion: what
-      matters is disturbance of the KCNJ2 regulatory landscape.
+      This item supports the cultured fibroblast expression result. The source
+      sentence also mentions patient blood; neither assay directly measures
+      the developmental limb mechanism.
   downstream:
   - target: Apical Digit Malformation with Anonychia
     description: &gt;-
-      Ectopic KCNJ2 activity in the digit anlagen disturbs formation of the
-      terminal phalanx and its nail unit.
+      The rearrangement is associated with a Cooks-like developmental
+      phenotype, but the limb-specific expression consequence and intervening
+      pathway have not been established.
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
-    - reference: PMID:32583964
-      reference_title: A 17q24.3 duplication identified in a large Chinese family with brachydactyly-anonychia.
+    - reference: PMID:34821995
+      reference_title: A novel complex genomic rearrangement affecting the KCNJ2 regulatory region causes a variant of Cooks syndrome.
       supports: SUPPORT
+      directness: INDIRECT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;our findings suggest that 17q24.3 duplication is the genetic cause of brachydactyly-anonychia in this family&#34;
-      explanation: Links the duplication to the digital phenotype in an independent family.
+      snippet: &#34;Our findings suggest that a complex rearrangement falling in the 5&#39; of KCNJ2 may mimic the developmental consequences of in tandem duplications affecting the SOX9-KCNJ2/Sox9-Kcnj2 locus.&#34;
+      explanation: The authors propose phenotypic convergence without measuring embryonic digit expression.
 - name: Apical Digit Malformation with Anonychia
   conforms_to: &#34;limb_digit_patterning_serial_homology#Serially Homologous Autopod Malformation&#34;
   role: consequence
@@ -6542,6 +7267,80 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In summary, our findings suggest that 17q24.3 duplication is the genetic cause of brachydactyly-anonychia in this family, which support the prior report that brachydactyly-anonychia is associated with 17q24.3 duplication, and further indicates the pathogenic correlation between BD and CNVs.&#34;
     explanation: Independent replication of the 17q24.3 duplication as the cause.
+variants:
+- name: POSTRE Table 1 Nr3 17q24.3 duplication
+  variant_type: duplication
+  genomic_contexts:
+  - coding sequence
+  - intergenic region
+  gene:
+    preferred_term: KCNJ2
+    term:
+      id: hgnc:6263
+      label: KCNJ2
+  regulatory_target_gene:
+    preferred_term: KCNJ2
+    term:
+      id: hgnc:6263
+      label: KCNJ2
+  regulatory_category: GOE
+  description: &gt;-
+    Approximately 2.02 Mb duplication represented in POSTRE Table 1 patient
+    Nr3 and Supplementary Data 3 as hg19 chr17:68020547-70038208, attributed
+    there to the Cooks syndrome patient in Franke et al. (2016). These are
+    POSTRE-reported interval bounds, not independently verified
+    nucleotide-resolved junctions or a newly identified patient. The interval contains
+    KCNJ2 and KCNJ16 coding sequence and intergenic regulatory sequence 5&#39;
+    of SOX9, while sparing SOX9 itself. KCNJ2 is both physically duplicated
+    and the regulatory target. The pathogenic model is enhancer adoption
+    within a neo-TAD, supported by patient-fibroblast chromatin contacts and
+    corresponding engineered mouse alleles with ectopic digit expression.
+    The GOE assignment uses the mouse spatial-expression evidence; it is
+    not a claim that POSTRE experimentally measured this patient&#39;s expression.
+  evidence:
+  - reference: PMID:36999617
+    reference_title: &#39;POSTRE: a tool to predict the pathological effects of human structural variants.&#39;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The coordinates of the SVs in positive control patients (Table 1 and Table 2)&#34;
+    explanation: &gt;-
+      Table 1 Nr3, Supplementary Data 3 Table1_SVs, and the authors&#39;
+      testFiles/Table1_LongRange_SVs.tsv agree on the hg19 interval
+      chr17:68020547-70038208, duplication, KCNJ2, limb phenotype, and
+      Franke et al. source. POSTRE is the secondary coordinate and case
+      index here, not the source of experimental proof.
+  - reference: PMID:27706140
+    reference_title: Formation of new chromatin domains determines pathogenicity of genomic duplications.
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;However, incorporation of the next flanking gene, Kcnj2, in the neo-TAD resulted in ectopic contacts of Kcnj2 with the duplicated part of the Sox9 regulatory region, consecutive misexpression of Kcnj2, and a limb malformation phenotype.&#34;
+    explanation: &gt;-
+      Primary experimental evidence supports the mechanism of the corresponding
+      duplication class. The mouse Dup-C and Dup-C2 alleles are engineered
+      models, not the human hg19 allele; patient fibroblast 4C-seq separately
+      supports the ectopic contacts. The paper&#39;s main text does not resolve
+      the POSTRE coordinate pair to nucleotide-level human junctions.
+  functional_effects:
+  - function: Neo-TAD formation across the SOX9/KCNJ boundary
+    type: Regulatory structural rearrangement
+    regulatory_element_type: TAD_BOUNDARY
+    regulatory_mechanism: Boundary-crossing tandem duplication and neo-TAD formation
+    description: &gt;-
+      Duplicated parts of the adjacent regulatory domains form an insulated
+      neo-TAD containing KCNJ2 and SOX9 regulatory sequence. This is domain
+      reorganization rather than deletion of the boundary sequence.
+  - function: Ectopic KCNJ2 expression in developing digits
+    type: Regulatory gain of ectopic expression
+    regulatory_category: GOE
+    regulatory_element_type: ENHANCER
+    affected_developmental_stage: Embryonic digit development; mouse limb assays at E12.5 and E17.5
+    regulatory_mechanism: Enhancer adoption from the duplicated SOX9 regulatory landscape
+    description: &gt;-
+      Kcnj2 adopts a Sox9-like digit expression pattern in the corresponding
+      mouse duplication model. Expression and phenotype controls distinguish
+      this effect from an extra Kcnj2 copy within its original regulatory
+      domain; no altered intrinsic potassium-channel activity is established.
 diagnosis:
 - name: Copy-number diagnosis after a negative exome
   description: &gt;-
@@ -6755,7 +7554,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cooks Syndrome", "mondoId": "MONDO:0007134", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cooks_Syndrome", "yamlRevision": "5c5991eee930"};
+        const OS_CONFIG = {"diseaseName": "Cooks Syndrome", "mondoId": "MONDO:0007134", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cooks_Syndrome", "yamlRevision": "cbdb4941e569"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

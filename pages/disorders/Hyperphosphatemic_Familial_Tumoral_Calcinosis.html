@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5313,6 +5352,7 @@ This subtype is caused by variation in KL (hgnc:6344). hgnc:6344 is a gene from 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-galnt3-loss-of-function" data-dismech-node="Biallelic GALNT3 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic GALNT3 Loss of Function</div>
 
+
                 <div class="item-desc">Germline biallelic deleterious GALNT3 variants remove the activity of GalNAc-T3, the trans-Golgi glycosyltransferase that initiates mucin-type O-glycosylation. A recurrent splice-site allele (c.1524+1G&gt;A) accounts for both HFTC and HHS presentations in Middle Eastern families and is a founder mutation on a shared haplotype.</div>
 
 
@@ -5408,6 +5448,8 @@ This genetic context concerns GALNT3 (hgnc:4125). hgnc:4125 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5418,6 +5460,9 @@ This genetic context concerns GALNT3 (hgnc:4125). hgnc:4125 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic loss of GalNAc-T3 activity is the commonest molecular cause of HFTC.</div>
 
@@ -5554,6 +5599,7 @@ This pathophysiological event involves polypeptide N-acetylgalactosaminyltransfe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-fgf23-missense-variants-blocking-intact-hormone-secretion" data-dismech-node="Biallelic FGF23 Missense Variants Blocking Intact Hormone Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic FGF23 Missense Variants Blocking Intact Hormone Secretion</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous FGF23 missense variants act on the hormone itself. The p.Ser71Gly mutant is retained in the Golgi so that only the C-terminal fragment is secreted; other reported alleles include p.Met96Thr, p.Gly123Trp and p.Ser129Phe. The functional result is the same as GALNT3 loss - intact hormone does not reach the circulation - so this node feeds the same downstream deficiency.</div>
 
 
@@ -5649,6 +5695,8 @@ This genetic context concerns FGF23 (hgnc:3680). hgnc:3680 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5659,6 +5707,9 @@ This genetic context concerns FGF23 (hgnc:3680). hgnc:3680 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Missense alleles that prevent secretion of the intact hormone.</div>
 
@@ -5794,6 +5845,7 @@ This pathophysiological event involves FGF23 hormone activity, annotated with ho
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-fgf23-o-glycosylation-and-furin-cleavage-of-intact-fgf23" data-dismech-node="Failure of FGF23 O-Glycosylation and Furin Cleavage of Intact FGF23" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of FGF23 O-Glycosylation and Furin Cleavage of Intact FGF23</div>
+
 
                 <div class="item-desc">Bioactive FGF23 carries three O-linked glycans. Incompletely glycosylated FGF23 is susceptible to cleavage by subtilisin-like proprotein convertases at the RXXR site that separates the N-terminal and C-terminal halves of the hormone, splitting it into inactive fragments. O-glycosylation and protease processing compete for the same motif, so loss of the glycosyltransferase shifts the balance decisively toward cleavage.</div>
 
@@ -6061,6 +6113,7 @@ This pathophysiological event involves increased proprotein convertase cleavage 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficiency-of-circulating-intact-fgf23-with-c-terminal-fragment-excess" data-dismech-node="Deficiency of Circulating Intact FGF23 with C-Terminal Fragment Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficiency of Circulating Intact FGF23 with C-Terminal Fragment Excess</div>
 
+
                 <div class="item-desc">The shared endocrine lesion of the GALNT3 and FGF23 subtypes: circulating intact FGF23 is low or inappropriately normal for the degree of hyperphosphatemia, while C-terminal FGF23 is markedly elevated because the C-terminal assay detects both intact hormone and fragments. This dissociated assay pattern is the diagnostic biochemical signature of the disease.</div>
 
 
@@ -6220,6 +6273,7 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-kl-loss-of-function-and-renal-fgf23-resistance" data-dismech-node="Biallelic KL Loss of Function and Renal FGF23 Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic KL Loss of Function and Renal FGF23 Resistance</div>
 
+
                 <div class="item-desc">In HFTC3 the hormone is intact but its obligate co-receptor is not. The p.His193Arg substitution sits at the base of the KL1 catalytic cleft and destabilises the domain, so expression and secretion of alpha-Klotho are markedly reduced and FGF23 cannot signal through its cognate receptors. Intact FGF23 therefore rises rather than falls, and this node bypasses the hormone-deficiency node to reach the same signalling failure.</div>
 
 
@@ -6315,6 +6369,8 @@ This genetic context concerns KL (hgnc:6344). hgnc:6344 is a gene from the HUGO 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -6325,6 +6381,9 @@ This genetic context concerns KL (hgnc:6344). hgnc:6344 is a gene from the HUGO 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">A homozygous KL missense allele reducing alpha-Klotho co-receptor availability.</div>
 
@@ -6417,6 +6476,7 @@ This genetic context concerns KL (hgnc:6344). hgnc:6344 is a gene from the HUGO 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-fgf23-klotho-fgfr1c-signaling-in-the-renal-proximal-tubule" data-dismech-node="Loss of FGF23-Klotho-FGFR1c Signaling in the Renal Proximal Tubule" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of FGF23-Klotho-FGFR1c Signaling in the Renal Proximal Tubule</div>
+
 
                 <div class="item-desc">The convergence point of all three genetic lesions. Intact FGF23 normally acts on proximal tubular cells through FGFR1 together with the co-receptor Klotho to suppress the sodium-phosphate cotransporters NaPi-IIa and NaPi-IIc and to suppress 25-hydroxyvitamin D 1-alpha-hydroxylase. When that signal is absent - through hormone deficiency in HFTC1/HFTC2 or through co-receptor loss in HFTC3 - both suppressive arms fail simultaneously.</div>
 
@@ -6619,6 +6679,7 @@ This pathophysiological event occurs in renal proximal tubule, annotated with pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-proximal-tubular-sodium-phosphate-cotransport" data-dismech-node="Increased Proximal Tubular Sodium-Phosphate Cotransport" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Proximal Tubular Sodium-Phosphate Cotransport</div>
+
 
                 <div class="item-desc">Unopposed NaPi-IIa and NaPi-IIc activity raises tubular phosphate reclamation. Clinically this appears as an inappropriately high tubular reabsorption of phosphate (TRP) and a raised renal phosphate threshold (TmP/GFR) despite an already elevated serum phosphate and normal glomerular function.</div>
 
@@ -6834,6 +6895,7 @@ This pathophysiological event involves increased phosphate ion transmembrane tra
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unsuppressed-renal-calcitriol-production" data-dismech-node="Unsuppressed Renal Calcitriol Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Unsuppressed Renal Calcitriol Production</div>
 
+
                 <div class="item-desc">1-alpha-hydroxylase is normally suppressed by FGF23, so in health a high phosphate load lowers 1,25-dihydroxyvitamin D. In HFTC that brake is absent and calcitriol is elevated or inappropriately normal for the prevailing hyperphosphatemia, which sustains intestinal absorption of calcium and phosphate instead of restraining it.</div>
 
 
@@ -7006,6 +7068,7 @@ This pathophysiological event involves increased 25-hydroxyvitamin D 1-alpha-hyd
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperphosphatemia-with-elevated-calcium-phosphate-product" data-dismech-node="Hyperphosphatemia with Elevated Calcium-Phosphate Product" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperphosphatemia with Elevated Calcium-Phosphate Product</div>
 
+
                 <div class="item-desc">Persistent hyperphosphatemia with normal serum calcium, normal PTH and normal renal function raises the calcium-phosphate product above the solubility limit of the extracellular fluid. This is the systemic driver of every downstream lesion, and it is the only step in the chain that current therapy tries to modify.</div>
 
 
@@ -7168,6 +7231,7 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-calcium-phosphate-deposition-in-periarticular-soft-tissue" data-dismech-node="Ectopic Calcium-Phosphate Deposition in Periarticular Soft Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Calcium-Phosphate Deposition in Periarticular Soft Tissue</div>
+
 
                 <div class="item-desc">Lobular masses of amorphous calcium-phosphate accumulate in skin, subcutaneous tissue and connective tissue around large joints, typically the hips, elbows and shoulders, and preferentially where the tissue is exposed to repetitive trauma or prolonged pressure. Masses may enlarge, ulcerate and become infected, and they recur after incomplete excision while the hyperphosphatemia persists.</div>
 
@@ -7450,6 +7514,7 @@ This pathophysiological event occurs in subcutaneous tissue, annotated with hypo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-foreign-body-and-systemic-inflammation-around-calcific-deposits" data-dismech-node="Foreign-Body and Systemic Inflammation Around Calcific Deposits" data-dismech-type="pathophysiology">
                 <div class="item-name">Foreign-Body and Systemic Inflammation Around Calcific Deposits</div>
 
+
                 <div class="item-desc">Histology of resected lesions shows ectopic calcification with chronic inflammation, and in one NIH subject areas of mature heterotopic ossification adjacent to the inflamed deposit. A minority of patients develop overwhelming systemic inflammation with markedly elevated C-reactive protein; the response of two such patients to interleukin-1 antagonists identifies IL-1-driven inflammation as a component distinct from the mineral burden itself.</div>
 
 
@@ -7631,6 +7696,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diaphyseal-cortical-hyperostosis" data-dismech-node="Diaphyseal Cortical Hyperostosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Diaphyseal Cortical Hyperostosis</div>
 
+
                 <div class="item-desc">Episodic painful swelling, warmth and erythema over the diaphyses of long bones, most often the tibiae, with radiographic cortical hyperostosis, diaphysitis and periosteal apposition. This is the presentation that defines hyperostosis-hyperphosphatemia syndrome, and because the same GALNT3 alleles produce it and produce tumoral calcinosis, it is a manifestation of this disease rather than a separate entity. It is regularly misdiagnosed as bacterial osteomyelitis.</div>
 
 
@@ -7785,6 +7851,7 @@ This pathophysiological event occurs in tibia (UBERON:0000979). UBERON:0000979 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-calcification-of-vessels-teeth-and-other-organs" data-dismech-node="Ectopic Calcification of Vessels, Teeth and Other Organs" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Calcification of Vessels, Teeth and Other Organs</div>
+
 
                 <div class="item-desc">Beyond the periarticular compartment, mineral deposits in large and small vessels, in the dental pulp and root, and less commonly in the eye, intestine and testis. The dental lesion is the most penetrant of these: pulp density rises and pulp volume falls sevenfold, the odontoblast layer loses its polarity, and the pulp cavity fills with calcified material.</div>
 
@@ -9792,6 +9859,9 @@ This disease-associated gene is GALNT3 (hgnc:4125). hgnc:4125 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9918,6 +9988,9 @@ This disease-associated gene is FGF23 (hgnc:3680). hgnc:3680 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10015,6 +10088,9 @@ This disease-associated gene is KL (hgnc:6344). hgnc:6344 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

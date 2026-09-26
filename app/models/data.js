@@ -595,6 +595,112 @@ window.searchData = [
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
   },
   {
+    "model_key": "Heart_Failure--computational-model-circadapt-par-75-imaging-based-left-ventricular-digital-twin--0",
+    "name": "CircAdapt par-75 imaging-based left-ventricular digital twin",
+    "description": "A patient-specific closed-loop heart-and-circulation model calibrated to left-ventricular cavity volume, regional longitudinal strain, and strain-rate measurements. Sensitivity and identifiability analysis reduces the CircAdapt MultiPatch personalization problem to 75 reproducibly estimable parameters.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "MATLAB scripts and CircAdapt P-struct MAT files",
+    "model_software": "MATLAB; CircAdapt C++ model solver; dynamic multi-swarm particle swarm optimization",
+    "base_model": "",
+    "model_id": "GitHub:CircAdapt/Koopsen2024ParameterSubsetReduction@dc4fc2b69cbbd5f51ff4976b9ded20dedd9b7a51",
+    "repository_url": "https://github.com/CircAdapt/Koopsen2024ParameterSubsetReduction",
+    "repository_host": "GitHub",
+    "publication": "PMID:38741182",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Heart Failure",
+    "disease_id": "MONDO:0005252",
+    "category": "Complex",
+    "parents": [
+      "Cardiovascular Disease"
+    ],
+    "variables": [
+      "Cardiac output",
+      "Global left-ventricular activation duration",
+      "Regional mechanical activation delay",
+      "Left-ventricular cavity volume",
+      "Regional longitudinal strain"
+    ],
+    "variable_ids": [
+      "q0",
+      "dT",
+      "DT",
+      "VLV",
+      "strain"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Myocardial Contractile Dysfunction"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Reducing the personalization problem from 270 to 75 parameters improved minimum parameter reproducibility from ICC 0.01 to 0.83 while retaining patient-resembling fits below a composite error of 2.2."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:38741182"
+    ],
+    "num_evidence": 1,
+    "notes": "Repository inspected at commit dc4fc2b69cbbd5f51ff4976b9ded20dedd9b7a51 (2024-05-07). It contains the MATLAB sensitivity, Sobol, diaphony, and DMS-PSO scripts plus reference CircAdapt P-structs, but no license, automated tests, patient measurement files, or bundled CircAdapt solver. Execution was not attempted because neither MATLAB nor Octave is installed and the scripts require a separately placed CircAdapt C++ checkout and non-public patient data.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Heart_Failure.html#computational-model-circadapt-par-75-imaging-based-left-ventricular-digital-twin",
+    "source_file": "kb/disorders/Heart_Failure.yaml"
+  },
+  {
+    "model_key": "Heart_Failure--computational-model-circadapt-virtual-pacing-crt-response-twin--1",
+    "name": "CircAdapt virtual-pacing CRT response twin",
+    "description": "Forty-five echocardiography-personalized CircAdapt models of patients with dyssynchronous HFrEF. Each twin simulates biventricular pacing using the patient's atrioventricular delay and lead location, then relates acute changes in regional myocardial work to six-month reverse remodeling.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Patient-specific simulation workflow curated from the publication",
+    "model_software": "CircAdapt cardiovascular mechanics model",
+    "base_model": "",
+    "model_id": "CircAdapt-CRT-45",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:38288616",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Heart Failure",
+    "disease_id": "MONDO:0005252",
+    "category": "Complex",
+    "parents": [
+      "Cardiovascular Disease"
+    ],
+    "variables": [
+      "Septal-to-lateral myocardial work difference",
+      "Maximum left-ventricular pressure-rise rate"
+    ],
+    "variable_ids": [
+      "MWLW-S,DT",
+      "dP/dtmax,DT"
+    ],
+    "variable_terms": [],
+    "num_variables": 2,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Ventricular Remodeling"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Virtual pacing-induced work redistribution correlated with real six-month LV end-systolic-volume change at r = 0.62, whereas simulated pressure-rise response correlated more weakly at r = -0.34."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:38288616"
+    ],
+    "num_evidence": 1,
+    "notes": "Curated directly from the paper because no exact code deposit for the 45-patient virtual-pacing analysis was identified. The public Koopsen2024ParameterSubsetReduction repository above documents a closely related CircAdapt personalization framework from the same group, but it is not claimed as the implementation of this CRT study.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Heart_Failure.html#computational-model-circadapt-virtual-pacing-crt-response-twin",
+    "source_file": "kb/disorders/Heart_Failure.yaml"
+  },
+  {
     "model_key": "Atrial_Fibrillation--computational-model-courtemanche-ramirez-nattel-human-atrial-action-potential-model--0",
     "name": "Courtemanche-Ramirez-Nattel human atrial action-potential model",
     "description": "Ionic-current kinetic model of the human atrial cardiomyocyte action potential used to examine rate adaptation and ion-current contributions to AF susceptibility. It models cellular electrophysiology, not whole-patient natural history or treatment outcomes.",
@@ -1192,6 +1298,50 @@ window.searchData = [
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Ulcerative_Colitis.html#computational-model-host-microbiome-multi-objective-optimization-model",
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
+  },
+  {
+    "model_key": "apparent_mineralocorticoid_excess--computational-model-hsd11b2-homology-and-molecular-dynamics-variant-analysis--0",
+    "name": "HSD11B2 homology and molecular-dynamics variant analysis",
+    "description": "HSD17B1 templates were used to model HSD11B2 residues 81\u2013369, with cortisol docking and 500-ns monomer/dimer simulations. The authors proposed allele-specific effects on cofactor/substrate interactions, dimerization and structural stability. Template homology was limited and previously published activity data informed interpretation; the study did not newly assay all variants or validate an individual prenatal prognostic test.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "HSD17B1 structural templates 1IOL, 1JTV and 1FDV",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:29229831",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "apparent mineralocorticoid excess",
+    "disease_id": "MONDO:0009025",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Biallelic HSD11B2 Dysfunction"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Structural hypotheses are distinct from measured enzyme activity; the reported fetal cell-free-DNA diagnostic example concerns congenital adrenal hyperplasia, not a validated AME application."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:29229831"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-07-24T00:00:00Z",
+    "page_url": "../../pages/disorders/apparent_mineralocorticoid_excess.html#computational-model-hsd11b2-homology-and-molecular-dynamics-variant-analysis",
+    "source_file": "kb/disorders/Apparent_Mineralocorticoid_Excess.yaml"
   },
   {
     "model_key": "Conserved_Cellular_Senescence_Module--computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation--1",
@@ -4900,10 +5050,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 104,
-  "total_source_entries": 41,
-  "total_model_types": 8,
+  "total_models": 107,
+  "total_source_entries": 43,
+  "total_model_types": 9,
   "total_runnable": 4,
-  "total_with_repository": 43
+  "total_with_repository": 44
 };
 window.dispatchEvent(new Event('searchDataReady'));

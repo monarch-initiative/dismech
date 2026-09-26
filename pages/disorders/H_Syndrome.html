@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 28</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=H%20Syndrome"
@@ -4022,7 +4061,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">28</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4565,6 +4604,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hent3-slc29a3-nucleoside-transporter-deficiency" data-dismech-node="hENT3 (SLC29A3) Nucleoside Transporter Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">hENT3 (SLC29A3) Nucleoside Transporter Deficiency</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function mutations in SLC29A3 abolish or impair the human equilibrative nucleoside transporter 3 (hENT3), a pH-dependent intracellular nucleoside/nucleobase transporter localized to lysosomal and mitochondrial membranes with affinity for adenosine. hENT3 normally moves nucleosides derived from lysosomal degradation of nucleic acids across the lysosomal membrane for salvage. Disease-associated mutations cause severe reductions or loss of nucleoside transport, compounded by mistrafficking and reduced stability of the mutant protein, most consequentially in the highly phagocytic, lysosome-rich monocyte-macrophage lineage where hENT3 is most abundantly expressed.</div>
 
 
@@ -4774,6 +4814,7 @@ This pathophysiological event involves decreased lysosomal transport (GO:0007041
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-histiocyte-activation-and-tissue-infiltration" data-dismech-node="Histiocyte Activation and Tissue Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Histiocyte Activation and Tissue Infiltration</div>
+
 
                 <div class="item-desc">hENT3 deficiency drives abnormal function, proliferation, and survival of monocyte-derived macrophages/histiocytes. Affected tissues are infiltrated by CD68-positive, CD163-positive, S100-variable, CD1a-negative (non-Langerhans) histiocytes admixed with lymphocytes and plasma cells. This mononuclear infiltrate, together with systemic autoinflammation and elevated inflammatory cytokines, underlies the systemic (hepatosplenomegaly, lymphadenopathy, fever) and local (cutaneous, endocrine) manifestations and places H syndrome in the R group of histiocytoses.</div>
 
@@ -5039,6 +5080,7 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-fibrosis-and-multiorgan-involvement" data-dismech-node="Cutaneous Fibrosis and Multiorgan Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Fibrosis and Multiorgan Involvement</div>
 
+
                 <div class="item-desc">Chronic histiocytic-lymphocytic infiltration of the dermis drives dermal fibrosis, producing the hallmark indurated, hyperpigmented, hypertrichotic sclerodermatous plaques over the inner thighs and lower legs. Analogous infiltration and inflammatory injury of endocrine tissues (pancreatic islets, gonads, pituitary), the inner ear, heart, and reticuloendothelial organs produces the multisystem H-syndrome phenotype, including insulin-dependent diabetes, hypogonadism, hearing loss, and organomegaly.</div>
 
 
@@ -5129,6 +5171,165 @@ This pathophysiological event involves increased dermal extracellular matrix dep
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypertrichotic hyperpigmented indurated patch</span>
+
+	                            <span class="crosslink-desc">The pathognomonic lesion and the one the syndrome is named for: hyperpigmentation, hypertrichosis and induration co-located in a single plaque, classically on the inner thighs.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cutaneous hyperpigmentation</span>
+
+	                            <span class="crosslink-desc">The pigmentary component, also occurring outside the pathognomonic plaque.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypertrichosis</span>
+
+	                            <span class="crosslink-desc">The hair component, likewise.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Flexion contractures</span>
+
+	                            <span class="crosslink-desc">Fibrosis crossing joints restricts extension — the same histiocytic fibrosing process as in the skin, at a functionally costly site.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Camptodactyly</span>
+
+	                            <span class="crosslink-desc">Fixed digital flexion from the same fibrotic process.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hallux valgus</span>
+
+	                            <span class="crosslink-desc">Fixed toe deformity, reported as part of the musculoskeletal picture.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Arthritis</span>
+
+	                            <span class="crosslink-desc">Joint inflammation accompanying the fibrosis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatosplenomegaly</span>
+
+	                            <span class="crosslink-desc">Visceral infiltration by the same activated histiocytes.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lymphadenopathy</span>
+
+	                            <span class="crosslink-desc">Nodal involvement from that infiltration.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cervical lymphadenopathy</span>
+
+	                            <span class="crosslink-desc">The cervical distribution specifically, which can be the presenting feature and is what prompts a biopsy.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Histiocytosis</span>
+
+	                            <span class="crosslink-desc">The histological finding that underlies all of the above, and the reason this disease sits alongside the histiocytoses.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sensorineural hearing loss</span>
+
+	                            <span class="crosslink-desc">The H of the syndrome name that is most often missed. Drawn from the multiorgan node with the mechanism unestablished — no cited source traces histiocyte infiltration to cochlear damage specifically.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Insulin-dependent diabetes mellitus</span>
+
+	                            <span class="crosslink-desc">Pancreatic involvement, with the insulin dependence distinguishing it from the type 2 pattern expected at these ages.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypergonadotropic hypogonadism</span>
+
+	                            <span class="crosslink-desc">Gonadal failure with raised gonadotrophins, so the lesion is at the gonad rather than the pituitary.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Azoospermia</span>
+
+	                            <span class="crosslink-desc">The spermatogenic consequence of that gonadal failure in males.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Micropenis</span>
+
+	                            <span class="crosslink-desc">The other genital finding, from the same hypogonadism.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Short stature</span>
+
+	                            <span class="crosslink-desc">Growth failure, in a disease where endocrine involvement is multiple and no cited source apportions between the causes.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cardiac anomalies</span>
+
+	                            <span class="crosslink-desc">Cardiac involvement reported in a subset.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Exophthalmos</span>
+
+	                            <span class="crosslink-desc">Orbital involvement, plausibly from retro-orbital histiocytic infiltration though no cited source demonstrates that.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5171,6 +5372,7 @@ This pathophysiological event involves increased dermal extracellular matrix dep
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nucleoside-sensing-tlr-activation-and-mapk-interferon-signaling" data-dismech-node="Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling</div>
+
 
                 <div class="item-desc">Loss of hENT3 function activates nucleoside-sensing Toll-like receptors and downstream MAPK signaling, inducing cytokine secretion and inflammation; within the lysosome, TLR7 activation additionally drives type I interferon production. Affected patients show a high peripheral-blood interferon score. This positions H syndrome among the type I interferonopathies and links the otherwise germline (non-somatic) disorder to pathological MAPK-cascade activation, providing the rationale for MEK-inhibitor, JAK-inhibitor (baricitinib), and TLR7-directed (hydroxychloroquine) therapies aimed at the autoinflammatory component.</div>
 
@@ -5401,6 +5603,7 @@ This pathophysiological event involves increased type I interferon production (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-autophagy-and-adult-stem-cell-deficits" data-dismech-node="Impaired Autophagy and Adult Stem Cell Deficits" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Autophagy and Adult Stem Cell Deficits</div>
+
 
                 <div class="item-desc">In Slc29a3-null mice, loss of lysosomal adenosine transport impedes autophagy-regulated stem-cell differentiation through misregulation of the AMPK-mTOR-ULK axis, altering hematopoietic and mesenchymal stem-cell fates (hematopoietic stem-cell exhaustion and breaches of mesodermal tissue integrity). This adult stem-cell deficit is proposed as a unifying primary driver of the ENT3 spectrum disorders beyond macrophage dysfunction, and genetic, pharmacologic, and stem-cell interventions ameliorate disease in the mouse model. Human translational validity remains to be established.</div>
 
@@ -5716,7 +5919,7 @@ This pathophysiological event involves decreased stem cell differentiation (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Baricitinib (JAK inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Baricitinib is an oral JAK1/2 inhibitor used to target the type I interferon-driven autoinflammatory component of H syndrome. It was administered to an H-syndrome patient with a high interferon score, on the rationale that SLC29A3 deficiency drives lysosomal TLR7 activation and interferon production.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"baricitinib\"]}}, {\"id\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic histiocytic-lymphocytic infiltration of the dermis drives dermal fibrosis, producing the hallmark indurated, hyperpigmented, hypertrichotic sclerodermatous plaques over the inner thighs and lower legs. Analogous infiltration and inflammatory injury of endocrine tissues (pancreatic islets, gonads, pituitary), the inner ear, heart, and reticuloendothelial organs produces the multisystem H-syndrome phenotype, including insulin-dependent diabetes, hypogonadism, hearing loss, and organomegaly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"dermal extracellular matrix deposition\"]}}, {\"id\": \"Histiocyte Activation and Tissue Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"hENT3 deficiency drives abnormal function, proliferation, and survival of monocyte-derived macrophages/histiocytes. Affected tissues are infiltrated by CD68-positive, CD163-positive, S100-variable, CD1a-negative (non-Langerhans) histiocytes admixed with lymphocytes and plasma cells. This mononuclear infiltrate, together with systemic autoinflammation and elevated inflammatory cytokines, underlies the systemic (hepatosplenomegaly, lymphadenopathy, fever) and local (cutaneous, endocrine) manifestations and places H syndrome in the R group of histiocytoses.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD68-positive non-Langerhans histiocyte\"], \"biological_processes\": [\"macrophage activation\", \"cell population proliferation\", \"apoptotic cell clearance\"]}}, {\"id\": \"Hydroxychloroquine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hydroxychloroquine inhibits endosomal/lysosomal TLR7 signaling and was added to baricitinib on the rationale that SLC29A3 deficiency drives interferon production via lysosomal TLR7 activation, contributing to a rapid and persistent response.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"hydroxychloroquine\"]}}, {\"id\": \"Impaired Autophagy and Adult Stem Cell Deficits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Slc29a3-null mice, loss of lysosomal adenosine transport impedes autophagy-regulated stem-cell differentiation through misregulation of the AMPK-mTOR-ULK axis, altering hematopoietic and mesenchymal stem-cell fates (hematopoietic stem-cell exhaustion and breaches of mesodermal tissue integrity). This adult stem-cell deficit is proposed as a unifying primary driver of the ENT3 spectrum disorders beyond macrophage dysfunction, and genetic, pharmacologic, and stem-cell interventions ameliorate disease in the mouse model. Human translational validity remains to be established.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hematopoietic stem cell\", \"Mesenchymal stem cell\"], \"biological_processes\": [\"autophagy\", \"stem cell differentiation\"]}}, {\"id\": \"MEK Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MEK (MAP2K) inhibition targets the pathologically activated MAPK cascade downstream of nucleoside-sensing TLR signaling. MEK inhibitor therapy led to resolution of histiocytosis and inflammation in a patient with H syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of hENT3 function activates nucleoside-sensing Toll-like receptors and downstream MAPK signaling, inducing cytokine secretion and inflammation; within the lysosome, TLR7 activation additionally drives type I interferon production. Affected patients show a high peripheral-blood interferon score. This positions H syndrome among the type I interferonopathies and links the otherwise germline (non-somatic) disorder to pathological MAPK-cascade activation, providing the rationale for MEK-inhibitor, JAK-inhibitor (baricitinib), and TLR7-directed (hydroxychloroquine) therapies aimed at the autoinflammatory component.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"toll-like receptor signaling pathway\", \"MAPK cascade\", \"type I interferon production\"]}}, {\"id\": \"Tocilizumab (IL-6 receptor blockade)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-IL-6-receptor therapy (tocilizumab) has produced marked improvement in systemic inflammation, growth, and lymphoproliferative and cutaneous manifestations in H syndrome, and IL-6 blockade has emerged as a promising targeted approach to the autoinflammatory component.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"tocilizumab\"]}}, {\"id\": \"hENT3 (SLC29A3) Nucleoside Transporter Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function mutations in SLC29A3 abolish or impair the human equilibrative nucleoside transporter 3 (hENT3), a pH-dependent intracellular nucleoside/nucleobase transporter localized to lysosomal and mitochondrial membranes with affinity for adenosine. hENT3 normally moves nucleosides derived from lysosomal degradation of nucleic acids across the lysosomal membrane for salvage. Disease-associated mutations cause severe reductions or loss of nucleoside transport, compounded by mistrafficking and reduced stability of the mutant protein, most consequentially in the highly phagocytic, lysosome-rich monocyte-macrophage lineage where hENT3 is most abundantly expressed.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"nucleoside transmembrane transport\", \"lysosomal transport\"]}}], \"edges\": [{\"source\": \"hENT3 (SLC29A3) Nucleoside Transporter Deficiency\", \"target\": \"Histiocyte Activation and Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"hENT3 (SLC29A3) Nucleoside Transporter Deficiency\", \"target\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"hENT3 (SLC29A3) Nucleoside Transporter Deficiency\", \"target\": \"Impaired Autophagy and Adult Stem Cell Deficits\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Histiocyte Activation and Tissue Infiltration\", \"target\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"target\": \"Histiocyte Activation and Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagy and Adult Stem Cell Deficits\", \"target\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tocilizumab (IL-6 receptor blockade)\", \"target\": \"Histiocyte Activation and Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Baricitinib (JAK inhibitor)\", \"target\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MEK Inhibitor Therapy\", \"target\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hydroxychloroquine\", \"target\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001369\"}}, {\"id\": \"Azoospermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000027\"}}, {\"id\": \"Baricitinib (JAK inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Baricitinib is an oral JAK1/2 inhibitor used to target the type I interferon-driven autoinflammatory component of H syndrome. It was administered to an H-syndrome patient with a high interferon score, on the rationale that SLC29A3 deficiency drives lysosomal TLR7 activation and interferon production.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"baricitinib\"]}}, {\"id\": \"Camptodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100490\"}}, {\"id\": \"Cardiac anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cervical lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025289\"}}, {\"id\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic histiocytic-lymphocytic infiltration of the dermis drives dermal fibrosis, producing the hallmark indurated, hyperpigmented, hypertrichotic sclerodermatous plaques over the inner thighs and lower legs. Analogous infiltration and inflammatory injury of endocrine tissues (pancreatic islets, gonads, pituitary), the inner ear, heart, and reticuloendothelial organs produces the multisystem H-syndrome phenotype, including insulin-dependent diabetes, hypogonadism, hearing loss, and organomegaly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"dermal extracellular matrix deposition\"]}}, {\"id\": \"Cutaneous hyperpigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000953\"}}, {\"id\": \"Exophthalmos\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000520\"}}, {\"id\": \"Flexion contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001371\"}}, {\"id\": \"Hallux valgus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001822\"}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001433\"}}, {\"id\": \"Histiocyte Activation and Tissue Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"hENT3 deficiency drives abnormal function, proliferation, and survival of monocyte-derived macrophages/histiocytes. Affected tissues are infiltrated by CD68-positive, CD163-positive, S100-variable, CD1a-negative (non-Langerhans) histiocytes admixed with lymphocytes and plasma cells. This mononuclear infiltrate, together with systemic autoinflammation and elevated inflammatory cytokines, underlies the systemic (hepatosplenomegaly, lymphadenopathy, fever) and local (cutaneous, endocrine) manifestations and places H syndrome in the R group of histiocytoses.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD68-positive non-Langerhans histiocyte\"], \"biological_processes\": [\"macrophage activation\", \"cell population proliferation\", \"apoptotic cell clearance\"]}}, {\"id\": \"Histiocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tissue infiltration by CD68-positive non-Langerhans histiocytes is the defining pathologic feature and the basis for classifying H syndrome as an inherited histiocytosis (R group).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100727\"}}, {\"id\": \"Hydroxychloroquine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hydroxychloroquine inhibits endosomal/lysosomal TLR7 signaling and was added to baricitinib on the rationale that SLC29A3 deficiency drives interferon production via lysosomal TLR7 activation, contributing to a rapid and persistent response.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"hydroxychloroquine\"]}}, {\"id\": \"Hypergonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000815\"}}, {\"id\": \"Hypertrichosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000998\"}}, {\"id\": \"Hypertrichotic hyperpigmented indurated patch\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The pathognomonic cutaneous lesion: indurated, hyperpigmented, and hypertrichotic patches involving the middle and lower parts of the body (classically the medial thighs and shins, often sparing the knees).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033190\"}}, {\"id\": \"Impaired Autophagy and Adult Stem Cell Deficits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Slc29a3-null mice, loss of lysosomal adenosine transport impedes autophagy-regulated stem-cell differentiation through misregulation of the AMPK-mTOR-ULK axis, altering hematopoietic and mesenchymal stem-cell fates (hematopoietic stem-cell exhaustion and breaches of mesodermal tissue integrity). This adult stem-cell deficit is proposed as a unifying primary driver of the ENT3 spectrum disorders beyond macrophage dysfunction, and genetic, pharmacologic, and stem-cell interventions ameliorate disease in the mouse model. Human translational validity remains to be established.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hematopoietic stem cell\", \"Mesenchymal stem cell\"], \"biological_processes\": [\"autophagy\", \"stem cell differentiation\"]}}, {\"id\": \"Insulin-dependent diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of patients (the phenotype overlapping PHID) develop predominantly autoantibody-negative insulin-dependent diabetes mellitus.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000819\"}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"MEK Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MEK (MAP2K) inhibition targets the pathologically activated MAPK cascade downstream of nucleoside-sensing TLR signaling. MEK inhibitor therapy led to resolution of histiocytosis and inflammation in a patient with H syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Micropenis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000054\"}}, {\"id\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of hENT3 function activates nucleoside-sensing Toll-like receptors and downstream MAPK signaling, inducing cytokine secretion and inflammation; within the lysosome, TLR7 activation additionally drives type I interferon production. Affected patients show a high peripheral-blood interferon score. This positions H syndrome among the type I interferonopathies and links the otherwise germline (non-somatic) disorder to pathological MAPK-cascade activation, providing the rationale for MEK-inhibitor, JAK-inhibitor (baricitinib), and TLR7-directed (hydroxychloroquine) therapies aimed at the autoinflammatory component.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"toll-like receptor signaling pathway\", \"MAPK cascade\", \"type I interferon production\"]}}, {\"id\": \"Sensorineural hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Tocilizumab (IL-6 receptor blockade)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-IL-6-receptor therapy (tocilizumab) has produced marked improvement in systemic inflammation, growth, and lymphoproliferative and cutaneous manifestations in H syndrome, and IL-6 blockade has emerged as a promising targeted approach to the autoinflammatory component.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"tocilizumab\"]}}, {\"id\": \"hENT3 (SLC29A3) Nucleoside Transporter Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function mutations in SLC29A3 abolish or impair the human equilibrative nucleoside transporter 3 (hENT3), a pH-dependent intracellular nucleoside/nucleobase transporter localized to lysosomal and mitochondrial membranes with affinity for adenosine. hENT3 normally moves nucleosides derived from lysosomal degradation of nucleic acids across the lysosomal membrane for salvage. Disease-associated mutations cause severe reductions or loss of nucleoside transport, compounded by mistrafficking and reduced stability of the mutant protein, most consequentially in the highly phagocytic, lysosome-rich monocyte-macrophage lineage where hENT3 is most abundantly expressed.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"nucleoside transmembrane transport\", \"lysosomal transport\"]}}], \"edges\": [{\"source\": \"hENT3 (SLC29A3) Nucleoside Transporter Deficiency\", \"target\": \"Histiocyte Activation and Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"hENT3 (SLC29A3) Nucleoside Transporter Deficiency\", \"target\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"hENT3 (SLC29A3) Nucleoside Transporter Deficiency\", \"target\": \"Impaired Autophagy and Adult Stem Cell Deficits\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Histiocyte Activation and Tissue Infiltration\", \"target\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Hypertrichotic hyperpigmented indurated patch\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The pathognomonic lesion and the one the syndrome is named for: hyperpigmentation, hypertrichosis and induration co-located in a single plaque, classically on the inner thighs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Cutaneous hyperpigmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The pigmentary component, also occurring outside the pathognomonic plaque.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Hypertrichosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hair component, likewise.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Flexion contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrosis crossing joints restricts extension \\u2014 the same histiocytic fibrosing process as in the skin, at a functionally costly site.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Camptodactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fixed digital flexion from the same fibrotic process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Hallux valgus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fixed toe deformity, reported as part of the musculoskeletal picture.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint inflammation accompanying the fibrosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Visceral infiltration by the same activated histiocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nodal involvement from that infiltration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Cervical lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cervical distribution specifically, which can be the presenting feature and is what prompts a biopsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Histiocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The histological finding that underlies all of the above, and the reason this disease sits alongside the histiocytoses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The H of the syndrome name that is most often missed. Drawn from the multiorgan node with the mechanism unestablished \\u2014 no cited source traces histiocyte infiltration to cochlear damage specifically.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Insulin-dependent diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pancreatic involvement, with the insulin dependence distinguishing it from the type 2 pattern expected at these ages.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gonadal failure with raised gonadotrophins, so the lesion is at the gonad rather than the pituitary.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Azoospermia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The spermatogenic consequence of that gonadal failure in males.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Micropenis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The other genital finding, from the same hypogonadism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth failure, in a disease where endocrine involvement is multiple and no cited source apportions between the causes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Cardiac anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac involvement reported in a subset.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"target\": \"Exophthalmos\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orbital involvement, plausibly from retro-orbital histiocytic infiltration though no cited source demonstrates that.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"target\": \"Histiocyte Activation and Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Autophagy and Adult Stem Cell Deficits\", \"target\": \"Cutaneous Fibrosis and Multiorgan Involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tocilizumab (IL-6 receptor blockade)\", \"target\": \"Histiocyte Activation and Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Baricitinib (JAK inhibitor)\", \"target\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MEK Inhibitor Therapy\", \"target\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hydroxychloroquine\", \"target\": \"Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7322,6 +7525,9 @@ This disease-associated gene is SLC29A3 (hgnc:23096). hgnc:23096 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9099,7 +9305,83 @@ pathophysiology:
     explanation: &gt;-
       Documents the sclerodermatous (fibrotic) cutaneous change alongside the
       multiorgan (hepatic, cardiac, musculoskeletal) involvement.
-
+  downstream:
+  - target: Hypertrichotic hyperpigmented indurated patch
+    causal_link_type: DIRECT
+    description: &gt;-
+      The pathognomonic lesion and the one the syndrome is named for: hyperpigmentation, hypertrichosis and induration co-located in a single plaque, classically on the inner thighs.
+  - target: Cutaneous hyperpigmentation
+    causal_link_type: DIRECT
+    description: &gt;-
+      The pigmentary component, also occurring outside the pathognomonic plaque.
+  - target: Hypertrichosis
+    causal_link_type: DIRECT
+    description: &gt;-
+      The hair component, likewise.
+  - target: Flexion contractures
+    causal_link_type: DIRECT
+    description: &gt;-
+      Fibrosis crossing joints restricts extension — the same histiocytic fibrosing process as in the skin, at a functionally costly site.
+  - target: Camptodactyly
+    causal_link_type: DIRECT
+    description: &gt;-
+      Fixed digital flexion from the same fibrotic process.
+  - target: Hallux valgus
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Fixed toe deformity, reported as part of the musculoskeletal picture.
+  - target: Arthritis
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Joint inflammation accompanying the fibrosis.
+  - target: Hepatosplenomegaly
+    causal_link_type: DIRECT
+    description: &gt;-
+      Visceral infiltration by the same activated histiocytes.
+  - target: Lymphadenopathy
+    causal_link_type: DIRECT
+    description: &gt;-
+      Nodal involvement from that infiltration.
+  - target: Cervical lymphadenopathy
+    causal_link_type: DIRECT
+    description: &gt;-
+      The cervical distribution specifically, which can be the presenting feature and is what prompts a biopsy.
+  - target: Histiocytosis
+    causal_link_type: DIRECT
+    description: &gt;-
+      The histological finding that underlies all of the above, and the reason this disease sits alongside the histiocytoses.
+  - target: Sensorineural hearing loss
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The H of the syndrome name that is most often missed. Drawn from the multiorgan node with the mechanism unestablished — no cited source traces histiocyte infiltration to cochlear damage specifically.
+  - target: Insulin-dependent diabetes mellitus
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pancreatic involvement, with the insulin dependence distinguishing it from the type 2 pattern expected at these ages.
+  - target: Hypergonadotropic hypogonadism
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Gonadal failure with raised gonadotrophins, so the lesion is at the gonad rather than the pituitary.
+  - target: Azoospermia
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The spermatogenic consequence of that gonadal failure in males.
+  - target: Micropenis
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The other genital finding, from the same hypogonadism.
+  - target: Short stature
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Growth failure, in a disease where endocrine involvement is multiple and no cited source apportions between the causes.
+  - target: Cardiac anomalies
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Cardiac involvement reported in a subset.
+  - target: Exophthalmos
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Orbital involvement, plausibly from retro-orbital histiocytic infiltration though no cited source demonstrates that.
 - name: Nucleoside-Sensing TLR Activation and MAPK/Interferon Signaling
   description: &gt;-
     Loss of hENT3 function activates nucleoside-sensing Toll-like receptors and
@@ -11173,7 +11455,7 @@ Type I interferon signature; NLRP3/IL-1β    ↑ M-CSF / receptor signaling
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "H Syndrome", "mondoId": "MONDO:0011273", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "H_Syndrome", "yamlRevision": "ff3da90736bd"};
+        const OS_CONFIG = {"diseaseName": "H Syndrome", "mondoId": "MONDO:0011273", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "H_Syndrome", "yamlRevision": "6df11b11f697"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

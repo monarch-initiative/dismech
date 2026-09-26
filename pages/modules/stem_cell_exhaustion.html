@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1596,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">stem_cell_exhaustion</span>
-                <span class="badge badge-count">4 disorders</span>
+                <span class="badge badge-count">3 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
                 
@@ -1951,25 +1988,10 @@ This mechanism module involves decreased Tissue Regeneration (GO:0042246). GO:00
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">3</span>
             </div>
             
             <div class="crosslink-list">
-                
-                <div class="crosslink-item">
-                    <a href="../disorders/Ageing_Associated_Decline_in_Intrinsic_Capacity.html">Ageing Associated Decline in Intrinsic Capacity</a>
-                    
-                    <span class="crosslink-desc">
-                        via
-                        
-                        
-                        
-                        Decline in Tissue Regenerative Reserve → Decline in Stem Cell Self-Renewal and Function
-                        
-                        
-                    </span>
-                    
-                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Idiopathic_Pulmonary_Fibrosis.html">Idiopathic Pulmonary Fibrosis</a>
@@ -2055,11 +2077,13 @@ This mechanism module involves decreased Tissue Regeneration (GO:0042246). GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-stem-cell-genetic-epigenetic-and-niche-damage" data-dismech-node="Stem Cell Genetic, Epigenetic, and Niche Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Stem Cell Genetic, Epigenetic, and Niche Damage</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Over the lifespan, tissue-specific stem cells accumulate genetic mutations and epigenetic changes and are exposed to a progressively altered extrinsic environment (niche and systemic milieu). These intrinsic and extrinsic insults interact to compromise stem-cell functionality, the initiating layer of the hallmark.</div>
                 
@@ -2119,11 +2143,13 @@ This pathophysiological event involves Stem Cell (CL:0000034). CL:0000034 is a c
             
             <div class="item-box anchor-target" id="module-pathophysiology-decline-in-stem-cell-self-renewal-and-function" data-dismech-node="Decline in Stem Cell Self-Renewal and Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Decline in Stem Cell Self-Renewal and Function</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The accumulated damage leads to an age-associated decline in stem-cell function - reduced self-renewal capacity and impaired maintenance of the stem-cell pool. This is the conserved central effector that tissue-specific stem-cell aging (e.g. hematopoietic stem cells) converges upon; conforming disorder nodes substitute their particular stem population.</div>
                 
@@ -2202,13 +2228,6 @@ This pathophysiological event involves decreased Stem Cell Population Maintenanc
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Ageing_Associated_Decline_in_Intrinsic_Capacity.html">Ageing Associated Decline in Intrinsic Capacity</a>
-                            
-                            <span class="crosslink-desc">as Decline in Tissue Regenerative Reserve</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
                             <a href="../disorders/Idiopathic_Pulmonary_Fibrosis.html">Idiopathic Pulmonary Fibrosis</a>
                             
                             <span class="crosslink-desc">as AT2 progenitor exhaustion and impaired alveolar regeneration</span>
@@ -2250,11 +2269,13 @@ This pathophysiological event involves decreased Stem Cell Population Maintenanc
             
             <div class="item-box anchor-target" id="module-pathophysiology-regenerative-failure-and-tissue-homeostasis-decline" data-dismech-node="Regenerative Failure and Tissue Homeostasis Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Regenerative Failure and Tissue Homeostasis Decline</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Diminished stem-cell self-renewal and function reduce the regenerative capacity of somatic tissues, so lost or damaged cells are no longer adequately replaced and tissue homeostasis declines with age. This is the conserved consequence of stem cell exhaustion; the specific organ phenotype is supplied by the conforming disorder, and enhancing regenerative capacity is the corresponding healthy-aging intervention target.</div>
                 

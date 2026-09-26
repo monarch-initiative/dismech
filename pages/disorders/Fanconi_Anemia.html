@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -8605,6 +8644,7 @@ This subtype is caused by variation in RFWD3 (hgnc:25539). hgnc:25539 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-repair-deficiency" data-dismech-node="DNA Repair Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA Repair Deficiency</div>
 
+
                 <div class="item-desc">Mutations in FA genes impair the body&#39;s ability to repair DNA damage, leading to increased sensitivity to crosslinking agents and propensity for chromosomal instability.</div>
 
 
@@ -8718,6 +8758,7 @@ This subtype is caused by variation in RFWD3 (hgnc:25539). hgnc:25539 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-failure" data-dismech-node="Bone Marrow Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow Failure</div>
+
 
                 <div class="item-desc">Inability of the bone marrow to produce sufficient blood cells due to hematopoietic stem cell defects.</div>
 
@@ -8885,6 +8926,7 @@ This subtype is caused by variation in RFWD3 (hgnc:25539). hgnc:25539 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability" data-dismech-node="Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic Instability</div>
 
+
                 <div class="item-desc">Increased tendency for genomic alterations including chromosomal breaks, deletions, and rearrangements.</div>
 
 
@@ -8982,6 +9024,7 @@ This subtype is caused by variation in RFWD3 (hgnc:25539). hgnc:25539 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematopoietic-stem-cell-attrition" data-dismech-node="Hematopoietic Stem Cell Attrition" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematopoietic Stem Cell Attrition</div>
+
 
                 <div class="item-desc">Progressive depletion of long-term hematopoietic stem cells in bone marrow due to replication stress, aldehyde-induced DNA damage, and chronic inflammatory signaling.</div>
 
@@ -9201,6 +9244,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-translesion-synthesis-defect" data-dismech-node="Translesion Synthesis Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Translesion Synthesis Defect</div>
 
+
                 <div class="item-desc">Impaired ability to bypass DNA lesions during replication through translesion synthesis polymerases, requiring functional FANCD2-FANCI complex and PCNA monoubiquitination.</div>
 
 
@@ -9352,6 +9396,7 @@ This pathophysiological event involves translesion synthesis (GO:0019985). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homologous-recombination-impairment" data-dismech-node="Homologous Recombination Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Homologous Recombination Impairment</div>
 
+
                 <div class="item-desc">Defective repair of DNA double-strand breaks following interstrand crosslink unhooking, due to mutations in FA genes involved in HR pathway including BRCA2, PALB2, and BRCA1.</div>
 
 
@@ -9494,6 +9539,7 @@ This pathophysiological event involves homologous recombination (GO:0035825). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aldehyde-induced-genotoxicity" data-dismech-node="Aldehyde-Induced Genotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Aldehyde-Induced Genotoxicity</div>
 
+
                 <div class="item-desc">Endogenous aldehydes (acetaldehyde and formaldehyde) from normal metabolism generate DNA interstrand crosslinks and DNA-protein crosslinks; impaired detoxification by ALDH2 and ADH5 exacerbates DNA damage burden.</div>
 
 
@@ -9628,6 +9674,7 @@ This pathophysiological event involves cellular response to aldehyde (GO:0110096
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-core-complex-dysfunction" data-dismech-node="Core Complex Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Core Complex Dysfunction</div>
+
 
                 <div class="item-desc">Mutations in FA core complex genes (FANCA, FANCB, FANCC, FANCE, FANCF, FANCG, FANCL, FANCM, UBE2T/FANCT) disrupt the E3 ubiquitin ligase that monoubiquitinates the FANCD2-FANCI complex, abolishing the central signaling step of the FA pathway. FANCA mutations account for 60-70% of all FA cases.</div>
 
@@ -10115,6 +10162,7 @@ This pathophysiological event involves protein ubiquitination (GO:0016567). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-id-complex-dysfunction" data-dismech-node="ID Complex Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">ID Complex Dysfunction</div>
 
+
                 <div class="item-desc">Mutations in FANCD2 or FANCI disrupt the central ID2 complex whose monoubiquitination is the critical signaling event in FA pathway activation. In wild type, the core complex E3 ligase monoubiquitinates both FANCD2 and FANCI, causing the ID2 heterodimer to clamp onto chromatin at stalled replication forks and recruit downstream nucleases and HR effectors. Loss of either subunit abolishes this signaling hub.</div>
 
 
@@ -10336,6 +10384,7 @@ This pathophysiological event involves interstrand cross-link repair (GO:0036297
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-downstream-effector-dysfunction" data-dismech-node="Downstream Effector Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Downstream Effector Dysfunction</div>
+
 
                 <div class="item-desc">Mutations in downstream effector genes (BRCA2/FANCD1, PALB2/FANCN, BRCA1/FANCS, RAD51C/FANCO, XRCC2/FANCU) impair homologous recombination and translesion synthesis. These overlap with familial breast/ovarian cancer genes; biallelic mutations produce the most severe FA phenotypes with early-onset solid tumors and more congenital anomalies.</div>
 
@@ -10807,6 +10856,7 @@ This pathophysiological event involves ERCC4 (hgnc:3436). hgnc:3436 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammatory-bone-marrow-microenvironment" data-dismech-node="Inflammatory Bone Marrow Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammatory Bone Marrow Microenvironment</div>
 
+
                 <div class="item-desc">Excess sterile inflammatory signaling (TNF-alpha, interferon-gamma, Type I interferons) in the bone marrow creates a hostile microenvironment for HSCs. Both hematopoietic and stromal cells contribute to chronic inflammation, driving proteostasis deregulation and accelerating stem cell attrition.</div>
 
 
@@ -10971,6 +11021,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p53-dependent-developmental-progenitor-arrest-and-apoptosis" data-dismech-node="p53-Dependent Developmental Progenitor Arrest and Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">p53-Dependent Developmental Progenitor Arrest and Apoptosis</div>
+
 
                 <div class="item-desc">Unrepaired DNA damage in rapidly dividing embryonic progenitor cells hyperactivates p53 during critical developmental windows, driving p21-dependent G0/G1 arrest and loss of proliferative capacity with apoptosis as one branch of the response. This progenitor depletion underlies the congenital malformations of FA, explaining the midline predominance of anomalies and the correlation between pathway position and congenital abnormality burden. The arrest-versus-apoptosis balance is demonstrated in FA hematopoietic progenitors only; it has not been measured in FA embryonic progenitors, and the field-specific step that selects the radial ray, kidney, ear and heart is recorded as an open hypothesis.</div>
 
@@ -11264,6 +11315,7 @@ This pathophysiological event involves embryo development (GO:0009790). GO:00097
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-evolution" data-dismech-node="Clonal Evolution" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Evolution</div>
 
+
                 <div class="item-desc">Progressive accumulation of somatic mutations and chromosomal aberrations in genomically unstable hematopoietic cells drives clonal selection and malignant transformation. Characteristic cytogenetic changes include gain of 1q and 3q and loss of 7q. Clones with selective growth advantage expand, leading to MDS and AML. Single-cell DNA sequencing has revealed polyclonal evolution at the MDS stage, with sequential acquisition of driver mutations and MDM4-mediated p53 dampening via chromosome 1q gain as the canonical initiating event.</div>
 
 
@@ -11457,6 +11509,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-cancer-susceptibility" data-dismech-node="Epithelial Cancer Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial Cancer Susceptibility</div>
 
+
                 <div class="item-desc">Impaired genome maintenance in epithelial tissues renders them vulnerable to accumulation of oncogenic mutations. Squamous epithelia of the head/neck, oral cavity, esophagus, and anogenital regions are particularly susceptible due to high proliferative turnover and exposure to environmental mutagens including HPV.</div>
 
 
@@ -11641,6 +11694,7 @@ This pathophysiological event involves epithelial cell (CL:0000066). CL:0000066 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hpv-mediated-epithelial-damage" data-dismech-node="HPV-Mediated Epithelial Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">HPV-Mediated Epithelial Damage</div>
 
+
                 <div class="item-desc">Human papillomavirus infection compounds epithelial cancer risk in FA patients. HPV oncoproteins E6 and E7 degrade p53 and Rb tumor suppressors, further disabling the already compromised DNA damage response. HPV vaccination is recommended to reduce gynecologic and oropharyngeal cancer risk.</div>
 
 
@@ -11716,6 +11770,7 @@ This pathophysiological event involves epithelial cell (CL:0000066). CL:0000066 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocrine-gland-dysfunction" data-dismech-node="Endocrine Gland Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Endocrine Gland Dysfunction</div>
+
 
                 <div class="item-desc">Widespread endocrine abnormalities affect approximately 73-80% of FA patients. Developmental pituitary/hypothalamic defects (68% have small pituitary on MRI), direct effects of genomic instability on endocrine cell function, and chronic illness contribute. Manifests as GH deficiency, hypothyroidism, glucose dysregulation, and hypogonadism. Obesity, dyslipidemia, and metabolic syndrome are also reported in endocrine surveys; those associations do not establish a causal route from gland dysfunction.</div>
 
@@ -11964,6 +12019,7 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-structural-anomalies" data-dismech-node="Congenital Structural Anomalies" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Structural Anomalies</div>
+
 
                 <div class="item-desc">Developmental progenitor loss during embryogenesis causes structural malformations affecting the limbs and axial skeleton, craniofacial and dental structures, eyes, ears, heart and vessels, kidneys, GI tract, and genitourinary system. Approximately 75% of FA patients have at least one congenital anomaly, with burden correlating with complementation group, mutation type, and pathway position.</div>
 
@@ -12689,6 +12745,7 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-developmental-anomalies" data-dismech-node="CNS Developmental Anomalies" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS Developmental Anomalies</div>
 
+
                 <div class="item-desc">Midline brain structural defects from neural progenitor loss during early CNS development. Includes small pituitary (68%), posterior fossa abnormalities (30% including Chiari I malformation and Dandy-Walker variant), and corpus callosum structural variation (30%).</div>
 
 
@@ -12864,6 +12921,7 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skin-pigmentation-changes" data-dismech-node="Skin Pigmentation Changes" data-dismech-type="pathophysiology">
                 <div class="item-name">Skin Pigmentation Changes</div>
 
+
                 <div class="item-desc">Melanocyte progenitor defects during embryonic development cause characteristic pigmentary anomalies including café-au-lait spots and hypopigmented patches. Skin pigmentation changes are the most common congenital anomaly in FA, affecting over 50% of patients.</div>
 
 
@@ -12955,6 +13013,7 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myc-driven-hspc-dysfunction" data-dismech-node="MYC-Driven HSPC Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">MYC-Driven HSPC Dysfunction</div>
+
 
                 <div class="item-desc">Single-cell RNA sequencing of primary FA patient bone marrow HSPCs revealed MYC overexpression as a novel pathogenic driver alongside p53 and TGF-beta upregulation. Distinct HSPC subpopulations co-expressing high TP53 or high MYC coexist in FA bone marrow. MYC-high HSPCs show downregulation of cell adhesion genes (including CXCR4), promoting enhanced egress from bone marrow to peripheral blood and contributing to HSC exhaustion and bone marrow failure.</div>
 
@@ -13152,6 +13211,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-differentiation-induced-genotoxic-stress" data-dismech-node="Differentiation-Induced Genotoxic Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Differentiation-Induced Genotoxic Stress</div>
 
+
                 <div class="item-desc">Transcriptional reprogramming during hematopoietic differentiation generates a surge of genotoxic stress from formaldehyde, an obligate by-product of oxidative protein demethylation during transcription regulation. In the absence of functional FA DNA repair, this differentiation-associated DNA damage causes aborted differentiation and depletion of FA progenitor cells, providing a mechanistic explanation for the hematopoietic-specific failure in FA despite it being a germline disorder.</div>
 
 
@@ -13331,6 +13391,7 @@ This pathophysiological event involves cellular response to aldehyde (GO:0110096
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ipsc-revealed-p53-driven-progenitor-exhaustion" data-dismech-node="iPSC-Revealed p53-Driven Progenitor Exhaustion" data-dismech-type="pathophysiology">
                 <div class="item-name">iPSC-Revealed p53-Driven Progenitor Exhaustion</div>
+
 
                 <div class="item-desc">Induced pluripotent stem cell modeling of FA hematopoietic differentiation revealed that FANCA-deficient human hematopoietic progenitor cells undergo accelerated terminal differentiation driven by p53/p21 activation. GAS6 (growth arrest specific 6) was identified as a novel p53 target gene; GAS6 signaling modulation rescues hematopoiesis. This iPSC-based new approach methodology overcomes the lack of faithful murine FA models and enables drug screening for FA therapeutics.</div>
 
@@ -13564,11 +13625,11 @@ This pathophysiological event involves intrinsic apoptotic signaling pathway by 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Integument<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Integument<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Limbs<span class="pill-count">(17)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Metabolism<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Metabolism<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-13">Musculoskeletal<span class="pill-count">(12)</span></button>
 
@@ -13584,9 +13645,9 @@ This pathophysiological event involves intrinsic apoptotic signaling pathway by 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-19">Growth<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-20">Neoplasm<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-20">Neoplasm<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-21">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-21">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -13696,6 +13757,7 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
             </div>
 
 
+
             <div class="context-notes">Over 80% of FA patients develop bone marrow failure.</div>
 
 
@@ -13763,11 +13825,16 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
+
+
                 <span class="context-freq">EXCLUDED</span>
 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Neither FANCD1/BRCA2 patient in the Israeli cohort developed BMF. One was transplanted for AML before age 6 months; the other had no complications by age 17.</div>
@@ -13826,6 +13893,8 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #fce7f3; color: #9d174d;">HOMOZYGOUS</span>
 
 
@@ -13844,6 +13913,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">FA-S (biallelic BRCA1) patients characteristically lack bone marrow failure, distinguishing them from most other FA complementation groups.</div>
@@ -13907,6 +13979,7 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
             </div>
+
 
 
             <div class="context-notes">The ALDH2*2 dominant-negative variant (rs671), carried by nearly half of the Japanese population, is associated with accelerated BMF progression in FA patients. Birth weight and physical abnormalities were not affected.</div>
@@ -14065,11 +14138,16 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
+
+
                 <span class="context-onset">Onset: mean 18.5y</span>
 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">All FANCA patients in the Israeli cohort developed their first cancer after age 10.</div>
@@ -14151,11 +14229,16 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
+
+
                 <span class="context-onset">Onset: mean 5.2y</span>
 
 
 
             </div>
+
+
+
 
             <div class="context-detail">Non-FANCA complementation groups tested in the Israeli cohort (FANCC, FANCD1, FANCG, FANCJ). Not exhaustive of all non-FANCA groups but represents the specific genes analyzed.</div>
 
@@ -14211,6 +14294,8 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #e9d5ff; color: #6b21a8;">nonsense</span>
 
 
@@ -14228,6 +14313,9 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Patients with nonsense mutations developed first cancer at a significantly younger age than patients with deletions (P=0.011).</div>
@@ -14281,6 +14369,8 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #e9d5ff; color: #6b21a8;">splice_site</span>
 
 
@@ -14298,6 +14388,9 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Patients with splice site mutations developed first cancer at a significantly younger age than patients with deletions (P=0.012).</div>
@@ -14369,7 +14462,12 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
+
+
             </div>
+
+
+
 
 
             <div class="context-notes">Trend toward less MDS and cancer in patients with FANCG mutations compared to other FA genes (not statistically significant).</div>
@@ -14870,6 +14968,7 @@ This clinical feature is Myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
 
 
             </div>
+
 
 
             <div class="context-notes">Mean age of first MDS event was 13.3 years in the Israeli cohort. There was a trend toward more MDS in FANCC patients.</div>
@@ -15614,6 +15713,8 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #e9d5ff; color: #6b21a8;">missense</span>
 
 
@@ -15633,6 +15734,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Missense mutations associated with significantly less congenital heart disease (P=0.022) in the Israeli cohort.</div>
@@ -18453,6 +18557,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
             </div>
 
 
+
             <div class="context-notes">37% prevalence in the NCI cohort (n=45, Giri et al. 2007). Annual TSH and free T4 screening is recommended.</div>
 
 
@@ -18626,6 +18731,7 @@ This clinical feature is Secondary growth hormone deficiency (HP:0008240). HP:00
             </div>
 
 
+
             <div class="context-notes">51% of FA patients had short stature and/or GH deficiency in the NCI cohort (n=45). Only GH deficiency correlated significantly with short stature (P=0.01). Midline brain abnormalities were found in 17% of patients, and 60% of those were GH-deficient.</div>
 
 
@@ -18770,6 +18876,7 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
             </div>
+
 
 
             <div class="context-notes">65% of peripubertal or postpubertal FA patients had gonadal dysfunction in the NCI cohort (Giri et al. 2007).</div>
@@ -20007,11 +20114,16 @@ This clinical feature is Abnormality of the genital system (HP:0000078). HP:0000
 
 
 
+
+
                 <span class="context-freq">FREQUENT</span>
 
 
 
             </div>
+
+
+
 
             <div class="context-detail">Downstream FA pathway genes</div>
 
@@ -20166,6 +20278,7 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
             </div>
 
 
+
             <div class="context-notes">Near-universal azoospermia due to primary gonadal failure.</div>
 
 
@@ -20229,6 +20342,7 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
             </div>
+
 
 
             <div class="context-notes">Reduced fertility with diminished ovarian reserve and premature menopause, but pregnancies have been reported.</div>
@@ -20433,11 +20547,16 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
                 <span class="context-freq">FREQUENT</span>
 
 
 
             </div>
+
+
+
 
             <div class="context-detail">Downstream FA pathway genes</div>
 
@@ -22173,6 +22292,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
             </div>
 
 
+
             <div class="context-notes">Orphanet classifies microcephaly as frequent in Fanconi anemia.</div>
 
 
@@ -22242,11 +22362,16 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
                 <span class="context-freq">VERY_FREQUENT</span>
 
 
 
             </div>
+
+
+
 
             <div class="context-detail">Downstream FA pathway genes</div>
 
@@ -22307,6 +22432,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #fce7f3; color: #9d174d;">HOMOZYGOUS</span>
 
 
@@ -22325,6 +22452,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">FA-S (biallelic BRCA1) patients frequently present with microcephaly.</div>
@@ -22388,6 +22518,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
             </div>
+
 
 
             <div class="context-notes">90% of FA patients (18/20) had brain MRI abnormalities including small pituitary (68%), posterior fossa abnormalities (30%), and corpus callosum structural variation (30%). The high incidence of midline CNS anomalies points to impact in early stages of CNS development.</div>
@@ -24643,7 +24774,7 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-caf-au-lait-spots" data-dismech-node="Café-au-Lait Spots" data-dismech-type="phenotype">
@@ -24745,6 +24876,7 @@ This clinical feature is Café-au-lait Spot, annotated with Cafe-au-lait spot (H
 
 
             </div>
+
 
 
             <div class="context-notes">52.3% of patients in the Israeli cohort had café-au-lait spots, the most common congenital anomaly.</div>
@@ -24899,6 +25031,7 @@ This clinical feature is Squamous cell carcinoma (HP:0002860). HP:0002860 is a p
             </div>
 
 
+
             <div class="context-notes">All solid tumors in the Israeli cohort were in patients with FANCA mutations or undiagnosed patients. Mean age of solid tumor onset was 26.6 years, significantly later than MDS/leukemia.</div>
 
 
@@ -24962,6 +25095,7 @@ This clinical feature is Squamous cell carcinoma (HP:0002860). HP:0002860 is a p
             </div>
 
 
+
             <div class="context-notes">Female FA patients have elevated risk of gynecologic squamous cell carcinomas (vulvar, cervical) at young ages. HPV vaccination is recommended. Gynecologic assessment annually from age 13; Pap smear annually from age 18.</div>
 
 
@@ -25018,6 +25152,8 @@ This clinical feature is Squamous cell carcinoma (HP:0002860). HP:0002860 is a p
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #fce7f3; color: #9d174d;">HOMOZYGOUS</span>
 
 
@@ -25034,6 +25170,9 @@ This clinical feature is Squamous cell carcinoma (HP:0002860). HP:0002860 is a p
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">FA-S (biallelic BRCA1) patients have predisposition to breast/ovarian cancer and/or childhood cancers, distinct from the typical FA SCC spectrum.</div>
@@ -25287,6 +25426,109 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-axillary-and-flexural-hyperpigmentation" data-dismech-node="Axillary and Flexural Hyperpigmentation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Axillary and Flexural Hyperpigmentation
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Axillary hyperpigmentation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6001491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-198">HP:6001491</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-198">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Axillary hyperpigmentation (HP:6001491). HP:6001491 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Bound to the axillary term because the axilla is the flexural site explicitly documented in the cutaneous-findings series; the same series records the skin-fold freckle-like macules across several creases and notes they are often hypopigmented or mixed rather than uniformly hyperpigmented. Confluent flexural hyperpigmentation was seen in 6.5% and skin-fold freckle-like macules in 24.7% of 93 patients. Distinct from the generalized or patchy Hyperpigmentation phenotype and from cafe-au-lait spots.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32822789" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32822789" target="_blank">PMID:32822789</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Confluent flexural hyperpigmentation was noted in six (6.5%) patients (Table 1), one of which had superimposed hypopigmented freckle-like macules (Figure 2)."</div>
+
+
+                <div class="evidence-explanation">Prospective cutaneous survey of Fanconi anemia patients documents confluent flexural hyperpigmentation, illustrated in the axilla, as a distinct pigmentary pattern.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32822789" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32822789" target="_blank">PMID:32822789</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Skin-fold freckle-like macules were noted in 23 (24.7%) patients and found on the lateral neck, popliteal fossa, and axillary, inguinal, and suprapubic creases."</div>
+
+
+                <div class="evidence-explanation">Localizes the clustered skin-fold macules to the axillary and other flexural creases in about a quarter of patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-basal-cell-carcinoma" data-dismech-node="Basal Cell Carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Basal Cell Carcinoma
@@ -25301,10 +25543,10 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002671" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-198">HP:0002671</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002671" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-199">HP:0002671</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-198">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-199">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Basal cell carcinoma (HP:0002671). HP:0002671 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -25375,10 +25617,10 @@ This clinical feature is Basal cell carcinoma (HP:0002671). HP:0002671 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007587" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-199">HP:0007587</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007587" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-200">HP:0007587</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-199">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-200">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Numerous pigmented freckles (HP:0007587). HP:0007587 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -25460,10 +25702,10 @@ This clinical feature is Numerous pigmented freckles (HP:0007587). HP:0007587 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002984" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-200">HP:0002984</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002984" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-201">HP:0002984</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-200">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-201">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplasia of the radius (HP:0002984). HP:0002984 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -25588,10 +25830,10 @@ This clinical feature is Hypoplasia of the radius (HP:0002984). HP:0002984 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009777" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-201">HP:0009777</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009777" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-202">HP:0009777</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-201">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-202">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent thumb (HP:0009777). HP:0009777 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -25716,10 +25958,10 @@ This clinical feature is Absent thumb (HP:0009777). HP:0009777 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001245" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-202">HP:0001245</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001245" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-203">HP:0001245</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-202">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-203">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Small thenar eminence (HP:0001245). HP:0001245 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -25794,10 +26036,10 @@ This clinical feature is Small thenar eminence (HP:0001245). HP:0001245 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-203">HP:0010026</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-204">HP:0010026</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-203">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-204">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplasia/Hypoplasia of the 1st metacarpal (HP:0010026). HP:0010026 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -25870,10 +26112,10 @@ This clinical feature is Aplasia/Hypoplasia of the 1st metacarpal (HP:0010026). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-204">HP:0030084</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-205">HP:0030084</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-204">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-205">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -25948,10 +26190,10 @@ This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006495" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-205">HP:0006495</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006495" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-206">HP:0006495</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-205">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-206">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplasia/Hypoplasia of the ulna (HP:0006495). HP:0006495 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26024,10 +26266,10 @@ This clinical feature is Aplasia/Hypoplasia of the ulna (HP:0006495). HP:0006495
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-206">HP:0001770</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-207">HP:0001770</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-206">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-207">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26102,10 +26344,10 @@ This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-207">HP:0001762</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-208">HP:0001762</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-207">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-208">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26178,10 +26420,10 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001780" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-208">HP:0001780</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001780" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-209">HP:0001780</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-208">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-209">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal toe morphology (HP:0001780). HP:0001780 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26254,10 +26496,10 @@ This clinical feature is Abnormal toe morphology (HP:0001780). HP:0001780 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-209">HP:0001199</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-210">HP:0001199</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-209">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-210">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26328,10 +26570,10 @@ This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-210">HP:0002827</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-211">HP:0002827</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-210">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-211">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26402,10 +26644,10 @@ This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-211">HP:0006101</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-212">HP:0006101</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-211">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-212">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26476,10 +26718,10 @@ This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-212">HP:0006265</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-213">HP:0006265</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-212">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-213">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplasia/Hypoplasia of fingers (HP:0006265). HP:0006265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26550,10 +26792,10 @@ This clinical feature is Aplasia/Hypoplasia of fingers (HP:0006265). HP:0006265 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-213">HP:0001763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-214">HP:0001763</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-213">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-214">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26624,10 +26866,10 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100760" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-214">HP:0100760</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100760" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-215">HP:0100760</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-214">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-215">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Clubbing of toes (HP:0100760). HP:0100760 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26698,10 +26940,10 @@ This clinical feature is Clubbing of toes (HP:0100760). HP:0100760 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-215">HP:0006433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-216">HP:0006433</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-215">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-216">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Radial ray deficiency (HP:0006433). HP:0006433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26772,10 +27014,10 @@ This clinical feature is Radial ray deficiency (HP:0006433). HP:0006433 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-216">HP:0001177</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001177" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-217">HP:0001177</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-216">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-217">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Preaxial hand polydactyly (HP:0001177). HP:0001177 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26836,7 +27078,7 @@ This clinical feature is Preaxial hand polydactyly (HP:0001177). HP:0001177 is a
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-glucose-homeostasis" data-dismech-node="Abnormal Glucose Homeostasis" data-dismech-type="phenotype">
@@ -26855,10 +27097,10 @@ This clinical feature is Preaxial hand polydactyly (HP:0001177). HP:0001177 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-217">HP:0011014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-218">HP:0011014</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-217">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-218">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -26938,6 +27180,7 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
             </div>
 
 
+
             <div class="context-notes">39% of FA patients had abnormal glucose/insulin metabolism in the NCI cohort (Giri et al. 2007). 21% met criteria for metabolic syndrome.</div>
 
 
@@ -26985,6 +27228,136 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-first-phase-insulin-secretion" data-dismech-node="Impaired First-Phase Insulin Secretion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Impaired First-Phase Insulin Secretion
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6001516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-219">HP:6001516</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-219">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired first-phase insulin secretion (HP:6001516). HP:6001516 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Elder et al. measured the insulinogenic index during a 2-hour OGTT, the standard early-phase surrogate for first-phase insulin secretion; the group means were reduced in both the normal-glucose-tolerance and abnormal-glucose-metabolism FA groups relative to lean reference adolescents while HOMA-IR did not differ, so the defect is secretory. No per-patient frequency of impaired first-phase secretion is reported; FREQUENT reflects the reduction in both FA groups. Complements the Abnormal Glucose Homeostasis and Insulin resistance phenotypes rather than replacing them.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18454466" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18454466" target="_blank">PMID:18454466</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Compared to REF, there were significant differences in glycemic responses (area under curve: FA-NGT 344 +/- 42, FA-AGM 596 +/- 35, REF 208 +/- 25 mM, P &lt; 0.0001) and insulinogenic index (FA-NGT 105 +/- 29, FA-AGM 44 +/- 8, and REF 173 +/- 41 pM/mM, P &lt; 0.05)"</div>
+
+
+                <div class="evidence-explanation">The insulinogenic index, an early-phase insulin secretion measure, was reduced in both FA groups versus reference adolescents; impaired first-phase secretion follows from the reduced early-phase index by one inference step.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18454466" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18454466" target="_blank">PMID:18454466</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Abnormalities in glucose metabolism are frequent in young FA patients without prior diagnosis of diabetes, and are associated with marked defects in insulin secretion."</div>
+
+
+                <div class="evidence-explanation">The authors attribute the FA glucose abnormalities to a marked insulin secretory defect in 39 children studied by OGTT.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19622403" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19622403" target="_blank">PMID:19622403</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"abnormalities in glucose metabolism are frequent in young FA patients without prior diagnosis of diabetes, and are associated with marked defects in insulin secretion"</div>
+
+
+                <div class="evidence-explanation">Diagnostic review restates the Cincinnati OGTT finding that the FA glucose phenotype is associated with defective insulin secretion.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-circulating-lipid-concentration" data-dismech-node="Abnormal Circulating Lipid Concentration" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal Circulating Lipid Concentration
@@ -26999,10 +27372,10 @@ This clinical feature is Abnormal glucose homeostasis (HP:0011014). HP:0011014 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-218">HP:0003119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-220">HP:0003119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-218">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-220">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal circulating lipid concentration (HP:0003119). HP:0003119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -27073,10 +27446,10 @@ This clinical feature is Abnormal circulating lipid concentration (HP:0003119). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-219">HP:0000855</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-221">HP:0000855</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-219">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-221">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -27172,10 +27545,10 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003452" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-220">HP:0003452</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003452" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-222">HP:0003452</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-220">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-222">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased circulating iron concentration (HP:0003452). HP:0003452 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -27257,10 +27630,10 @@ This clinical feature is Increased circulating iron concentration (HP:0003452). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005775" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-221">HP:0005775</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005775" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-223">HP:0005775</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-221">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-223">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal Anomalies, annotated with Multiple skeletal anomalies (HP:0005775). HP:0005775 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -27344,7 +27717,12 @@ This clinical feature is Skeletal Anomalies, annotated with Multiple skeletal an
 
 
 
+
+
             </div>
+
+
+
 
 
             <div class="context-notes">Rib abnormalities were observed only in patients with FANCC mutations in the Israeli cohort — exclusive to this complementation group.</div>
@@ -27416,7 +27794,12 @@ This clinical feature is Skeletal Anomalies, annotated with Multiple skeletal an
 
 
 
+
+
             </div>
+
+
+
 
 
             <div class="context-notes">Cleft lip was significantly more common in patients with FANCD1 mutations compared with other FA genes (P&lt;0.001).</div>
@@ -27474,6 +27857,8 @@ This clinical feature is Skeletal Anomalies, annotated with Multiple skeletal an
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #e9d5ff; color: #6b21a8;">truncating</span>
 
 
@@ -27493,6 +27878,9 @@ This clinical feature is Skeletal Anomalies, annotated with Multiple skeletal an
                 <span class="context-severity">Severe</span>
 
             </div>
+
+
+
 
 
             <div class="context-notes">FANCB deletion or truncation variants produce earlier-than-average onset of bone marrow failure and more severe congenital abnormalities. Missense variants with residual FANCD2 monoubiquitination activity are associated with more favorable outcome. FANCB is X-linked, so only males are affected.</div>
@@ -27564,7 +27952,12 @@ This clinical feature is Skeletal Anomalies, annotated with Multiple skeletal an
 
 
 
+
+
             </div>
+
+
+
 
 
             <div class="context-notes">44% of FA patients with FANCI mutations (7/16) met criteria for VACTERL association (at least 3 features), significantly overrepresented compared to ~5% in FA overall.</div>
@@ -27630,10 +28023,10 @@ This clinical feature is Skeletal Anomalies, annotated with Multiple skeletal an
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-222">HP:0001385</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-224">HP:0001385</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-222">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-224">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -27706,10 +28099,10 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002937" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-223">HP:0002937</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002937" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-225">HP:0002937</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-223">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-225">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemivertebrae (HP:0002937). HP:0002937 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -27782,10 +28175,10 @@ This clinical feature is Hemivertebrae (HP:0002937). HP:0002937 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-224">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-226">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-224">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-226">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -27883,10 +28276,10 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-225">HP:0002808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-227">HP:0002808</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-225">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-227">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -27959,10 +28352,10 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-226">HP:0002949</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-228">HP:0002949</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-226">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-228">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fused cervical vertebrae (HP:0002949). HP:0002949 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28037,10 +28430,10 @@ This clinical feature is Fused cervical vertebrae (HP:0002949). HP:0002949 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008436" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-227">HP:0008436</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008436" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-229">HP:0008436</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-227">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-229">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent/hypoplastic coccyx (HP:0008436). HP:0008436 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28113,10 +28506,10 @@ This clinical feature is Absent/hypoplastic coccyx (HP:0008436). HP:0008436 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-228">HP:0000938</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-230">HP:0000938</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-228">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-230">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28187,10 +28580,10 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-229">HP:0006660</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-231">HP:0006660</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-229">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-231">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aplastic clavicle (HP:0006660). HP:0006660 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28259,10 +28652,10 @@ This clinical feature is Aplastic clavicle (HP:0006660). HP:0006660 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-230">HP:0000939</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-232">HP:0000939</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-230">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-232">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28331,10 +28724,10 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000772" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-231">HP:0000772</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000772" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-233">HP:0000772</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-231">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-233">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal rib morphology (HP:0000772). HP:0000772 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28405,10 +28798,10 @@ This clinical feature is Abnormal rib morphology (HP:0000772). HP:0000772 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-232">HP:0000882</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-234">HP:0000882</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-232">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-234">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplastic scapulae (HP:0000882). HP:0000882 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28488,10 +28881,10 @@ This clinical feature is Hypoplastic scapulae (HP:0000882). HP:0000882 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-233">HP:0001274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-235">HP:0001274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-233">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-235">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28564,10 +28957,10 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-234">HP:0001321</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-236">HP:0001321</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-234">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-236">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28642,10 +29035,10 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-235">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-237">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-235">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-237">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28738,6 +29131,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #e9d5ff; color: #6b21a8;">splice_site</span>
 
 
@@ -28755,6 +29150,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Patients with splice-site mutations had more developmental delay than patients with other mutation types; no frequency band is inferred from the P value.</div>
@@ -28820,10 +29218,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-236">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-238">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-236">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-238">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -28909,7 +29307,12 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
             </div>
+
+
+
 
             <div class="context-detail">Biallelic pathogenic BRCA1 variants, including homozygous and compound heterozygous genotypes.</div>
 
@@ -28977,10 +29380,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-237">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-239">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-237">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-239">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29053,10 +29456,10 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-238">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-240">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-238">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-240">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29129,10 +29532,10 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-239">HP:0002414</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-241">HP:0002414</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-239">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-241">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spina bifida (HP:0002414). HP:0002414 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29203,10 +29606,10 @@ This clinical feature is Spina bifida (HP:0002414). HP:0002414 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-240">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-242">HP:0001347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-240">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-242">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29277,10 +29680,10 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-241">HP:0006824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-243">HP:0006824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-241">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-243">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cranial nerve paralysis (HP:0006824). HP:0006824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29351,10 +29754,10 @@ This clinical feature is Cranial nerve paralysis (HP:0006824). HP:0006824 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-242">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-244">HP:0000739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-242">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-244">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29425,10 +29828,10 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-243">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-245">HP:0000716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-243">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-245">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29497,10 +29900,10 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-244">HP:0001360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-246">HP:0001360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-244">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-246">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29580,10 +29983,10 @@ This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-245">HP:0001562</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-247">HP:0001562</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-245">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-247">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29661,10 +30064,10 @@ This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-246">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-248">HP:0002206</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-246">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-248">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29796,10 +30199,10 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003221" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-247">HP:0003221</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003221" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-249">HP:0003221</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-247">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-249">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chromosomal breakage induced by crosslinking agents (HP:0003221). HP:0003221 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29893,10 +30296,10 @@ This clinical feature is Chromosomal breakage induced by crosslinking agents (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-248">HP:0003254</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-250">HP:0003254</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-248">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-250">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of DNA repair (HP:0003254). HP:0003254 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -29965,10 +30368,10 @@ This clinical feature is Abnormality of DNA repair (HP:0003254). HP:0003254 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-249">HP:0011133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-251">HP:0011133</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-249">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-251">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased sensitivity to ionizing radiation (HP:0011133). HP:0011133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -30046,10 +30449,10 @@ This clinical feature is Increased sensitivity to ionizing radiation (HP:0011133
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-250">HP:0033667</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-252">HP:0033667</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-250">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-252">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diminished mental health (HP:0033667). HP:0033667 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -30129,10 +30532,10 @@ This clinical feature is Diminished mental health (HP:0033667). HP:0033667 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-251">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-253">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-251">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-253">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short Stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -30212,6 +30615,7 @@ This clinical feature is Short Stature (HP:0004322). HP:0004322 is a phenotype f
             </div>
 
 
+
             <div class="context-notes">57% met criteria for short stature in the Israeli cohort (n=111).</div>
 
 
@@ -30275,6 +30679,7 @@ This clinical feature is Short Stature (HP:0004322). HP:0004322 is a phenotype f
 
 
             </div>
+
 
 
             <div class="context-notes">Orphanet classifies short stature as very frequent in Fanconi anemia.</div>
@@ -30348,9 +30753,14 @@ This clinical feature is Short Stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
                 <span class="context-severity">More severe</span>
 
             </div>
+
+
+
 
             <div class="context-detail">Downstream FA pathway genes</div>
 
@@ -30404,6 +30814,8 @@ This clinical feature is Short Stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
                 <span class="context-gene-tag" style="background: #e9d5ff; color: #6b21a8;">deletion</span>
 
 
@@ -30423,6 +30835,9 @@ This clinical feature is Short Stature (HP:0004322). HP:0004322 is a phenotype f
                 <span class="context-severity">More severe</span>
 
             </div>
+
+
+
 
 
             <div class="context-notes">Deletion mutations associated with shorter stature than nonsense mutations.</div>
@@ -30488,10 +30903,10 @@ This clinical feature is Short Stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-252">HP:0001511</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-254">HP:0001511</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-252">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-254">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -30569,6 +30984,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
             </div>
+
 
 
             <div class="context-notes">20% born SGA in the Israeli cohort. ALDH2*2 variant did not affect birth weight in Japanese FA patients, suggesting prenatal growth restriction is independent of aldehyde-mediated damage.</div>
@@ -30657,10 +31073,10 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-253">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-255">HP:0001513</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-253">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-255">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -30740,10 +31156,10 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-254">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-256">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-254">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-256">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -30804,490 +31220,8 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Neoplasm
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-medulloblastoma" data-dismech-node="Medulloblastoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Medulloblastoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002885" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-255">HP:0002885</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-255">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Medulloblastoma (HP:0002885). HP:0002885 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26691948" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26691948" target="_blank">PMID:26691948</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"for complementation group D1 (FANCD1), the bone marrow failure is not a typical feature, but early-onset leukemia and specific solid tumors, most often medulloblastoma and Wilms tumor, are typical for this complementation group"</div>
-
-
-                <div class="evidence-explanation">Medulloblastoma is described as one of the two characteristic solid tumors of the FANCD1/BRCA2 complementation group.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-21">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-structural-anomalies" data-dismech-node="Structural Anomalies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Structural Anomalies
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-                    </div>
-
-
-
-
-
-                    <div class="item-desc">Includes esophageal atresia, duodenal atresia, and other malformations</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301575" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301575" target="_blank">PMID:20301575</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Physical abnormalities, present in approximately 75% of affected individuals"</div>
-
-
-                <div class="evidence-explanation">GeneReviews confirms congenital abnormalities are present in ~75% of FA patients.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301575" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301575" target="_blank">PMID:20301575</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Physical abnormalities, present in approximately 75% of affected individuals, include one or more of the following: short stature, abnormal skin pigmentation, skeletal malformations of the upper and/or lower limbs, microcephaly, and ophthalmic and genitourinary tract anomalies"</div>
-
-
-                <div class="evidence-explanation">GeneReviews documents that physical abnormalities are present in approximately 75% of FA patients, including gastrointestinal anomalies.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-first-phase-insulin-secretion" data-dismech-node="Impaired First-Phase Insulin Secretion" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired First-Phase Insulin Secretion
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6001516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-256">HP:6001516</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-256">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Impaired first-phase insulin secretion (HP:6001516). HP:6001516 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-                    <div class="item-desc">Elder et al. measured the insulinogenic index during a 2-hour OGTT, the standard early-phase surrogate for first-phase insulin secretion; the group means were reduced in both the normal-glucose-tolerance and abnormal-glucose-metabolism FA groups relative to lean reference adolescents while HOMA-IR did not differ, so the defect is secretory. No per-patient frequency of impaired first-phase secretion is reported; FREQUENT reflects the reduction in both FA groups. Complements the Abnormal Glucose Homeostasis and Insulin resistance phenotypes rather than replacing them.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (4 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18454466" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18454466" target="_blank">PMID:18454466</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Compared to REF, there were significant differences in glycemic responses (area under curve: FA-NGT 344 +/- 42, FA-AGM 596 +/- 35, REF 208 +/- 25 mM, P &lt; 0.0001) and insulinogenic index (FA-NGT 105 +/- 29, FA-AGM 44 +/- 8, and REF 173 +/- 41 pM/mM, P &lt; 0.05)"</div>
-
-
-                <div class="evidence-explanation">The insulinogenic index, an early-phase insulin secretion measure, was reduced in both FA groups versus reference adolescents; impaired first-phase secretion follows from the reduced early-phase index by one inference step.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18454466" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18454466" target="_blank">PMID:18454466</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Abnormalities in glucose metabolism are frequent in young FA patients without prior diagnosis of diabetes, and are associated with marked defects in insulin secretion."</div>
-
-
-                <div class="evidence-explanation">The authors attribute the FA glucose abnormalities to a marked insulin secretory defect in 39 children studied by OGTT.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19622403" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19622403" target="_blank">PMID:19622403</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"abnormalities in glucose metabolism are frequent in young FA patients without prior diagnosis of diabetes, and are associated with marked defects in insulin secretion"</div>
-
-
-                <div class="evidence-explanation">Diagnostic review restates the Cincinnati OGTT finding that the FA glucose phenotype is associated with defective insulin secretion.</div>
-
-
-
-            </div>
-
-
-            <div class="evidence-more">+ 1 more reference</div>
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-axillary-and-flexural-hyperpigmentation" data-dismech-node="Axillary and Flexural Hyperpigmentation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Axillary and Flexural Hyperpigmentation
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Axillary hyperpigmentation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6001491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-257">HP:6001491</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-257">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Axillary hyperpigmentation (HP:6001491). HP:6001491 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-                    <div class="item-desc">Bound to the axillary term because the axilla is the flexural site explicitly documented in the cutaneous-findings series; the same series records the skin-fold freckle-like macules across several creases and notes they are often hypopigmented or mixed rather than uniformly hyperpigmented. Confluent flexural hyperpigmentation was seen in 6.5% and skin-fold freckle-like macules in 24.7% of 93 patients. Distinct from the generalized or patchy Hyperpigmentation phenotype and from cafe-au-lait spots.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32822789" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32822789" target="_blank">PMID:32822789</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Confluent flexural hyperpigmentation was noted in six (6.5%) patients (Table 1), one of which had superimposed hypopigmented freckle-like macules (Figure 2)."</div>
-
-
-                <div class="evidence-explanation">Prospective cutaneous survey of Fanconi anemia patients documents confluent flexural hyperpigmentation, illustrated in the axilla, as a distinct pigmentary pattern.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32822789" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32822789" target="_blank">PMID:32822789</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Skin-fold freckle-like macules were noted in 23 (24.7%) patients and found on the lateral neck, popliteal fossa, and axillary, inguinal, and suprapubic creases."</div>
-
-
-                <div class="evidence-explanation">Localizes the clustered skin-fold macules to the axillary and other flexural creases in about a quarter of patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-early-onset-solid-tumors-in-fancd1-brca2" data-dismech-node="Early-Onset Solid Tumors in FANCD1/BRCA2" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Early-Onset Solid Tumors in FANCD1/BRCA2
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-                    </div>
-
-
-
-
-
-                    <div class="item-desc">FANCD1/BRCA2 and FANCN/PALB2 patients have the most severe cancer phenotype with near-invariable early-onset malignancy. In the Israeli cohort, one FANCD1 patient developed medulloblastoma at age 3. These patients require cancer screening from a very young age. Neither FANCD1 patient in the Israeli cohort developed BMF, distinguishing this subtype. FA-S (biallelic BRCA1) patients also lack bone marrow failure but have cancer predisposition.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31558676" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31558676" target="_blank">PMID:31558676</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients with FANCD1 mutations have been previously described as uniquely developing solid tumors early in life"</div>
-
-
-                <div class="evidence-explanation">Confirms early-onset solid tumor predisposition unique to FANCD1/BRCA2 subtype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38146508" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38146508" target="_blank">PMID:38146508</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Unlike most other types of FA, FA-S patients lack bone marrow failure."</div>
-
-
-                <div class="evidence-explanation">FA-S (biallelic BRCA1) patients have cancer predisposition but lack BMF, similar to FANCD1.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-oral-and-oropharyngeal-squamous-cell-carcinoma" data-dismech-node="Oral and Oropharyngeal Squamous Cell Carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -31305,10 +31239,10 @@ This clinical feature is Axillary hyperpigmentation (HP:6001491). HP:6001491 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020357" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-258">HP:0020357</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020357" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-257">HP:0020357</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-258">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-257">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Oral and oropharyngeal squamous cell carcinoma, annotated with Head and neck squamous cell carcinoma (HP:0020357). HP:0020357 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -31415,6 +31349,255 @@ This clinical feature is Oral and oropharyngeal squamous cell carcinoma, annotat
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-medulloblastoma" data-dismech-node="Medulloblastoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Medulloblastoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002885" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-258">HP:0002885</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-258">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Medulloblastoma (HP:0002885). HP:0002885 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26691948" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26691948" target="_blank">PMID:26691948</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"for complementation group D1 (FANCD1), the bone marrow failure is not a typical feature, but early-onset leukemia and specific solid tumors, most often medulloblastoma and Wilms tumor, are typical for this complementation group"</div>
+
+
+                <div class="evidence-explanation">Medulloblastoma is described as one of the two characteristic solid tumors of the FANCD1/BRCA2 complementation group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-21">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-structural-anomalies" data-dismech-node="Structural Anomalies" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Structural Anomalies
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Includes esophageal atresia, duodenal atresia, and other malformations</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301575" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301575" target="_blank">PMID:20301575</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Physical abnormalities, present in approximately 75% of affected individuals"</div>
+
+
+                <div class="evidence-explanation">GeneReviews confirms congenital abnormalities are present in ~75% of FA patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301575" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301575" target="_blank">PMID:20301575</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Physical abnormalities, present in approximately 75% of affected individuals, include one or more of the following: short stature, abnormal skin pigmentation, skeletal malformations of the upper and/or lower limbs, microcephaly, and ophthalmic and genitourinary tract anomalies"</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents that physical abnormalities are present in approximately 75% of FA patients, including gastrointestinal anomalies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-early-onset-solid-tumors-in-fancd1-brca2" data-dismech-node="Early-Onset Solid Tumors in FANCD1/BRCA2" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Early-Onset Solid Tumors in FANCD1/BRCA2
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">FANCD1/BRCA2 and FANCN/PALB2 patients have the most severe cancer phenotype with near-invariable early-onset malignancy. In the Israeli cohort, one FANCD1 patient developed medulloblastoma at age 3. These patients require cancer screening from a very young age. Neither FANCD1 patient in the Israeli cohort developed BMF, distinguishing this subtype. FA-S (biallelic BRCA1) patients also lack bone marrow failure but have cancer predisposition.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31558676" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31558676" target="_blank">PMID:31558676</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with FANCD1 mutations have been previously described as uniquely developing solid tumors early in life"</div>
+
+
+                <div class="evidence-explanation">Confirms early-onset solid tumor predisposition unique to FANCD1/BRCA2 subtype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38146508" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38146508" target="_blank">PMID:38146508</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Unlike most other types of FA, FA-S patients lack bone marrow failure."</div>
+
+
+                <div class="evidence-explanation">FA-S (biallelic BRCA1) patients have cancer predisposition but lack BMF, similar to FANCD1.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <script>
@@ -31487,6 +31670,9 @@ This disease-associated gene is FANCA (hgnc:3582). hgnc:3582 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -31555,6 +31741,9 @@ This disease-associated gene is FANCB (hgnc:3583). hgnc:3583 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -31637,6 +31826,9 @@ This disease-associated gene is FANCC (hgnc:3584). hgnc:3584 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -31705,6 +31897,9 @@ This disease-associated gene is FANCE (hgnc:3586). hgnc:3586 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -31781,6 +31976,9 @@ This disease-associated gene is FANCF (hgnc:3587). hgnc:3587 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -31849,6 +32047,9 @@ This disease-associated gene is FANCG (hgnc:3588). hgnc:3588 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -31925,6 +32126,9 @@ This disease-associated gene is FANCL (hgnc:20748). hgnc:20748 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -31993,6 +32197,9 @@ This disease-associated gene is FANCM (hgnc:23168). hgnc:23168 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -32069,6 +32276,9 @@ This disease-associated gene is UBE2T (hgnc:25009). hgnc:25009 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -32137,6 +32347,9 @@ This disease-associated gene is FANCD2 (hgnc:3585). hgnc:3585 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -32213,6 +32426,9 @@ This disease-associated gene is FANCI (hgnc:25568). hgnc:25568 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -32281,6 +32497,9 @@ This disease-associated gene is SLX4 (hgnc:23845). hgnc:23845 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -32357,6 +32576,9 @@ This disease-associated gene is BRCA2 (hgnc:1101). hgnc:1101 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -32425,6 +32647,9 @@ This disease-associated gene is PALB2 (hgnc:26144). hgnc:26144 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -32501,6 +32726,9 @@ This disease-associated gene is BRCA1 (hgnc:1100). hgnc:1100 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -32569,6 +32797,9 @@ This disease-associated gene is BRIP1 (hgnc:20473). hgnc:20473 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -32645,6 +32876,9 @@ This disease-associated gene is ERCC4 (hgnc:3436). hgnc:3436 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -32717,6 +32951,9 @@ This disease-associated gene is RAD51C (hgnc:9820). hgnc:9820 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -32785,6 +33022,9 @@ This disease-associated gene is RAD51 (hgnc:9817). hgnc:9817 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -32867,6 +33107,9 @@ This disease-associated gene is XRCC2 (hgnc:12829). hgnc:12829 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -32935,6 +33178,9 @@ This disease-associated gene is MAD2L2 (hgnc:6764). hgnc:6764 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -33011,6 +33257,9 @@ This disease-associated gene is RFWD3 (hgnc:25539). hgnc:25539 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -33079,6 +33328,9 @@ This disease-associated gene is ALDH2 (hgnc:404). hgnc:404 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -33155,6 +33407,9 @@ This disease-associated gene is ADH5 (hgnc:253). hgnc:253 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -33223,6 +33478,9 @@ This disease-associated gene is KMT2D (hgnc:7133). hgnc:7133 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

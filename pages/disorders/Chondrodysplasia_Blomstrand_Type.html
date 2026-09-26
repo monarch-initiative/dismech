@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4880,6 +4919,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pth1r-loss-of-function" data-dismech-node="Biallelic PTH1R Loss-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PTH1R Loss-of-Function</div>
 
+
                 <div class="item-desc">PTH1R encodes the type 1 PTH/PTHrP receptor, a class B G protein-coupled receptor. Blomstrand alleles run from complete inactivation to near-complete inactivation with a low level of residual activity, and that difference is what the type I / type II division tracks. At the null end, a nonsense allele (R104X) truncates the receptor, and a splice-creating point mutation deletes the first 11 residues of the fifth transmembrane domain, yielding a receptor that reaches the cell surface but neither binds PTH or PTHrP nor generates cAMP or inositol phosphates. At the hypomorphic end, the recurrent P132L substitution in the N-terminal extracellular domain leaves surface expression intact but cripples ligand binding, and is assigned to the milder type II. The two laboratories that reported P132L in 1998 differ on how complete the defect is: one measured maximal specific radioligand binding at under 10 percent of wild type with severely reduced rather than absent cAMP, the other detected no binding and no cAMP at all. The 2007 functional re-analysis resolves this as low residual activity. Both alleles must be affected; heterozygous carrier parents are unaffected.
 </div>
 
@@ -4943,6 +4983,8 @@ This pathophysiological event involves PTH1R (hgnc:9608), qualified as loss of f
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4953,6 +4995,9 @@ This pathophysiological event involves PTH1R (hgnc:9608), qualified as loss of f
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline PTH1R alleles, reported both homozygous and compound heterozygous, with complete or near-complete loss of receptor function. `zygosity` is deliberately left unset: the cited source reports both homozygous and compound heterozygous genotypes, the slot is single-valued, and there is no biallelic permissible value, so asserting HOMOZYGOUS would narrow the claim past what the source supports.</div>
 
@@ -5125,6 +5170,7 @@ This pathophysiological event involves PTH/PTHrP type 1 receptor activity, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-pth-pthrp-stimulated-signaling-in-growth-plate-chondrocytes" data-dismech-node="Failure of PTH/PTHrP-Stimulated Signaling in Growth Plate Chondrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of PTH/PTHrP-Stimulated Signaling in Growth Plate Chondrocytes</div>
+
 
                 <div class="item-desc">PTHrP produced in the periarticular perichondrium normally acts on PTH1R borne by proliferating and prehypertrophic growth plate chondrocytes, raising cAMP and mobilizing inositol phosphates. In Blomstrand chondrodysplasia the receptor on the patient&#39;s own chondrocytes is non-functional, so this ligand-stimulated second messenger response is abolished. Loss of both the cAMP and the inositol phosphate arm has been demonstrated for the alleles recovered from affected fetuses.
 </div>
@@ -5347,6 +5393,7 @@ This pathophysiological event involves decreased PTH1R-stimulated cAMP second me
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-indian-hedgehog-pthrp-brake-on-chondrocyte-differentiation" data-dismech-node="Loss of the Indian Hedgehog-PTHrP Brake on Chondrocyte Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the Indian Hedgehog-PTHrP Brake on Chondrocyte Differentiation</div>
 
+
                 <div class="item-desc">In the developing growth plate, prehypertrophic chondrocytes secrete Indian hedgehog, which induces PTHrP at the periarticular end; PTHrP in turn signals back through PTH1R to keep chondrocytes proliferating and to delay their exit into hypertrophy. The output of this loop is a negative regulation of chondrocyte differentiation. With PTH1R non-functional the loop has no effector, and the negative regulation is lost.
 </div>
 
@@ -5487,6 +5534,7 @@ This pathophysiological event involves PTHrP-mediated negative regulation of cho
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-chondrocyte-hypertrophic-differentiation" data-dismech-node="Accelerated Chondrocyte Hypertrophic Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Chondrocyte Hypertrophic Differentiation</div>
+
 
                 <div class="item-desc">Chondrocytes leave the proliferative pool early and pass into hypertrophy ahead of schedule. This is the defining cellular lesion of Blomstrand chondrodysplasia and is the exact inverse of Jansen metaphyseal chondrodysplasia, where constitutive PTH1R activity delays the same transition.
 </div>
@@ -5693,6 +5741,7 @@ This pathophysiological event involves increased chondrocyte differentiation (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-hypoplasia-and-disorganization" data-dismech-node="Growth Plate Hypoplasia and Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Plate Hypoplasia and Disorganization</div>
 
+
                 <div class="item-desc">Long bone histology in affected fetuses shows a narrow cartilaginous cap with severe hypoplasia and disorganization of both the proliferative and the hypertrophic zones. Because longitudinal growth is generated by the proliferative zone, its early exhaustion truncates limb elongation.
 </div>
 
@@ -5813,6 +5862,7 @@ This pathophysiological event involves growth plate chondrocyte, annotated with 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-and-advanced-endochondral-ossification" data-dismech-node="Premature and Advanced Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature and Advanced Endochondral Ossification</div>
+
 
                 <div class="item-desc">Cartilage anlagen are converted to bone far ahead of gestational age, so ossification centres that should not yet be present are already mineralized and the skeleton reads as radiographically &#34;mature&#34; in a mid-gestation fetus. The same process produces a diffuse increase in bone density and the dumbbell-shaped, metaphyseally flared long bones seen on postmortem radiography.
 </div>
@@ -5947,6 +5997,7 @@ This pathophysiological event involves increased endochondral ossification (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pthrp-dependent-epithelial-mesenchymal-signaling-in-breast-and-tooth" data-dismech-node="Impaired PTHrP-Dependent Epithelial-Mesenchymal Signaling in Breast and Tooth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired PTHrP-Dependent Epithelial-Mesenchymal Signaling in Breast and Tooth</div>
+
 
                 <div class="item-desc">PTHrP signaling through PTH1R is not confined to cartilage: in mice it also governs the epithelial-mesenchymal interactions that build the mammary gland and position the erupting tooth, and both PTHrP and PTH1R are expressed in the developing human breast and tooth. Loss of receptor function therefore produces extraskeletal developmental defects in the same fetuses, which is the most direct human evidence that this pathway is required outside the growth plate.
 </div>
@@ -7518,6 +7569,9 @@ This disease-associated gene is PTH1R (hgnc:9608). hgnc:9608 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8211,7 +8265,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-eiken-syndrome">
                 <div class="item-name">
 
-                    Eiken syndrome
+                    <a class="item-name-link" href="Eiken_Syndrome.html">Eiken syndrome</a>
 
 
                 </div>
