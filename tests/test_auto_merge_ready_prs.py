@@ -489,7 +489,7 @@ def test_real_errors_are_not_benign(message):
 
 def _run_main(
     monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None,
-    ejection_payload=None,
+    ejection_payload=None, files_payloads=None,
 ):
     """Drive main() against a stubbed gh, returning (exit code, gh calls)."""
     if listed is None:
@@ -507,6 +507,9 @@ def _run_main(
             payload = views[min(view_index, len(views) - 1)]
             view_index += 1
             return json.dumps(payload)
+        if args[:1] == ["api"] and args[1:2] and "/pulls/" in args[1]:
+            number = int(args[1].rsplit("/pulls/", 1)[1].split("/")[0])
+            return (files_payloads or {}).get(number, "")
         if args[:2] == ["api", "graphql"] and any(
             "pullRequest(number:" in a for a in args
         ):
@@ -1613,4 +1616,189 @@ def test_main_holds_a_repeatedly_failing_pr_and_never_marks_it_ready(
     assert acted == [], "a held PR must not be enqueued or merged"
     assert drafted == [], (
         "a held draft must not be marked ready (and then re-drafted) every run"
+    )
+
+
+# --- conflict-aware enqueue batching -------------------------------------
+
+ACTIVE_QUEUE = json.dumps(
+    {"data": {"repository": {"mergeQueue": {
+        "id": "MQ_x", "entries": {"totalCount": 0, "nodes": []},
+    }}}}
+)
+
+
+def _files(*rows):
+    """Render the `gh api .../files --jq` output this module parses."""
+    return "".join(f"{path}\t+{line}\n" for path, line in rows)
+
+
+def test_cache_rows_added_keys_by_file_and_curie(monkeypatch):
+    payload = _files(
+        ("cache/hgnc/terms.csv", "hgnc:10006,RHAG,2026-08-16T20:37:11"),
+        ("cache/mondo/terms.csv", "MONDO:0011582,something,2026-08-16T20:37:11"),
+    )
+    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: payload)
+    claim = auto_merge.cache_rows_added("o/r", 7)
+    assert claim.readable is True
+    assert claim.keys == frozenset({
+        "cache/hgnc/terms.csv:hgnc:10006",
+        "cache/mondo/terms.csv:MONDO:0011582",
+    })
+
+
+def test_cache_rows_added_ignores_headers_and_non_cache_paths(monkeypatch):
+    """The CSV header re-appears as an addition when a cache file is created.
+
+    A bare-CURIE enum row is identical bytes in both PRs, so git merges it
+    cleanly and it must not hold anything back; the timestamped terms.csv row
+    written alongside it is what conflicts.
+    """
+    payload = _files(
+        ("cache/hgnc/terms.csv", "curie,label,retrieved_at"),
+        ("cache/bookshelf/genereviews.csv", "pmid,nbk,retired,pubdate,title"),
+        ("cache/enums/exposureterm.csv", "ECTO:0080000"),
+        ("cache/ecto/terms.csv", "ECTO:0080000,exposure to arsenic,2026-08-16"),
+        ("kb/disorders/Asthma.yaml", "name: Asthma"),
+        ("references_cache/PMID_1.md", "some text"),
+    )
+    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: payload)
+    claim = auto_merge.cache_rows_added("o/r", 7)
+    assert claim.keys == frozenset({"cache/ecto/terms.csv:ECTO:0080000"})
+
+
+def test_cache_rows_added_fails_open(monkeypatch):
+    """An API failure must not hold back an otherwise ready PR."""
+    def boom(args, token=None):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
+
+    monkeypatch.setattr(auto_merge, "_gh", boom)
+    claim = auto_merge.cache_rows_added("o/r", 7)
+    assert claim.readable is False
+    assert claim.keys == frozenset()
+    assert auto_merge.describe_collision(7, claim, {"any:row": 1}) == ""
+
+
+def test_describe_collision_names_the_holder_and_the_rows():
+    claim = auto_merge.RowClaim(frozenset({"cache/hgnc/terms.csv:hgnc:10006"}))
+    reason = auto_merge.describe_collision(
+        99, claim, {"cache/hgnc/terms.csv:hgnc:10006": 88}
+    )
+    assert "#88" in reason
+    assert "cache/hgnc/terms.csv:hgnc:10006" in reason
+
+
+def test_describe_collision_is_silent_on_disjoint_rows():
+    claim = auto_merge.RowClaim(frozenset({"cache/hgnc/terms.csv:hgnc:1"}))
+    assert auto_merge.describe_collision(
+        99, claim, {"cache/hgnc/terms.csv:hgnc:2": 88}
+    ) == ""
+
+
+def test_queue_mode_holds_the_second_writer_of_a_contended_row(
+    monkeypatch, tmp_path
+):
+    """End-to-end guard for the wiring, not just the predicate.
+
+    #11289 and #11288 were enqueued by one sweep, shared five CURIEs, and the
+    second was ejected on merge_conflict when the first merged ahead of it.
+    """
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    shared = _files(("cache/hgnc/terms.csv", "hgnc:10006,RHAG,2026-08-16"))
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed,
+        queue_payload=ACTIVE_QUEUE,
+        files_payloads={41: shared, 42: shared},
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41], (
+        "the second writer of a contended cache row must not be enqueued"
+    )
+    summary = (tmp_path / "summary.md").read_text()
+    assert "#41" in summary
+
+
+def test_queue_mode_enqueues_prs_touching_disjoint_rows(monkeypatch, tmp_path):
+    """Only a *shared* row holds a PR back; adjacent inserts merge fine."""
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed,
+        queue_payload=ACTIVE_QUEUE,
+        files_payloads={
+            41: _files(("cache/hgnc/terms.csv", "hgnc:1,A,2026-08-16")),
+            42: _files(("cache/hgnc/terms.csv", "hgnc:2,B,2026-08-16")),
+        },
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41, 42]
+
+
+def test_dry_run_reports_the_same_conflict_hold_as_the_real_sweep(
+    monkeypatch, tmp_path
+):
+    """`just auto-merge-preview` must show the hold, not a would-enqueue.
+
+    The hold leaves no trace on the PR page, so the preview is the only place a
+    curator can see it before it fires. A dry run that looked the rows up but
+    never claimed them would report both writers as enqueued.
+    """
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    shared = _files(("cache/hgnc/terms.csv", "hgnc:10006,RHAG,2026-08-16"))
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed,
+        queue_payload=ACTIVE_QUEUE, extra_args=["--dry-run"],
+        files_payloads={41: shared, 42: shared},
+    )
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "already claimed by #41" in summary
+
+
+def test_no_conflict_batching_flag_restores_the_old_behavior(
+    monkeypatch, tmp_path
+):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    shared = _files(("cache/hgnc/terms.csv", "hgnc:10006,RHAG,2026-08-16"))
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed,
+        queue_payload=ACTIVE_QUEUE, extra_args=["--no-conflict-batching"],
+        files_payloads={41: shared, 42: shared},
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41, 42]
+
+
+def test_direct_mode_does_not_read_changed_files(monkeypatch, tmp_path):
+    """Direct mode merges one PR per run, so there is no batch to de-conflict."""
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=make_pr(number=42, headRefOid="cafe1234")
+    )
+    assert code == 0
+    assert not [c for c in calls if c[:1] == ["api"] and "/pulls/" in c[1]], (
+        "the files lookup must not cost an API call on the direct-merge path"
     )
