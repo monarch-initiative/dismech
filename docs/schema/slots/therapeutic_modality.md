@@ -3,7 +3,7 @@
 # Slot: therapeutic_modality 
 
 
-_Broad therapeutic platform/modality of a treatment (e.g., small molecule, monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term (the MAXO action) and therapeutic_agent (the specific drug) by classifying the kind of therapeutic, enabling cross-disease queries by platform. Prefer this enum-backed slot over the free-text role slot for modality._
+_Broad therapeutic platform/modality of a treatment (e.g., small molecule, monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term (the NCIT action) and therapeutic_agent (the specific drug) by classifying the kind of therapeutic, enabling cross-disease queries by platform. Prefer this enum-backed slot over the free-text role slot for modality._
 
 
 
@@ -83,7 +83,7 @@ Alias: therapeutic_modality
 name: therapeutic_modality
 description: Broad therapeutic platform/modality of a treatment (e.g., small molecule,
   monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term
-  (the MAXO action) and therapeutic_agent (the specific drug) by classifying the kind
+  (the NCIT action) and therapeutic_agent (the specific drug) by classifying the kind
   of therapeutic, enabling cross-disease queries by platform. Prefer this enum-backed
   slot over the free-text role slot for modality.
 from_schema: https://w3id.org/monarch-initiative/dismech

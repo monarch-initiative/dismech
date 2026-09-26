@@ -166,10 +166,65 @@ def test_check_cache_file_accepts_preprint_fulltext_fields(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_check_cache_file_accepts_publication_types(tmp_path: Path):
+    """linkml-reference-validator 0.2.1 (final) added a ``publication_types``
+    frontmatter field carrying PubMed's publication-type list. No cache file
+    fetched before that bump has it, so the contract must accept it as optional
+    rather than start requiring it."""
+    good = tmp_path / "PMID_38463381.md"
+    good.write_text(
+        "---\n"
+        "reference_id: PMID:38463381\n"
+        'title: "Disruption of FLNB leads to skeletal malformation."\n'
+        "authors:\n"
+        "- Xu Q\n"
+        "journal: Bone Rep\n"
+        "publication_types:\n"
+        "- Journal Article\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Disruption of FLNB leads to skeletal malformation.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
+def test_check_cache_file_accepts_cache_staleness_and_access_fields(tmp_path: Path):
+    """The upgraded validator stamps each cache file with the extractor version
+    that wrote it, and records why a full-text fetch was declined.
+
+    These arrived with upstream #62 and #85. The contract forbids unknown
+    fields, so before they were declared here *every* file the upgraded
+    validator touched failed ``just check-reference-cache-frontmatter`` --
+    146 of them after one KB entry was validated. They are optional because the
+    repository holds both generations of cache file at once: a file written
+    before the upgrade carries none of these and must still pass.
+    """
+    good = tmp_path / "PMID_38463381.md"
+    good.write_text(
+        "---\n"
+        "reference_id: PMID:38463381\n"
+        'title: "Disruption of FLNB leads to skeletal malformation."\n'
+        "authors:\n"
+        "- Xu Q\n"
+        "journal: Bone Rep\n"
+        "extractor_version: 1\n"
+        "xml_extraction_version: 1\n"
+        "html_full_text_version: 1\n"
+        "full_text_declined: landing_page_only\n"
+        "full_text_access_type: open\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Disruption of FLNB leads to skeletal malformation.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path):
     """Fabrication-fingerprint defense (#1737): a hand-crafted PMID cache
     with neither ``authors`` nor ``journal`` and a paraphrastic title was
-    how prior fabrications evaded ``validate-references``. The deterministic
+    how prior fabrications evaded ``validate-kb-references``. The deterministic
     check must reject the shape regardless of whether the body is real."""
     fabricated = tmp_path / "PMID_36606642.md"
     fabricated.write_text(
@@ -288,6 +343,44 @@ def test_non_pmid_cache_is_not_subject_to_metadata_check(tmp_path: Path):
 
 
 @pytest.mark.skipif(not CACHE_DIR.is_dir(), reason="references_cache/ not present")
+@pytest.mark.ci_step_twin("dismech.reference_cache_frontmatter references_cache")
 def test_existing_repo_caches_match_frontmatter_contract():
     findings = scan_cache_dir(CACHE_DIR)
     assert findings == [], "\n".join(f.format() for f in findings)
+
+
+def test_the_contract_accepts_every_key_the_validator_emits():
+    """Derive the expected fields from the installed emitter, don't hardcode them.
+
+    ``ReferenceCacheFrontmatter`` forbids unknown fields, so a field added
+    upstream fails every cache file the new version touches -- and the failure
+    lands in whichever PR happens to refresh a cache, not in the one that
+    upgraded the pin. That happened three times in a row while retiring the
+    monkeypatches: five fields, then ``absent_content_version``, then
+    ``full_text_source_item_id``, each found by CI rather than by looking.
+
+    Reading the emitter is the check that does not need the failure first. It is
+    the local half of linkml/linkml-reference-validator#89, which asks upstream
+    to own this contract so consumers stop mirroring it.
+    """
+    import inspect
+    import re
+
+    from linkml_reference_validator.etl import reference_fetcher
+
+    from dismech.reference_cache_frontmatter import ReferenceCacheFrontmatter
+
+    source = inspect.getsource(reference_fetcher)
+    # Frontmatter lines only: `lines.append("key: ...")` / `lines.append(f"key: ...")`.
+    # Not `f"access_type:{...}"` (a *value* prefix inside full_text_declined) or
+    # `f"clinicaltrials:{...}"` (a CURIE prefix) -- neither is a frontmatter key.
+    emitted = set(
+        re.findall(r'lines\.append\(\s*\n?\s*f?"([a-z_]+):', source)
+    )
+    declared = set(ReferenceCacheFrontmatter.model_fields)
+
+    missing = sorted(emitted - declared)
+    assert not missing, (
+        "linkml-reference-validator writes frontmatter fields this contract "
+        f"rejects, so every refreshed cache file will fail: {missing}"
+    )

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05908383"
+reference_id: clinicaltrials:NCT05908383
 title: "Phase I Clinical Study on the Safety, Tolerability and Pharmacokinetic Characteristics of a Single Dose of GMDTC Administered to Healthy Subjects for Injection"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase I Clinical Study on the Safety, Tolerability and Pharmacokinetic Characteristics of a Single Dose of GMDTC Administered to Healthy Subjects for Injection

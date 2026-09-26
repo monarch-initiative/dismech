@@ -36,16 +36,75 @@ https://s3.amazonaws.com/bbop-sqlite/<name>.db.gz
 This bucket is part of the Berkeley/OBO ontology-tooling infrastructure that our
 own institution helps host. Every uncached download is **egress we are
 effectively paying for**. A single fresh runner re-pulling, say, `chebi.db`
-(~3.7 GB uncompressed) on every curation PR adds up quickly across the many CI
-runs this repo does each week.
+(~3.7 GB uncompressed) on every curation PR added up quickly across the many CI
+runs this repo does each week — which is why CHEBI, and the other large
+ontologies, are no longer fetched for term validation (see below; `ncit.db`,
+`hp.db`, and `mondo.db` are still fetched by page generation, which bypasses the
+config).
 
-The heavy ones are already handled where possible: `conf/oak_config.yaml` routes
-the two giants — NCIT (~2.7 GB) and NCBITaxon (~13.5 GB) — plus MONDO, GO, and
-UBERON to EBI's Ontology Lookup Service (`ols:`) instead, which does cheap
-single-term lookups against EBI's servers and never touches our bucket (see
-issue #5160). What remains on `sqlite:obo:` and can still be pulled from the
-bucket: `chebi` (the big one), `cl`, `hp`, `hgnc`, `geno`, and the
-smaller `icd10cm`, `icd11f`, `ecto`, `envo`, `foodon`, `xco`, `opl`.
+For term validation the heavy ones are now all handled: `conf/oak_config.yaml`
+routes the giants — NCBITaxon (~13.5 GB), CHEBI (~3.7 GB), NCIT (~2.7 GB), HP
+(~1.1 GB) — plus MONDO, GO, UBERON, CL, PATO, ENVO, and FOODON to EBI's Ontology
+Lookup Service (`ols:`) instead, which does cheap single-term lookups against
+EBI's servers and does not touch our bucket (see issue #5160). Note this is a
+statement about *that path only*: NCIT, HP, and MONDO are still pulled locally
+during page generation, which does not read this config — see below.
+
+Concretely, `just validate-terms-schema` from a clean OAK cache used to download
+`chebi.db` (~3.5 GB unpacked); it now pulls only `geno.db` (~5 MB).
+
+**This covers the term-validation path only — it is not the whole story.**
+`conf/oak_config.yaml` governs the validators (`linkml-term-validator` and the
+enum-cache tooling). Along that path, no multi-GB build remains local: what is
+still fetched is small (`hgnc`, `geno`, `icd10cm`, `icd11f`, `ecto`, `xco`,
+`opl`).
+
+Several modules bypass the config entirely and construct an adapter directly.
+**Page generation is where this costs real egress**, because
+`.github/workflows/generate-pages.yaml` has **no** OAK cache step (its only
+`cache` line is `setup-uv`'s Python-dependency cache). It runs on a **daily
+`0 6 * * *` full-rebuild cron**, plus every push to `main` matching a path
+filter much broader than the KB itself — 13 patterns covering not just
+`kb/disorders/*.yaml` and `kb/comorbidities/*.yaml` but also `research/*.md`,
+several `src/dismech/**` paths, `conf/qc_config.yaml`, `project.justfile`,
+`mkdocs.yml`, and `docs/**`; see `on.push.paths` for the current set. (A
+docs-only change to this very file matches it.) Two paths in that workflow pull
+cold builds:
+
+| Path | Build | Trigger |
+|---|---|---|
+| `render.py` `STRICT_HIERARCHIES` → `_augment_mapping_hierarchies`, called per disorder from `render_disorder` | `sqlite:obo:ncit` (~2.7 GB), `sqlite:obo:icd10cm` | `just gen-pages`; fires for the 54 entries carrying `ncit_mappings`/`icd10cm_mappings` |
+| `HPOCategoryResolver` (`src/dismech/export/browser_export.py`), called per HP id | `sqlite:obo:hp` (~1.1 GB) | `just gen-browser-data` |
+
+`render.py` also builds `sqlite:obo:mondo` in `_cached_mondo_descendants` /
+`_cached_mondo_label`. Every one of these is lazy — the adapter is constructed
+only when an entry actually has a matching mapping or term — so none of it fires
+on an empty corpus. The corpus is not empty.
+
+None of this is a regression; it all predates the OLS migration and became
+visible only because the config-driven downloads were removed around it. It is
+tracked in issue #8173. Other modules bypass the config the same way but are not
+on a CI hot path: `scripts/ncit_p302_audit.py` (also `sqlite:obo:ncit`, reached
+from `just ncit-p302-audit`), `scripts/validate_terms.py`,
+`src/dismech/compare/d2p.py`, and `src/phenoagent/matching.py`. That list is
+"the ones known as of writing", not a guarantee — `grep -rn 'sqlite:obo:' src/
+scripts/` is the way to re-derive it.
+
+Note the rendering path is **not** a candidate for a straight `ols:` swap: both
+`_build_hierarchy_path` and `_cached_mondo_descendants` do bulk hierarchy
+traversal, which is exactly the access pattern OLS is worst at. Fixing this
+likely means caching the build in the workflow, or precomputing the derived
+paths — not changing the adapter string.
+
+Moving a prefix to `ols:` is only safe when OLS agrees with the local build on
+both the canonical label *and* whether its `rdfs:subClassOf` ancestor closure
+reaches the enum source nodes that prefix is validated against. Verify that
+term-by-term before migrating another one — it is not automatic. The
+counter-example is instructive: newer MONDO terms have an OLS closure that omits
+`MONDO:0000001`, so per-value `reachable_from` checks fail for them even though
+label lookup works. HP, CL, CHEBI, ENVO, and FOODON were each compared against
+their local build with zero disagreements; the per-prefix source nodes are
+listed in the note at the bottom of `conf/oak_config.yaml`.
 
 ## What we are NOT doing
 
@@ -119,8 +178,8 @@ The action:
    `ols:`.
 
 Because the cache accumulates lazily, it only ever contains the databases that
-validation actually needed — typically a few hundred MB, and the multi-GB
-`chebi.db` only if a new CHEBI term was introduced.
+validation actually needed. Now that CHEBI is served over OLS, that is only the
+small remaining builds — tens of MB rather than the multi-GB `chebi.db`.
 
 Workflows currently using the action: `main.yaml` (the PR validation path —
 `validate-terms-schema`, `validate-disorders`, `test-kb`) and
@@ -137,7 +196,7 @@ it needs into `~/.data/oaklib` and every later run reuses it. To pre-provision
 
 ```bash
 just fetch-ontology-dbs             # all sqlite:obo:* DBs in oak_config.yaml
-just fetch-ontology-dbs hp chebi    # just the named ones
+just fetch-ontology-dbs hgnc geno   # just the named ones
 ```
 
 If you keep your ontology cache somewhere other than the default, set

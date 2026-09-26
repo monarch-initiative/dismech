@@ -17,8 +17,8 @@ Alias: locations
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Subtype](../classes/Subtype.md) |  |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Subtype](../classes/Subtype.md) |  |  no  |
 
 
 

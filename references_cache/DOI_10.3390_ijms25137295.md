@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25137295"
+reference_id: DOI:10.3390/ijms25137295
 title: From Atherosclerotic Plaque to Myocardial Infarction—The Leading Cause of Coronary Artery Occlusion
 authors:
 - Ewelina Młynarska
@@ -14,6 +14,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25137295
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From Atherosclerotic Plaque to Myocardial Infarction—The Leading Cause of Coronary Artery Occlusion

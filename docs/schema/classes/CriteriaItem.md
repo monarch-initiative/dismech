@@ -162,7 +162,7 @@ URI: [dismech:class/CriteriaItem](https://w3id.org/monarch-initiative/dismech/cl
 | [onset](../slots/onset.md) | 0..1 <br/> [OnsetDescriptor](../classes/OnsetDescriptor.md) | Structured age of onset descriptor | [Descriptor](../classes/Descriptor.md) |
 | [temporality](../slots/temporality.md) | 0..1 <br/> [TemporalityEnum](../enums/TemporalityEnum.md) | Temporal qualifier for this descriptor (e | [Descriptor](../classes/Descriptor.md) |
 | [clinical_course](../slots/clinical_course.md) | 0..1 <br/> [ClinicalCourseEnum](../enums/ClinicalCourseEnum.md) | Clinical course qualifier for this descriptor (e | [Descriptor](../classes/Descriptor.md) |
-| [severity](../slots/severity.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md)&nbsp;or&nbsp;<br />[SeverityQualifierEnum](../enums/SeverityQualifierEnum.md) |  | [Descriptor](../classes/Descriptor.md) |
+| [severity](../slots/severity.md) | 0..1 <br/> [SeverityQualifierEnum](../enums/SeverityQualifierEnum.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md) |  | [Descriptor](../classes/Descriptor.md) |
 | [qualifiers](../slots/qualifiers.md) | * <br/> [Qualifier](../classes/Qualifier.md) | List of predicate-value pairs for formal post-composition | [Descriptor](../classes/Descriptor.md) |
 
 
@@ -289,6 +289,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -296,6 +297,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -350,6 +352,7 @@ attributes:
     owner: CriteriaItem
     domain_of:
     - Descriptor
+    - ImagingFinding
     - DifferentiatingMechanism
     range: ModifierEnum
   located_in:
@@ -362,6 +365,7 @@ attributes:
     owner: CriteriaItem
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: AnatomicalEntityDescriptor
     inlined: true
   laterality:
@@ -373,6 +377,7 @@ attributes:
     owner: CriteriaItem
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: LateralityEnum
   spatial_extent:
     name: spatial_extent
@@ -384,6 +389,7 @@ attributes:
     owner: CriteriaItem
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: SpatialExtentEnum
   onset:
     name: onset

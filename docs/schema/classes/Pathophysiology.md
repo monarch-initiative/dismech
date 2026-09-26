@@ -36,6 +36,17 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
     
 
         
+      Pathophysiology : biological_scale
+        
+          
+    
+        
+        
+        Pathophysiology --> "0..1" BiologicalScaleEnum : biological_scale
+        click BiologicalScaleEnum href "../../enums/BiologicalScaleEnum/"
+    
+
+        
       Pathophysiology : cell_types
         
           
@@ -283,10 +294,11 @@ URI: [dismech:class/Pathophysiology](https://w3id.org/monarch-initiative/dismech
 | [assays](../slots/assays.md) | * <br/> [AssayDescriptor](../classes/AssayDescriptor.md) |  | direct |
 | [mechanisms](../slots/mechanisms.md) | * <br/> [String](../types/String.md) |  | direct |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
-| [frequency](../slots/frequency.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md) |  | direct |
+| [frequency](../slots/frequency.md) | 0..1 <br/> [FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md) |  | direct |
 | [genetic_context](../slots/genetic_context.md) | 0..1 <br/> [GeneticContext](../classes/GeneticContext.md) | The genetic context under which this qualification applies | direct |
 | [pdb_structures](../slots/pdb_structures.md) | * <br/> [ProteinStructure](../classes/ProteinStructure.md) | Experimental or predicted 3D protein structures relevant to this treatment's ... | direct |
 | [mechanism_confidence](../slots/mechanism_confidence.md) | 0..1 <br/> [MechanismConfidenceEnum](../enums/MechanismConfidenceEnum.md) | Level of confidence in this pathophysiology mechanism | direct |
+| [biological_scale](../slots/biological_scale.md) | 0..1 <br/> [BiologicalScaleEnum](../enums/BiologicalScaleEnum.md) | Biological scale of the substrate this pathophysiology node primarily describ... | direct |
 
 
 
@@ -378,6 +390,7 @@ slots:
 - genetic_context
 - pdb_structures
 - mechanism_confidence
+- biological_scale
 
 ```
 </details>
@@ -418,6 +431,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -463,6 +477,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -470,6 +485,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -536,17 +552,21 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -562,6 +582,7 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
@@ -927,12 +948,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -972,6 +996,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     range: Any
     any_of:
@@ -1017,6 +1042,23 @@ attributes:
     domain_of:
     - Pathophysiology
     range: MechanismConfidenceEnum
+  biological_scale:
+    name: biological_scale
+    description: Biological scale of the substrate this pathophysiology node primarily
+      describes — molecular, cellular, tissue/organ, or organism. Optional tag; each
+      value covers both ongoing processes and persistent states at that scale. See
+      BiologicalScaleEnum for scope of each value and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md
+      for the design rationale.
+    examples:
+    - value: MOLECULAR
+    - value: TISSUE
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: biological_scale
+    owner: Pathophysiology
+    domain_of:
+    - Pathophysiology
+    range: BiologicalScaleEnum
 
 ```
 </details>

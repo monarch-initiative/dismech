@@ -1,212 +1,174 @@
-"""Monkey-patch linkml-reference-validator to handle network errors gracefully.
+"""The two linkml-reference-validator patches dismech still applies.
 
-The upstream PMIDSource._fetch_pmc_xml, _fetch_pmc_html, and _fetch_abstract
-methods lack try/except around NCBI network calls. When NCBI returns an
-incomplete response or the connection drops, an unhandled IncompleteRead (or
-similar) exception crashes the entire validation run.
+dismech uses the validator as a library. This module is the exception, and both
+patches in it exist in order to be deleted -- each names the upstream issue that
+removes it, and `tests/test_upstream_validator_behaviours.py` fails if a third
+appears without one.
 
-This module patches those methods so network errors are caught and retried
-(with exponential backoff), allowing validation to continue with abstract-only
-or degraded content rather than crashing.
+``_wrap_url_fetch`` strips scripts, comments and tag attributes out of the raw
+HTML ``URLSource`` caches. This repository commits its reference cache to a
+public git repository and upstream does no extraction on that path at all; 150
+of its 199 ``content_type: url`` entries carry a script block.
+Tracked as linkml/linkml-reference-validator#92.
 
-Usage: import this module before running linkml-reference-validator, e.g.:
-    python -c "import dismech.patch_reference_validator" && linkml-reference-validator ...
-Or via the wrapper script in scripts/run_reference_validator.sh.
+``_wrap_jstage_pdf_title`` recovers a title for a PDF URL, which ``URLSource``
+otherwise leaves set to the URL itself -- 53 J-STAGE references here. A
+URL-as-title is either a blocked title check or a URL copied into the KB as
+though it were the paper's name.
+Tracked as linkml/linkml-reference-validator#93.
+
+The ten that used to live here are gone: their defects are fixed upstream
+(#66-74, #85, #87, #88), and the behaviours dismech relies on are pinned by
+``tests/test_upstream_validator_behaviours.py``. See the ``dismech-references``
+skill for why a patch here is always temporary.
 """
 
 import logging
 import re
-import time
 from functools import wraps
+from urllib.parse import urlsplit, urlunsplit
+
+from bs4 import BeautifulSoup
+from linkml_reference_validator.etl.acquire import ContentAcquirer
 
 logger = logging.getLogger("linkml_reference_validator.patch")
 
-MAX_RETRIES = 3
-BACKOFF_BASE = 2  # seconds
 
-# A ClinicalTrials.gov registry id written without its ``clinicaltrials:`` prefix.
-_BARE_NCT_RE = re.compile(r"^NCT\d+$", re.IGNORECASE)
+def _wrap_url_fetch(original):
+    """Cache HTML evidence without executable code or page configuration.
 
-
-def _coerce_author(author):
-    """Coerce a single author value to a string, or ``None`` to drop it.
-
-    Some cached reference records (written by older validator versions) store a
-    corporate/consortium author whose name contains a colon -- e.g.
-    ``"... Consortium. Electronic address: x@y"`` -- unquoted, so YAML reparses it
-    as a *mapping* on the next load. Others carry a ``None`` or a nested list.
-    Upstream ``ReferenceFetcher._save_to_disk`` assumes plain strings (it calls
-    ``.strip()`` per author and ``", ".join(authors)``) and crashes on these, and
-    it cannot even regenerate the affected records because it re-loads them first.
-    Reconstruct a readable string so the record round-trips cleanly.
+    URLSource returns raw HTML rather than using HTMLExtractor. Page scripts
+    and data attributes can contain incidental credentials (including signed
+    download URLs) unrelated to the reference text. Retain body markup and
+    table structure, but remove code, comments and other attributes before the
+    fetcher writes the generated cache. Plain text, XML and extracted PDFs are
+    unchanged. This is source extraction, not a browser visibility test.
     """
-    if author is None:
-        return None
-    if isinstance(author, str):
-        return author
-    if isinstance(author, dict):
-        # A "Name. Electronic address: email" string reparsed as {name: email}.
-        parts = []
-        for key, value in author.items():
-            key_text = "" if key is None else str(key)
-            if value in (None, ""):
-                parts.append(key_text)
-            else:
-                parts.append(f"{key_text}: {value}")
-        text = ", ".join(p for p in parts if p)
-        return text or None
-    if isinstance(author, (list, tuple, set)):
-        subs = [_coerce_author(item) for item in author]
-        text = ", ".join(s for s in subs if s)
-        return text or None
-    return str(author)
-
-
-def _coerce_authors(authors):
-    """Normalize a reference's ``authors`` to a list of non-empty strings."""
-    if not authors:
-        return authors
-    if isinstance(authors, str):
-        return [authors]
-    coerced = [_coerce_author(a) for a in authors]
-    return [a for a in coerced if a]
-
-
-def _wrap_network_method(original, method_name):
-    """Wrap a method to retry on network errors, then return None on failure."""
 
     @wraps(original)
-    def wrapper(*args, **kwargs):
-        for attempt in range(MAX_RETRIES + 1):
-            try:
-                return original(*args, **kwargs)
-            except Exception as exc:
-                if attempt < MAX_RETRIES:
-                    delay = BACKOFF_BASE ** (attempt + 1)
-                    logger.warning(
-                        "Network error in %s (attempt %d/%d, retrying in %ds): %s: %s",
-                        method_name,
-                        attempt + 1,
-                        MAX_RETRIES + 1,
-                        delay,
-                        type(exc).__name__,
-                        exc,
-                    )
-                    time.sleep(delay)
-                else:
-                    logger.warning(
-                        "Network error in %s (all %d attempts failed, skipping): %s: %s",
-                        method_name,
-                        MAX_RETRIES + 1,
-                        type(exc).__name__,
-                        exc,
-                    )
-                    return None
+    def wrapper(self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        if result is None or result.content_type != "url" or not result.content:
+            return result
+        content = result.content
+        if content.lstrip().startswith("<?xml"):
+            return result
+        soup = BeautifulSoup(content, "html.parser")
+        if soup.find("html") is None and not re.search(
+            r"<!doctype\s+html\b", content, re.IGNORECASE
+        ):
+            return result
+        from bs4 import Comment
+
+        for tag in soup(["script", "style", "noscript", "template"]):
+            tag.decompose()
+        for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+            comment.extract()
+        for tag in soup.find_all(True):
+            structural = {}
+            if tag.name in {"td", "th"}:
+                for attribute in ("rowspan", "colspan"):
+                    value = tag.get(attribute)
+                    if value is not None and str(value).isdigit():
+                        structural[attribute] = value
+                if tag.get("scope") in {"row", "col", "rowgroup", "colgroup"}:
+                    structural["scope"] = tag["scope"]
+            tag.attrs = structural
+        result.content = str(soup)
+        return result
 
     return wrapper
 
 
-def _wrap_fulltext_method(original):
-    """Wrap _fetch_pmc_fulltext which returns a tuple."""
+def _jstage_article_url_for_pdf(pdf_url: str) -> str | None:
+    """Return J-STAGE's article landing page URL for a direct PDF URL."""
+    parts = urlsplit(pdf_url)
+    if parts.netloc != "www.jstage.jst.go.jp":
+        return None
+    if not parts.path.endswith("/_pdf"):
+        return None
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            f"{parts.path.removesuffix('/_pdf')}/_article",
+            "",
+            "",
+        )
+    )
+
+
+def _extract_jstage_citation_title(html: bytes) -> str | None:
+    """Extract the Highwire citation title J-STAGE exposes on article pages."""
+    soup = BeautifulSoup(html.decode("utf-8", errors="replace"), "html.parser")
+    meta = soup.find("meta", attrs={"name": "citation_title"})
+    if meta is None:
+        return None
+    title = (meta.get("content") or "").strip()
+    return title or None
+
+
+def _fetch_jstage_pdf_title(pdf_url: str, config) -> str | None:
+    """Fetch a J-STAGE PDF's sibling article page and recover its citation title."""
+    article_url = _jstage_article_url_for_pdf(pdf_url)
+    if article_url is None:
+        return None
+
+    try:
+        data, _content_type = ContentAcquirer().fetch_bytes(article_url, config)
+    except Exception as exc:  # external URL fetch boundary
+        logger.warning(
+            "Could not fetch J-STAGE article metadata for %s: %s: %s",
+            pdf_url,
+            type(exc).__name__,
+            exc,
+        )
+        return None
+    if data is None:
+        return None
+    return _extract_jstage_citation_title(data)
+
+
+def _wrap_jstage_pdf_title(original):
+    """Recover J-STAGE PDF titles from the sibling ``_article`` metadata page."""
 
     @wraps(original)
-    def wrapper(*args, **kwargs):
-        for attempt in range(MAX_RETRIES + 1):
-            try:
-                return original(*args, **kwargs)
-            except Exception as exc:
-                if attempt < MAX_RETRIES:
-                    delay = BACKOFF_BASE ** (attempt + 1)
-                    logger.warning(
-                        "Network error in _fetch_pmc_fulltext (attempt %d/%d, retrying in %ds): %s: %s",
-                        attempt + 1,
-                        MAX_RETRIES + 1,
-                        delay,
-                        type(exc).__name__,
-                        exc,
-                    )
-                    time.sleep(delay)
-                else:
-                    logger.warning(
-                        "Network error in _fetch_pmc_fulltext (all %d attempts failed, skipping): %s: %s",
-                        MAX_RETRIES + 1,
-                        type(exc).__name__,
-                        exc,
-                    )
-                    return None, "network_error"
+    def wrapper(self, identifier, config, *args, **kwargs):
+        content = original(self, identifier, config, *args, **kwargs)
+        if (
+            content is not None
+            and content.content_type == "full_text_pdf"
+            and content.title == identifier.strip()
+        ):
+            title = _fetch_jstage_pdf_title(identifier.strip(), config)
+            if title:
+                content.title = title
+        return content
 
     return wrapper
 
 
 def apply_patch():
-    """Apply monkey-patches for network resilience and cache compatibility."""
+    """Install both patches. Idempotent.
+
+    Each is removed when its upstream issue lands (#92, #93).
+    """
     try:
-        from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
-        from linkml_reference_validator.etl.sources.pmid import PMIDSource
+        from linkml_reference_validator.etl.sources.url import URLSource
     except ImportError:
-        logger.debug("linkml-reference-validator not installed, skipping patch")
+        logger.debug("linkml-reference-validator not installed; no patch applied")
         return
 
-    if not getattr(PMIDSource, "_network_patch_applied", False):
-        PMIDSource._fetch_pmc_xml = _wrap_network_method(
-            PMIDSource._fetch_pmc_xml, "PMIDSource._fetch_pmc_xml"
-        )
-        PMIDSource._fetch_pmc_html = _wrap_network_method(
-            PMIDSource._fetch_pmc_html, "PMIDSource._fetch_pmc_html"
-        )
-        PMIDSource._fetch_abstract = _wrap_network_method(
-            PMIDSource._fetch_abstract, "PMIDSource._fetch_abstract"
-        )
-        PMIDSource._fetch_pmc_fulltext = _wrap_fulltext_method(
-            PMIDSource._fetch_pmc_fulltext
-        )
+    if not getattr(URLSource, "_html_page_code_patch_applied", False):
+        URLSource.fetch = _wrap_url_fetch(URLSource.fetch)
+        URLSource._html_page_code_patch_applied = True
+        logger.debug("Applied URL HTML sanitization patch to URLSource")
 
-        PMIDSource._network_patch_applied = True  # type: ignore[attr-defined]
-        logger.debug("Applied network resilience patch to PMIDSource")
-
-    if not getattr(ReferenceFetcher, "_clinicaltrials_cache_patch_applied", False):
-        original_get_cache_path = ReferenceFetcher.get_cache_path
-
-        @wraps(original_get_cache_path)
-        def get_cache_path_with_clinicaltrials_compat(self, reference_id: str):
-            if reference_id.upper().startswith("CLINICALTRIALS:"):
-                _, identifier = reference_id.split(":", 1)
-                reference_id = f"clinicaltrials:{identifier}"
-            elif _BARE_NCT_RE.match(reference_id.strip()):
-                # Upstream ``_parse_reference_id`` has no rule for a *bare* NCT id,
-                # so it falls through to ("UNKNOWN", id) and the lookup derives
-                # ``NCT….md``. The record is nevertheless *saved* under the
-                # ClinicalTrials source's canonical id (``clinicaltrials_NCT….md``),
-                # so read and write disagree and the reference is re-fetched from
-                # ClinicalTrials.gov on every run. Align the read with the write.
-                reference_id = f"clinicaltrials:{reference_id.strip().upper()}"
-            return original_get_cache_path(self, reference_id)
-
-        ReferenceFetcher.get_cache_path = get_cache_path_with_clinicaltrials_compat
-        ReferenceFetcher._clinicaltrials_cache_patch_applied = True  # type: ignore[attr-defined]
-        logger.debug(
-            "Applied ClinicalTrials.gov cache path compatibility patch "
-            "(prefixed case variants and bare NCT ids)"
-        )
-
-    if not getattr(ReferenceFetcher, "_author_coercion_patch_applied", False):
-        original_save_to_disk = ReferenceFetcher._save_to_disk
-
-        @wraps(original_save_to_disk)
-        def save_to_disk_with_author_coercion(self, reference):
-            # Normalize non-string authors (dict/None/nested-list from stale cache
-            # records) before upstream serialization, which assumes plain strings.
-            try:
-                reference.authors = _coerce_authors(reference.authors)
-            except Exception as exc:  # never let normalization abort the save
-                logger.warning("Author normalization failed, dropping authors: %s", exc)
-                reference.authors = None
-            return original_save_to_disk(self, reference)
-
-        ReferenceFetcher._save_to_disk = save_to_disk_with_author_coercion
-        ReferenceFetcher._author_coercion_patch_applied = True  # type: ignore[attr-defined]
-        logger.debug("Applied author-normalization patch to ReferenceFetcher._save_to_disk")
+    if not getattr(URLSource, "_jstage_pdf_title_patch_applied", False):
+        URLSource.fetch = _wrap_jstage_pdf_title(URLSource.fetch)
+        URLSource._jstage_pdf_title_patch_applied = True
+        logger.debug("Applied J-STAGE PDF title patch to URLSource")
 
 
-# Auto-apply on import
+# Auto-apply on import: callers rely on the import side-effect.
 apply_patch()

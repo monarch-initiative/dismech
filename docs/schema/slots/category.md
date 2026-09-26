@@ -17,9 +17,9 @@ Alias: category
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [AnimalModel](../classes/AnimalModel.md) |  |  no  |
 | [Phenotype](../classes/Phenotype.md) |  |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
+| [AnimalModel](../classes/AnimalModel.md) |  |  no  |
 
 
 
