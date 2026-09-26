@@ -31,19 +31,21 @@ recurrent *fungus-property × drug-class* interactions are captured once as
 term + independent snippet-substring verification of every evidence quote): four
 drug-target modules (ergosterol synthesis, polyene membrane binding, echinocandin
 β-glucan synthesis, flucytosine antimetabolite) plus the species-level
-intrinsic-resistance gating module. Invasive candidiasis is now the first
-target-only echinocandin conformer. The remaining work is wiring additional
-conforming disease entries and creating the cryptococcal-meningitis flagship,
-tracked in §7.
+intrinsic-resistance gating module. Invasive candidiasis is the first target-only
+echinocandin conformer, Coccidioidomycosis is the first full
+ergosterol-synthesis conformer, and Otomycosis is the first intrinsic-resistance
+conformer. The ergosterol-synthesis tranche now wires all four named existing
+candidates; the remaining missing flagship is cryptococcal meningitis, tracked
+with the other follow-up modules in §7.
 
 Antifungal pharmacology has a tighter, more conserved target set than antivirals
 because fungi are eukaryotes — selective toxicity hinges on a handful of
 fungal-specific structures (ergosterol instead of cholesterol; a β-1,3-glucan
 cell wall mammalian cells lack).
 
-| Module (built ✓) | Target / principle | Drug classes | Candidate conformers (existing entries) |
+| Module (built ✓) | Target / principle | Drug classes | Worked conformers / remaining candidates |
 |---|---|---|---|
-| `fungal_ergosterol_synthesis_inhibition` | Ergosterol biosynthesis: lanosterol 14α-demethylase (CYP51/ERG11, azole target) and squalene epoxidase (ERG1, allylamine target) | triazoles, imidazoles, allylamines | Otomycosis (clotrimazole, fluconazole), Coccidioidomycosis (fluconazole/itraconazole), Chromoblastomycosis (itraconazole/terbinafine), Mycetoma (itraconazole) |
+| `fungal_ergosterol_synthesis_inhibition` | Parallel ergosterol-biosynthesis entry points: lanosterol 14α-demethylase (CYP51/ERG11, azole target) and squalene epoxidase (ERG1, allylamine target) converge on ergosterol production and membrane organization | triazoles, imidazoles, allylamines | Wired: Coccidioidomycosis (fluconazole/itraconazole), Otomycosis (clotrimazole/itraconazole), Chromoblastomycosis (itraconazole component of combination therapy), and Mycetoma's Eumycetoma subtype (itraconazole) |
 | `fungal_membrane_ergosterol_binding` | Direct ergosterol binding → membrane pore / oxidative damage | polyenes | Coccidioidomycosis (amphotericin B for severe/disseminated), Mycetoma |
 | `fungal_cell_wall_glucan_synthesis_inhibition` | β-1,3-glucan synthase (principally FKS1; FKS2 additionally in species such as *C. glabrata*) — fungal-specific wall target | echinocandins | Invasive Candidiasis / Candidemia (anidulafungin) |
 | `fungal_nucleic_acid_antimetabolite` | Intracellular conversion to 5-FU by fungal cytosine deaminase → DNA/RNA synthesis disruption (mammals lack the enzyme → selectivity) | flucytosine | (cryptococcal meningitis entry needed — AmB + flucytosine induction) |
@@ -100,17 +102,17 @@ A `Treatment` links to specific pathophysiology nodes via `target_mechanisms`
 (`TreatmentMechanismTarget`). For antifungals, the edge should point at the
 **fungus's druggable biology**, which lives as a pathophysiology node:
 
-- **Otomycosis** is the closest existing substrate: it already models a "Biofilm
-  formation and antifungal resistance" pathophysiology node and lists topical
-  azoles (clotrimazole, miconazole) and acidifying agents as treatments — but
-  **without** `target_mechanisms` edges onto an explicit "Ergosterol Biosynthesis
-  (CYP51/ERG11)" target node. Adding that node and edge is the cleanest first
-  proof-of-concept, and the existing biofilm/resistance node is a ready-made
-  gating node.
-- **Coccidioidomycosis** carries rich host-immunity pathophysiology (CLEC7A/
-  dectin-1 β-glucan recognition, CARD9, Th1/Th17) and uses azoles and
-  amphotericin B clinically — but the antifungal agents lack `target_mechanisms`
-  edges onto fungal drug-target nodes. Note the elegant duality: the same
+- **Otomycosis** now keeps its existing biofilm and Aspergillus-specific
+  fluconazole-resistance nodes separate from a complete Cyp51 → ergosterol →
+  membrane-organization slice. Topical clotrimazole and systemic itraconazole
+  carry agent-specific `INHIBITS` edges to Cyp51, while clotrimazole separately
+  `BYPASSES` only the fluconazole exclusion; this does not assert universal
+  isolate susceptibility.
+- **Coccidioidomycosis** now carries a complete Cyp51 → ergosterol → membrane
+  organization slice, with agent-specific `target_mechanisms` edges from
+  fluconazole and itraconazole. Its rich host-immunity pathophysiology (CLEC7A/
+  dectin-1 β-glucan recognition, CARD9, Th1/Th17) remains distinct. Note the
+  elegant duality: the same
   β-glucan that **dectin-1 recognizes** for host defense is the polymer
   **echinocandins block the synthesis of** — a candidate cross-link between the
   host-immunity nodes and a future cell-wall drug-target node.
@@ -131,9 +133,9 @@ B/caspofungin/flucytosine) + the modality appropriate to that agent (usually
 "clotrimazole is used for otomycosis."
 
 **Tier 2 — the mechanistic edge (the depth).** Add a pathophysiology node for the
-targeted fungal step and link `target_mechanisms` to it: an azole → "Ergosterol
-Biosynthesis — Lanosterol 14α-Demethylase (CYP51/ERG11)"; terbinafine →
-"Ergosterol Biosynthesis — Squalene Epoxidase (ERG1)"; amphotericin B →
+targeted fungal step and link `target_mechanisms` to it: an azole → "Lanosterol
+14-alpha-Demethylation by CYP51 (ERG11)"; terbinafine → "Squalene Epoxidation by
+Squalene Epoxidase (ERG1)"; amphotericin B →
 "Ergosterol Membrane Integrity"; an echinocandin → "β-1,3-Glucan Cell-Wall
 Synthesis by Fks glucan synthase"; flucytosine → "Fungal DNA/RNA Synthesis (cytosine-deaminase
 activation)". Use `target_phenotypes` for adjuncts (surgical debridement, immune
@@ -184,22 +186,22 @@ Surface to `docs/explanation/design-decisions.md`: the same per-disease-vs-modul
 decision recorded for antibacterials applies. Antifungal-specific question:
 whether the two ergosterol-biosynthesis targets (CYP51 demethylase for azoles,
 squalene epoxidase for allylamines) are one module with two target nodes
-(**recommended** — they share the ergosterol-depletion endpoint) or two modules.
-Recommendation: one `fungal_ergosterol_synthesis_inhibition` module with
-distinct CYP51 and squalene-epoxidase target nodes, parallel to how the bacterial
-folate module holds distinct DHPS and DHFR nodes.
+(**recommended** — both normal dependencies converge on ergosterol production
+and membrane organization) or two modules. Recommendation: one
+`fungal_ergosterol_synthesis_inhibition` module with distinct, parallel CYP51 and
+squalene-epoxidase target nodes, analogous to the bacterial folate module holding
+distinct DHPS and DHFR targets.
 
 ## 7. Next Steps
 
 - [x] Draft `fungal_ergosterol_synthesis_inhibition` as the proof-of-concept
       module. Built at `kb/modules/fungal_ergosterol_synthesis_inhibition.yaml`:
-      four nodes (CYP51/ERG11 demethylase azole target + squalene epoxidase ERG1
-      allylamine target → ergosterol depletion / membrane dysfunction →
-      azole-target resistance: ERG11 mutation/overexpression, efflux, TR34/L98H).
-      Evidence: Rosam 33374996, 37151610 (CYP51), Ryder 1543672 (terbinafine /
-      squalene epoxidase), 38878211 / 31542320 / 36458152 (Aspergillus azole
-      resistance). Key target: `#Ergosterol Biosynthesis - Lanosterol
-      14-alpha-Demethylase (CYP51/ERG11) as Azole Target`.
+      five nodes: parallel CYP51/ERG11-demethylase and ERG1-squalene-epoxidase
+      targets converge on normal ergosterol production and plasma-membrane
+      organization; target alteration/overexpression and efflux are recorded as
+      a standalone resistance state. Evidence: 33374996 and 31643715 (CYP51),
+      1543672 (ERG1, ergosterol, and membrane dependency). Key target:
+      `#Lanosterol 14-alpha-Demethylation by CYP51 (ERG11)`.
 - [x] Draft `fungal_membrane_ergosterol_binding` (polyenes). Built: three nodes
       (membrane ergosterol as the polyene binding target → permeabilization /
       fungicidal killing → rare resistance via reduced ergosterol). Evidence:
@@ -216,33 +218,34 @@ folate module holds distinct DHPS and DHFR nodes.
       combination). Evidence: Vermes 10933638, Houšť 32178468, Noël 12654658.
 - [x] Draft `antifungal_intrinsic_resistance_gating` (the antifungal analog of
       `intracellular_pathogen_persistence` — species-level class exclusion).
-      Built: two nodes (species-level intrinsic resistance —
-      Aspergillus/fluconazole, Cryptococcus/echinocandin,
-      Mucorales/voriconazole+echinocandin → acquired multidrug resistance in
-      *Candida auris*). Evidence: 33558691, 38445857, 31159914, 33091071,
-      28911043.
-- [ ] **Wire additional conforming disease entries.** Invasive Candidiasis now
-      provides the first target-only conformer. **Otomycosis** next: add an
-      ergosterol-synthesis
-      (CYP51/ERG11) drug-target node, `conforms_to` the module, `target_mechanisms`
-      from clotrimazole/miconazole/fluconazole, and connect the existing
-      biofilm/resistance node to `antifungal_intrinsic_resistance_gating`
-      (Aspergillus ↔ fluconazole). **Coccidioidomycosis**: ergosterol-synthesis
-      (azole) + ergosterol-membrane (amphotericin B) target nodes; cross-link the
-      existing dectin-1/CLEC7A β-glucan host-recognition node to the β-glucan
-      drug-target node.
+      Built: three nodes forming parallel intrinsic and acquired resistance arms
+      that converge on resistance-gated narrowing of antifungal options; neither
+      resistance arm causes the other. Otomycosis now conforms on the
+      Aspergillus/fluconazole intrinsic arm. Evidence: 33558691, 38445857,
+      31159914, 33091071, and 28911043.
+- [x] **Wire additional ergosterol-synthesis conformers.** Coccidioidomycosis is
+      the first full conformer, with Cyp51 → ergosterol → membrane nodes and
+      fluconazole/itraconazole target edges. Otomycosis duplicates the same
+      Cyp51 slice for clotrimazole and persistent-disease itraconazole while
+      preserving its separate Aspergillus/fluconazole intrinsic-resistance gate.
+      A later, separate module tranche can add Coccidioidomycosis's
+      amphotericin-B ergosterol-membrane target without conflating the two
+      modules.
 - [ ] Create **Cryptococcal_Meningitis**, the remaining missing flagship
       conformer (AmB + flucytosine induction → fluconazole consolidation;
       echinocandin-resistant).
 - [x] Create **Invasive_Candidiasis** with Candidemia as a subtype and the
-      minimal Fks glucan-synthase target-only conformer: anidulafungin → INHIBITS → fungal
-      beta-1,3-glucan synthase. Azole step-down and acquired-resistance wiring
-      remain later extensions.
-- [ ] Wire **Chromoblastomycosis** and **Mycetoma** (eumycetoma) as the
-      surgery-plus-prolonged-azole, drug-refractory cases — itraconazole/
-      terbinafine `target_mechanisms` onto the ergosterol-synthesis node, with
-      debridement/excision as `target_phenotypes` adjuncts.
+      minimal Fks glucan-synthase target-only conformer: anidulafungin → INHIBITS
+      → fungal beta-1,3-glucan synthase. Azole step-down and acquired-resistance
+      wiring remain later extensions.
+- [x] Wire **Chromoblastomycosis** and **Mycetoma** (Eumycetoma subtype) on the
+      high-precision Cyp51 branch. Chromoblastomycosis models the itraconazole
+      component of documented combination therapy without asserting
+      monotherapy; Mycetoma limits the fungal target chain and itraconazole edge
+      to Eumycetoma and anchors it to *Madurella mycetomatis*. Terbinafine/Erg1
+      branches and surgical-adjunct targeting remain optional extensions.
 - [ ] Short survey of antifungal drug-mechanism KBs / resistance databases
       (DrugMechDB, EUCAST/CLSI breakpoint rationales) — see §0; borrow
       vocabulary, sharpen the niche.
-- [ ] Record the ergosterol-one-module-two-nodes decision in the design register.
+- [x] Record the ergosterol-one-module-two-target-branches decision in the design
+      register, including branch-specific conformance.

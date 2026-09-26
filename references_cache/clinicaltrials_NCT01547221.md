@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01547221"
+reference_id: clinicaltrials:NCT01547221
 title: "Effectiveness of 3% Boric Acid in 70% Alcohol Versus 1% Clotrimazole Solution in Otomycosis Patients: a Randomized Controlled Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Effectiveness of 3% Boric Acid in 70% Alcohol Versus 1% Clotrimazole Solution in Otomycosis Patients: a Randomized Controlled Trial
